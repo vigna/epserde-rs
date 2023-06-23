@@ -1,0 +1,9 @@
+[package]
+name = "test-epserde"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+epserde-derive = { path = "../epserde-derive" }
+epserde-trait = { path = "../epserde-trait" }
+anyhow = "1.0"
