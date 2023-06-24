@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+    "epserde-derive",
+    "epserde-trait",
+    "test-epserde",
+]
