@@ -1,7 +1,6 @@
-use epserde_derive::Serialize;
-use epserde_trait::Serialize;
+use epserde_derive::Deserialize;
 
-#[derive(Serialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Debug, PartialEq, Eq, Default)]
 struct Person {
     name: u64,
     age: u128,

@@ -26,3 +26,27 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
     };
     out.into()
 }
+
+#[proc_macro_derive(Deserialize)]
+pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = input.ident;
+
+    let out = match input.data {
+        Data::Struct(s) => {
+            let fields = s.fields.into_iter().map(|field| field.ident.unwrap());
+            quote! {
+                impl<'a> epserde_trait::Deserialize<'a> for #name {
+                    fn deserialize(backend: &'a [u8]) -> anyhow::Result<(Self, &'a [u8])> {
+                        let mut bytes = 0;
+                        Ok((#name::default(), backend))
+                    }
+                }
+
+
+            }
+        }
+        _ => todo!(),
+    };
+    out.into()
+}
