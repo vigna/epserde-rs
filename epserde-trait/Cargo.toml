@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
+
+[dev-dependencies]
+sux = {git = "https://github.com/vigna/sux-rs"}
