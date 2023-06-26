@@ -1,11 +1,43 @@
 use anyhow::Result;
-use std::io::{Seek, Write};
+use std::{
+    fmt,
+    io::{Seek, Write},
+};
+
+const ENDIANNESS_MARKER: u64 = 0xdeadbeefdeadf00d;
+
+#[derive(Debug, Clone)]
+struct EndiannessError;
+
+impl std::error::Error for EndiannessError {}
+
+impl fmt::Display for EndiannessError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Mismatched endianness marker")
+    }
+}
+
 pub trait Serialize {
     fn serialize<F: Write + Seek>(&self, backend: &mut F) -> Result<usize>;
+
+    /// Write an [`ENDIANNESS_MARKER`] at the start of the struct.
+    fn write_endianness_marker<F: Write + Seek>(backend: &mut F) -> Result<usize> {
+        backend.write_all(&ENDIANNESS_MARKER.to_ne_bytes())?;
+        Ok(std::mem::size_of_val(&ENDIANNESS_MARKER))
+    }
 }
 
 pub trait Deserialize<'a>: Sized {
     fn deserialize(backend: &'a [u8]) -> Result<(Self, &'a [u8])>;
+
+    /// Check that the [`ENDIANNESS_MARKER`] is correct; return an error otherwise.
+    fn check_endianness_marker(backend: &'a [u8]) -> Result<&'a [u8]> {
+        let (marker, backend) = u64::deserialize(backend)?;
+        match marker {
+            ENDIANNESS_MARKER => Ok(backend),
+            _ => Err(EndiannessError {}.into()),
+        }
+    }
 }
 
 /// Compute the padding needed for alignement, i.e., the number so that

@@ -58,6 +58,7 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
                 impl<#generics> epserde_trait::Serialize for #name<#generics_names> #where_clause {
                     fn serialize<F: std::io::Write + std::io::Seek>(&self, backend: &mut F) -> anyhow::Result<usize> {
                         let mut bytes = 0;
+                        bytes += Self::write_endianness_marker(backend)?;
                         #(
                             bytes += self.#fields.serialize(backend)?;
 
@@ -135,9 +136,9 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                 impl<'epserde_deserialize, #generics> epserde_trait::Deserialize<'epserde_deserialize> for #name<#generics_names> #where_clause{
                     fn deserialize(backend: &'epserde_deserialize [u8]) -> anyhow::Result<(Self, &'epserde_deserialize [u8])> {
                         let mut bytes = 0;
+                        let backend = Self::check_endianness_marker(backend)?;
                         #(
                             let(#fields, backend) = #types::deserialize(backend)?;
-
                         )*
                         Ok((#name{
                             #(#fields),*
