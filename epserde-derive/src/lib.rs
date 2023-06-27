@@ -1,3 +1,12 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+#![doc = include_str!("../README.md")]
+
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, Data, DeriveInput};

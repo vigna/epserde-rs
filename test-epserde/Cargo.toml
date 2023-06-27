@@ -2,6 +2,11 @@
 name = "test-epserde"
 version = "0.1.0"
 edition = "2021"
+description = "Examples and tests epserde, an ε-copy serialization framework"
+repository = "https://github.com/vigna/epserde-rs/"
+license = "Apache-2.0 OR LGPL-2.1-or-later"
+keywords = ["serialization", "zero-copy", "ε-copy"]
+authors = ["Tommaso Fontana <tommaso.fontana.96@gmail.com>", "Sebastiano Vigna <sebastiano.vigna@unimi.it>"]
 
 [dependencies]
 epserde-derive = { path = "../epserde-derive" }

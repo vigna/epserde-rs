@@ -1,3 +1,12 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+#![doc = include_str!("../README.md")]
+
 use anyhow::Result;
 use std::{
     fmt,
@@ -46,7 +55,7 @@ pub trait Deserialize<'a>: Sized {
 /// `((value + pad_align_to(value, bits) & (bits - 1) == 0`.
 ///
 /// ```
-/// use sux::utils::pad_align_to;
+/// use epserde_trait::pad_align_to;
 /// assert_eq!(7 + pad_align_to(7, 8), 8);
 /// assert_eq!(8 + pad_align_to(8, 8), 8);
 /// assert_eq!(9 + pad_align_to(9, 8), 16);
