@@ -7,7 +7,7 @@
 Large immutable data structures need time to be deserialized using the [serde](https://serde.rs/)
 approach. A possible solution for this problem is given by frameworks such as [rkiv](https://github.com/rkyv/rkyv) and
 [zerovec](https://docs.rs/zerovec/latest/zerovec/), which provide *zero-copy* deserialization:
-the stream of byte serializing the data structure can be used directly as a Rust structure.
+the stream of bytes serializing the data structure can be used directly as a Rust structure.
 In particular, this approach makes it possible
 to map into memory the data structure, making it available instantly. 
 
@@ -24,7 +24,8 @@ typically a minuscule fraction of the serialized data is copied to build the str
 The result is similar to that of the frameworks above, but with performance identical to 
 that of a standard, in-memory Rust structure.
 
-We provide procedural macros implementing serialization and deserialization methods, memory-mapping
+We provide procedural macros implementing serialization and deserialization methods, 
+convenience memory-mapping
 methods based on [mmap_rs](https://crates.io/crates/mmap-rs), and a `MemCase` structure
 that couples a deserialized structure with its backend (e.g., a slice of memory or a
 memory-mapped region).
