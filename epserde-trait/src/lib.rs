@@ -12,10 +12,7 @@ use std::{
     fmt,
     io::{Seek, Write},
 };
-#[cfg(target_endian = "little")]
 const ENDIANNESS_MARKER: u64 = 0xdeadbeefdeadf00d;
-#[cfg(target_endian = "big")]
-const ENDIANNESS_MARKER: u64 = 0xbadf00dc0ffed0d;
 
 #[derive(Debug, Clone)]
 struct EndiannessError;
