@@ -11,13 +11,14 @@ use epserde_derive::{Deserialize, Serialize};
 use epserde_trait::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Default)]
-struct Person<A: Eq, B>
+struct Person<'a, A: Eq, B>
 where
     B: PartialEq,
 {
     name: A,
     age: B,
     test: isize,
+    slice: &'a [u8],
 }
 
 fn main() {
@@ -25,6 +26,7 @@ fn main() {
         name: 0xdeadbeed_u32,
         age: 0xdeadbeefdeadf00d_u64,
         test: -0xbadf00d,
+        slice: b"Hello, world!",
     };
     let mut v = vec![0; 100];
     let mut buf = std::io::Cursor::new(&mut v);
