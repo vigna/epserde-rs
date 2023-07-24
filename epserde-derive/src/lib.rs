@@ -11,68 +11,114 @@ use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, Data, DeriveInput};
 
+struct CommonDeriveInput {
+    name: syn::Ident,
+    generics: proc_macro2::TokenStream,
+    generics_names: proc_macro2::TokenStream,
+    generics_names_raw: Vec<String>,
+    consts_names_raw: Vec<String>,
+    where_clause: proc_macro2::TokenStream,
+}
+
+impl CommonDeriveInput {
+    fn new(input: DeriveInput, traits_to_add: Vec<syn::Path>) -> Self {
+        let name = input.ident;
+        let mut generics = quote!();
+        let mut generics_names_raw = vec![];
+        let mut consts_names_raw = vec![];
+        let mut generics_names = quote!();
+        if !input.generics.params.is_empty() {
+            input.generics.params.iter().for_each(|x| {
+                match x {
+                    syn::GenericParam::Type(t) => {
+                        generics_names.extend(t.ident.to_token_stream());
+                        generics_names_raw.push(t.ident.to_string());
+                    }
+                    syn::GenericParam::Lifetime(l) => {
+                        generics_names.extend(l.lifetime.to_token_stream());
+                    }
+                    syn::GenericParam::Const(c) => {
+                        generics_names.extend(c.ident.to_token_stream());
+                        consts_names_raw.push(c.ident.to_string());
+                    }
+                };
+                generics_names.extend(quote!(,))
+            });
+            input.generics.params.into_iter().for_each(|x| match x {
+                syn::GenericParam::Type(t) => {
+                    let mut t = t.clone();
+                    for trait_to_add in traits_to_add.iter() {
+                        t.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
+                            paren_token: None,
+                            modifier: syn::TraitBoundModifier::None,
+                            lifetimes: None,
+                            path: trait_to_add.clone(),
+                        }));
+                    }
+                    generics.extend(quote!(#t,));
+                }
+                x => {
+                    generics.extend(x.to_token_stream());
+                    generics.extend(quote!(,))
+                }
+            });
+        }
+
+        let where_clause = input
+            .generics
+            .where_clause
+            .map(|x| x.to_token_stream())
+            .unwrap_or(proc_macro2::TokenStream::default());
+
+        Self {
+            name: name,
+            generics: generics,
+            generics_names: generics_names,
+            where_clause: where_clause,
+            generics_names_raw,
+            consts_names_raw,
+        }
+    }
+}
+
 #[proc_macro_derive(Serialize)]
 pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let name = input.ident;
-
+    let CommonDeriveInput {
+        name,
+        generics,
+        generics_names,
+        where_clause,
+        ..
+    } = CommonDeriveInput::new(
+        input.clone(),
+        vec![syn::parse_quote!(epserde_trait::SerializeInner)],
+    );
     // We have to play with this to get type parameters working
-    let mut generics = quote!();
-    let mut generics_names = quote!();
-    if !input.generics.params.is_empty() {
-        input.generics.params.iter().for_each(|x| {
-            match x {
-                syn::GenericParam::Type(t) => {
-                    generics_names.extend(t.ident.to_token_stream());
-                }
-                syn::GenericParam::Lifetime(l) => {
-                    generics_names.extend(l.lifetime.to_token_stream());
-                }
-                syn::GenericParam::Const(c) => {
-                    generics_names.extend(c.ident.to_token_stream());
-                }
-            };
-            generics_names.extend(quote!(,))
-        });
-
-        input.generics.params.into_iter().for_each(|x| match x {
-            syn::GenericParam::Type(t) => {
-                let mut t = t.clone();
-                t.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
-                    paren_token: None,
-                    modifier: syn::TraitBoundModifier::None,
-                    lifetimes: None,
-                    path: syn::parse_quote!(epserde_trait::Serialize),
-                }));
-                generics.extend(quote!(#t,));
-            }
-            x => {
-                generics.extend(x.to_token_stream());
-                generics.extend(quote!(,))
-            }
-        });
-    }
-
-    let where_clause = input
-        .generics
-        .where_clause
-        .map(|x| x.to_token_stream())
-        .unwrap_or(quote!(""));
 
     let out = match input.data {
         Data::Struct(s) => {
+            let mut write_all_opt = quote!(true);
+            s.fields.iter().for_each(|field| {
+                let ty = &field.ty;
+                write_all_opt.extend(
+                    quote!(&& <#ty as epserde_trait::SerializeInner>::WRITE_ALL_OPTIMIZATION),
+                );
+            });
+
             let fields = s.fields.into_iter().map(|field| field.ident.unwrap());
             quote! {
                 #[automatically_derived]
-                impl<#generics> epserde_trait::Serialize for #name<#generics_names> #where_clause {
-                    fn serialize<F: std::io::Write + std::io::Seek>(&self, backend: &mut F) -> anyhow::Result<usize> {
-                        let mut bytes = 0;
-                        bytes += Self::write_endianness_marker(backend)?;
-                        #(
-                            bytes += self.#fields.serialize(backend)?;
+                impl<#generics> epserde_trait::SerializeInner for #name<#generics_names> #where_clause {
+                    const WRITE_ALL_OPTIMIZATION: bool = #write_all_opt;
 
+                    #[inline(always)]
+                    fn _serialize_inner<F: epserde_trait::ser::WriteWithPosNoStd>(&self, mut backend: F) -> epserde_trait::ser::Result<F> {
+                        backend = <Self>::pad_align_to::<F>(backend)?;
+                        #(
+                            backend= backend.add_field(stringify!(#fields), &self.#fields)?;
                         )*
-                        Ok(bytes)
+                        Ok(backend)
                     }
                 }
             }
@@ -85,50 +131,140 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Deserialize)]
 pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let name = input.ident;
-    // We have to play with this to get type parameters working
-    let mut generics = quote!();
-    let mut generics_names = quote!();
-    if !input.generics.params.is_empty() {
-        input.generics.params.iter().for_each(|x| {
-            match x {
-                syn::GenericParam::Type(t) => {
-                    generics_names.extend(t.ident.to_token_stream());
-                }
-                syn::GenericParam::Lifetime(l) => {
-                    generics_names.extend(l.lifetime.to_token_stream());
-                }
-                syn::GenericParam::Const(c) => {
-                    generics_names.extend(c.ident.to_token_stream());
-                }
-            };
+    let CommonDeriveInput {
+        generics: generics_fc,
+        generics_names: generics_names_fc,
+        where_clause: where_clause_fc,
+        ..
+    } = CommonDeriveInput::new(
+        input.clone(),
+        vec![syn::parse_quote!(epserde_trait::DeserializeFullCopy)],
+    );
+    let CommonDeriveInput {
+        generics: generics_zc,
+        generics_names: generics_names_zc,
+        where_clause: where_clause_zc,
+        ..
+    } = CommonDeriveInput::new(
+        input.clone(),
+        vec![syn::parse_quote!(epserde_trait::DeserializeZeroCopy<false>)],
+    );
+    let CommonDeriveInput {
+        name,
+        generics: generics_dn,
+        generics_names: generics_names_dn,
+        generics_names_raw,
+        where_clause: where_clause_dn,
+        ..
+    } = CommonDeriveInput::new(
+        input.clone(),
+        vec![syn::parse_quote!(epserde_trait::DeserializeNature)],
+    );
 
-            generics_names.extend(quote!(,))
-        });
+    let out = match input.data {
+        Data::Struct(s) => {
+            let mut zero_copy_deser = quote!(true);
+            s.fields.iter().for_each(|field| {
+                let ty = &field.ty;
+                zero_copy_deser.extend(
+                    quote!(&& <#ty as epserde_trait::Deserialize>::ZERO_COPY_DESERIALIZATION),
+                );
+            });
 
-        input.generics.params.into_iter().for_each(|x| match x {
-            syn::GenericParam::Type(t) => {
-                let mut t = t.clone();
-                t.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
-                    paren_token: None,
-                    modifier: syn::TraitBoundModifier::None,
-                    lifetimes: None,
-                    path: syn::parse_quote!(epserde_trait::Deserialize<'epserde_deserialize>),
-                }));
-                generics.extend(quote!(#t,));
+            let fields = s
+                .fields
+                .iter()
+                .map(|field| field.ident.to_owned().unwrap())
+                .collect::<Vec<_>>();
+
+            let fields_types = s
+                .fields
+                .iter()
+                .map(|field| field.ty.to_owned())
+                .collect::<Vec<_>>();
+
+            let mut non_generic_fields = vec![];
+            let mut non_generic_types = vec![];
+            let mut generic_fields = vec![];
+            let mut generic_types = vec![];
+
+            s.fields.iter().for_each(|field| {
+                let ty = &field.ty;
+                let field_name = field.ident.clone().unwrap();
+                if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                    generic_fields.push(field_name);
+                    generic_types.push(ty);
+                } else {
+                    non_generic_fields.push(field_name);
+                    non_generic_types.push(ty);
+                }
+            });
+
+            quote! {
+                #[automatically_derived]
+                impl<#generics_dn> epserde_trait::DeserializeNature for #name<#generics_names_dn> #where_clause_dn{
+                    const ZC_TYPE: bool = {true #(
+                        && <#fields_types>::ZC_TYPE
+                    )*};
+                    const ZC_SUB_TYPE: bool = {true #(
+                        && <#generic_types>::ZC_TYPE
+                    )*};
+                }
+
+                #[automatically_derived]
+                impl<#generics_fc> epserde_trait::DeserializeFullCopy for #name<#generics_names_fc> #where_clause_fc{
+                    fn deserialize_full_copy_inner<'epserde_trait_lifetime>(
+                        backend: &'epserde_trait_lifetime [u8],
+                    ) -> core::result::Result<(Self, &'epserde_trait_lifetime [u8]), epserde_trait::DeserializeError> {
+                        #(
+                            let (#fields, backend) = <#fields_types>::deserialize_full_copy_inner(backend)?;
+                        )*
+                        Ok((#name{
+                            #(#fields),*
+                        }, backend))
+                    }
+                }
+
+                #[automatically_derived]
+                impl<#generics_zc const ZC_SUB_TYPE: bool> epserde_trait::DeserializeZeroCopy<ZC_SUB_TYPE> for #name<#generics_names_zc> #where_clause_zc{
+
+                    type DesType<'b> = #name<#(<#generic_types>::DesType<'b>,)*>;
+
+                    fn deserialize_zero_copy_inner<'epserde_trait_lifetime>(
+                        backend: &'epserde_trait_lifetime [u8],
+                    ) -> core::result::Result<(Self::DesType<'epserde_trait_lifetime>, &'epserde_trait_lifetime [u8]), epserde_trait::DeserializeError>{
+                        #(
+                            let (#generic_fields, backend) = <#generic_types>::deserialize_zero_copy_inner(backend)?;
+                        )*
+                        #(
+                            let (#non_generic_fields, backend) = <#non_generic_types>::deserialize_full_copy_inner(backend)?;
+                        )*
+                        Ok((#name{
+                            #(#fields),*
+                        }, backend))
+                    }
+                }
+
             }
-            x => {
-                generics.extend(x.to_token_stream());
-                generics.extend(quote!(,))
-            }
-        });
-    }
+        }
+        _ => todo!(),
+    };
+    out.into()
+}
 
-    let where_clause = input
-        .generics
-        .where_clause
-        .map(|x| x.to_token_stream())
-        .unwrap_or(quote!(""));
+#[proc_macro_derive(MemSize)]
+pub fn epserde_mem_size(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let CommonDeriveInput {
+        name,
+        generics,
+        generics_names,
+        where_clause,
+        ..
+    } = CommonDeriveInput::new(
+        input.clone(),
+        vec![syn::parse_quote!(epserde_trait::MemSize)],
+    );
 
     let out = match input.data {
         Data::Struct(s) => {
@@ -138,20 +274,107 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                 .map(|field| field.ident.to_owned().unwrap())
                 .collect::<Vec<_>>();
 
-            let types = s.fields.into_iter().map(|field| field.ty);
+            quote! {
+                #[automatically_derived]
+                impl<#generics> epserde_trait::MemSize for #name<#generics_names> #where_clause{
+                    fn mem_size(&self) -> usize {
+                        let mut bytes = 0;
+                        #(bytes += self.#fields.mem_size();)*
+                        bytes
+                    }
+
+                    fn _mem_dbg_recourse_on<W: core::fmt::Write>(
+                        &self,
+                        writer: &mut W,
+                        depth: usize,
+                        max_depth: usize,
+                        type_name: bool,
+                        humanize: bool,
+                    ) -> core::fmt::Result {
+                        #(self.#fields.mem_dbg_depth_on(writer, depth + 1, max_depth, Some(stringify!(#fields)), type_name, humanize)?;)*
+                        Ok(())
+                    }
+                }
+            }
+        }
+        _ => todo!(),
+    };
+    out.into()
+}
+
+#[proc_macro_derive(TypeName)]
+pub fn epserde_type_name(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let CommonDeriveInput {
+        name,
+        generics,
+        generics_names,
+        where_clause,
+        generics_names_raw,
+        consts_names_raw,
+    } = CommonDeriveInput::new(
+        input.clone(),
+        vec![syn::parse_quote!(epserde_trait::TypeName)],
+    );
+
+    let out = match input.data {
+        Data::Struct(s) => {
+            let fields_names = s
+                .fields
+                .iter()
+                .map(|field| field.ident.to_owned().unwrap().to_string())
+                .collect::<Vec<_>>();
+
+            let fields_types = s
+                .fields
+                .iter()
+                .map(|field| field.ty.to_owned())
+                .collect::<Vec<_>>();
+
+            let type_name: proc_macro2::TokenStream = if generics.is_empty() {
+                format!("\"{}\".into()", name)
+            } else {
+                let mut res = "format!(\"".to_string();
+                res += &name.to_string();
+                res += "<";
+                for _ in 0..generics_names_raw.len() + consts_names_raw.len() {
+                    res += "{}, ";
+                }
+                res.pop();
+                res.pop();
+                res += ">\",";
+
+                for gn in generics_names_raw.iter() {
+                    res += &format!("{}::type_name()", gn);
+                    res += ",";
+                }
+                res.pop();
+                res += ")";
+                res
+            }
+            .parse()
+            .unwrap();
+
+            let name_literal = format!("\"{}\"", type_name);
 
             quote! {
                 #[automatically_derived]
-                impl<'epserde_deserialize, #generics> epserde_trait::Deserialize<'epserde_deserialize> for #name<#generics_names> #where_clause{
-                    fn deserialize(backend: &'epserde_deserialize [u8]) -> anyhow::Result<(Self, &'epserde_deserialize [u8])> {
-                        let mut bytes = 0;
-                        let backend = Self::check_endianness_marker(backend)?;
+                impl<#generics> epserde_trait::TypeName for #name<#generics_names> #where_clause{
+                    /// Just the type name, without the module path.
+                    fn type_name() -> String {
+                        #type_name
+                    }
+
+                    #[inline(always)]
+                    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+                        use core::hash::Hash;
+                        #name_literal.hash(hasher);
                         #(
-                            let(#fields, backend) = #types::deserialize(backend)?;
+                            #fields_names.hash(hasher);
                         )*
-                        Ok((#name{
-                            #(#fields),*
-                        }, backend))
+                        #(
+                            <#fields_types as epserde_trait::TypeName>::type_hash(hasher);
+                        )*
                     }
                 }
             }
