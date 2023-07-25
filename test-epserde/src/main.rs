@@ -10,7 +10,7 @@
 use std::hash::Hasher;
 
 use epserde_derive::*;
-use epserde_trait::*;
+use epserde_trait::{des::Cursor, *};
 
 #[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
 struct PersonVec<A, B> {
@@ -21,25 +21,25 @@ struct PersonVec<A, B> {
 
 #[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
 struct Data {
-    a: Vec<usize>,
+    a: Vec<u16>,
     b: usize,
 }
 
-type Person = PersonVec<Vec<u8>, Data>;
+type Person = PersonVec<usize, Data>;
 
 fn main() {
-    let person0 = PersonVec {
-        name: vec![10_usize; 10],
+    let person0: Person = PersonVec {
+        name: 10,
         test: -0xbadf00d,
         age: Data {
-            a: vec![0; 10],
-            b: 0,
+            a: vec![0x42; 7],
+            b: 0xffaaaaaaaaaaaaff,
         },
     };
     println!("mem_size: {}", person0.mem_size());
     println!("type_name: {}", person0.type_name_val());
     person0.mem_dbg().unwrap();
-    println!("{:?}", person0);
+    println!("{:02x?}", person0);
 
     let mut hasher = std::collections::hash_map::DefaultHasher::default();
     person0.type_hash_val(&mut hasher);
@@ -47,19 +47,37 @@ fn main() {
     println!("type_hash: {:08x}", hash);
 
     println!("");
-    let mut v = vec![0; 100];
+    let len = 100;
+    let mut v = unsafe {
+        Vec::from_raw_parts(
+            std::alloc::alloc_zeroed(std::alloc::Layout::from_size_align(len, 4096).unwrap()),
+            len,
+            len,
+        )
+    };
+    assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
     let mut buf = std::io::Cursor::new(&mut v);
+
     let schema = person0.serialize_with_schema(&mut buf).unwrap();
-    println!("{:x?}", &buf);
-    println!("{}", schema.to_csv());
+    let buf = buf.into_inner();
+    println!("{:02x?}", &buf);
+    println!("{}", schema.debug(buf));
 
     let person1 = Person::deserialize(&v).unwrap();
-    let person1 = Person::deserialize_zero_copy(&v).unwrap();
-
     println!("deser_memsize: {}", person1.mem_size());
     println!("deser_type_name: {}", person1.type_name_val());
     person1.mem_dbg().unwrap();
-    println!("{:?}", person1);
+    println!("{:02x?}", person1);
+    let mut hasher = std::collections::hash_map::DefaultHasher::default();
+    person1.type_hash_val(&mut hasher);
+    let hash = hasher.finish();
+    println!("deser_type_hash: {:08x}", hash);
+
+    let person1 = Person::deserialize_zc_inner(Cursor::new(&v)).unwrap();
+    println!("deser_memsize: {}", person1.mem_size());
+    println!("deser_type_name: {}", person1.type_name_val());
+    person1.mem_dbg().unwrap();
+    println!("{:x?}", person1);
     let mut hasher = std::collections::hash_map::DefaultHasher::default();
     person1.type_hash_val(&mut hasher);
     let hash = hasher.finish();
