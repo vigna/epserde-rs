@@ -53,7 +53,8 @@ fn main() {
     println!("{:x?}", &buf);
     println!("{}", schema.to_csv());
 
-    let person1 = <Person as DeserializeZeroCopy<false>>::deserialize_zero_copy(&v).unwrap();
+    let person1 = Person::deserialize(&v).unwrap();
+    let person1 = Person::deserialize_zero_copy(&v).unwrap();
 
     println!("deser_memsize: {}", person1.mem_size());
     println!("deser_type_name: {}", person1.type_name_val());
@@ -63,6 +64,4 @@ fn main() {
     person1.type_hash_val(&mut hasher);
     let hash = hasher.finish();
     println!("deser_type_hash: {:08x}", hash);
-
-    println!("{}", <Vec<usize>>::Des);
 }

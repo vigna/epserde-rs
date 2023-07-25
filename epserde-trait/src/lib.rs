@@ -12,16 +12,9 @@
 extern crate alloc;
 
 pub mod des;
-pub use des::*;
-
-pub mod des_impl;
-pub use des_impl::*;
-
 pub mod ser;
+pub use des::*;
 pub use ser::*;
-
-pub mod ser_impl;
-pub use ser_impl::*;
 
 #[macro_use]
 extern crate lazy_static;
@@ -51,5 +44,8 @@ pub use memsize::*;
 
 mod memcase;
 pub use memcase::*;
+
+mod epcopy;
+pub use epcopy::*;
 
 pub(crate) mod utils;

@@ -191,119 +191,42 @@ impl TypeName for mmap_rs::MmapMut {
 
 // tuples
 
-impl<T1: TypeName> TypeName for (T1,) {
-    #[inline(always)]
-    fn type_name() -> String {
-        format!("({},)", T1::type_name())
-    }
-    #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
-        "()1".hash(hasher);
-        T1::type_hash(hasher);
-    }
+macro_rules! impl_tuples {
+    ($($t:ident),*) => {
+        impl<$($t: TypeName,)*> TypeName for ($($t,)*)
+        {
+            #[inline(always)]
+            fn type_name() -> String {
+                let mut res = "(".to_string();
+                $(
+                    res.push_str(&<$t>::type_name());
+                )*
+                res.push(')');
+                res
+            }
+            #[inline(always)]
+            fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+                "()".hash(hasher);
+                let mut len = 0;
+                $(
+                    <$t>::type_hash(hasher);
+                    len += 1;
+                )*
+                len.hash(hasher);
+            }
+        }
+    };
 }
 
-impl<T1: TypeName, T2: TypeName> TypeName for (T1, T2) {
-    #[inline(always)]
-    fn type_name() -> String {
-        format!("({}, {})", T1::type_name(), T2::type_name())
-    }
-    #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
-        "()2".hash(hasher);
-        T1::type_hash(hasher);
-        T2::type_hash(hasher);
-    }
+macro_rules! impl_tuples_muncher {
+    ($ty:ident, $($t:ident),*) => {
+        impl_tuples!($ty, $($t),*);
+        impl_tuples_muncher!($($t),*);
+    };
+    ($ty:ident) => {
+        impl_tuples!($ty);
+    };
+    () => {};
 }
 
-impl<T1: TypeName, T2: TypeName, T3: TypeName> TypeName for (T1, T2, T3) {
-    #[inline(always)]
-    fn type_name() -> String {
-        format!(
-            "({}, {}, {})",
-            T1::type_name(),
-            T2::type_name(),
-            T3::type_name(),
-        )
-    }
-    #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
-        "()3".hash(hasher);
-        T1::type_hash(hasher);
-        T2::type_hash(hasher);
-        T3::type_hash(hasher);
-    }
-}
-
-impl<T1: TypeName, T2: TypeName, T3: TypeName, T4: TypeName> TypeName for (T1, T2, T3, T4) {
-    #[inline(always)]
-    fn type_name() -> String {
-        format!(
-            "({}, {}, {}, {})",
-            T1::type_name(),
-            T2::type_name(),
-            T3::type_name(),
-            T4::type_name(),
-        )
-    }
-    #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
-        "()4".hash(hasher);
-        T1::type_hash(hasher);
-        T2::type_hash(hasher);
-        T3::type_hash(hasher);
-        T4::type_hash(hasher);
-    }
-}
-
-impl<T1: TypeName, T2: TypeName, T3: TypeName, T4: TypeName, T5: TypeName> TypeName
-    for (T1, T2, T3, T4, T5)
-{
-    #[inline(always)]
-    fn type_name() -> String {
-        format!(
-            "({}, {}, {}, {}, {})",
-            T1::type_name(),
-            T2::type_name(),
-            T3::type_name(),
-            T4::type_name(),
-            T5::type_name(),
-        )
-    }
-    #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
-        "()5".hash(hasher);
-        T1::type_hash(hasher);
-        T2::type_hash(hasher);
-        T3::type_hash(hasher);
-        T4::type_hash(hasher);
-        T5::type_hash(hasher);
-    }
-}
-
-impl<T1: TypeName, T2: TypeName, T3: TypeName, T4: TypeName, T5: TypeName, T6: TypeName> TypeName
-    for (T1, T2, T3, T4, T5, T6)
-{
-    #[inline(always)]
-    fn type_name() -> String {
-        format!(
-            "({}, {}, {}, {}, {}, {})",
-            T1::type_name(),
-            T2::type_name(),
-            T3::type_name(),
-            T4::type_name(),
-            T5::type_name(),
-            T6::type_name(),
-        )
-    }
-    #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
-        "()6".hash(hasher);
-        T1::type_hash(hasher);
-        T2::type_hash(hasher);
-        T3::type_hash(hasher);
-        T4::type_hash(hasher);
-        T5::type_hash(hasher);
-        T6::type_hash(hasher);
-    }
-}
+impl_tuples_muncher!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
