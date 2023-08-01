@@ -13,6 +13,7 @@ extern crate alloc;
 
 pub mod des;
 pub mod ser;
+
 pub use des::*;
 pub use ser::*;
 
@@ -49,3 +50,46 @@ mod epcopy;
 pub use epcopy::*;
 
 pub(crate) mod utils;
+
+/// Compute the padding needed for alignement, i.e., the number so that
+/// `((value + pad_align_to(value, bits) & (bits - 1) == 0`.
+///
+/// ```
+/// use epserde_trait::pad_align_to;
+/// assert_eq!(7 + pad_align_to(7, 8), 8);
+/// assert_eq!(8 + pad_align_to(8, 8), 8);
+/// assert_eq!(9 + pad_align_to(9, 8), 16);
+/// ```
+fn pad_align_to(value: usize, bits: usize) -> usize {
+    value.wrapping_neg() & (bits - 1)
+}
+
+/// A trait to make it easier to check and pad alignement
+pub trait CheckAlignement: Sized {
+    /// Inner function used to check that the given slice is aligned to
+    /// deserialize the current type
+    fn check_alignement<'a>(
+        mut backend: des::Cursor<'a>,
+    ) -> core::result::Result<des::Cursor<'a>, des::DeserializeError> {
+        // skip the bytes as needed
+        let padding = pad_align_to(backend.pos, core::mem::size_of::<Self>());
+        backend = backend.skip(padding);
+        // check that the ptr is aligned
+        if backend.data.as_ptr() as usize % std::mem::align_of::<Self>() != 0 {
+            Err(des::DeserializeError::AlignementError)
+        } else {
+            Ok(backend)
+        }
+    }
+
+    /// Write 0 as padding to align to the size of `T`.
+    fn pad_align_to<F: ser::WriteWithPosNoStd>(mut backend: F) -> ser::Result<F> {
+        let file_pos = backend.get_pos();
+        let padding = pad_align_to(file_pos, core::mem::size_of::<Self>());
+        for _ in 0..padding {
+            backend.write(&[0])?;
+        }
+        Ok(backend)
+    }
+}
+impl<T: Sized> CheckAlignement for T {}

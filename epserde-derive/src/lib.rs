@@ -21,7 +21,11 @@ struct CommonDeriveInput {
 }
 
 impl CommonDeriveInput {
-    fn new(input: DeriveInput, traits_to_add: Vec<syn::Path>) -> Self {
+    fn new(
+        input: DeriveInput,
+        traits_to_add: Vec<syn::Path>,
+        lifetimes_to_add: Vec<syn::Lifetime>,
+    ) -> Self {
         let name = input.ident;
         let mut generics = quote!();
         let mut generics_names_raw = vec![];
@@ -54,6 +58,10 @@ impl CommonDeriveInput {
                             lifetimes: None,
                             path: trait_to_add.clone(),
                         }));
+                    }
+                    for lifetime_to_add in lifetimes_to_add.iter() {
+                        t.bounds
+                            .push(syn::TypeParamBound::Lifetime(lifetime_to_add.clone()));
                     }
                     generics.extend(quote!(#t,));
                 }
@@ -92,7 +100,8 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
         ..
     } = CommonDeriveInput::new(
         input.clone(),
-        vec![syn::parse_quote!(epserde_trait::SerializeInner)],
+        vec![syn::parse_quote!(epserde_trait::ser::SerializeInner)],
+        vec![],
     );
     // We have to play with this to get type parameters working
 
@@ -102,19 +111,21 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
             s.fields.iter().for_each(|field| {
                 let ty = &field.ty;
                 write_all_opt.extend(
-                    quote!(&& <#ty as epserde_trait::SerializeInner>::WRITE_ALL_OPTIMIZATION),
+                    quote!(&& <#ty as epserde_trait::ser::SerializeInner>::WRITE_ALL_OPTIMIZATION),
                 );
             });
 
             let fields = s.fields.into_iter().map(|field| field.ident.unwrap());
             quote! {
                 #[automatically_derived]
-                impl<#generics> epserde_trait::SerializeInner for #name<#generics_names> #where_clause {
+                impl<#generics> epserde_trait::ser::SerializeInner for #name<#generics_names> #where_clause {
                     const WRITE_ALL_OPTIMIZATION: bool = #write_all_opt;
 
                     #[inline(always)]
                     fn _serialize_inner<F: epserde_trait::ser::WriteWithPosNoStd>(&self, mut backend: F) -> epserde_trait::ser::Result<F> {
-                        backend = <Self>::pad_align_to::<F>(backend)?;
+                        if Self::WRITE_ALL_OPTIMIZATION {
+                            backend = <Self>::pad_align_to::<F>(backend)?;
+                        }
                         #(
                             backend= backend.add_field(stringify!(#fields), &self.#fields)?;
                         )*
@@ -138,7 +149,8 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
         ..
     } = CommonDeriveInput::new(
         input.clone(),
-        vec![syn::parse_quote!(epserde_trait::des::Deserialize)],
+        vec![syn::parse_quote!(epserde_trait::des::DeserializeInner)],
+        vec![],
     );
     let CommonDeriveInput {
         name,
@@ -147,23 +159,10 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
         generics_names_raw,
         where_clause: where_clause_zc,
         ..
-    } = CommonDeriveInput::new(
-        input.clone(),
-        vec![syn::parse_quote!(
-            epserde_trait::des::DeserializeZeroCopyInner
-        )],
-    );
+    } = CommonDeriveInput::new(input.clone(), vec![], vec![syn::parse_quote!('static)]);
 
     let out = match input.data {
         Data::Struct(s) => {
-            let mut zero_copy_deser = quote!(true);
-            s.fields.iter().for_each(|field| {
-                let ty = &field.ty;
-                zero_copy_deser.extend(
-                    quote!(&& <#ty as epserde_trait::Deserialize>::ZERO_COPY_DESERIALIZATION),
-                );
-            });
-
             let fields = s
                 .fields
                 .iter()
@@ -197,8 +196,9 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                 #[automatically_derived]
                 impl<#generics_fc> epserde_trait::des::DeserializeInner for #name<#generics_names_fc> #where_clause_fc{
                     fn deserialize_inner<'epserde_trait_lifetime>(
-                        backend: &'epserde_trait_lifetime [u8],
-                    ) -> core::result::Result<(Self, &'epserde_trait_lifetime [u8]), epserde_trait::DeserializeError> {
+                        backend: epserde_trait::des::Cursor<'epserde_trait_lifetime>,
+                    ) -> core::result::Result<(Self, epserde_trait::des::Cursor<'epserde_trait_lifetime>), epserde_trait::des::DeserializeError> {
+                        use epserde_trait::des::DeserializeInner;
                         #(
                             let (#fields, backend) = <#fields_types>::deserialize_inner(backend)?;
                         )*
@@ -209,21 +209,23 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                 }
 
                 #[automatically_derived]
-                impl<#generics_zc> epserde_trait::des::DeserializeZeroCopyInner for #name<#generics_names_zc> #where_clause_zc
+                impl<#generics_zc> epserde_trait::des::DeserializeZeroCopyInner for epserde_trait::des::DesWrap<#name<#generics_names_zc>> #where_clause_zc
                     #(
-                        epserde_trait::des::DesDis<#generic_types>: epserde_trait::des::DeserializeZeroCopyInner,
+                        for<'epserde_trait_lifetime_generic> &'epserde_trait_lifetime_generic &'epserde_trait_lifetime_generic &'epserde_trait_lifetime_generic epserde_trait::des::DesWrap<#generic_types>: epserde_trait::des::DeserializeZeroCopyInner,
                     )*
                 {
 
                     type DesType<'b> = #name<#(
-                        <epserde_trait::des::DesDis<#generic_types> as epserde_trait::des::DeserializeZeroCopyInner>::DesType<'b>
+                        <&'b &'b &'b epserde_trait::des::DesWrap<#generic_types> as epserde_trait::des::DeserializeZeroCopyInner>::DesType<'b>
                     ,)*>;
 
                     fn deserialize_zc_inner<'epserde_trait_lifetime>(
-                        backend: &'epserde_trait_lifetime [u8],
-                    ) -> core::result::Result<(Self::DesType<'epserde_trait_lifetime>, &'epserde_trait_lifetime [u8]), epserde_trait::DeserializeError>{
+                        backend: epserde_trait::des::Cursor<'epserde_trait_lifetime>,
+                    ) -> core::result::Result<(Self::DesType<'epserde_trait_lifetime>, epserde_trait::des::Cursor<'epserde_trait_lifetime>), epserde_trait::des::DeserializeError>{
+                        use epserde_trait::des::DeserializeZeroCopyInner;
+                        use epserde_trait::des::DeserializeInner;
                         #(
-                            let (#generic_fields, backend) = <epserde_trait::des::DesDis<#generic_types>>::deserialize_zc_inner(backend)?;
+                            let (#generic_fields, backend) = <&'epserde_trait_lifetime &'epserde_trait_lifetime &'epserde_trait_lifetime epserde_trait::des::DesWrap<#generic_types>>::deserialize_zc_inner(backend)?;
                         )*
                         #(
                             let (#non_generic_fields, backend) = <#non_generic_types>::deserialize_inner(backend)?;
@@ -253,6 +255,7 @@ pub fn epserde_mem_size(input: TokenStream) -> TokenStream {
     } = CommonDeriveInput::new(
         input.clone(),
         vec![syn::parse_quote!(epserde_trait::MemSize)],
+        vec![],
     );
 
     let out = match input.data {
@@ -304,6 +307,7 @@ pub fn epserde_type_name(input: TokenStream) -> TokenStream {
     } = CommonDeriveInput::new(
         input.clone(),
         vec![syn::parse_quote!(epserde_trait::TypeName)],
+        vec![],
     );
 
     let out = match input.data {

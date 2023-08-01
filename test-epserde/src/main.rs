@@ -10,7 +10,7 @@
 use std::hash::Hasher;
 
 use epserde_derive::*;
-use epserde_trait::{des::Cursor, *};
+use epserde_trait::*;
 
 #[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
 struct PersonVec<A, B> {
@@ -28,7 +28,7 @@ struct Data {
 type Person = PersonVec<usize, Data>;
 
 fn main() {
-    let person0: Person = PersonVec {
+    let person0 = Person {
         name: 10,
         test: -0xbadf00d,
         age: Data {
@@ -73,7 +73,9 @@ fn main() {
     let hash = hasher.finish();
     println!("deser_type_hash: {:08x}", hash);
 
-    let person1 = Person::deserialize_zc_inner(Cursor::new(&v)).unwrap();
+    let slice = v.as_slice();
+
+    let person1 = <Person>::deserialize_zero_copy(slice).unwrap();
     println!("deser_memsize: {}", person1.mem_size());
     println!("deser_type_name: {}", person1.type_name_val());
     person1.mem_dbg().unwrap();

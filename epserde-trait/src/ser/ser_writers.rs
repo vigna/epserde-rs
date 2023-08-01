@@ -45,6 +45,43 @@ pub struct SchemaRow {
 pub struct Schema(pub Vec<SchemaRow>);
 
 impl Schema {
+    pub fn debug(&self, data: &[u8]) -> String {
+        let mut result = "field,offset,size,ty,bytes\n".to_string();
+        for i in 0..self.0.len().saturating_sub(1) {
+            let row = &self.0[i];
+            // if it's a composed type, don't print the bytes
+            if row.offset == self.0[i + 1].offset {
+                result.push_str(&format!(
+                    "{},{},{},{},\n",
+                    row.field, row.offset, row.size, row.ty
+                ));
+            } else {
+                result.push_str(&format!(
+                    "{},{},{},{},{:02x?}\n",
+                    row.field,
+                    row.offset,
+                    row.size,
+                    row.ty,
+                    &data[row.offset..row.offset + row.size],
+                ));
+            }
+        }
+
+        // the last field can't be a composed type by definition
+        if let Some(row) = self.0.last() {
+            result.push_str(&format!(
+                "{},{},{},{},{:02x?}\n",
+                row.field,
+                row.offset,
+                row.size,
+                row.ty,
+                &data[row.offset..row.offset + row.size],
+            ));
+        }
+
+        result
+    }
+
     pub fn to_csv(&self) -> String {
         let mut result = "field,offset,size,ty\n".to_string();
         for row in &self.0 {

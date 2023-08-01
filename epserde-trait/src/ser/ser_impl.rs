@@ -1,4 +1,4 @@
-use crate::TypeName;
+use crate::{CheckAlignement, TypeName};
 
 use super::ser::{Result, Serialize, SerializeInner, WriteWithPosNoStd};
 

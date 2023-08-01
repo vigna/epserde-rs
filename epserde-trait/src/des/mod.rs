@@ -5,24 +5,7 @@ pub use des_impl::*;
 
 /// <https://lukaskalbertodt.github.io/2019/12/05/generalized-autoref-based-specialization.html>
 pub struct DesWrap<T: ?Sized> {
-    _phantom: core::marker::PhantomData<*mut T>,
-}
-/// A dispatcher that hides the bound on the lifetimes
-pub struct DesDis<T: ?Sized> {
-    _phantom: core::marker::PhantomData<*mut T>,
-}
-
-impl<T: 'static> DeserializeZeroCopyInner for DesDis<T>
-where
-    for<'a, 'b, 'c> &'a &'b &'c DesWrap<T>: DeserializeZeroCopyInner,
-{
-    type DesType<'b> = <&'b &'b &'b DesWrap<T> as DeserializeZeroCopyInner>::DesType<'b>;
-
-    fn deserialize_zc_inner<'a>(
-        backend: &'a [u8],
-    ) -> Result<(Self::DesType<'a>, &'a [u8]), DeserializeError> {
-        <&'a &'a &'a DesWrap<T>>::deserialize_zc_inner(backend)
-    }
+    _phantom: core::marker::PhantomData<T>,
 }
 
 pub trait Deserialize: Sized {
@@ -30,7 +13,8 @@ pub trait Deserialize: Sized {
 }
 
 impl<T: DeserializeInner> Deserialize for T {
-    fn deserialize(mut backend: &[u8]) -> Result<Self, DeserializeError> {
+    fn deserialize(backend: &[u8]) -> Result<Self, DeserializeError> {
+        let mut backend = Cursor::new(backend);
         backend = check_header(backend)?;
         let (res, _) = Self::deserialize_inner(backend)?;
         Ok(res)
@@ -38,12 +22,12 @@ impl<T: DeserializeInner> Deserialize for T {
 }
 
 pub trait DeserializeInner: Sized {
-    fn deserialize_inner<'a>(backend: &'a [u8]) -> Result<(Self, &'a [u8]), DeserializeError>;
+    fn deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError>;
 }
 
 pub trait DeserializeZeroCopy
 where
-    DesDis<Self>: DeserializeZeroCopyInner,
+    for<'a> &'a &'a &'a DesWrap<Self>: DeserializeZeroCopyInner,
 {
     type DesType<'b>;
     fn deserialize_zero_copy<'a>(backend: &'a [u8]) -> Result<Self::DesType<'a>, DeserializeError>;
@@ -51,15 +35,14 @@ where
 
 impl<T: 'static> DeserializeZeroCopy for T
 where
-    DesDis<Self>: DeserializeZeroCopyInner,
+    for<'a> &'a &'a &'a DesWrap<Self>: DeserializeZeroCopyInner,
 {
-    type DesType<'b> = <DesDis<Self> as DeserializeZeroCopyInner>::DesType<'b>;
+    type DesType<'b> = <&'b &'b &'b DesWrap<Self> as DeserializeZeroCopyInner>::DesType<'b>;
 
-    fn deserialize_zero_copy<'a>(
-        mut backend: &'a [u8],
-    ) -> Result<Self::DesType<'a>, DeserializeError> {
+    fn deserialize_zero_copy<'a>(backend: &'a [u8]) -> Result<Self::DesType<'a>, DeserializeError> {
+        let mut backend = Cursor::new(backend);
         backend = check_header(backend)?;
-        let (res, _) = <DesDis<Self>>::deserialize_zc_inner(backend)?;
+        let (res, _) = <&&&DesWrap<Self>>::deserialize_zc_inner(backend)?;
         Ok(res)
     }
 }
@@ -69,24 +52,24 @@ pub trait DeserializeZeroCopyInner {
     type DesType<'b>;
 
     fn deserialize_zc_inner<'a>(
-        backend: &'a [u8],
-    ) -> Result<(Self::DesType<'a>, &'a [u8]), DeserializeError>;
+        backend: Cursor<'a>,
+    ) -> Result<(Self::DesType<'a>, Cursor<'a>), DeserializeError>;
 }
 
 /// The lowest priority (3) of zero copy, is always full copy
 impl<T: DeserializeInner> DeserializeZeroCopyInner for &&DesWrap<T> {
     type DesType<'b> = T;
     fn deserialize_zc_inner<'a>(
-        backend: &'a [u8],
-    ) -> Result<(Self::DesType<'a>, &'a [u8]), DeserializeError> {
+        backend: Cursor<'a>,
+    ) -> Result<(Self::DesType<'a>, Cursor<'a>), DeserializeError> {
         <T as DeserializeInner>::deserialize_inner(backend)
     }
 }
 
-fn check_header<'a>(backend: &'a [u8]) -> Result<&'a [u8], DeserializeError> {
+fn check_header<'a>(backend: Cursor<'a>) -> Result<Cursor<'a>, DeserializeError> {
     let (magic, backend) = u64::deserialize_inner(backend)?;
     match magic {
-        MAGIC => Ok(backend),
+        MAGIC => Ok(()),
         MAGIC_REV => Err(DeserializeError::EndiannessError),
         magic => Err(DeserializeError::MagicNumberError(magic)),
     }?;
@@ -159,15 +142,25 @@ impl std::fmt::Display for DeserializeError {
     }
 }
 
-pub trait CheckAlignement: Sized {
-    /// Inner function used to check that the given slice is aligned to
-    /// deserialize the current type
-    fn check_alignement<'a>(backend: &'a [u8]) -> Result<(), DeserializeError> {
-        if backend.as_ptr() as usize % std::mem::align_of::<Self>() != 0 {
-            Err(DeserializeError::AlignementError)
-        } else {
-            Ok(())
+/// We have to know the offset from the start to compute the padding to skip
+/// and then check that the pointer is aligned to the type
+pub struct Cursor<'a> {
+    pub data: &'a [u8],
+    pub pos: usize,
+}
+
+impl<'a> Cursor<'a> {
+    pub fn new(backend: &'a [u8]) -> Self {
+        Self {
+            data: backend,
+            pos: 0,
+        }
+    }
+
+    pub fn skip(&self, bytes: usize) -> Self {
+        Self {
+            data: &self.data[bytes..],
+            pos: self.pos + bytes,
         }
     }
 }
-impl<T: Sized> CheckAlignement for T {}
