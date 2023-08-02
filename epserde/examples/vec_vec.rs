@@ -94,14 +94,14 @@ where
 #[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
 /// Random struct we will use to test the nested serialization and deserialization.
 struct Data<A> {
-    name: A,
+    a: A,
     test: isize,
 }
 
 fn main() {
     // create a new value to serialize
     let data = Data {
-        name: Vec2D {
+        a: Vec2D {
             data: vec![vec![0x89; 6]; 9],
         },
         test: -0xbadf00d,

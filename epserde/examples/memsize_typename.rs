@@ -10,8 +10,8 @@ use std::hash::Hasher;
 
 #[derive(MemSize, TypeName)]
 struct PersonVec<A, B> {
-    name: A,
-    age: B,
+    a: A,
+    b: B,
     test: isize,
 }
 
@@ -24,12 +24,12 @@ struct Data<A> {
 fn main() {
     // create a new value to serialize
     let person = PersonVec {
-        name: vec![0x89; 600],
-        test: -0xbadf00d,
-        age: Data {
+        a: vec![0x89; 600],
+        b: Data {
             a: vec![0x42; 700],
             b: vec![0xbadf00d; 2],
         },
+        test: -0xbadf00d,
     };
 
     // get the type name of the value

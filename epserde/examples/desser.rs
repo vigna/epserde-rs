@@ -9,8 +9,8 @@ use epserde::*;
 
 #[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
 struct PersonVec<A, B> {
-    name: A,
-    age: B,
+    a: A,
+    b: B,
     test: isize,
 }
 
@@ -26,12 +26,12 @@ type Person = PersonVec<Vec<usize>, Data<Vec<u16>>>;
 fn main() {
     // create a new value to serialize
     let person0: Person = PersonVec {
-        name: vec![0x89; 6],
-        test: -0xbadf00d,
-        age: Data {
+        a: vec![0x89; 6],
+        b: Data {
             a: vec![0x42; 7],
             b: vec![0xbadf00d; 2],
         },
+        test: -0xbadf00d,
     };
     // create an aligned vector to serialize into so we can do a zero-copy
     // deserialization safely
