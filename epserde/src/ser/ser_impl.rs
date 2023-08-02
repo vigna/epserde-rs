@@ -90,7 +90,7 @@ impl<T: Serialize + IsEpCopy + TypeName> SerializeInner for Vec<T> {
     }
 }
 
-impl<T: Serialize + IsEpCopy + TypeName> SerializeInner for Box<[T]> {
+impl<T: Serialize + IsEpCopy + TypeName + ?Sized> SerializeInner for Box<[T]> {
     // Box<[$ty]> can, but Vec<Box<[$ty]>> cannot!
     const WRITE_ALL_OPTIMIZATION: bool = false;
     type SerType<'a> = &'a [T];

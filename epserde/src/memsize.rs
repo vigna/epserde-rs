@@ -162,6 +162,16 @@ impl<T: MemSize> MemSize for Vec<T> {
     }
 }
 
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::boxed::Box;
+#[cfg(feature = "alloc")]
+impl<T: MemSize> MemSize for Box<[T]> {
+    #[inline(always)]
+    fn mem_size(&self) -> usize {
+        core::mem::size_of::<Self>() + self.iter().map(|x| x.mem_size()).sum::<usize>()
+    }
+}
+
 #[cfg(feature = "mmap_rs")]
 impl MemSize for mmap_rs::Mmap {
     #[inline(always)]

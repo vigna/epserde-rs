@@ -153,7 +153,7 @@ impl<T: TypeName> TypeName for Vec<T> {
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
-impl<T: TypeName> TypeName for Box<T> {
+impl<T: TypeName + ?Sized> TypeName for Box<T> {
     #[inline(always)]
     fn type_name() -> String {
         format!("Box<{}>", T::type_name())
