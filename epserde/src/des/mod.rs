@@ -77,11 +77,12 @@ fn check_header<'a>(
         MAGIC_REV => Err(DeserializeError::EndiannessError),
         magic => Err(DeserializeError::MagicNumberError(magic)),
     }?;
+
     let (major, backend) = u32::deserialize_inner(backend)?;
-    let (minor, backend) = u32::deserialize_inner(backend)?;
     if major != VERSION.0 {
         return Err(DeserializeError::MajorVersionMismatch(major));
     }
+    let (minor, backend) = u32::deserialize_inner(backend)?;
     if minor > VERSION.1 {
         return Err(DeserializeError::MinorVersionMismatch(minor));
     };

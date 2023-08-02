@@ -100,6 +100,16 @@ impl<T: Serialize + IsEpCopy + TypeName + ?Sized> SerializeInner for Box<[T]> {
     }
 }
 
+impl SerializeInner for Box<str> {
+    // Box<[$ty]> can, but Vec<Box<[$ty]>> cannot!
+    const WRITE_ALL_OPTIMIZATION: bool = false;
+    type SerType<'a> = &'a str;
+
+    fn _serialize_inner<F: WriteWithPosNoStd>(&self, backend: F) -> Result<F> {
+        serialize_slice(self.as_bytes(), backend)
+    }
+}
+
 impl SerializeInner for String {
     // Vec<$ty> can, but Vec<Vec<$ty>> cannot!
     const WRITE_ALL_OPTIMIZATION: bool = false;
