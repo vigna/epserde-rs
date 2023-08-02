@@ -24,10 +24,10 @@ struct Data<A> {
 fn main() {
     // create a new value to serialize
     let person = PersonVec {
-        name: vec![0x89; 6],
+        name: vec![0x89; 600],
         test: -0xbadf00d,
         age: Data {
-            a: vec![0x42; 7],
+            a: vec![0x42; 700],
             b: vec![0xbadf00d; 2],
         },
     };
