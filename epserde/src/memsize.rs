@@ -114,8 +114,6 @@ pub trait MemSize: TypeName {
     }
 }
 
-pub trait MemSizeDbg: MemSize {}
-
 macro_rules! impl_memory_size {
     ($($ty:ty),*) => {$(
 impl MemSize for $ty {

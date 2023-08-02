@@ -126,7 +126,6 @@ fn main() {
     // sort the schema by offset so we can print it in order
     schema.0.sort_by_key(|a| a.offset);
     let buf = buf.into_inner();
-    println!("{:02x?}\n", &buf);
     println!("{}", schema.debug(buf));
 
     // do a full-copy deserialization
