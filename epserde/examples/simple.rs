@@ -5,8 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-#![doc = include_str!("../README.md")]
-
 use epserde::*;
 use std::hash::Hasher;
 
@@ -67,7 +65,7 @@ fn main() {
     // sort the schema by offset so we can print it in order
     schema.0.sort_by_key(|a| a.offset);
     let buf = buf.into_inner();
-    println!("{:02x?}", &buf);
+    println!("{:02x?}\n", &buf);
     println!("{}", schema.debug(buf));
 
     // do a full-copy deserialization
