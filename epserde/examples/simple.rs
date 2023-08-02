@@ -7,9 +7,8 @@
 
 #![doc = include_str!("../README.md")]
 
-use std::hash::Hasher;
-
 use epserde::*;
+use std::hash::Hasher;
 
 #[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
 struct PersonVec<A, B> {
@@ -27,6 +26,7 @@ struct Data<A> {
 type Person = PersonVec<Vec<usize>, Data<Vec<u16>>>;
 
 fn main() {
+    // create a new value to serialize
     let person0: Person = PersonVec {
         name: vec![0x89; 6],
         test: -0xbadf00d,
@@ -35,6 +35,7 @@ fn main() {
             b: 0xffaaaaaaaaaaaaff,
         },
     };
+    // print stats about the value
     println!("mem_size: {}", person0.mem_size());
     println!("type_name: {}", person0.type_name_val());
     person0.mem_dbg().unwrap();
@@ -46,6 +47,9 @@ fn main() {
     println!("type_hash: {:08x}", hash);
 
     println!("");
+
+    // create an aligned vector to serialize into so we can do a zero-copy
+    // deserialization safely
     let len = 100;
     let mut v = unsafe {
         Vec::from_raw_parts(
@@ -55,15 +59,20 @@ fn main() {
         )
     };
     assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
+    // wrap the vector in a cursor so we can serialize into it
     let mut buf = std::io::Cursor::new(&mut v);
 
+    // serialize
     let mut schema = person0.serialize_with_schema(&mut buf).unwrap();
+    // sort the schema by offset so we can print it in order
     schema.0.sort_by_key(|a| a.offset);
     let buf = buf.into_inner();
     println!("{:02x?}", &buf);
     println!("{}", schema.debug(buf));
 
+    // do a full-copy deserialization
     let person1 = Person::deserialize(&v).unwrap();
+    // print stats about the value
     println!("deser_memsize: {}", person1.mem_size());
     println!("deser_type_name: {}", person1.type_name_val());
     person1.mem_dbg().unwrap();
@@ -75,7 +84,9 @@ fn main() {
 
     println!("\n");
 
+    // do a zero-copy deserialization
     let person1 = Person::deserialize_zero_copy(&v).unwrap();
+    // print stats about the value
     println!("deser_memsize: {}", person1.mem_size());
     println!("deser_type_name: {}", person1.type_name_val());
     person1.mem_dbg().unwrap();
