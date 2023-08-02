@@ -33,9 +33,9 @@ impl<T: SerializeInner + IsEpCopy + TypeName> SerializeInner for Vec2D<T> {
     fn _serialize_inner<F: WriteWithPosNoStd>(&self, mut backend: F) -> Result<F> {
         // write the number of sub-fields
         backend = backend.add_field("len", &self.data.len())?;
-        for sub_vec in &self.data {
+        for (i, sub_vec) in self.data.iter().enumerate() {
             // serialize each sub-vector
-            backend = backend.add_field("sub_vec", sub_vec)?;
+            backend = backend.add_field(&format!("sub_vec_{}", i), sub_vec)?;
         }
 
         Ok(backend)
