@@ -6,7 +6,6 @@
  */
 
 use epserde::*;
-use std::hash::Hasher;
 
 #[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
 struct PersonVec<A, B> {
@@ -34,19 +33,6 @@ fn main() {
             b: vec![0xbadf00d; 2],
         },
     };
-    // print stats about the value
-    println!("mem_size: {}", person0.mem_size());
-    println!("type_name: {}", person0.type_name_val());
-    person0.mem_dbg().unwrap();
-    println!("{:02x?}", person0);
-
-    let mut hasher = std::collections::hash_map::DefaultHasher::default();
-    person0.type_hash_val(&mut hasher);
-    let hash = hasher.finish();
-    println!("type_hash: {:08x}", hash);
-
-    println!("");
-
     // create an aligned vector to serialize into so we can do a zero-copy
     // deserialization safely
     let len = 100;
@@ -66,32 +52,15 @@ fn main() {
     // sort the schema by offset so we can print it in order
     schema.0.sort_by_key(|a| a.offset);
     let buf = buf.into_inner();
-    println!("{:02x?}\n", &buf);
     println!("{}", schema.debug(buf));
 
     // do a full-copy deserialization
     let person1 = Person::deserialize(&v).unwrap();
-    // print stats about the value
-    println!("deser_memsize: {}", person1.mem_size());
-    println!("deser_type_name: {}", person1.type_name_val());
-    person1.mem_dbg().unwrap();
     println!("{:02x?}", person1);
-    let mut hasher = std::collections::hash_map::DefaultHasher::default();
-    person1.type_hash_val(&mut hasher);
-    let hash = hasher.finish();
-    println!("deser_type_hash: {:08x}", hash);
 
     println!("\n");
 
     // do a zero-copy deserialization
     let person1 = Person::deserialize_zero_copy(&v).unwrap();
-    // print stats about the value
-    println!("deser_memsize: {}", person1.mem_size());
-    println!("deser_type_name: {}", person1.type_name_val());
-    person1.mem_dbg().unwrap();
     println!("{:x?}", person1);
-    let mut hasher = std::collections::hash_map::DefaultHasher::default();
-    person1.type_hash_val(&mut hasher);
-    let hash = hasher.finish();
-    println!("deser_type_hash: {:08x}", hash);
 }
