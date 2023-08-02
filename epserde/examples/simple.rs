@@ -18,7 +18,8 @@ struct PersonVec<A, B> {
 #[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A> {
     a: A,
-    b: usize,
+    /// This is an inner field, so IT WILL NOT BE ZERO-COPIED
+    b: Vec<i32>,
 }
 
 type Person = PersonVec<Vec<usize>, Data<Vec<u16>>>;
@@ -30,7 +31,7 @@ fn main() {
         test: -0xbadf00d,
         age: Data {
             a: vec![0x42; 7],
-            b: 0xffaaaaaaaaaaaaff,
+            b: vec![0xbadf00d; 2],
         },
     };
     // print stats about the value
