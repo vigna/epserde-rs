@@ -3,6 +3,8 @@ resolver = "2"
 
 members = [
     "epserde-derive",
-    "epserde-trait",
-    "test-epserde",
+    "epserde",
 ]
+
+[patch.crates-io]
+epserde = { path = "epserde" }

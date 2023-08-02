@@ -97,37 +97,53 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
         generics,
         generics_names,
         where_clause,
+        generics_names_raw,
         ..
     } = CommonDeriveInput::new(
         input.clone(),
-        vec![syn::parse_quote!(epserde_trait::ser::SerializeInner)],
+        vec![syn::parse_quote!(epserde::ser::SerializeInner)],
         vec![],
     );
     // We have to play with this to get type parameters working
 
     let out = match input.data {
         Data::Struct(s) => {
-            let mut write_all_opt = quote!(true);
+            let mut fields = vec![];
+            let mut fields_names = vec![];
+            let mut non_generic_fields = vec![];
+            let mut non_generic_types = vec![];
+            let mut generic_fields = vec![];
+            let mut generic_types = vec![];
+
             s.fields.iter().for_each(|field| {
                 let ty = &field.ty;
-                write_all_opt.extend(
-                    quote!(&& <#ty as epserde_trait::ser::SerializeInner>::WRITE_ALL_OPTIMIZATION),
-                );
+                let field_name = field.ident.clone().unwrap();
+                if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                    generic_fields.push(field_name.clone());
+                    generic_types.push(ty);
+                } else {
+                    non_generic_fields.push(field_name.clone());
+                    non_generic_types.push(ty);
+                }
+                fields.push(ty);
+                fields_names.push(field_name);
             });
 
-            let fields = s.fields.into_iter().map(|field| field.ident.unwrap());
             quote! {
                 #[automatically_derived]
-                impl<#generics> epserde_trait::ser::SerializeInner for #name<#generics_names> #where_clause {
-                    const WRITE_ALL_OPTIMIZATION: bool = #write_all_opt;
+                impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
+                    const WRITE_ALL_OPTIMIZATION: bool = true #(
+                        && <#fields>::WRITE_ALL_OPTIMIZATION
+                    )*;
+                    type SerType<'a> = #name<#(#generic_types::SerType<'a>),*>;
 
                     #[inline(always)]
-                    fn _serialize_inner<F: epserde_trait::ser::WriteWithPosNoStd>(&self, mut backend: F) -> epserde_trait::ser::Result<F> {
+                    fn _serialize_inner<F: epserde::ser::WriteWithPosNoStd>(&self, mut backend: F) -> epserde::ser::Result<F> {
                         if Self::WRITE_ALL_OPTIMIZATION {
-                            backend = <Self>::pad_align_to::<F>(backend)?;
+                            backend.add_padding_to_align(core::mem::align_of::<Self>())?;
                         }
                         #(
-                            backend= backend.add_field(stringify!(#fields), &self.#fields)?;
+                            backend= backend.add_field(stringify!(#fields_names), &self.#fields_names)?;
                         )*
                         Ok(backend)
                     }
@@ -149,7 +165,7 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
         ..
     } = CommonDeriveInput::new(
         input.clone(),
-        vec![syn::parse_quote!(epserde_trait::des::DeserializeInner)],
+        vec![syn::parse_quote!(epserde::des::DeserializeInner)],
         vec![],
     );
     let CommonDeriveInput {
@@ -194,11 +210,11 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
 
             quote! {
                 #[automatically_derived]
-                impl<#generics_fc> epserde_trait::des::DeserializeInner for #name<#generics_names_fc> #where_clause_fc{
-                    fn deserialize_inner<'epserde_trait_lifetime>(
-                        backend: epserde_trait::des::Cursor<'epserde_trait_lifetime>,
-                    ) -> core::result::Result<(Self, epserde_trait::des::Cursor<'epserde_trait_lifetime>), epserde_trait::des::DeserializeError> {
-                        use epserde_trait::des::DeserializeInner;
+                impl<#generics_fc> epserde::des::DeserializeInner for #name<#generics_names_fc> #where_clause_fc{
+                    fn deserialize_inner<'epserde_lifetime>(
+                        backend: epserde::des::Cursor<'epserde_lifetime>,
+                    ) -> core::result::Result<(Self, epserde::des::Cursor<'epserde_lifetime>), epserde::des::DeserializeError> {
+                        use epserde::des::DeserializeInner;
                         #(
                             let (#fields, backend) = <#fields_types>::deserialize_inner(backend)?;
                         )*
@@ -209,23 +225,24 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                 }
 
                 #[automatically_derived]
-                impl<#generics_zc> epserde_trait::des::DeserializeZeroCopyInner for epserde_trait::des::DesWrap<#name<#generics_names_zc>> #where_clause_zc
+                impl<#generics_zc> epserde::des::DeserializeZeroCopyInner for #name<#generics_names_zc> #where_clause_zc
                     #(
-                        for<'epserde_trait_lifetime_generic> &'epserde_trait_lifetime_generic &'epserde_trait_lifetime_generic &'epserde_trait_lifetime_generic epserde_trait::des::DesWrap<#generic_types>: epserde_trait::des::DeserializeZeroCopyInner,
+                        #generic_types: epserde::des::DeserializeZeroCopyInner,
                     )*
                 {
 
                     type DesType<'b> = #name<#(
-                        <&'b &'b &'b epserde_trait::des::DesWrap<#generic_types> as epserde_trait::des::DeserializeZeroCopyInner>::DesType<'b>
+                        <#generic_types as epserde::des::DeserializeZeroCopyInner>::DesType<'b>
                     ,)*>;
 
-                    fn deserialize_zc_inner<'epserde_trait_lifetime>(
-                        backend: epserde_trait::des::Cursor<'epserde_trait_lifetime>,
-                    ) -> core::result::Result<(Self::DesType<'epserde_trait_lifetime>, epserde_trait::des::Cursor<'epserde_trait_lifetime>), epserde_trait::des::DeserializeError>{
-                        use epserde_trait::des::DeserializeZeroCopyInner;
-                        use epserde_trait::des::DeserializeInner;
+                    fn deserialize_zc_inner<'epserde_lifetime>(
+                        backend: epserde::des::Cursor<'epserde_lifetime>,
+                    ) -> core::result::Result<(Self::DesType<'epserde_lifetime>, epserde::des::Cursor<'epserde_lifetime>), epserde::des::DeserializeError>
+                    {
+                        use epserde::des::DeserializeZeroCopyInner;
+                        use epserde::des::DeserializeInner;
                         #(
-                            let (#generic_fields, backend) = <&'epserde_trait_lifetime &'epserde_trait_lifetime &'epserde_trait_lifetime epserde_trait::des::DesWrap<#generic_types>>::deserialize_zc_inner(backend)?;
+                            let (#generic_fields, backend) = <#generic_types>::deserialize_zc_inner(backend)?;
                         )*
                         #(
                             let (#non_generic_fields, backend) = <#non_generic_types>::deserialize_inner(backend)?;
@@ -254,7 +271,7 @@ pub fn epserde_mem_size(input: TokenStream) -> TokenStream {
         ..
     } = CommonDeriveInput::new(
         input.clone(),
-        vec![syn::parse_quote!(epserde_trait::MemSize)],
+        vec![syn::parse_quote!(epserde::MemSize)],
         vec![],
     );
 
@@ -268,7 +285,7 @@ pub fn epserde_mem_size(input: TokenStream) -> TokenStream {
 
             quote! {
                 #[automatically_derived]
-                impl<#generics> epserde_trait::MemSize for #name<#generics_names> #where_clause{
+                impl<#generics> epserde::MemSize for #name<#generics_names> #where_clause{
                     fn mem_size(&self) -> usize {
                         let mut bytes = 0;
                         #(bytes += self.#fields.mem_size();)*
@@ -306,7 +323,7 @@ pub fn epserde_type_name(input: TokenStream) -> TokenStream {
         consts_names_raw,
     } = CommonDeriveInput::new(
         input.clone(),
-        vec![syn::parse_quote!(epserde_trait::TypeName)],
+        vec![syn::parse_quote!(epserde::TypeName)],
         vec![],
     );
 
@@ -352,8 +369,9 @@ pub fn epserde_type_name(input: TokenStream) -> TokenStream {
 
             quote! {
                 #[automatically_derived]
-                impl<#generics> epserde_trait::TypeName for #name<#generics_names> #where_clause{
+                impl<#generics> epserde::TypeName for #name<#generics_names> #where_clause{
                     /// Just the type name, without the module path.
+                    #[inline(always)]
                     fn type_name() -> String {
                         #type_name
                     }
@@ -366,7 +384,7 @@ pub fn epserde_type_name(input: TokenStream) -> TokenStream {
                             #fields_names.hash(hasher);
                         )*
                         #(
-                            <#fields_types as epserde_trait::TypeName>::type_hash(hasher);
+                            <#fields_types as epserde::TypeName>::type_hash(hasher);
                         )*
                     }
                 }

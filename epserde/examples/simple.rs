@@ -9,8 +9,7 @@
 
 use std::hash::Hasher;
 
-use epserde_derive::*;
-use epserde_trait::*;
+use epserde::*;
 
 #[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
 struct PersonVec<A, B> {
@@ -20,16 +19,16 @@ struct PersonVec<A, B> {
 }
 
 #[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
-struct Data {
-    a: Vec<u16>,
+struct Data<A> {
+    a: A,
     b: usize,
 }
 
-type Person = PersonVec<usize, Data>;
+type Person = PersonVec<Vec<usize>, Data<Vec<u16>>>;
 
 fn main() {
-    let person0 = Person {
-        name: 10,
+    let person0: Person = PersonVec {
+        name: vec![0x89; 6],
         test: -0xbadf00d,
         age: Data {
             a: vec![0x42; 7],
@@ -58,7 +57,8 @@ fn main() {
     assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
     let mut buf = std::io::Cursor::new(&mut v);
 
-    let schema = person0.serialize_with_schema(&mut buf).unwrap();
+    let mut schema = person0.serialize_with_schema(&mut buf).unwrap();
+    schema.0.sort_by_key(|a| a.offset);
     let buf = buf.into_inner();
     println!("{:02x?}", &buf);
     println!("{}", schema.debug(buf));
@@ -73,9 +73,9 @@ fn main() {
     let hash = hasher.finish();
     println!("deser_type_hash: {:08x}", hash);
 
-    let slice = v.as_slice();
+    println!("\n");
 
-    let person1 = <Person>::deserialize_zero_copy(slice).unwrap();
+    let person1 = Person::deserialize_zero_copy(&v).unwrap();
     println!("deser_memsize: {}", person1.mem_size());
     println!("deser_type_name: {}", person1.type_name_val());
     person1.mem_dbg().unwrap();

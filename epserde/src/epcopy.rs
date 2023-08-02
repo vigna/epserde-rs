@@ -1,4 +1,4 @@
-pub trait IsEpCopy {}
+pub trait IsEpCopy: 'static {}
 
 macro_rules! impl_stuff{
     ($($ty:ty),*) => {$(

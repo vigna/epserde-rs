@@ -1,0 +1,208 @@
+//!  Zero-copy deserialization is built on auto-ref specialization
+//! <https://lukaskalbertodt.github.io/2019/12/05/generalized-autoref-based-specialization.html>
+
+use crate::{Serialize, TypeName, MAGIC, MAGIC_REV, VERSION};
+use core::hash::Hasher;
+
+pub mod des_impl;
+pub use des_impl::*;
+pub mod des_zc_impl;
+pub use des_zc_impl::*;
+
+/// User-facing trait for full-copy deserialization
+/// The user should implement this trait directly but rather derive it.
+pub trait Deserialize: Serialize + Sized {
+    fn deserialize(backend: &[u8]) -> Result<Self, DeserializeError>;
+}
+
+impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
+    fn deserialize(backend: &[u8]) -> Result<Self, DeserializeError> {
+        let mut backend = Cursor::new(backend);
+
+        let mut hasher = xxhash_rust::xxh3::Xxh3::new();
+        Self::SerType::type_hash(&mut hasher);
+        let self_hash = hasher.finish();
+
+        backend = check_header(backend, self_hash, Self::SerType::type_name())?;
+        let (res, _) = Self::deserialize_inner(backend)?;
+        Ok(res)
+    }
+}
+
+/// The inner trait to implement full-copy deserialization.
+/// The user should implement this trait directly but rather derive it.
+pub trait DeserializeInner: Sized {
+    fn deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError>;
+}
+
+/// User-facing trait for zero-copy deserialization.
+/// The user should implement this trait directly but rather derive it.
+pub trait DeserializeZeroCopy: DeserializeZeroCopyInner {
+    fn deserialize_zero_copy<'a>(backend: &'a [u8]) -> Result<Self::DesType<'a>, DeserializeError>;
+}
+
+impl<T: 'static + DeserializeZeroCopyInner + TypeName> DeserializeZeroCopy for T {
+    fn deserialize_zero_copy<'a>(backend: &'a [u8]) -> Result<Self::DesType<'a>, DeserializeError> {
+        let mut backend = Cursor::new(backend);
+
+        let mut hasher = xxhash_rust::xxh3::Xxh3::new();
+        Self::DesType::type_hash(&mut hasher);
+        let self_hash = hasher.finish();
+
+        backend = check_header(backend, self_hash, Self::DesType::type_name())?;
+        let (res, _) = Self::deserialize_zc_inner(backend)?;
+        Ok(res)
+    }
+}
+
+/// The inner trait to implement ZeroCopy Deserialization
+/// The user should implement this trait directly but rather derive it.
+pub trait DeserializeZeroCopyInner {
+    type DesType<'b>: TypeName;
+
+    fn deserialize_zc_inner<'a>(
+        backend: Cursor<'a>,
+    ) -> Result<(Self::DesType<'a>, Cursor<'a>), DeserializeError>;
+}
+
+/// Common code for both full-copy and zero-copy deserialization
+fn check_header<'a>(
+    backend: Cursor<'a>,
+    self_hash: u64,
+    self_name: String,
+) -> Result<Cursor<'a>, DeserializeError> {
+    let (magic, backend) = u64::deserialize_inner(backend)?;
+    match magic {
+        MAGIC => Ok(()),
+        MAGIC_REV => Err(DeserializeError::EndiannessError),
+        magic => Err(DeserializeError::MagicNumberError(magic)),
+    }?;
+    let (major, backend) = u32::deserialize_inner(backend)?;
+    let (minor, backend) = u32::deserialize_inner(backend)?;
+    if major != VERSION.0 {
+        return Err(DeserializeError::MajorVersionMismatch(major));
+    }
+    if minor > VERSION.1 {
+        return Err(DeserializeError::MinorVersionMismatch(minor));
+    };
+
+    let (type_hash, backend) = u64::deserialize_inner(backend)?;
+    let (type_name, backend) = String::deserialize_zc_inner(backend)?;
+
+    if type_hash != self_hash {
+        return Err(DeserializeError::WrongTypeHash {
+            got_type_name: self_name,
+            expected_type_name: type_name.to_string(),
+            expected: self_hash,
+            got: type_hash,
+        });
+    }
+
+    Ok(backend)
+}
+
+#[derive(Debug, Clone)]
+/// Errors that can happen during deserialization
+pub enum DeserializeError {
+    /// The file is reasonable but the endianess is wrong.
+    EndiannessError,
+    /// Some field is not properly aligned. This can be either a serialization
+    /// bug or a collision in the type hash.
+    AlignementError,
+    /// The file was serialized with a version of epserde that is not compatible
+    MajorVersionMismatch(u32),
+    /// The file was serialized with a compatible, but too new version of epserde
+    /// so we might be missing features.
+    MinorVersionMismatch(u32),
+    /// The magic number is wrong. The file is not an epserde file.
+    MagicNumberError(u64),
+    /// The type hash is wrong. Probabliy the user is trying to deserialize a
+    /// file with the wrong type.
+    WrongTypeHash {
+        got_type_name: String,
+        expected_type_name: String,
+        expected: u64,
+        got: u64,
+    },
+}
+
+impl std::error::Error for DeserializeError {}
+
+impl core::fmt::Display for DeserializeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        match self {
+            Self::EndiannessError => write!(
+                f,
+                "The current arch is {}-endian but the data is {}-endian.",
+                if cfg!(target_endian = "little") {
+                    "little"
+                } else {
+                    "big"
+                },
+                if cfg!(target_endian = "little") {
+                    "big"
+                } else {
+                    "little"
+                }
+            ),
+            Self::MagicNumberError(magic) => write!(
+                f,
+                "Wrong Magic Number Error. Got {:?} but the only two valids are {:?} and {:?}",
+                magic,
+                crate::MAGIC.to_le(),
+                crate::MAGIC.to_be(),
+            ),
+            Self::MajorVersionMismatch(found_major) => write!(
+                f,
+                "Major Version Mismatch. Expected {} but got {}",
+                VERSION.0, found_major,
+            ),
+            Self::MinorVersionMismatch(found_minor) => write!(
+                f,
+                "Minor Version Mismatch. Expected {} but got {}",
+                VERSION.1, found_minor,
+            ),
+            Self::AlignementError => write!(f, "Alignement Error"),
+            Self::WrongTypeHash {
+                got_type_name,
+                expected_type_name,
+                expected,
+                got,
+            } => {
+                write!(
+                    f,
+                    concat!(
+                        "Wrong type hash. Expected=0x{:016x}, Got=0x{:016x}.\n",
+                        "The serialized type is '{}' but the deserialized type is '{}'",
+                    ),
+                    expected, got, expected_type_name, got_type_name,
+                )
+            }
+        }
+    }
+}
+
+/// We have to know the offset from the start to compute the padding to skip
+/// and then check that the pointer is aligned to the type.
+///
+/// This is not [`std::io::Cursor`] because there is no `no_std` equivalent.
+pub struct Cursor<'a> {
+    pub data: &'a [u8],
+    pub pos: usize,
+}
+
+impl<'a> Cursor<'a> {
+    pub fn new(backend: &'a [u8]) -> Self {
+        Self {
+            data: backend,
+            pos: 0,
+        }
+    }
+
+    pub fn skip(&self, bytes: usize) -> Self {
+        Self {
+            data: &self.data[bytes..],
+            pos: self.pos + bytes,
+        }
+    }
+}

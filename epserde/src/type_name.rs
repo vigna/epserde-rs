@@ -20,10 +20,12 @@ pub trait TypeName {
     fn type_hash<H: core::hash::Hasher>(hasher: &mut H);
 
     /// Call type_name on a value
+    #[inline(always)]
     fn type_name_val(&self) -> String {
         Self::type_name()
     }
     /// Call type_hash on a value
+    #[inline(always)]
     fn type_hash_val<H: core::hash::Hasher>(&self, hasher: &mut H) {
         Self::type_hash(hasher)
     }
