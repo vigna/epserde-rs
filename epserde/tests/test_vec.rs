@@ -1,4 +1,3 @@
-#![feature(test)]
 #![cfg(test)]
 
 use epserde::*;

@@ -44,20 +44,21 @@ pub trait WriteWithPosNoStd: WriteNoStd + Sized {
     #[inline(always)]
     /// Add a complex field to the serialization, this is mostly used by the
     /// full-copy implementations
-    fn add_field<V: SerializeInner>(self, _field_name: &str, _value: &V) -> Result<Self> {
-        Ok(self)
+    fn add_field<V: SerializeInner>(self, _field_name: &str, value: &V) -> Result<Self> {
+        value._serialize_inner(self)
     }
 
     #[inline(always)]
     /// Add raw bytes to the serialization, this is mostly used by the zero-copy
     /// implementations
     fn add_field_bytes(
-        self,
+        mut self,
         _field_name: &str,
         _type_name: String,
-        _value: &[u8],
+        value: &[u8],
         _align: usize,
     ) -> Result<Self> {
+        self.write(value)?;
         Ok(self)
     }
 

@@ -1,0 +1,8 @@
+{
+    "grammarly.selectors": [
+        {
+            "language": "rust",
+            "scheme": "file"
+        }
+    ]
+}
