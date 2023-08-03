@@ -83,13 +83,20 @@ Let us design a structure that will contain a vector of integers that we want to
 use epserde::*;
 use epserde_derive::*;
 
-#[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Serialize, Deserialize, TypeName, Debug)]
 struct MyStruct<A> {
 	id: isize,
 	data: A
 }
 
+// Create a structure where A is a Vec<isize>
 let s = MyStruct::<Vec<isize>> { id: 0, data: vec![0, 1, 2, 3] };
+// Serialize it
 s.serialize(std::fs::File::create("serialized").unwrap());
-let t: MemCase<MyStruct<&[isize]>> = epserde::map::<_,MyStruct::<Vec<isize>>>("serialized", &Flags::empty()).unwrap();
+let b = std::fs::read("serialized").unwrap();
+// The type of t will be inferred--it is shown here only for clarity
+let t: MyStruct<&[isize]> = <MyStruct::<Vec<isize>>>::deserialize_eps_copy(b.as_ref()).unwrap();
+
+assert_eq!(s.id, t.id);
+assert_eq!(s.data, Vec::from(t.data));
 ```
