@@ -3,7 +3,7 @@ use crate::{CheckAlignment, IsZeroCopy};
 
 macro_rules! impl_zc_stuff{
     ($($ty:ty),*) => {$(
-        impl DeserializeZeroCopyInner for $ty {
+        impl DeserializeEpsCopyInner for $ty {
             type DeserType<'b> = $ty;
             #[inline(always)]
             fn deserialize_zc_inner<'a>(
@@ -51,7 +51,7 @@ fn deserialize_slice<'a, T>(
     Ok((data, backend.skip(bytes)))
 }
 
-impl<T: 'static + IsZeroCopy + TypeName> DeserializeZeroCopyInner for Box<[T]> {
+impl<T: 'static + IsZeroCopy + TypeName> DeserializeEpsCopyInner for Box<[T]> {
     type DeserType<'c> = &'c [T];
     #[inline(always)]
     fn deserialize_zc_inner<'a>(
@@ -61,7 +61,7 @@ impl<T: 'static + IsZeroCopy + TypeName> DeserializeZeroCopyInner for Box<[T]> {
     }
 }
 
-impl<T: 'static + IsZeroCopy + TypeName> DeserializeZeroCopyInner for Vec<T> {
+impl<T: 'static + IsZeroCopy + TypeName> DeserializeEpsCopyInner for Vec<T> {
     type DeserType<'c> = &'c [T];
     #[inline(always)]
     fn deserialize_zc_inner<'a>(
@@ -71,7 +71,7 @@ impl<T: 'static + IsZeroCopy + TypeName> DeserializeZeroCopyInner for Vec<T> {
     }
 }
 
-impl DeserializeZeroCopyInner for String {
+impl DeserializeEpsCopyInner for String {
     type DeserType<'c> = &'c str;
     #[inline(always)]
     fn deserialize_zc_inner<'a>(
@@ -85,7 +85,7 @@ impl DeserializeZeroCopyInner for String {
     }
 }
 
-impl DeserializeZeroCopyInner for Box<str> {
+impl DeserializeEpsCopyInner for Box<str> {
     type DeserType<'c> = &'c str;
     #[inline(always)]
     fn deserialize_zc_inner<'a>(

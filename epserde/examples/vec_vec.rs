@@ -66,13 +66,13 @@ where
 }
 
 /// Implement the zero-copy deserialization
-impl<T: DeserializeZeroCopyInner + IsZeroCopy + 'static> DeserializeZeroCopyInner for Vec2D<T>
+impl<T: DeserializeEpsCopyInner + IsZeroCopy + 'static> DeserializeEpsCopyInner for Vec2D<T>
 where
-    Vec<T>: DeserializeZeroCopyInner,
+    Vec<T>: DeserializeEpsCopyInner,
 {
     /// This is the return type of the zero-copy deserialization.
     /// It HAS TO match the `SerType` of the serialization.
-    type DeserType<'a> = Vec<<Vec<T> as DeserializeZeroCopyInner>::DeserType<'a>>;
+    type DeserType<'a> = Vec<<Vec<T> as DeserializeEpsCopyInner>::DeserType<'a>>;
 
     fn deserialize_zc_inner<'a>(
         backend: Cursor<'a>,

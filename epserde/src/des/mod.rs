@@ -37,12 +37,12 @@ pub trait DeserializeInner: Sized {
 
 /// User-facing trait for zero-copy deserialization.
 /// The user should implement this trait directly but rather derive it.
-pub trait DeserializeZeroCopy: DeserializeZeroCopyInner {
+pub trait DeserializeEpsCopy: DeserializeEpsCopyInner {
     fn deserialize_eps_copy<'a>(backend: &'a [u8])
         -> Result<Self::DeserType<'a>, DeserializeError>;
 }
 
-impl<T: 'static + DeserializeZeroCopyInner + TypeName> DeserializeZeroCopy for T {
+impl<T: 'static + DeserializeEpsCopyInner + TypeName> DeserializeEpsCopy for T {
     fn deserialize_eps_copy<'a>(
         backend: &'a [u8],
     ) -> Result<Self::DeserType<'a>, DeserializeError> {
@@ -60,7 +60,7 @@ impl<T: 'static + DeserializeZeroCopyInner + TypeName> DeserializeZeroCopy for T
 
 /// The inner trait to implement ZeroCopy Deserialization
 /// The user should implement this trait directly but rather derive it.
-pub trait DeserializeZeroCopyInner {
+pub trait DeserializeEpsCopyInner {
     type DeserType<'b>: TypeName;
 
     fn deserialize_zc_inner<'a>(
