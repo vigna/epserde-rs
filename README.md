@@ -44,13 +44,15 @@ These are the main limitations you should be aware of before choosing to use ε-
 - While we provide procedural macros that implement serialization and deserialization, 
 they require that your type is written and used in a specific way; in particular, 
 the fields you want to ε-copy must be type parameters implementing
-`AsRef<[T]>`, where `T` [`IsZeroCopy`], or `AsRef<str>`, and upon deserialization
-on such fields you may use only methods related to references to slices or strings, 
-as the type of such fields will be replaced by the types `&[T]` or `&str` at deserialization time.
+[`DeserializeEpsCopy`], to which a [deserialized type](`DeserializeEpsCopyInner::DeserType`) is associated.
+For example, we provide implementations for
+`AsRef<[T]>`, where `T` [`IsZeroCopy`], or `AsRef<str>`, which have deserialized type
+`&[T]` or `&str`, respectively.
 
-- After deserialization, you will obtain a structure containing references to the underlying
-serialized support (e.g., a memory-mapped region). If you need, for example, to store
-the deserialized structure of type `T` in a field of a new structure, or to pass it
+- After deserialization, you will obtain a structure in which the type parameters
+have been instantiated to their respective deserialized type, which will usually reference the underlying
+serialized support (e.g., a memory-mapped region). If you need to store
+the deserialized structure of type `T` in a field of a new structure or to pass it
 around as a function argument,
 you will need to couple permanently the deserialized structure with its serialized
 support, which is obtained by putting it in a [`MemCase`]. A [`MemCase`] will
@@ -78,7 +80,8 @@ deserialization time is stored in newly allocated memory. This is not the case w
 
 ## An Example
 
-Let us design a structure that will contain a vector of integers that we want to ε-copy:
+Let us design a structure that will contain an integer,
+which will be copied, and a vector of integers that we want to ε-copy:
 ```rust
 use epserde::*;
 use epserde_derive::*;
@@ -111,5 +114,3 @@ replacement is generated automatically). The reference points inside `b`, so the
 no need to copy the field. Nonetheless, deserialization creates a new structure `MyStruct`,
 ε-copying the original data. The second call creates a full copy instead.
 
-Passing around `s` or putting it inside a struct is problematic, as it contains references to
-`b`. To solve this problem you can 
