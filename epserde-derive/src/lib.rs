@@ -5,7 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-#![doc = include_str!("../README.md")]
+//!
+//! Derive procedural macros for the [`epserde`](https://crates.io/crates/dsi-progress-logger) crate.
+//!
 
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};

@@ -81,6 +81,7 @@ deserialization time is stored in newly allocated memory. This is not the case w
 Let us design a structure that will contain a vector of integers that we want to ε-copy:
 ```
 use epserde::*;
+use epserde_derive::*;
 
 #[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
 struct MyStruct<A> {
