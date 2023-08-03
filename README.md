@@ -46,11 +46,11 @@ they require that your type is written and used in a specific way; in particular
 the fields you want to ε-copy must be type parameters implementing
 [`DeserializeEpsCopy`], to which a [deserialized type](`DeserializeEpsCopyInner::DeserType`) is associated.
 For example, we provide implementations for
-`AsRef<[T]>`, where `T` [`IsZeroCopy`], or `AsRef<str>`, which have deserialized type
-`&[T]` or `&str`, respectively.
+`Vec<T>`/`Box<[T]>`, where `T` [is zero-copy](`IsZeroCopy`), or `String`/`Box<str>`, which have 
+associated deserialized type `&[T]` or `&str`, respectively.
 
 - After deserialization, you will obtain a structure in which the type parameters
-have been instantiated to their respective deserialized type, which will usually reference the underlying
+have been instantiated to their respective associated deserialized type, which will usually reference the underlying
 serialized support (e.g., a memory-mapped region). If you need to store
 the deserialized structure of type `T` in a field of a new structure or to pass it
 around as a function argument,
@@ -134,7 +134,7 @@ s.serialize(std::fs::File::create("serialized").unwrap()).unwrap();
 let f = Flags::empty();
 // The type of t will be inferred--it is shown here only for clarity
 let t: MemCase<MyStruct<&[isize]>> = 
-    epserde::map::<_,MyStruct<Vec<isize>>>("serialized", &f).unwrap();
+    epserde::map::<MyStruct<Vec<isize>>>("serialized", &f).unwrap();
 
 assert_eq!(s.id, t.id);
 assert_eq!(s.data, Vec::from(t.data));

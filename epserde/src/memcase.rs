@@ -97,8 +97,8 @@ use std::{io::Read, mem::MaybeUninit, path::Path, ptr::addr_of_mut};
 /// returning a [`MemCase`] containing the data structure and the
 /// memory mapping.
 #[allow(clippy::uninit_vec)]
-pub fn map<'a, P: AsRef<Path>, S: DeserializeEpsCopy>(
-    path: P,
+pub fn map<S: DeserializeEpsCopy>(
+    path: impl AsRef<Path>,
     flags: &Flags,
 ) -> Result<MemCase<<S as DeserializeEpsCopyInner>::DeserType<'_>>> {
     let file_len = path.as_ref().metadata()?.len();
@@ -137,8 +137,8 @@ pub fn map<'a, P: AsRef<Path>, S: DeserializeEpsCopy>(
 /// returning a [`MemCase`] containing the data structure and the
 /// memory. Excess bytes are zeroed out.
 #[allow(clippy::uninit_vec)]
-pub fn load<'a, P: AsRef<Path>, S: DeserializeEpsCopy>(
-    path: P,
+pub fn load<S: DeserializeEpsCopy>(
+    path: impl AsRef<Path>,
     flags: &Flags,
 ) -> Result<MemCase<<S as DeserializeEpsCopyInner>::DeserType<'_>>> {
     let file_len = path.as_ref().metadata()?.len() as usize;
