@@ -52,6 +52,7 @@ pub trait Serialize: SerializeInner + Sized {
         backend = backend.add_field("TYPE_NAME", &Self::SerType::type_name())?;
 
         backend = backend.add_field("ROOT", self)?;
+        backend.flush()?;
         Ok(backend)
     }
 }
