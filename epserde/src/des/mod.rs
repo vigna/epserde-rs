@@ -12,11 +12,11 @@ pub use des_zc_impl::*;
 /// User-facing trait for full-copy deserialization
 /// The user should implement this trait directly but rather derive it.
 pub trait Deserialize: Serialize + Sized {
-    fn deserialize(backend: &[u8]) -> Result<Self, DeserializeError>;
+    fn deserialize_full_copy(backend: &[u8]) -> Result<Self, DeserializeError>;
 }
 
 impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
-    fn deserialize(backend: &[u8]) -> Result<Self, DeserializeError> {
+    fn deserialize_full_copy(backend: &[u8]) -> Result<Self, DeserializeError> {
         let mut backend = Cursor::new(backend);
 
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();

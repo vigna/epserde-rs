@@ -24,7 +24,7 @@ fn test_vec() {
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
-    let a1 = A::deserialize(&v).unwrap();
+    let a1 = A::deserialize_full_copy(&v).unwrap();
     println!("a1: {}", a1.type_name_val());
     assert_eq!(a, a1);
 

@@ -55,7 +55,7 @@ fn main() {
     println!("{}", schema.debug(buf));
 
     // do a full-copy deserialization
-    let person1 = Person::deserialize(&v).unwrap();
+    let person1 = Person::deserialize_full_copy(&v).unwrap();
     println!("{:02x?}", person1);
 
     println!("\n");

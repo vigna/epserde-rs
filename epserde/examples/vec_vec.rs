@@ -129,7 +129,7 @@ fn main() {
     println!("{}", schema.debug(buf));
 
     // do a full-copy deserialization
-    let data1 = <Data<Vec2D<i32>>>::deserialize(&v).unwrap();
+    let data1 = <Data<Vec2D<i32>>>::deserialize_full_copy(&v).unwrap();
     println!("{:02x?}", data1);
 
     println!("\n");
