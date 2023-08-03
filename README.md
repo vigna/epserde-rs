@@ -1,6 +1,6 @@
-# epserde
+# ε-serde
 
-**ε-serde is a Rust framework for *ε*-copy *ser*ialization and *de*serialization.**
+ε-serde is a Rust framework for *ε*-copy *ser*ialization and *de*serialization.
 
 ## Why
 
@@ -68,7 +68,7 @@ you serialized (but with different type parameters).
 This is not the case with [rkiv](https://crates.io/crates/rkyv/),
 which requires you to reimplement all methods on the deserialized type.
 
-- The structure you get by deserialization has exactly the same performance of
+- The structure you get by deserialization has exactly the same performance as
 the structure you serialized. This is not the case with
 [zerovec](https://crates.io/crates/zerovec).
 
