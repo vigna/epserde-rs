@@ -60,7 +60,7 @@ fn serialize_slice<T: Serialize, F: WriteWithPosNoStd>(data: &[T], mut backend: 
     let len = data.len();
     backend = backend.add_field("len", &len)?;
     if <T>::WRITE_ALL_OPTIMIZATION {
-        // ensure alignement
+        // ensure alignment
         backend.add_padding_to_align(core::mem::align_of::<T>())?;
         let buffer = unsafe {
             core::slice::from_raw_parts(data.as_ptr() as *const u8, len * core::mem::size_of::<T>())

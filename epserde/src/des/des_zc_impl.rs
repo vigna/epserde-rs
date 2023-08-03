@@ -1,5 +1,5 @@
 use crate::des::*;
-use crate::{CheckAlignement, IsEpCopy};
+use crate::{CheckAlignment, IsEpCopy};
 
 macro_rules! impl_zc_stuff{
     ($($ty:ty),*) => {$(
@@ -44,7 +44,7 @@ fn deserialize_slice<'a, T>(
     let bytes = len * core::mem::size_of::<T>();
     // a slice can only be deserialized with zero copy
     // outerwise you need a vec, TODO!: how do we enforce this at compile time?
-    backend = <T>::check_alignement(backend)?;
+    backend = <T>::check_alignment(backend)?;
     let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<T>() };
     debug_assert!(pre.is_empty());
     debug_assert!(after.is_empty());

@@ -109,7 +109,7 @@ pub enum DeserializeError {
     EndiannessError,
     /// Some field is not properly aligned. This can be either a serialization
     /// bug or a collision in the type hash.
-    AlignementError,
+    AlignmentError,
     /// The file was serialized with a version of epserde that is not compatible
     MajorVersionMismatch(u32),
     /// The file was serialized with a compatible, but too new version of epserde
@@ -163,7 +163,7 @@ impl core::fmt::Display for DeserializeError {
                 "Minor Version Mismatch. Expected {} but got {}",
                 VERSION.1, found_minor,
             ),
-            Self::AlignementError => write!(f, "Alignement Error"),
+            Self::AlignmentError => write!(f, "Alignment Error"),
             Self::WrongTypeHash {
                 got_type_name,
                 expected_type_name,

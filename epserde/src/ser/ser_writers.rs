@@ -23,7 +23,7 @@ pub trait WriteNoStd {
 }
 
 /// Specializzation of [`WriteNoStd`] to keep track of how many bytes we have
-/// written. This is needed to guarante the correct alignement of the data to
+/// written. This is needed to guarante the correct alignment of the data to
 /// allow zero-copy deserialization.
 ///
 /// This is not meant to be used by the user and is only used internally.
@@ -91,7 +91,7 @@ pub struct SchemaRow {
     pub offset: usize,
     /// The length in bytes of the field
     pub size: usize,
-    /// The alignement needed by the field, this is mostly to check if the
+    /// The alignment needed by the field, this is mostly to check if the
     /// serialization is correct
     pub align: usize,
 }

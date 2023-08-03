@@ -51,7 +51,7 @@ pub use epcopy::*;
 
 pub(crate) mod utils;
 
-/// Compute the padding needed for alignement, i.e., the number so that
+/// Compute the padding needed for alignment, i.e., the number so that
 /// `((value + pad_align_to(value, bits) & (bits - 1) == 0`.
 ///
 /// ```
@@ -64,11 +64,11 @@ pub fn pad_align_to(value: usize, bits: usize) -> usize {
     value.wrapping_neg() & (bits - 1)
 }
 
-/// A trait to make it easier to check alignement
-pub trait CheckAlignement: Sized {
+/// A trait to make it easier to check alignment
+pub trait CheckAlignment: Sized {
     /// Inner function used to check that the given slice is aligned to
     /// deserialize the current type
-    fn check_alignement<'a>(
+    fn check_alignment<'a>(
         mut backend: des::Cursor<'a>,
     ) -> core::result::Result<des::Cursor<'a>, des::DeserializeError> {
         // skip the bytes as needed
@@ -76,10 +76,10 @@ pub trait CheckAlignement: Sized {
         backend = backend.skip(padding);
         // check that the ptr is aligned
         if backend.data.as_ptr() as usize % std::mem::align_of::<Self>() != 0 {
-            Err(des::DeserializeError::AlignementError)
+            Err(des::DeserializeError::AlignmentError)
         } else {
             Ok(backend)
         }
     }
 }
-impl<T: Sized> CheckAlignement for T {}
+impl<T: Sized> CheckAlignment for T {}

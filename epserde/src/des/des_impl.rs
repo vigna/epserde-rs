@@ -1,12 +1,12 @@
 use crate::des::*;
-use crate::CheckAlignement;
+use crate::CheckAlignment;
 
 macro_rules! impl_stuff{
     ($($ty:ty),*) => {$(
         impl DeserializeInner for $ty {
             #[inline(always)]
             fn deserialize_inner<'a>(mut backend:Cursor<'a>) -> Result<(Self,Cursor<'a>), DeserializeError> {
-                backend = <$ty>::check_alignement(backend)?;
+                backend = <$ty>::check_alignment(backend)?;
                 Ok((
                     <$ty>::from_ne_bytes(backend.data[..core::mem::size_of::<$ty>()].try_into().unwrap()),
                     backend.skip(core::mem::size_of::<$ty>()),
