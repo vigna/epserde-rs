@@ -38,11 +38,11 @@ pub trait DeserializeInner: Sized {
 /// User-facing trait for zero-copy deserialization.
 /// The user should implement this trait directly but rather derive it.
 pub trait DeserializeZeroCopy: DeserializeZeroCopyInner {
-    fn deserialize_zero_copy<'a>(backend: &'a [u8]) -> Result<Self::DesType<'a>, DeserializeError>;
+    fn deserialize_eps_copy<'a>(backend: &'a [u8]) -> Result<Self::DesType<'a>, DeserializeError>;
 }
 
 impl<T: 'static + DeserializeZeroCopyInner + TypeName> DeserializeZeroCopy for T {
-    fn deserialize_zero_copy<'a>(backend: &'a [u8]) -> Result<Self::DesType<'a>, DeserializeError> {
+    fn deserialize_eps_copy<'a>(backend: &'a [u8]) -> Result<Self::DesType<'a>, DeserializeError> {
         let mut backend = Cursor::new(backend);
 
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();

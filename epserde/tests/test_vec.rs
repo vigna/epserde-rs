@@ -28,7 +28,7 @@ fn test_vec() {
     println!("a1: {}", a1.type_name_val());
     assert_eq!(a, a1);
 
-    let a2 = <A>::deserialize_zero_copy(&v).unwrap();
+    let a2 = <A>::deserialize_eps_copy(&v).unwrap();
     println!("a2: {}", a2.type_name_val());
     assert_eq!(a, a2);
 

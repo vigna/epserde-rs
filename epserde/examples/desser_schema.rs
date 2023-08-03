@@ -61,6 +61,6 @@ fn main() {
     println!("\n");
 
     // do a zero-copy deserialization
-    let person1 = Person::deserialize_zero_copy(&v).unwrap();
+    let person1 = Person::deserialize_eps_copy(&v).unwrap();
     println!("{:x?}", person1);
 }

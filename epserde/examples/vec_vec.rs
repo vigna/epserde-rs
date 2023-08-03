@@ -135,6 +135,6 @@ fn main() {
     println!("\n");
 
     // do a zero-copy deserialization
-    let data2 = <Data<Vec2D<i32>>>::deserialize_zero_copy(&v).unwrap();
+    let data2 = <Data<Vec2D<i32>>>::deserialize_eps_copy(&v).unwrap();
     println!("{:x?}", data2);
 }
