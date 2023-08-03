@@ -88,29 +88,55 @@ use epserde_derive::*;
 
 #[derive(Serialize, Deserialize, TypeName, Debug, PartialEq)]
 struct MyStruct<A> {
-	id: isize,
-	data: A,
+    id: isize,
+    data: A,
 }
 
 // Create a structure where A is a Vec<isize>
 let s: MyStruct<Vec<isize>> = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
 // Serialize it
-s.serialize(std::fs::File::create("serialized").unwrap());
+s.serialize(std::fs::File::create("serialized").unwrap()).unwrap();
 // Load the serialized form in a buffer
 let b = std::fs::read("serialized").unwrap();
 
 // The type of t will be inferred--it is shown here only for clarity
-let t: MyStruct<&[isize]> = <MyStruct<Vec<isize>>>::deserialize_eps_copy(b.as_ref()).unwrap();
+let t: MyStruct<&[isize]> = 
+    <MyStruct<Vec<isize>>>::deserialize_eps_copy(b.as_ref()).unwrap();
 
 assert_eq!(s.id, t.id);
 assert_eq!(s.data, Vec::from(t.data));
 
 // This is a traditional deserialization instead
-let t: MyStruct<Vec<isize>> = <MyStruct::<Vec<isize>>>::deserialize_full_copy(b.as_ref()).unwrap();
+let t: MyStruct<Vec<isize>> = 
+    <MyStruct::<Vec<isize>>>::deserialize_full_copy(b.as_ref()).unwrap();
 assert_eq!(s, t);
 ```
 Note how the field originally containing a `Vec<isize>` now contains a `&[isize]` (this 
 replacement is generated automatically). The reference points inside `b`, so there is 
 no need to copy the field. Nonetheless, deserialization creates a new structure `MyStruct`,
 ε-copying the original data. The second call creates a full copy instead.
+
+If you want to memory-map the data structure, it is convenient to store the ε-copied structure
+and its support in a [`MemCase`]:
+```rust
+use epserde::*;
+use epserde_derive::*;
+
+#[derive(Serialize, Deserialize, TypeName, Debug, PartialEq)]
+struct MyStruct<A> {
+    id: isize,
+    data: A,
+}
+
+let s: MyStruct<Vec<isize>> = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
+s.serialize(std::fs::File::create("serialized").unwrap()).unwrap();
+// Load the serialized form in a buffer
+let f = Flags::empty();
+// The type of t will be inferred--it is shown here only for clarity
+let t: MemCase<MyStruct<&[isize]>> = 
+    epserde::map::<_,MyStruct<Vec<isize>>>("serialized", &f).unwrap();
+
+assert_eq!(s.id, t.id);
+assert_eq!(s.data, Vec::from(t.data));
+```
 

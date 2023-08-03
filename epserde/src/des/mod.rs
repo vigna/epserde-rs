@@ -1,6 +1,3 @@
-//!  Zero-copy deserialization is built on auto-ref specialization
-//! <https://lukaskalbertodt.github.io/2019/12/05/generalized-autoref-based-specialization.html>
-
 use crate::{Serialize, TypeName, MAGIC, MAGIC_REV, VERSION};
 use core::hash::Hasher;
 
