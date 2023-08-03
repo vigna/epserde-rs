@@ -72,11 +72,11 @@ where
 {
     /// This is the return type of the zero-copy deserialization.
     /// It HAS TO match the `SerType` of the serialization.
-    type DesType<'a> = Vec<<Vec<T> as DeserializeZeroCopyInner>::DesType<'a>>;
+    type DeserType<'a> = Vec<<Vec<T> as DeserializeZeroCopyInner>::DeserType<'a>>;
 
     fn deserialize_zc_inner<'a>(
         backend: Cursor<'a>,
-    ) -> std::result::Result<(Self::DesType<'a>, Cursor<'a>), DeserializeError> {
+    ) -> std::result::Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
         // read the len
         let (len, mut backend) = usize::deserialize_inner(backend)?;
         let mut data = Vec::with_capacity(len);

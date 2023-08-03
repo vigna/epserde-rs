@@ -5,6 +5,3 @@ members = [
     "epserde-derive",
     "epserde",
 ]
-
-[patch.crates-io]
-epserde = { path = "epserde" }

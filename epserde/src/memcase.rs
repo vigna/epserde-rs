@@ -1,6 +1,7 @@
-use core::ops::Deref;
-
+use crate::{DeserializeZeroCopy, DeserializeZeroCopyInner};
+use anyhow::Result;
 use bitflags::bitflags;
+use core::ops::Deref;
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -90,25 +91,22 @@ impl<S: Send + Sync> From<S> for MemCase<S> {
     }
 }
 
-/*
+use std::{io::Read, mem::MaybeUninit, path::Path, ptr::addr_of_mut};
 
-use std::{
-    io::{Read, Write},
-    mem::MaybeUninit,
-    path::Path,
-    ptr::addr_of_mut,
-};
-
-/// Mamory map a file and deserialize a data structure from it,
+/// Memory map a file and deserialize a data structure from it,
 /// returning a [`MemCase`] containing the data structure and the
 /// memory mapping.
 #[allow(clippy::uninit_vec)]
-pub fn map<'a, P: AsRef<Path>, S: Deserialize<'a>>(path: P, flags: &Flags) -> Result<MemCase<S>> {
+pub fn map<'a, P: AsRef<Path>, S: DeserializeZeroCopy>(
+    path: P,
+    flags: &Flags,
+) -> Result<MemCase<<S as DeserializeZeroCopyInner>::DeserType<'_>>> {
     let file_len = path.as_ref().metadata()?.len();
     let file = std::fs::File::open(path)?;
 
     Ok({
-        let mut uninit: MaybeUninit<MemCase<S>> = MaybeUninit::uninit();
+        let mut uninit: MaybeUninit<MemCase<<S as DeserializeZeroCopyInner>::DeserType<'_>>> =
+            MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
         let mmap = unsafe {
@@ -123,7 +121,7 @@ pub fn map<'a, P: AsRef<Path>, S: Deserialize<'a>>(path: P, flags: &Flags) -> Re
         }
 
         if let MemBackend::Mmap(mmap) = unsafe { &(*ptr).1 } {
-            let (s, _) = S::deserialize(mmap)?;
+            let s = S::deserialize_eps_copy(mmap)?;
             unsafe {
                 addr_of_mut!((*ptr).0).write(s);
             }
@@ -139,7 +137,10 @@ pub fn map<'a, P: AsRef<Path>, S: Deserialize<'a>>(path: P, flags: &Flags) -> Re
 /// returning a [`MemCase`] containing the data structure and the
 /// memory. Excess bytes are zeroed out.
 #[allow(clippy::uninit_vec)]
-pub fn load<'a, P: AsRef<Path>, S: Deserialize<'a>>(path: P, flags: &Flags) -> Result<MemCase<S>> {
+pub fn load<'a, P: AsRef<Path>, S: DeserializeZeroCopy>(
+    path: P,
+    flags: &Flags,
+) -> Result<MemCase<<S as DeserializeZeroCopyInner>::DeserType<'_>>> {
     let file_len = path.as_ref().metadata()?.len() as usize;
     let mut file = std::fs::File::open(path)?;
     let capacity = (file_len + 7) / 8;
@@ -149,7 +150,8 @@ pub fn load<'a, P: AsRef<Path>, S: Deserialize<'a>>(path: P, flags: &Flags) -> R
             .with_flags(flags.mmap_flags())
             .map_mut()?;
         Ok({
-            let mut uninit: MaybeUninit<MemCase<S>> = MaybeUninit::uninit();
+            let mut uninit: MaybeUninit<MemCase<<S as DeserializeZeroCopyInner>::DeserType<'_>>> =
+                MaybeUninit::uninit();
             let ptr = uninit.as_mut_ptr();
 
             file.read_exact(&mut mmap[..file_len])?;
@@ -166,7 +168,7 @@ pub fn load<'a, P: AsRef<Path>, S: Deserialize<'a>>(path: P, flags: &Flags) -> R
             }
 
             if let MemBackend::Mmap(mmap) = unsafe { &mut (*ptr).1 } {
-                let (s, _) = S::deserialize(mmap)?;
+                let s = S::deserialize_eps_copy(mmap)?;
 
                 unsafe {
                     addr_of_mut!((*ptr).0).write(s);
@@ -185,7 +187,8 @@ pub fn load<'a, P: AsRef<Path>, S: Deserialize<'a>>(path: P, flags: &Flags) -> R
             mem.set_len(capacity);
         }
         Ok({
-            let mut uninit: MaybeUninit<MemCase<S>> = MaybeUninit::uninit();
+            let mut uninit: MaybeUninit<MemCase<<S as DeserializeZeroCopyInner>::DeserType<'_>>> =
+                MaybeUninit::uninit();
             let ptr = uninit.as_mut_ptr();
 
             let bytes: &mut [u8] = bytemuck::cast_slice_mut::<u64, u8>(mem.as_mut_slice());
@@ -199,7 +202,7 @@ pub fn load<'a, P: AsRef<Path>, S: Deserialize<'a>>(path: P, flags: &Flags) -> R
             }
 
             if let MemBackend::Memory(mem) = unsafe { &mut (*ptr).1 } {
-                let (s, _) = S::deserialize(bytemuck::cast_slice::<u64, u8>(mem))?;
+                let s = S::deserialize_eps_copy(bytemuck::cast_slice::<u64, u8>(mem))?;
 
                 unsafe {
                     addr_of_mut!((*ptr).0).write(s);
@@ -211,4 +214,4 @@ pub fn load<'a, P: AsRef<Path>, S: Deserialize<'a>>(path: P, flags: &Flags) -> R
             }
         })
     }
-} */
+}

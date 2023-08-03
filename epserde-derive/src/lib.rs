@@ -233,13 +233,13 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                     )*
                 {
 
-                    type DesType<'b> = #name<#(
-                        <#generic_types as epserde::des::DeserializeZeroCopyInner>::DesType<'b>
+                    type DeserType<'b> = #name<#(
+                        <#generic_types as epserde::des::DeserializeZeroCopyInner>::DeserType<'b>
                     ,)*>;
 
                     fn deserialize_zc_inner<'epserde_lifetime>(
                         backend: epserde::des::Cursor<'epserde_lifetime>,
-                    ) -> core::result::Result<(Self::DesType<'epserde_lifetime>, epserde::des::Cursor<'epserde_lifetime>), epserde::des::DeserializeError>
+                    ) -> core::result::Result<(Self::DeserType<'epserde_lifetime>, epserde::des::Cursor<'epserde_lifetime>), epserde::des::DeserializeError>
                     {
                         use epserde::des::DeserializeZeroCopyInner;
                         use epserde::des::DeserializeInner;

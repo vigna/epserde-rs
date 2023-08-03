@@ -89,7 +89,8 @@ struct MyStruct<A> {
 	data: A
 }
 
-let s = MyStruct::<Vec<usize>> { id: 0, data: vec![0, 1, 2] };
+let s = MyStruct::<Vec<isize>> { id: 0, data: vec![0, 1, 2] };
 s.serialize(std::fs::File::create("serialized").unwrap());
+//let t: MemCase<MyStruct<&[isize]>> = epserde::map::<_,MyStruct::<Vec<isize>>>("serialized", &Flags::empty()).unwrap();
 ```
 

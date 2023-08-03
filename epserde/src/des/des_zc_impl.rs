@@ -4,11 +4,11 @@ use crate::{CheckAlignment, IsZeroCopy};
 macro_rules! impl_zc_stuff{
     ($($ty:ty),*) => {$(
         impl DeserializeZeroCopyInner for $ty {
-            type DesType<'b> = $ty;
+            type DeserType<'b> = $ty;
             #[inline(always)]
             fn deserialize_zc_inner<'a>(
                 backend: Cursor<'a>,
-            ) -> Result<(Self::DesType<'a>, Cursor<'a>), DeserializeError> {
+            ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
                 <$ty as DeserializeInner>::deserialize_inner(backend)
             }
         }
@@ -52,31 +52,31 @@ fn deserialize_slice<'a, T>(
 }
 
 impl<T: 'static + IsZeroCopy + TypeName> DeserializeZeroCopyInner for Box<[T]> {
-    type DesType<'c> = &'c [T];
+    type DeserType<'c> = &'c [T];
     #[inline(always)]
     fn deserialize_zc_inner<'a>(
         backend: Cursor<'a>,
-    ) -> Result<(Self::DesType<'a>, Cursor<'a>), DeserializeError> {
+    ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
         deserialize_slice(backend)
     }
 }
 
 impl<T: 'static + IsZeroCopy + TypeName> DeserializeZeroCopyInner for Vec<T> {
-    type DesType<'c> = &'c [T];
+    type DeserType<'c> = &'c [T];
     #[inline(always)]
     fn deserialize_zc_inner<'a>(
         backend: Cursor<'a>,
-    ) -> Result<(Self::DesType<'a>, Cursor<'a>), DeserializeError> {
+    ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
         deserialize_slice(backend)
     }
 }
 
 impl DeserializeZeroCopyInner for String {
-    type DesType<'c> = &'c str;
+    type DeserType<'c> = &'c str;
     #[inline(always)]
     fn deserialize_zc_inner<'a>(
         backend: Cursor<'a>,
-    ) -> Result<(Self::DesType<'a>, Cursor<'a>), DeserializeError> {
+    ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
         let (slice, backend) = deserialize_slice(backend)?;
         Ok((
             unsafe { core::mem::transmute::<&'a [u8], &'a str>(slice) },
@@ -86,11 +86,11 @@ impl DeserializeZeroCopyInner for String {
 }
 
 impl DeserializeZeroCopyInner for Box<str> {
-    type DesType<'c> = &'c str;
+    type DeserType<'c> = &'c str;
     #[inline(always)]
     fn deserialize_zc_inner<'a>(
         backend: Cursor<'a>,
-    ) -> Result<(Self::DesType<'a>, Cursor<'a>), DeserializeError> {
+    ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
         let (slice, backend) = deserialize_slice(backend)?;
         Ok((
             unsafe { core::mem::transmute::<&'a [u8], &'a str>(slice) },

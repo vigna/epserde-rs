@@ -135,7 +135,7 @@ impl<const N: usize, T: Serialize> SerializeInner for [T; N] {
             };
             backend = backend.add_field_bytes(
                 "data",
-                Self::DesType::type_name(),
+                Self::DeserType::type_name(),
                 &buffer,
                 core::mem::align_of::<T>(),
             )?;
