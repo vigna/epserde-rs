@@ -46,10 +46,15 @@ fn main() {
     // do a full-copy deserialization
     let person1 = Person::deserialize_full_copy(&file).unwrap();
     println!("{:02x?}", person1);
+    assert_eq!(person0, person1);
 
     println!("\n");
 
     // do a zero-copy deserialization
-    let person1 = Person::deserialize_eps_copy(&file).unwrap();
-    println!("{:x?}", person1);
+    let person2 = Person::deserialize_eps_copy(&file).unwrap();
+    println!("{:x?}", person2);
+    assert_eq!(person0.a, person2.a);
+    assert_eq!(person0.b.a, person2.b.a);
+    assert_eq!(person0.b.b, person2.b.b);
+    assert_eq!(person0.test, person2.test);
 }

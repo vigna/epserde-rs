@@ -197,6 +197,7 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
             let mut non_generic_types = vec![];
             let mut generic_fields = vec![];
             let mut generic_types = vec![];
+            let mut methods: Vec<proc_macro2::TokenStream> = vec![];
 
             s.fields.iter().for_each(|field| {
                 let ty = &field.ty;
@@ -204,9 +205,11 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                 if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
                     generic_fields.push(field_name);
                     generic_types.push(ty);
+                    methods.push(syn::parse_quote!(deserialize_zc_inner));
                 } else {
                     non_generic_fields.push(field_name);
                     non_generic_types.push(ty);
+                    methods.push(syn::parse_quote!(deserialize_inner));
                 }
             });
 
@@ -244,10 +247,7 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                         use epserde::des::DeserializeZeroCopyInner;
                         use epserde::des::DeserializeInner;
                         #(
-                            let (#generic_fields, backend) = <#generic_types>::deserialize_zc_inner(backend)?;
-                        )*
-                        #(
-                            let (#non_generic_fields, backend) = <#non_generic_types>::deserialize_inner(backend)?;
+                            let (#fields, backend) = <#fields_types>::#methods(backend)?;
                         )*
                         Ok((#name{
                             #(#fields),*
