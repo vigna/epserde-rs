@@ -46,8 +46,8 @@ pub use memsize::*;
 mod memcase;
 pub use memcase::*;
 
-mod epcopy;
-pub use epcopy::*;
+mod zerocopy;
+pub use zerocopy::*;
 
 pub(crate) mod utils;
 

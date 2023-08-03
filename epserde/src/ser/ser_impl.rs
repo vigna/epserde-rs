@@ -1,4 +1,4 @@
-use crate::{IsEpCopy, TypeName};
+use crate::{IsZeroCopy, TypeName};
 
 use super::ser::{Result, Serialize, SerializeInner, WriteWithPosNoStd};
 
@@ -80,7 +80,7 @@ fn serialize_slice<T: Serialize, F: WriteWithPosNoStd>(data: &[T], mut backend: 
     Ok(backend)
 }
 
-impl<T: Serialize + IsEpCopy + TypeName> SerializeInner for Vec<T> {
+impl<T: Serialize + IsZeroCopy + TypeName> SerializeInner for Vec<T> {
     // Vec<$ty> can, but Vec<Vec<$ty>> cannot!
     const WRITE_ALL_OPTIMIZATION: bool = false;
     type SerType<'a> = &'a [T];
@@ -90,7 +90,7 @@ impl<T: Serialize + IsEpCopy + TypeName> SerializeInner for Vec<T> {
     }
 }
 
-impl<T: Serialize + IsEpCopy + TypeName + ?Sized> SerializeInner for Box<[T]> {
+impl<T: Serialize + IsZeroCopy + TypeName + ?Sized> SerializeInner for Box<[T]> {
     // Box<[$ty]> can, but Vec<Box<[$ty]>> cannot!
     const WRITE_ALL_OPTIMIZATION: bool = false;
     type SerType<'a> = &'a [T];

@@ -24,7 +24,7 @@ impl<T> std::ops::Deref for Vec2D<T> {
 
 /// Implement the serialization. `IsEpCopy` is needed so we can safely
 /// deserialize as slice the inner pieces.
-impl<T: SerializeInner + IsEpCopy + TypeName> SerializeInner for Vec2D<T> {
+impl<T: SerializeInner + IsZeroCopy + TypeName> SerializeInner for Vec2D<T> {
     /// This type cannot be serialized just by writing its bytes
     const WRITE_ALL_OPTIMIZATION: bool = false;
     /// We will read back this as a vec of slices
@@ -66,7 +66,7 @@ where
 }
 
 /// Implement the zero-copy deserialization
-impl<T: DeserializeZeroCopyInner + IsEpCopy + 'static> DeserializeZeroCopyInner for Vec2D<T>
+impl<T: DeserializeZeroCopyInner + IsZeroCopy + 'static> DeserializeZeroCopyInner for Vec2D<T>
 where
     Vec<T>: DeserializeZeroCopyInner,
 {
