@@ -9,8 +9,8 @@ memory layout, and that it does not contain any reference.
 Here we implement `IsZeroCopy` for all the primitive types, arrays of zero-copy types and tuples
 (up to length 10) of zero-copy types.
 
-You can implement `IsZeroCopy` for your own types, but you must ensure that the type does not
-contain references and has a fixed binary representation; for structures, this requires
+You can implement `IsZeroCopy` for your own copy types, but you must ensure that the type is does not
+contain references and has a fixed memory layout; for structures, this requires
 `repr(C)`.
 
 */
