@@ -3,13 +3,13 @@
 A marker trait for data that can be zero-copy deserialized.
 
 For a slice of elements of type `T` to be ε-copy deserializable, `T` must implement `IsZeroCopy`.
-The conditions for the marker trait is that `T` is a copy type, that it has a fixed
+The conditions for this marker trait are that `T` is a copy type, that it has a fixed
 memory layout, and that it does not contain any reference.
 
-Here we implement `IsZeroCopy` for all the primitive types, arrays of zero-copy types and tuples
+Here we implement `IsZeroCopy` for all the primitive types, arrays of zero-copy types, and tuples
 (up to length 10) of zero-copy types.
 
-You can implement `IsZeroCopy` for your own copy types, but you must ensure that the type is does not
+You can implement `IsZeroCopy` for your copy types, but you must ensure that the type does not
 contain references and has a fixed memory layout; for structures, this requires
 `repr(C)`.
 
