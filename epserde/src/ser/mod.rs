@@ -18,7 +18,7 @@ pub use ser_writers::*;
 /// to separate the user-facing [`Serialize`] trait from the low-level
 /// serialization mechanism of [`SerializeInner::_serialize_inner`]. Moreover,
 /// it makes it possible to behave slighly differently at the top
-/// of the recursion tree (e.g., to write the endianess marker), and to prevent
+/// of the recursion tree (e.g., to write the endianness marker), and to prevent
 /// the user from modifying the methods in [`Serialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.

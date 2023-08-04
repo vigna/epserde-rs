@@ -1,10 +1,11 @@
 //! Deserialization traits and types
 //!
 //! [`Deserialize`] is the main deserialization trait, providing methods
-//! [`Deserialize::deserialize_eps_copy`] method that serializes the type into a
-//! generic [`WriteNoStd`] backend. The implementation of this trait
-//! is based on [`SerializeInner`], which is automatically derived
-//! with `#[derive(Serialize)]`.
+//! [`Deserialize::deserialize_eps_copy`] and [`Deserialize::deserialize_full_copy`]
+//! which implement ε-copy and full-copy deserialization, respectively,
+//! starting from a slice of bytes. The implementation of this trait
+//! is based on [`DeserializeInner`], which is automatically derived
+//! with `#[derive(Deserialize)]`.
 use crate::{Serialize, TypeName, MAGIC, MAGIC_REV, VERSION};
 use core::hash::Hasher;
 
@@ -13,8 +14,15 @@ pub use des_impl::*;
 pub mod des_zc_impl;
 pub use des_zc_impl::*;
 
-/// The inner trait to implement full-copy deserialization.
-/// The user should implement this trait directly but rather derive it.
+/// Inner trait to implement deserialization of a type. This trait exists
+/// to separate the user-facing [`Deserialize`] trait from the low-level
+/// deserialization mechanisms of [`DeserializeInner::_deserialize_inner`]
+/// and [`DeserializeInner::_deserialize_zc_inner`]. Moreover,
+/// it makes it possible to behave slighly differently at the top
+/// of the recursion tree (e.g., to check the endianness marker), and to prevent
+/// the user from modifying the methods in [`Deserialize`].
+///
+/// The user should not implement this trait directly, but rather derive it.
 pub trait DeserializeInner: TypeName + Sized {
     type DeserType<'b>: TypeName;
     fn _deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError>;
@@ -31,6 +39,9 @@ pub trait Deserialize: DeserializeInner {
         -> Result<Self::DeserType<'a>, DeserializeError>;
 }
 
+/// Main serialization trait. It is separated from [`DeserializeInner`] to
+/// avoid that the user modify its behavior, and hide internal serialization
+/// methods.
 impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
     fn deserialize_full_copy(backend: &[u8]) -> Result<Self, DeserializeError> {
         let mut backend = Cursor::new(backend);
