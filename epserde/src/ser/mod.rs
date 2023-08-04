@@ -1,3 +1,4 @@
+//! Serialization traits and types
 use crate::*;
 use core::hash::Hasher;
 

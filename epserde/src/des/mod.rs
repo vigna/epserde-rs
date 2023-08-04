@@ -1,3 +1,5 @@
+//! Deserialization traits and types
+
 use crate::{Serialize, TypeName, MAGIC, MAGIC_REV, VERSION};
 use core::hash::Hasher;
 

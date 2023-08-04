@@ -19,7 +19,7 @@ extern crate alloc;
 #[cfg(feature = "derive")]
 extern crate epserde_derive;
 
-/// Derive macro available if serde is built with `features = ["derive"]`.
+/// Derive macro available if epserde is built with `features = ["derive"]`.
 #[cfg(feature = "derive")]
 pub use epserde_derive::{Deserialize, MemSize, Serialize, TypeName};
 

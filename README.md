@@ -92,6 +92,13 @@ struct MyStruct<A> {
     data: A,
 }
 
+/// This method can be called on both the original and the ep-copied structure
+impl<A: AsRef<[isize]>> MyStruct<A> {
+	fn sum(&self) -> isize {
+		self.data.as_ref().iter().sum()
+	}
+}
+
 // Create a structure where A is a Vec<isize>
 let s: MyStruct<Vec<isize>> = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
 // Serialize it
@@ -105,6 +112,9 @@ let t: MyStruct<&[isize]> =
 
 assert_eq!(s.id, t.id);
 assert_eq!(s.data, Vec::from(t.data));
+
+// and we can call the methods on both structures
+assert_eq!(s.sum(), t.sum());
 
 // This is a traditional deserialization instead
 let t: MyStruct<Vec<isize>> = 
