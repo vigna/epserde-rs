@@ -19,10 +19,10 @@ impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
         let mut backend = Cursor::new(backend);
 
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
-        Self::SerType::type_hash(&mut hasher);
+        Self::type_hash(&mut hasher);
         let self_hash = hasher.finish();
 
-        backend = check_header(backend, self_hash, Self::SerType::type_name())?;
+        backend = check_header(backend, self_hash, Self::type_name())?;
         let (res, _) = Self::deserialize_inner(backend)?;
         Ok(res)
     }
@@ -48,10 +48,10 @@ impl<T: 'static + DeserializeEpsCopyInner + TypeName> DeserializeEpsCopy for T {
         let mut backend = Cursor::new(backend);
 
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
-        Self::DeserType::type_hash(&mut hasher);
+        Self::type_hash(&mut hasher);
         let self_hash = hasher.finish();
 
-        backend = check_header(backend, self_hash, Self::DeserType::type_name())?;
+        backend = check_header(backend, self_hash, Self::type_name())?;
         let (res, _) = Self::deserialize_zc_inner(backend)?;
         Ok(res)
     }

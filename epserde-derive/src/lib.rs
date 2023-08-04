@@ -134,14 +134,13 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
             quote! {
                 #[automatically_derived]
                 impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
-                    const WRITE_ALL_OPTIMIZATION: bool = true #(
-                        && <#fields>::WRITE_ALL_OPTIMIZATION
+                    const IS_ZERO_COPY: bool = true #(
+                        && <#fields>::IS_ZERO_COPY
                     )*;
-                    type SerType<'a> = #name<#(#generic_types::SerType<'a>),*>;
 
                     #[inline(always)]
-                    fn _serialize_inner<F: epserde::ser::WriteWithPosNoStd>(&self, mut backend: F) -> epserde::ser::Result<F> {
-                        if Self::WRITE_ALL_OPTIMIZATION {
+                    fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
+                        if Self::IS_ZERO_COPY {
                             backend.add_padding_to_align(core::mem::align_of::<Self>())?;
                         }
                         #(

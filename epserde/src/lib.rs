@@ -11,15 +11,13 @@
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 extern crate alloc;
 
-// Re-export #[derive(Serialize, Deserialize, MemSize, TypeName)].
+// Re-export epserde_derive conditional to the "derive" feature.
 //
 // The reason re-exporting is not enabled by default is that disabling it would
 // be annoying for crates that provide handwritten impls or data formats. They
 // would need to disable default features and then explicitly re-enable std.
 #[cfg(feature = "derive")]
 extern crate epserde_derive;
-
-/// Derive macro available if epserde is built with `features = ["derive"]`.
 #[cfg(feature = "derive")]
 pub use epserde_derive::{Deserialize, MemSize, Serialize, TypeName};
 
@@ -67,8 +65,8 @@ pub fn pad_align_to(value: usize, bits: usize) -> usize {
 
 /// A trait to make it easier to check alignment
 pub trait CheckAlignment: Sized {
-    /// Inner function used to check that the given slice is aligned to
-    /// deserialize the current type
+    /// Inner function used to check that the given cursor is aligned
+    /// correctly to deserialize the current type
     fn check_alignment<'a>(
         mut backend: des::Cursor<'a>,
     ) -> core::result::Result<des::Cursor<'a>, des::DeserializeError> {

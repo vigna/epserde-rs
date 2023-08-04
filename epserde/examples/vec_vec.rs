@@ -26,11 +26,10 @@ impl<T> std::ops::Deref for Vec2D<T> {
 /// deserialize as slice the inner pieces.
 impl<T: SerializeInner + IsZeroCopy + TypeName> SerializeInner for Vec2D<T> {
     /// This type cannot be serialized just by writing its bytes
-    const WRITE_ALL_OPTIMIZATION: bool = false;
+    const IS_ZERO_COPY: bool = false;
     /// We will read back this as a vec of slices
-    type SerType<'a> = Vec<&'a [T::SerType<'a>]>;
 
-    fn _serialize_inner<F: WriteWithPosNoStd>(&self, mut backend: F) -> Result<F> {
+    fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
         // write the number of sub-fields
         backend = backend.add_field("len", &self.data.len())?;
         for (i, sub_vec) in self.data.iter().enumerate() {

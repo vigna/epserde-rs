@@ -3,17 +3,14 @@ use super::*;
 /// The type of result returned by the serialization functions
 pub type Result<T> = core::result::Result<T, core::fmt::Error>;
 
-/// Base trait for stuff we can serialize on.
+/// [`std::io::Write`]-like trait for serialization that does not
+/// depend on [`std`].
 ///
-/// This can be implemented for any kind of file / socket / etc.
-/// For in memory serialization, use [`core::slice::Cursor`].
-///
-/// Saddly, the trait [`std::io::Write`] is not present in core so this is
-/// the best we can do.
-///
-/// This is not meant to be used directly by the user as we provide a blanket
+/// In an [`std`] context, the user does not need to use directly
+/// this trait as we provide a blanket
 /// implementation that implements [`WriteNoStd`] for all types that implement
-/// [`std::io::Write`].
+/// [`std::io::Write`]. In particular, in such a context you can use [`std::io::Cursor`]
+/// for in-memory serialization.
 pub trait WriteNoStd {
     /// Write some bytes and return the number of bytes written (trivial buf.len())
     fn write(&mut self, buf: &[u8]) -> Result<usize>;
@@ -22,15 +19,71 @@ pub trait WriteNoStd {
     fn flush(&mut self) -> Result<()>;
 }
 
-/// Specializzation of [`WriteNoStd`] to keep track of how many bytes we have
-/// written. This is needed to guarante the correct alignment of the data to
+#[cfg(feature = "std")]
+use std::io::Write;
+#[cfg(feature = "std")]
+impl<W: Write> WriteNoStd for W {
+    #[inline(always)]
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        Write::write(self, buf).map_err(|_| core::fmt::Error)
+    }
+    #[inline(always)]
+    fn flush(&mut self) -> Result<()> {
+        Write::flush(self).map_err(|_| core::fmt::Error)
+    }
+}
+
+/// A little wrapper around a writer that keeps track of the current position
+/// so we can align the data.
+///
+/// This is needed because the [`Write`] trait doesn't have a `seek` method and
+/// [`std::io::Seek`] would be a requirement much stronger than needed.
+pub struct WriteWithPos<F: WriteNoStd> {
+    /// What we actually write on
+    backend: F,
+    /// How many bytes we have written from the start
+    pos: usize,
+}
+
+impl<F: WriteNoStd> WriteWithPos<F> {
+    #[inline(always)]
+    /// Create a new [`WriteWithPos`] on top of a generic writer `F`
+    pub fn new(backend: F) -> Self {
+        Self { backend, pos: 0 }
+    }
+}
+
+impl<F: WriteNoStd> FieldWrite for WriteWithPos<F> {
+    #[inline(always)]
+    fn get_pos(&self) -> usize {
+        self.pos
+    }
+}
+
+impl<F: WriteNoStd> WriteNoStd for WriteWithPos<F> {
+    #[inline(always)]
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        let res = self.backend.write(buf)?;
+        self.pos += res;
+        Ok(res)
+    }
+
+    #[inline(always)]
+    fn flush(&mut self) -> Result<()> {
+        self.backend.flush()
+    }
+}
+
+/// Trait providing methods to write fields and bytes; moreover,
+/// implementors need to keep track of the current position
+/// in the [`WriteNoStd`] stream. This is needed to guarante the correct alignment of the data to
 /// allow zero-copy deserialization.
 ///
 /// This is not meant to be used by the user and is only used internally.
-/// Moreover, `add_padding_to_align, and `add_field` could be implemented with
+/// Moreover, [`FieldWrite::add_padding_to_align`], and [`FieldWrite::add_field`] could be implemented with
 /// `add_field_bytes`, but having this specialization allows us to automatically
 /// generate the schema.
-pub trait WriteWithPosNoStd: WriteNoStd + Sized {
+pub trait FieldWrite: WriteNoStd + Sized {
     #[inline(always)]
     /// Add some zero padding so that `self.get_pos() % align == 0`
     fn add_padding_to_align(&mut self, align: usize) -> Result<()> {
@@ -64,21 +117,6 @@ pub trait WriteWithPosNoStd: WriteNoStd + Sized {
 
     /// Get how many bytes we wrote from the start of the serialization
     fn get_pos(&self) -> usize;
-}
-
-#[cfg(feature = "std")]
-use std::io::Write;
-#[cfg(feature = "std")]
-/// Forward the write impl so we can natively use Files, etc.
-impl<W: Write> WriteNoStd for W {
-    #[inline(always)]
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        Write::write(self, buf).map_err(|_| core::fmt::Error)
-    }
-    #[inline(always)]
-    fn flush(&mut self) -> Result<()> {
-        Write::flush(self).map_err(|_| core::fmt::Error)
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -169,7 +207,7 @@ impl Schema {
 
 /// Internal writer that keeps track of the schema and the path of the field
 /// we are serializing
-pub struct SchemaWriter<W: WriteWithPosNoStd> {
+pub struct SchemaWriter<W: FieldWrite> {
     /// The schema so far
     pub schema: Schema,
     /// The "path" of the previous fields names
@@ -178,7 +216,7 @@ pub struct SchemaWriter<W: WriteWithPosNoStd> {
     writer: W,
 }
 
-impl<W: WriteWithPosNoStd> SchemaWriter<W> {
+impl<W: FieldWrite> SchemaWriter<W> {
     #[inline(always)]
     /// Create a new empty [`SchemaWriter`] on top of a generic writer `W`
     pub fn new(backend: W) -> Self {
@@ -190,7 +228,7 @@ impl<W: WriteWithPosNoStd> SchemaWriter<W> {
     }
 }
 
-impl<W: WriteWithPosNoStd> WriteWithPosNoStd for SchemaWriter<W> {
+impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
     #[inline(always)]
     fn add_padding_to_align(&mut self, align: usize) -> Result<()> {
         let padding = pad_align_to(self.get_pos(), align);
@@ -227,7 +265,7 @@ impl<W: WriteWithPosNoStd> WriteWithPosNoStd for SchemaWriter<W> {
         let struct_idx = self.schema.0.len();
         self.schema.0.push(SchemaRow {
             field: self.path.join("."),
-            ty: V::SerType::type_name(),
+            ty: V::type_name(),
             offset: self.get_pos(),
             align: core::mem::align_of::<V>(),
             size: 0,
@@ -269,7 +307,7 @@ impl<W: WriteWithPosNoStd> WriteWithPosNoStd for SchemaWriter<W> {
     }
 }
 
-impl<W: WriteWithPosNoStd> WriteNoStd for SchemaWriter<W> {
+impl<W: FieldWrite> WriteNoStd for SchemaWriter<W> {
     #[inline(always)]
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.writer.write(buf)
@@ -278,46 +316,5 @@ impl<W: WriteWithPosNoStd> WriteNoStd for SchemaWriter<W> {
     #[inline(always)]
     fn flush(&mut self) -> Result<()> {
         self.writer.flush()
-    }
-}
-
-/// A little wrapper around a writer that keeps track of the current position
-/// so we can align the data.
-///
-/// This is needed because the [`Write`] trait doesn't have a `seek` method and
-/// [`Seek`] would be a requirement much stronger than needed.
-pub struct WriteWithPos<F: WriteNoStd> {
-    /// What we actually write on
-    backend: F,
-    /// How many bytes we have written from the start
-    pos: usize,
-}
-
-impl<F: WriteNoStd> WriteWithPos<F> {
-    #[inline(always)]
-    /// Create a new [`WriteWithPos`] on top of a generic writer `F`
-    pub fn new(backend: F) -> Self {
-        Self { backend, pos: 0 }
-    }
-}
-
-impl<F: WriteNoStd> WriteWithPosNoStd for WriteWithPos<F> {
-    #[inline(always)]
-    fn get_pos(&self) -> usize {
-        self.pos
-    }
-}
-
-impl<F: WriteNoStd> WriteNoStd for WriteWithPos<F> {
-    #[inline(always)]
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        let res = self.backend.write(buf)?;
-        self.pos += res;
-        Ok(res)
-    }
-
-    #[inline(always)]
-    fn flush(&mut self) -> Result<()> {
-        self.backend.flush()
     }
 }
