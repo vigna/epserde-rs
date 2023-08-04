@@ -30,7 +30,7 @@ pub trait SerializeInner: TypeName + Sized {
     /// This is used to optimize the serialization of arrays, tuples, etc.
     const IS_ZERO_COPY: bool;
 
-    /// Serialize the type using the given backend.
+    /// Serialize this structure using the given backend.
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;
 }
 

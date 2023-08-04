@@ -9,15 +9,13 @@
 use crate::{Serialize, TypeName, MAGIC, MAGIC_REV, VERSION};
 use core::hash::Hasher;
 
-pub mod des_impl;
+mod des_impl;
 pub use des_impl::*;
-pub mod des_zc_impl;
-pub use des_zc_impl::*;
 
 /// Inner trait to implement deserialization of a type. This trait exists
 /// to separate the user-facing [`Deserialize`] trait from the low-level
-/// deserialization mechanisms of [`DeserializeInner::_deserialize_inner`]
-/// and [`DeserializeInner::_deserialize_zc_inner`]. Moreover,
+/// deserialization mechanisms of [`DeserializeInner::_deserialize_full_copy_inner`]
+/// and [`DeserializeInner::_deserialize_eps_copy_inner`]. Moreover,
 /// it makes it possible to behave slighly differently at the top
 /// of the recursion tree (e.g., to check the endianness marker), and to prevent
 /// the user from modifying the methods in [`Deserialize`].
@@ -25,23 +23,26 @@ pub use des_zc_impl::*;
 /// The user should not implement this trait directly, but rather derive it.
 pub trait DeserializeInner: TypeName + Sized {
     type DeserType<'b>: TypeName;
-    fn _deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError>;
-    fn _deserialize_zc_inner<'a>(
+    fn _deserialize_full_copy_inner<'a>(
+        backend: Cursor<'a>,
+    ) -> Result<(Self, Cursor<'a>), DeserializeError>;
+
+    fn _deserialize_eps_copy_inner<'a>(
         backend: Cursor<'a>,
     ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError>;
-}
-
-/// User-facing trait for full-copy deserialization
-/// The user should implement this trait directly but rather derive it.
-pub trait Deserialize: DeserializeInner {
-    fn deserialize_full_copy(backend: &[u8]) -> Result<Self, DeserializeError>;
-    fn deserialize_eps_copy<'a>(backend: &'a [u8])
-        -> Result<Self::DeserType<'a>, DeserializeError>;
 }
 
 /// Main serialization trait. It is separated from [`DeserializeInner`] to
 /// avoid that the user modify its behavior, and hide internal serialization
 /// methods.
+pub trait Deserialize: DeserializeInner {
+    /// Full-copy deserialize a structure of this type from the given backend.
+    fn deserialize_full_copy(backend: &[u8]) -> Result<Self, DeserializeError>;
+    /// ε-copy deserialize a structure of this type from the given backend.
+    fn deserialize_eps_copy<'a>(backend: &'a [u8])
+        -> Result<Self::DeserType<'a>, DeserializeError>;
+}
+
 impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
     fn deserialize_full_copy(backend: &[u8]) -> Result<Self, DeserializeError> {
         let mut backend = Cursor::new(backend);
@@ -51,7 +52,7 @@ impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
         let self_hash = hasher.finish();
 
         backend = check_header(backend, self_hash, Self::type_name())?;
-        let (res, _) = Self::_deserialize_inner(backend)?;
+        let (res, _) = Self::_deserialize_full_copy_inner(backend)?;
         Ok(res)
     }
     fn deserialize_eps_copy<'a>(
@@ -64,7 +65,7 @@ impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
         let self_hash = hasher.finish();
 
         backend = check_header(backend, self_hash, Self::type_name())?;
-        let (res, _) = Self::_deserialize_zc_inner(backend)?;
+        let (res, _) = Self::_deserialize_eps_copy_inner(backend)?;
         Ok(res)
     }
 }
@@ -75,24 +76,24 @@ fn check_header<'a>(
     self_hash: u64,
     self_name: String,
 ) -> Result<Cursor<'a>, DeserializeError> {
-    let (magic, backend) = u64::_deserialize_inner(backend)?;
+    let (magic, backend) = u64::_deserialize_full_copy_inner(backend)?;
     match magic {
         MAGIC => Ok(()),
         MAGIC_REV => Err(DeserializeError::EndiannessError),
         magic => Err(DeserializeError::MagicNumberError(magic)),
     }?;
 
-    let (major, backend) = u32::_deserialize_inner(backend)?;
+    let (major, backend) = u32::_deserialize_full_copy_inner(backend)?;
     if major != VERSION.0 {
         return Err(DeserializeError::MajorVersionMismatch(major));
     }
-    let (minor, backend) = u32::_deserialize_inner(backend)?;
+    let (minor, backend) = u32::_deserialize_full_copy_inner(backend)?;
     if minor > VERSION.1 {
         return Err(DeserializeError::MinorVersionMismatch(minor));
     };
 
-    let (type_hash, backend) = u64::_deserialize_inner(backend)?;
-    let (type_name, backend) = String::_deserialize_zc_inner(backend)?;
+    let (type_hash, backend) = u64::_deserialize_full_copy_inner(backend)?;
+    let (type_name, backend) = String::_deserialize_eps_copy_inner(backend)?;
 
     if type_hash != self_hash {
         return Err(DeserializeError::WrongTypeHash {
@@ -187,10 +188,8 @@ impl core::fmt::Display for DeserializeError {
     }
 }
 
-/// We have to know the offset from the start to compute the padding to skip
-/// and then check that the pointer is aligned to the type.
-///
-/// This is not [`std::io::Cursor`] because there is no `no_std` equivalent.
+/// [`std::io::Cursor`]-like trait for deserialization that does not
+/// depend on [`std`].
 #[derive(Debug)]
 pub struct Cursor<'a> {
     pub data: &'a [u8],

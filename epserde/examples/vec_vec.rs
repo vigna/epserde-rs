@@ -47,15 +47,15 @@ where
     Vec<T>: DeserializeInner,
 {
     #[inline(always)]
-    fn _deserialize_inner<'a>(
+    fn _deserialize_full_copy_inner<'a>(
         backend: Cursor<'a>,
     ) -> core::result::Result<(Self, Cursor<'a>), DeserializeError> {
         // read the len
-        let (len, mut backend) = usize::_deserialize_inner(backend)?;
+        let (len, mut backend) = usize::_deserialize_full_copy_inner(backend)?;
         let mut data = Vec::with_capacity(len);
         // deserialize every subvector
         for _ in 0..len {
-            let (sub_vec, tmp) = <Vec<T>>::_deserialize_inner(backend)?;
+            let (sub_vec, tmp) = <Vec<T>>::_deserialize_full_copy_inner(backend)?;
             backend = tmp;
             data.push(sub_vec);
         }
@@ -66,15 +66,15 @@ where
     /// It HAS TO match the `SerType` of the serialization.
     type DeserType<'a> = Vec<<Vec<T> as DeserializeInner>::DeserType<'a>>;
 
-    fn _deserialize_zc_inner<'a>(
+    fn _deserialize_eps_copy_inner<'a>(
         backend: Cursor<'a>,
     ) -> std::result::Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
         // read the len
-        let (len, mut backend) = usize::_deserialize_inner(backend)?;
+        let (len, mut backend) = usize::_deserialize_full_copy_inner(backend)?;
         let mut data = Vec::with_capacity(len);
         // deserialize every subvector but using zero-copy!
         for _ in 0..len {
-            let (sub_vec, tmp) = <Vec<T>>::_deserialize_zc_inner(backend)?;
+            let (sub_vec, tmp) = <Vec<T>>::_deserialize_eps_copy_inner(backend)?;
             backend = tmp;
             data.push(sub_vec);
         }
