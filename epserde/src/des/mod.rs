@@ -189,6 +189,7 @@ impl core::fmt::Display for DeserializeError {
 /// and then check that the pointer is aligned to the type.
 ///
 /// This is not [`std::io::Cursor`] because there is no `no_std` equivalent.
+#[derive(Debug)]
 pub struct Cursor<'a> {
     pub data: &'a [u8],
     pub pos: usize,

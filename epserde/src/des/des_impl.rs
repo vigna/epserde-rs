@@ -53,3 +53,25 @@ impl<T: DeserializeInner> DeserializeInner for Vec<T> {
         Ok((res, backend))
     }
 }
+
+impl<T: DeserializeInner> DeserializeInner for Box<[T]> {
+    fn deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError> {
+        <Vec<T>>::deserialize_inner(backend).map(|(d, a)| (d.into_boxed_slice(), a))
+    }
+}
+
+impl DeserializeInner for String {
+    fn deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError> {
+        let (len, mut backend) = usize::deserialize_inner(backend)?;
+        let data = &backend.data[..len];
+        backend.data = &backend.data[len..];
+        let res = String::from_utf8(data.to_vec()).unwrap();
+        Ok((res, backend))
+    }
+}
+
+impl DeserializeInner for Box<str> {
+    fn deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError> {
+        String::deserialize_inner(backend).map(|(d, a)| (d.into_boxed_str(), a))
+    }
+}

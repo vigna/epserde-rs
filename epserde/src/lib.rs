@@ -59,6 +59,7 @@ pub(crate) mod utils;
 /// assert_eq!(7 + pad_align_to(7, 8), 8);
 /// assert_eq!(8 + pad_align_to(8, 8), 8);
 /// assert_eq!(9 + pad_align_to(9, 8), 16);
+/// assert_eq!(36 + pad_align_to(36, 16), 48);
 /// ```
 pub fn pad_align_to(value: usize, bits: usize) -> usize {
     value.wrapping_neg() & (bits - 1)
@@ -72,7 +73,7 @@ pub trait CheckAlignment: Sized {
         mut backend: des::Cursor<'a>,
     ) -> core::result::Result<des::Cursor<'a>, des::DeserializeError> {
         // skip the bytes as needed
-        let padding = pad_align_to(backend.pos, core::mem::size_of::<Self>());
+        let padding = pad_align_to(backend.pos, core::mem::align_of::<Self>());
         backend = backend.skip(padding);
         // check that the ptr is aligned
         if backend.data.as_ptr() as usize % std::mem::align_of::<Self>() != 0 {
