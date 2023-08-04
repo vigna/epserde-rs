@@ -160,24 +160,17 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
 pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let CommonDeriveInput {
-        generics: generics_fc,
-        generics_names: generics_names_fc,
-        where_clause: where_clause_fc,
+        name,
+        generics_names_raw,
+        generics,
+        generics_names,
+        where_clause,
         ..
     } = CommonDeriveInput::new(
         input.clone(),
         vec![syn::parse_quote!(epserde::des::DeserializeInner)],
         vec![],
     );
-    let CommonDeriveInput {
-        name,
-        generics: generics_zc,
-        generics_names: generics_names_zc,
-        generics_names_raw,
-        where_clause: where_clause_zc,
-        ..
-    } = CommonDeriveInput::new(input.clone(), vec![], vec![syn::parse_quote!('static)]);
-
     let out = match input.data {
         Data::Struct(s) => {
             let fields = s
@@ -192,29 +185,25 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                 .map(|field| field.ty.to_owned())
                 .collect::<Vec<_>>();
 
-            let mut non_generic_fields = vec![];
-            let mut non_generic_types = vec![];
-            let mut generic_fields = vec![];
             let mut generic_types = vec![];
             let mut methods: Vec<proc_macro2::TokenStream> = vec![];
 
             s.fields.iter().for_each(|field| {
                 let ty = &field.ty;
-                let field_name = field.ident.clone().unwrap();
                 if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
-                    generic_fields.push(field_name);
                     generic_types.push(ty);
                     methods.push(syn::parse_quote!(_deserialize_zc_inner));
                 } else {
-                    non_generic_fields.push(field_name);
-                    non_generic_types.push(ty);
                     methods.push(syn::parse_quote!(_deserialize_inner));
                 }
             });
 
             quote! {
                 #[automatically_derived]
-                impl<#generics_fc> epserde::des::DeserializeInner for #name<#generics_names_fc> #where_clause_fc{
+                impl<#generics> epserde::des::DeserializeInner for #name<#generics_names> #where_clause
+                #(
+                    #generic_types: epserde::des::DeserializeInner,
+                )*{
                     fn _deserialize_inner<'epserde_lifetime>(
                         backend: epserde::des::Cursor<'epserde_lifetime>,
                     ) -> core::result::Result<(Self, epserde::des::Cursor<'epserde_lifetime>), epserde::des::DeserializeError> {
@@ -226,14 +215,6 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                             #(#fields),*
                         }, backend))
                     }
-                }
-
-                #[automatically_derived]
-                impl<#generics_zc> epserde::des::DeserializeInner for #name<#generics_names_zc> #where_clause_zc
-                    #(
-                        #generic_types: epserde::des::DeserializeInner,
-                    )*
-                {
 
                     type DeserType<'b> = #name<#(
                         <#generic_types as epserde::des::DeserializeInner>::DeserType<'b>
@@ -252,7 +233,6 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                         }, backend))
                     }
                 }
-
             }
         }
         _ => todo!(),
