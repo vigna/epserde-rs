@@ -204,23 +204,23 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                 if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
                     generic_fields.push(field_name);
                     generic_types.push(ty);
-                    methods.push(syn::parse_quote!(deserialize_zc_inner));
+                    methods.push(syn::parse_quote!(_deserialize_zc_inner));
                 } else {
                     non_generic_fields.push(field_name);
                     non_generic_types.push(ty);
-                    methods.push(syn::parse_quote!(deserialize_inner));
+                    methods.push(syn::parse_quote!(_deserialize_inner));
                 }
             });
 
             quote! {
                 #[automatically_derived]
                 impl<#generics_fc> epserde::des::DeserializeInner for #name<#generics_names_fc> #where_clause_fc{
-                    fn deserialize_inner<'epserde_lifetime>(
+                    fn _deserialize_inner<'epserde_lifetime>(
                         backend: epserde::des::Cursor<'epserde_lifetime>,
                     ) -> core::result::Result<(Self, epserde::des::Cursor<'epserde_lifetime>), epserde::des::DeserializeError> {
                         use epserde::des::DeserializeInner;
                         #(
-                            let (#fields, backend) = <#fields_types>::deserialize_inner(backend)?;
+                            let (#fields, backend) = <#fields_types>::_deserialize_inner(backend)?;
                         )*
                         Ok((#name{
                             #(#fields),*
@@ -239,7 +239,7 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                         <#generic_types as epserde::des::DeserializeEpsCopyInner>::DeserType<'b>
                     ,)*>;
 
-                    fn deserialize_zc_inner<'epserde_lifetime>(
+                    fn _deserialize_zc_inner<'epserde_lifetime>(
                         backend: epserde::des::Cursor<'epserde_lifetime>,
                     ) -> core::result::Result<(Self::DeserType<'epserde_lifetime>, epserde::des::Cursor<'epserde_lifetime>), epserde::des::DeserializeError>
                     {

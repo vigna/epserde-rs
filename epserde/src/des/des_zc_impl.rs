@@ -6,10 +6,10 @@ macro_rules! impl_zc_stuff{
         impl DeserializeEpsCopyInner for $ty {
             type DeserType<'b> = $ty;
             #[inline(always)]
-            fn deserialize_zc_inner<'a>(
+            fn _deserialize_zc_inner<'a>(
                 backend: Cursor<'a>,
             ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
-                <$ty as DeserializeInner>::deserialize_inner(backend)
+                <$ty as DeserializeInner>::_deserialize_inner(backend)
             }
         }
     )*
@@ -40,7 +40,7 @@ impl_zc_stuff!(
 fn deserialize_slice<'a, T>(
     backend: Cursor<'a>,
 ) -> Result<(&'a [T], Cursor<'a>), DeserializeError> {
-    let (len, mut backend) = usize::deserialize_inner(backend)?;
+    let (len, mut backend) = usize::_deserialize_inner(backend)?;
     let bytes = len * core::mem::size_of::<T>();
     // a slice can only be deserialized with zero copy
     // outerwise you need a vec, TODO!: how do we enforce this at compile time?
@@ -54,7 +54,7 @@ fn deserialize_slice<'a, T>(
 impl<T: 'static + IsZeroCopy + TypeName> DeserializeEpsCopyInner for Box<[T]> {
     type DeserType<'c> = &'c [T];
     #[inline(always)]
-    fn deserialize_zc_inner<'a>(
+    fn _deserialize_zc_inner<'a>(
         backend: Cursor<'a>,
     ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
         deserialize_slice(backend)
@@ -64,7 +64,7 @@ impl<T: 'static + IsZeroCopy + TypeName> DeserializeEpsCopyInner for Box<[T]> {
 impl<T: 'static + IsZeroCopy + TypeName> DeserializeEpsCopyInner for Vec<T> {
     type DeserType<'c> = &'c [T];
     #[inline(always)]
-    fn deserialize_zc_inner<'a>(
+    fn _deserialize_zc_inner<'a>(
         backend: Cursor<'a>,
     ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
         deserialize_slice(backend)
@@ -74,7 +74,7 @@ impl<T: 'static + IsZeroCopy + TypeName> DeserializeEpsCopyInner for Vec<T> {
 impl DeserializeEpsCopyInner for String {
     type DeserType<'c> = &'c str;
     #[inline(always)]
-    fn deserialize_zc_inner<'a>(
+    fn _deserialize_zc_inner<'a>(
         backend: Cursor<'a>,
     ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
         let (slice, backend) = deserialize_slice(backend)?;
@@ -88,7 +88,7 @@ impl DeserializeEpsCopyInner for String {
 impl DeserializeEpsCopyInner for Box<str> {
     type DeserType<'c> = &'c str;
     #[inline(always)]
-    fn deserialize_zc_inner<'a>(
+    fn _deserialize_zc_inner<'a>(
         backend: Cursor<'a>,
     ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
         let (slice, backend) = deserialize_slice(backend)?;

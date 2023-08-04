@@ -50,10 +50,7 @@ impl SerializeInner for char {
 
 /// this is a private function so we have a consistent implementation
 /// and slice can't be generally serialized
-fn serialize_slice<T: Serialize + TypeName, F: FieldWrite>(
-    data: &[T],
-    mut backend: F,
-) -> Result<F> {
+fn serialize_slice<T: Serialize, F: FieldWrite>(data: &[T], mut backend: F) -> Result<F> {
     let data = data.as_ref();
     let len = data.len();
     backend = backend.add_field("len", &len)?;

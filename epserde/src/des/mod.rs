@@ -1,5 +1,10 @@
 //! Deserialization traits and types
-
+//!
+//! [`Deserialize`] is the main deserialization trait, providing methods
+//! [`Deserialize::deserialize_eps_copy`] method that serializes the type into a
+//! generic [`WriteNoStd`] backend. The implementation of this trait
+//! is based on [`SerializeInner`], which is automatically derived
+//! with `#[derive(Serialize)]`.
 use crate::{Serialize, TypeName, MAGIC, MAGIC_REV, VERSION};
 use core::hash::Hasher;
 
@@ -10,7 +15,7 @@ pub use des_zc_impl::*;
 
 /// User-facing trait for full-copy deserialization
 /// The user should implement this trait directly but rather derive it.
-pub trait Deserialize: Serialize + Sized {
+pub trait Deserialize: Sized {
     fn deserialize_full_copy(backend: &[u8]) -> Result<Self, DeserializeError>;
 }
 
@@ -23,7 +28,7 @@ impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
         let self_hash = hasher.finish();
 
         backend = check_header(backend, self_hash, Self::type_name())?;
-        let (res, _) = Self::deserialize_inner(backend)?;
+        let (res, _) = Self::_deserialize_inner(backend)?;
         Ok(res)
     }
 }
@@ -31,7 +36,7 @@ impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
 /// The inner trait to implement full-copy deserialization.
 /// The user should implement this trait directly but rather derive it.
 pub trait DeserializeInner: Sized {
-    fn deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError>;
+    fn _deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError>;
 }
 
 /// User-facing trait for zero-copy deserialization.
@@ -52,7 +57,7 @@ impl<T: 'static + DeserializeEpsCopyInner + TypeName> DeserializeEpsCopy for T {
         let self_hash = hasher.finish();
 
         backend = check_header(backend, self_hash, Self::type_name())?;
-        let (res, _) = Self::deserialize_zc_inner(backend)?;
+        let (res, _) = Self::_deserialize_zc_inner(backend)?;
         Ok(res)
     }
 }
@@ -62,7 +67,7 @@ impl<T: 'static + DeserializeEpsCopyInner + TypeName> DeserializeEpsCopy for T {
 pub trait DeserializeEpsCopyInner {
     type DeserType<'b>: TypeName;
 
-    fn deserialize_zc_inner<'a>(
+    fn _deserialize_zc_inner<'a>(
         backend: Cursor<'a>,
     ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError>;
 }
@@ -73,24 +78,24 @@ fn check_header<'a>(
     self_hash: u64,
     self_name: String,
 ) -> Result<Cursor<'a>, DeserializeError> {
-    let (magic, backend) = u64::deserialize_inner(backend)?;
+    let (magic, backend) = u64::_deserialize_inner(backend)?;
     match magic {
         MAGIC => Ok(()),
         MAGIC_REV => Err(DeserializeError::EndiannessError),
         magic => Err(DeserializeError::MagicNumberError(magic)),
     }?;
 
-    let (major, backend) = u32::deserialize_inner(backend)?;
+    let (major, backend) = u32::_deserialize_inner(backend)?;
     if major != VERSION.0 {
         return Err(DeserializeError::MajorVersionMismatch(major));
     }
-    let (minor, backend) = u32::deserialize_inner(backend)?;
+    let (minor, backend) = u32::_deserialize_inner(backend)?;
     if minor > VERSION.1 {
         return Err(DeserializeError::MinorVersionMismatch(minor));
     };
 
-    let (type_hash, backend) = u64::deserialize_inner(backend)?;
-    let (type_name, backend) = String::deserialize_zc_inner(backend)?;
+    let (type_hash, backend) = u64::_deserialize_inner(backend)?;
+    let (type_name, backend) = String::_deserialize_zc_inner(backend)?;
 
     if type_hash != self_hash {
         return Err(DeserializeError::WrongTypeHash {
