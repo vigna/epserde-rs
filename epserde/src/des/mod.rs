@@ -13,10 +13,22 @@ pub use des_impl::*;
 pub mod des_zc_impl;
 pub use des_zc_impl::*;
 
+/// The inner trait to implement full-copy deserialization.
+/// The user should implement this trait directly but rather derive it.
+pub trait DeserializeInner: TypeName + Sized {
+    type DeserType<'b>: TypeName;
+    fn _deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError>;
+    fn _deserialize_zc_inner<'a>(
+        backend: Cursor<'a>,
+    ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError>;
+}
+
 /// User-facing trait for full-copy deserialization
 /// The user should implement this trait directly but rather derive it.
-pub trait Deserialize: Sized {
+pub trait Deserialize: DeserializeInner {
     fn deserialize_full_copy(backend: &[u8]) -> Result<Self, DeserializeError>;
+    fn deserialize_eps_copy<'a>(backend: &'a [u8])
+        -> Result<Self::DeserType<'a>, DeserializeError>;
 }
 
 impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
@@ -31,22 +43,6 @@ impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
         let (res, _) = Self::_deserialize_inner(backend)?;
         Ok(res)
     }
-}
-
-/// The inner trait to implement full-copy deserialization.
-/// The user should implement this trait directly but rather derive it.
-pub trait DeserializeInner: Sized {
-    fn _deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError>;
-}
-
-/// User-facing trait for zero-copy deserialization.
-/// The user should implement this trait directly but rather derive it.
-pub trait DeserializeEpsCopy: DeserializeEpsCopyInner {
-    fn deserialize_eps_copy<'a>(backend: &'a [u8])
-        -> Result<Self::DeserType<'a>, DeserializeError>;
-}
-
-impl<T: 'static + DeserializeEpsCopyInner + TypeName> DeserializeEpsCopy for T {
     fn deserialize_eps_copy<'a>(
         backend: &'a [u8],
     ) -> Result<Self::DeserType<'a>, DeserializeError> {
@@ -60,16 +56,6 @@ impl<T: 'static + DeserializeEpsCopyInner + TypeName> DeserializeEpsCopy for T {
         let (res, _) = Self::_deserialize_zc_inner(backend)?;
         Ok(res)
     }
-}
-
-/// The inner trait to implement ZeroCopy Deserialization
-/// The user should implement this trait directly but rather derive it.
-pub trait DeserializeEpsCopyInner {
-    type DeserType<'b>: TypeName;
-
-    fn _deserialize_zc_inner<'a>(
-        backend: Cursor<'a>,
-    ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError>;
 }
 
 /// Common code for both full-copy and zero-copy deserialization

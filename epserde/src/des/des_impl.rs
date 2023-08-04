@@ -12,6 +12,13 @@ macro_rules! impl_stuff{
                     backend.skip(core::mem::size_of::<$ty>()),
                 ))
             }
+            type DeserType<'b> = $ty;
+            #[inline(always)]
+            fn _deserialize_zc_inner<'a>(
+                backend: Cursor<'a>,
+            ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
+                <$ty as DeserializeInner>::_deserialize_inner(backend)
+            }
         }
     )*};
 }
@@ -23,12 +30,24 @@ impl DeserializeInner for () {
     fn _deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError> {
         Ok(((), backend))
     }
+    type DeserType<'a> = Self;
+    fn _deserialize_zc_inner<'a>(
+        backend: Cursor<'a>,
+    ) -> Result<(Self, Cursor<'a>), DeserializeError> {
+        Self::_deserialize_inner(backend)
+    }
 }
 
 impl DeserializeInner for bool {
     #[inline(always)]
     fn _deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError> {
         Ok((backend.data[0] != 0, backend.skip(1)))
+    }
+    type DeserType<'a> = Self;
+    fn _deserialize_zc_inner<'a>(
+        backend: Cursor<'a>,
+    ) -> Result<(Self, Cursor<'a>), DeserializeError> {
+        Self::_deserialize_inner(backend)
     }
 }
 
@@ -37,11 +56,32 @@ impl DeserializeInner for char {
     fn _deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError> {
         u32::_deserialize_inner(backend).map(|(x, y)| (char::from_u32(x).unwrap(), y))
     }
+    type DeserType<'a> = Self;
+    fn _deserialize_zc_inner<'a>(
+        backend: Cursor<'a>,
+    ) -> Result<(Self, Cursor<'a>), DeserializeError> {
+        Self::_deserialize_inner(backend)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-impl<T: DeserializeInner> DeserializeInner for Vec<T> {
+#[inline]
+fn deserialize_slice<'a, T>(
+    backend: Cursor<'a>,
+) -> Result<(&'a [T], Cursor<'a>), DeserializeError> {
+    let (len, mut backend) = usize::_deserialize_inner(backend)?;
+    let bytes = len * core::mem::size_of::<T>();
+    // a slice can only be deserialized with zero copy
+    // outerwise you need a vec, TODO!: how do we enforce this at compile time?
+    backend = <T>::check_alignment(backend)?;
+    let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<T>() };
+    debug_assert!(pre.is_empty());
+    debug_assert!(after.is_empty());
+    Ok((data, backend.skip(bytes)))
+}
+
+impl<T: DeserializeInner + 'static> DeserializeInner for Vec<T> {
     fn _deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError> {
         let (len, mut backend) = usize::_deserialize_inner(backend)?;
         let mut res = Vec::with_capacity(len);
@@ -52,26 +92,62 @@ impl<T: DeserializeInner> DeserializeInner for Vec<T> {
         }
         Ok((res, backend))
     }
+    type DeserType<'c> = &'c [T];
+    #[inline(always)]
+    fn _deserialize_zc_inner<'a>(
+        backend: Cursor<'a>,
+    ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
+        deserialize_slice(backend)
+    }
 }
 
-impl<T: DeserializeInner> DeserializeInner for Box<[T]> {
-    fn deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError> {
-        <Vec<T>>::deserialize_inner(backend).map(|(d, a)| (d.into_boxed_slice(), a))
+impl<T: DeserializeInner + 'static> DeserializeInner for Box<[T]> {
+    fn _deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError> {
+        <Vec<T>>::_deserialize_inner(backend).map(|(d, a)| (d.into_boxed_slice(), a))
+    }
+    type DeserType<'c> = &'c [T];
+    #[inline(always)]
+    fn _deserialize_zc_inner<'a>(
+        backend: Cursor<'a>,
+    ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
+        deserialize_slice(backend)
     }
 }
 
 impl DeserializeInner for String {
-    fn deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError> {
-        let (len, mut backend) = usize::deserialize_inner(backend)?;
+    fn _deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError> {
+        let (len, mut backend) = usize::_deserialize_inner(backend)?;
         let data = &backend.data[..len];
         backend.data = &backend.data[len..];
         let res = String::from_utf8(data.to_vec()).unwrap();
         Ok((res, backend))
     }
+    type DeserType<'c> = &'c str;
+    #[inline(always)]
+    fn _deserialize_zc_inner<'a>(
+        backend: Cursor<'a>,
+    ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
+        let (slice, backend) = deserialize_slice(backend)?;
+        Ok((
+            unsafe { core::mem::transmute::<&'a [u8], &'a str>(slice) },
+            backend,
+        ))
+    }
 }
 
 impl DeserializeInner for Box<str> {
-    fn deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError> {
-        String::deserialize_inner(backend).map(|(d, a)| (d.into_boxed_str(), a))
+    fn _deserialize_inner<'a>(backend: Cursor<'a>) -> Result<(Self, Cursor<'a>), DeserializeError> {
+        String::_deserialize_inner(backend).map(|(d, a)| (d.into_boxed_str(), a))
+    }
+    type DeserType<'c> = &'c str;
+    #[inline(always)]
+    fn _deserialize_zc_inner<'a>(
+        backend: Cursor<'a>,
+    ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
+        let (slice, backend) = deserialize_slice(backend)?;
+        Ok((
+            unsafe { core::mem::transmute::<&'a [u8], &'a str>(slice) },
+            backend,
+        ))
     }
 }

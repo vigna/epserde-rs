@@ -229,21 +229,20 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                 }
 
                 #[automatically_derived]
-                impl<#generics_zc> epserde::des::DeserializeEpsCopyInner for #name<#generics_names_zc> #where_clause_zc
+                impl<#generics_zc> epserde::des::DeserializeInner for #name<#generics_names_zc> #where_clause_zc
                     #(
-                        #generic_types: epserde::des::DeserializeEpsCopyInner,
+                        #generic_types: epserde::des::DeserializeInner,
                     )*
                 {
 
                     type DeserType<'b> = #name<#(
-                        <#generic_types as epserde::des::DeserializeEpsCopyInner>::DeserType<'b>
+                        <#generic_types as epserde::des::DeserializeInner>::DeserType<'b>
                     ,)*>;
 
                     fn _deserialize_zc_inner<'epserde_lifetime>(
                         backend: epserde::des::Cursor<'epserde_lifetime>,
                     ) -> core::result::Result<(Self::DeserType<'epserde_lifetime>, epserde::des::Cursor<'epserde_lifetime>), epserde::des::DeserializeError>
                     {
-                        use epserde::des::DeserializeEpsCopyInner;
                         use epserde::des::DeserializeInner;
                         #(
                             let (#fields, backend) = <#fields_types>::#methods(backend)?;

@@ -1,4 +1,4 @@
-use crate::{DeserializeEpsCopy, DeserializeEpsCopyInner};
+use crate::{Deserialize, DeserializeInner};
 use anyhow::Result;
 use bitflags::bitflags;
 use core::ops::Deref;
@@ -97,15 +97,15 @@ use std::{io::Read, mem::MaybeUninit, path::Path, ptr::addr_of_mut};
 /// returning a [`MemCase`] containing the data structure and the
 /// memory mapping.
 #[allow(clippy::uninit_vec)]
-pub fn map<S: DeserializeEpsCopy>(
+pub fn map<S: Deserialize>(
     path: impl AsRef<Path>,
     flags: &Flags,
-) -> Result<MemCase<<S as DeserializeEpsCopyInner>::DeserType<'_>>> {
+) -> Result<MemCase<<S as DeserializeInner>::DeserType<'_>>> {
     let file_len = path.as_ref().metadata()?.len();
     let file = std::fs::File::open(path)?;
 
     Ok({
-        let mut uninit: MaybeUninit<MemCase<<S as DeserializeEpsCopyInner>::DeserType<'_>>> =
+        let mut uninit: MaybeUninit<MemCase<<S as DeserializeInner>::DeserType<'_>>> =
             MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
@@ -137,10 +137,10 @@ pub fn map<S: DeserializeEpsCopy>(
 /// returning a [`MemCase`] containing the data structure and the
 /// memory. Excess bytes are zeroed out.
 #[allow(clippy::uninit_vec)]
-pub fn load<S: DeserializeEpsCopy>(
+pub fn load<S: Deserialize>(
     path: impl AsRef<Path>,
     flags: &Flags,
-) -> Result<MemCase<<S as DeserializeEpsCopyInner>::DeserType<'_>>> {
+) -> Result<MemCase<<S as DeserializeInner>::DeserType<'_>>> {
     let file_len = path.as_ref().metadata()?.len() as usize;
     let mut file = std::fs::File::open(path)?;
     let capacity = (file_len + 7) / 8;
@@ -150,7 +150,7 @@ pub fn load<S: DeserializeEpsCopy>(
             .with_flags(flags.mmap_flags())
             .map_mut()?;
         Ok({
-            let mut uninit: MaybeUninit<MemCase<<S as DeserializeEpsCopyInner>::DeserType<'_>>> =
+            let mut uninit: MaybeUninit<MemCase<<S as DeserializeInner>::DeserType<'_>>> =
                 MaybeUninit::uninit();
             let ptr = uninit.as_mut_ptr();
 
@@ -187,7 +187,7 @@ pub fn load<S: DeserializeEpsCopy>(
             mem.set_len(capacity);
         }
         Ok({
-            let mut uninit: MaybeUninit<MemCase<<S as DeserializeEpsCopyInner>::DeserType<'_>>> =
+            let mut uninit: MaybeUninit<MemCase<<S as DeserializeInner>::DeserType<'_>>> =
                 MaybeUninit::uninit();
             let ptr = uninit.as_mut_ptr();
 
