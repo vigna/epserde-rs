@@ -22,7 +22,7 @@ impl<T> std::ops::Deref for Vec2D<T> {
     }
 }
 
-/// Implement the serialization. `IsEpCopy` is needed so we can safely
+/// Implement the serialization. [`IsZeroCopy`] is needed so we can safely
 /// deserialize as slice the inner pieces.
 impl<T: SerializeInner + IsZeroCopy + TypeName> SerializeInner for Vec2D<T> {
     /// This type cannot be serialized just by writing its bytes
@@ -41,15 +41,15 @@ impl<T: SerializeInner + IsZeroCopy + TypeName> SerializeInner for Vec2D<T> {
     }
 }
 
-/// Implement the full and zero copy deserialization
+/// Implement the full and ε-copy deserialization
 impl<T: TypeName> DeserializeInner for Vec2D<T>
 where
     Vec<T>: DeserializeInner,
 {
     #[inline(always)]
-    fn _deserialize_full_copy_inner<'a>(
-        backend: Cursor<'a>,
-    ) -> core::result::Result<(Self, Cursor<'a>), DeserializeError> {
+    fn _deserialize_full_copy_inner(
+        backend: Cursor,
+    ) -> core::result::Result<(Self, Cursor), DeserializeError> {
         // read the len
         let (len, mut backend) = usize::_deserialize_full_copy_inner(backend)?;
         let mut data = Vec::with_capacity(len);
@@ -62,17 +62,16 @@ where
 
         Ok((Vec2D { data }, backend))
     }
-    /// This is the return type of the zero-copy deserialization.
-    /// It HAS TO match the `SerType` of the serialization.
+    /// This is the return type of the ε-copy deserialization.
     type DeserType<'a> = Vec<<Vec<T> as DeserializeInner>::DeserType<'a>>;
 
-    fn _deserialize_eps_copy_inner<'a>(
-        backend: Cursor<'a>,
-    ) -> std::result::Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError> {
+    fn _deserialize_eps_copy_inner(
+        backend: Cursor,
+    ) -> std::result::Result<(Self::DeserType<'_>, Cursor), DeserializeError> {
         // read the len
         let (len, mut backend) = usize::_deserialize_full_copy_inner(backend)?;
         let mut data = Vec::with_capacity(len);
-        // deserialize every subvector but using zero-copy!
+        // deserialize every subvector but using ε-copy!
         for _ in 0..len {
             let (sub_vec, tmp) = <Vec<T>>::_deserialize_eps_copy_inner(backend)?;
             backend = tmp;

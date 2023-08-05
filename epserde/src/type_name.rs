@@ -33,7 +33,7 @@ pub trait TypeName {
 
 // Blanket impls
 
-impl<'a, T: TypeName + ?Sized> TypeName for &'a T {
+impl<T: TypeName + ?Sized> TypeName for &'_ T {
     #[inline(always)]
     fn type_name() -> String {
         format!("&{}", T::type_name())

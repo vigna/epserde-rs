@@ -216,8 +216,8 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                         }, backend))
                     }
 
-                    type DeserType<'b> = #name<#(
-                        <#generic_types as epserde::des::DeserializeInner>::DeserType<'b>
+                    type DeserType<'a> = #name<#(
+                        <#generic_types as epserde::des::DeserializeInner>::DeserType<'a>
                     ,)*>;
 
                     fn _deserialize_eps_copy_inner<'epserde_lifetime>(

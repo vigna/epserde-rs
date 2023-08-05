@@ -84,7 +84,7 @@ impl<T: DeserializeInner + 'static> DeserializeInner for Vec<T> {
         }
         Ok((res, backend))
     }
-    type DeserType<'c> = &'c [T];
+    type DeserType<'a> = &'a [T];
     #[inline(always)]
     fn _deserialize_eps_copy_inner(
         backend: Cursor,
@@ -97,7 +97,7 @@ impl<T: DeserializeInner + 'static> DeserializeInner for Box<[T]> {
     fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
         <Vec<T>>::_deserialize_full_copy_inner(backend).map(|(d, a)| (d.into_boxed_slice(), a))
     }
-    type DeserType<'c> = &'c [T];
+    type DeserType<'a> = &'a [T];
     #[inline(always)]
     fn _deserialize_eps_copy_inner(
         backend: Cursor,
@@ -114,7 +114,7 @@ impl DeserializeInner for String {
         let res = String::from_utf8(data.to_vec()).unwrap();
         Ok((res, backend))
     }
-    type DeserType<'c> = &'c str;
+    type DeserType<'a> = &'a str;
     #[inline(always)]
     fn _deserialize_eps_copy_inner(
         backend: Cursor,
@@ -134,7 +134,7 @@ impl DeserializeInner for Box<str> {
     fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
         String::_deserialize_full_copy_inner(backend).map(|(d, a)| (d.into_boxed_str(), a))
     }
-    type DeserType<'c> = &'c str;
+    type DeserType<'a> = &'a str;
     #[inline(always)]
     fn _deserialize_eps_copy_inner(
         backend: Cursor,

@@ -131,14 +131,14 @@ impl_memory_size! {
     i8, i16, i32, i64, i128, isize
 }
 
-impl<'a> MemSize for &'a str {
+impl MemSize for &'_ str {
     #[inline(always)]
     fn mem_size(&self) -> usize {
         core::mem::size_of::<Self>()
     }
 }
 
-impl<'a, T: MemSize> MemSize for &'a [T] {
+impl<T: MemSize> MemSize for &'_ [T] {
     #[inline(always)]
     fn mem_size(&self) -> usize {
         core::mem::size_of::<Self>()
