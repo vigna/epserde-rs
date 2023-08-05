@@ -272,9 +272,9 @@ pub fn epserde_mem_size(input: TokenStream) -> TokenStream {
                         bytes
                     }
 
-                    fn _mem_dbg_recourse_on<W: core::fmt::Write>(
+                    fn _mem_dbg_recourse_on(
                         &self,
-                        writer: &mut W,
+                        writer: &mut impl core::fmt::Write,
                         depth: usize,
                         max_depth: usize,
                         type_name: bool,
@@ -357,7 +357,7 @@ pub fn epserde_type_name(input: TokenStream) -> TokenStream {
                     }
 
                     #[inline(always)]
-                    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+                    fn type_hash(hasher: &mut impl core::hash::Hasher) {
                         use core::hash::Hash;
                         #name_literal.hash(hasher);
                         #(

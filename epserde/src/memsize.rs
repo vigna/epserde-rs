@@ -7,9 +7,9 @@ pub trait MemSize: TypeName {
     fn mem_size(&self) -> usize;
 
     /// Composite structs should implement this to print their children.
-    fn _mem_dbg_recourse_on<W: core::fmt::Write>(
+    fn _mem_dbg_recourse_on(
         &self,
-        _writer: &mut W,
+        _writer: &mut impl core::fmt::Write,
         _depth: usize,
         _max_depth: usize,
         _type_name: bool,
@@ -20,9 +20,9 @@ pub trait MemSize: TypeName {
 
     /// Write the data on `writer` debug infos about the structure memory usage, but expanding only
     /// up to `max_depth` levels of nested structures.
-    fn mem_dbg_depth_on<W: core::fmt::Write>(
+    fn mem_dbg_depth_on(
         &self,
-        writer: &mut W,
+        writer: &mut impl core::fmt::Write,
         depth: usize,
         max_depth: usize,
         field_name: Option<&str>,
@@ -99,7 +99,7 @@ pub trait MemSize: TypeName {
     ///
     /// Print debug infos about the structure memory usage, expanding
     /// all levels of nested structures.
-    fn mem_dbg_on<W: core::fmt::Write>(&self, writer: &mut W) -> core::fmt::Result {
+    fn mem_dbg_on(&self, writer: &mut impl core::fmt::Write) -> core::fmt::Result {
         self.mem_dbg_depth_on(writer, 0, usize::MAX, None, true, true)
     }
 

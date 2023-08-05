@@ -17,7 +17,7 @@ pub trait TypeName {
     fn type_name() -> String;
     /// Hash the type, this considers the name, order, and type of the fields
     /// and the type of the struct.  
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H);
+    fn type_hash(hasher: &mut impl core::hash::Hasher);
 
     /// Call type_name on a value
     #[inline(always)]
@@ -26,7 +26,7 @@ pub trait TypeName {
     }
     /// Call type_hash on a value
     #[inline(always)]
-    fn type_hash_val<H: core::hash::Hasher>(&self, hasher: &mut H) {
+    fn type_hash_val(&self, hasher: &mut impl core::hash::Hasher) {
         Self::type_hash(hasher)
     }
 }
@@ -39,7 +39,7 @@ impl<T: TypeName + ?Sized> TypeName for &'_ T {
         format!("&{}", T::type_name())
     }
     #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
         '&'.hash(hasher);
         T::type_hash(hasher);
     }
@@ -53,7 +53,7 @@ impl<T: TypeName> TypeName for Option<T> {
         format!("Option<{}>", T::type_name())
     }
     #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "Option".hash(hasher);
         T::type_hash(hasher);
     }
@@ -65,7 +65,7 @@ impl<S: TypeName, E: TypeName> TypeName for Result<S, E> {
         format!("Result<{}, {}>", S::type_name(), E::type_name())
     }
     #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "Result".hash(hasher);
         S::type_hash(hasher);
         E::type_hash(hasher);
@@ -80,7 +80,7 @@ impl<T: TypeName, const N: usize> TypeName for [T; N] {
         format!("[{}; {}]", T::type_name(), N)
     }
     #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "[;]".hash(hasher);
         T::type_hash(hasher);
         N.hash(hasher);
@@ -93,7 +93,7 @@ impl<T: TypeName> TypeName for [T] {
         format!("[{}]", T::type_name())
     }
     #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "[]".hash(hasher);
         T::type_hash(hasher);
     }
@@ -105,7 +105,7 @@ impl TypeName for $ty {
     #[inline(always)]
     fn type_name() -> String {stringify!($ty).into()}
     #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
         stringify!($ty).hash(hasher);
     }
 }
@@ -130,7 +130,7 @@ impl TypeName for String {
         "String".into()
     }
     #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "String".hash(hasher);
     }
 }
@@ -144,7 +144,7 @@ impl<T: TypeName> TypeName for Vec<T> {
         format!("Vec<{}>", T::type_name())
     }
     #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "Vec".hash(hasher);
         T::type_hash(hasher);
     }
@@ -159,7 +159,7 @@ impl<T: TypeName + ?Sized> TypeName for Box<T> {
         format!("Box<{}>", T::type_name())
     }
     #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "Box".hash(hasher);
         T::type_hash(hasher);
     }
@@ -174,7 +174,7 @@ impl TypeName for mmap_rs::Mmap {
         "Mmap".into()
     }
     #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "Mmap".hash(hasher);
     }
 }
@@ -186,7 +186,7 @@ impl TypeName for mmap_rs::MmapMut {
         "MmapMut".into()
     }
     #[inline(always)]
-    fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "MmapMut".hash(hasher);
     }
 }
@@ -207,7 +207,7 @@ macro_rules! impl_tuples {
                 res
             }
             #[inline(always)]
-            fn type_hash<H: core::hash::Hasher>(hasher: &mut H) {
+            fn type_hash(hasher: &mut impl core::hash::Hasher) {
                 "()".hash(hasher);
                 let mut len = 0;
                 $(
