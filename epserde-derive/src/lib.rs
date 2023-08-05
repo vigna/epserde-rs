@@ -6,7 +6,7 @@
  */
 
 //!
-//! Derive procedural macros for the [`epserde`](https://crates.io/crates/dsi-progress-logger) crate.
+//! Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) crate.
 //!
 
 use proc_macro::TokenStream;
@@ -52,7 +52,7 @@ impl CommonDeriveInput {
             });
             input.generics.params.into_iter().for_each(|x| match x {
                 syn::GenericParam::Type(t) => {
-                    let mut t = t.clone();
+                    let mut t = t;
                     for trait_to_add in traits_to_add.iter() {
                         t.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
                             paren_token: None,
@@ -81,10 +81,10 @@ impl CommonDeriveInput {
             .unwrap_or(quote!(where));
 
         Self {
-            name: name,
-            generics: generics,
-            generics_names: generics_names,
-            where_clause: where_clause,
+            name,
+            generics,
+            generics_names,
+            where_clause,
             generics_names_raw,
             consts_names_raw,
         }

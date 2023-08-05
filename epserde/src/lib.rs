@@ -67,9 +67,9 @@ pub fn pad_align_to(value: usize, bits: usize) -> usize {
 pub trait CheckAlignment: Sized {
     /// Inner function used to check that the given cursor is aligned
     /// correctly to deserialize the current type
-    fn check_alignment<'a>(
-        mut backend: des::Cursor<'a>,
-    ) -> core::result::Result<des::Cursor<'a>, des::DeserializeError> {
+    fn check_alignment(
+        mut backend: des::Cursor,
+    ) -> core::result::Result<des::Cursor, des::DeserializeError> {
         // skip the bytes as needed
         let padding = pad_align_to(backend.pos, core::mem::align_of::<Self>());
         backend = backend.skip(padding);

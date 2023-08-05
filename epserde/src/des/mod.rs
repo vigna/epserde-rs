@@ -22,14 +22,12 @@ pub use des_impl::*;
 ///
 /// The user should not implement this trait directly, but rather derive it.
 pub trait DeserializeInner: TypeName + Sized {
-    type DeserType<'b>: TypeName;
-    fn _deserialize_full_copy_inner<'a>(
-        backend: Cursor<'a>,
-    ) -> Result<(Self, Cursor<'a>), DeserializeError>;
+    type DeserType<'a>: TypeName;
+    fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError>;
 
-    fn _deserialize_eps_copy_inner<'a>(
-        backend: Cursor<'a>,
-    ) -> Result<(Self::DeserType<'a>, Cursor<'a>), DeserializeError>;
+    fn _deserialize_eps_copy_inner(
+        backend: Cursor,
+    ) -> Result<(Self::DeserType<'_>, Cursor), DeserializeError>;
 }
 
 /// Main serialization trait. It is separated from [`DeserializeInner`] to
@@ -39,8 +37,7 @@ pub trait Deserialize: DeserializeInner {
     /// Full-copy deserialize a structure of this type from the given backend.
     fn deserialize_full_copy(backend: &[u8]) -> Result<Self, DeserializeError>;
     /// ε-copy deserialize a structure of this type from the given backend.
-    fn deserialize_eps_copy<'a>(backend: &'a [u8])
-        -> Result<Self::DeserType<'a>, DeserializeError>;
+    fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>, DeserializeError>;
 }
 
 impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
@@ -55,9 +52,7 @@ impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
         let (res, _) = Self::_deserialize_full_copy_inner(backend)?;
         Ok(res)
     }
-    fn deserialize_eps_copy<'a>(
-        backend: &'a [u8],
-    ) -> Result<Self::DeserType<'a>, DeserializeError> {
+    fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>, DeserializeError> {
         let mut backend = Cursor::new(backend);
 
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
@@ -71,11 +66,11 @@ impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
 }
 
 /// Common code for both full-copy and zero-copy deserialization
-fn check_header<'a>(
-    backend: Cursor<'a>,
+fn check_header(
+    backend: Cursor,
     self_hash: u64,
     self_name: String,
-) -> Result<Cursor<'a>, DeserializeError> {
+) -> Result<Cursor, DeserializeError> {
     let (magic, backend) = u64::_deserialize_full_copy_inner(backend)?;
     match magic {
         MAGIC => Ok(()),

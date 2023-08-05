@@ -51,17 +51,17 @@ impl SerializeInner for char {
 /// this is a private function so we have a consistent implementation
 /// and slice can't be generally serialized
 fn serialize_slice<T: Serialize, F: FieldWrite>(data: &[T], mut backend: F) -> Result<F> {
-    let data = data.as_ref();
     let len = data.len();
     backend = backend.add_field("len", &len)?;
     if <T>::IS_ZERO_COPY {
         // ensure alignment
         backend.add_padding_to_align(core::mem::align_of::<T>())?;
         let buffer = unsafe {
+            #[allow(clippy::manual_slice_size_calculation)]
             core::slice::from_raw_parts(data.as_ptr() as *const u8, len * core::mem::size_of::<T>())
         };
         backend =
-            backend.add_field_bytes("data", T::type_name(), &buffer, core::mem::align_of::<T>())?;
+            backend.add_field_bytes("data", T::type_name(), buffer, core::mem::align_of::<T>())?;
     } else {
         for item in data.iter() {
             backend = backend.add_field("data", item)?;
