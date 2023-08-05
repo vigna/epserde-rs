@@ -7,7 +7,7 @@ pub trait MemSize: TypeName {
     fn mem_size(&self) -> usize;
 
     /// Composite structs should implement this to print their children.
-    fn _mem_dbg_recourse_on(
+    fn _mem_dbg_rec_on(
         &self,
         _writer: &mut impl core::fmt::Write,
         _depth: usize,
@@ -59,7 +59,7 @@ pub trait MemSize: TypeName {
         }
         writer.write_char('\n')?;
 
-        self._mem_dbg_recourse_on(writer, depth + 1, max_depth, type_name, humanize)
+        self._mem_dbg_rec_on(writer, depth + 1, max_depth, type_name, humanize)
     }
 
     /// Write to stdout debug infos about the structure memory usage, but expanding only

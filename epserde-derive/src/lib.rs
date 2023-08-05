@@ -272,7 +272,7 @@ pub fn epserde_mem_size(input: TokenStream) -> TokenStream {
                         bytes
                     }
 
-                    fn _mem_dbg_recourse_on(
+                    fn _mem_dbg_rec_on(
                         &self,
                         writer: &mut impl core::fmt::Write,
                         depth: usize,
