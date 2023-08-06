@@ -8,14 +8,14 @@
 use epserde::*;
 use std::hash::Hasher;
 
-#[derive(MemSize, TypeName)]
+#[derive(MemSize, MemDbg, TypeName)]
 struct PersonVec<A, B> {
     a: A,
     b: B,
     test: isize,
 }
 
-#[derive(MemSize, TypeName)]
+#[derive(MemSize, MemDbg, TypeName)]
 struct Data<A> {
     a: A,
     b: Vec<i32>,

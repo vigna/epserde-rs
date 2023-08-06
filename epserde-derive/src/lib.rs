@@ -271,7 +271,40 @@ pub fn epserde_mem_size(input: TokenStream) -> TokenStream {
                         #(bytes += self.#fields.mem_size();)*
                         bytes
                     }
+                }
+            }
+        }
+        _ => todo!(),
+    };
+    out.into()
+}
 
+#[proc_macro_derive(MemDbg)]
+pub fn epserde_mem_dbg(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let CommonDeriveInput {
+        name,
+        generics,
+        generics_names,
+        where_clause,
+        ..
+    } = CommonDeriveInput::new(
+        input.clone(),
+        vec![syn::parse_quote!(epserde::MemDbg)],
+        vec![],
+    );
+
+    let out = match input.data {
+        Data::Struct(s) => {
+            let fields = s
+                .fields
+                .iter()
+                .map(|field| field.ident.to_owned().unwrap())
+                .collect::<Vec<_>>();
+
+            quote! {
+                #[automatically_derived]
+                impl<#generics> epserde::MemDbg for #name<#generics_names> #where_clause{
                     fn _mem_dbg_rec_on(
                         &self,
                         writer: &mut impl core::fmt::Write,

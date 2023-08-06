@@ -7,7 +7,7 @@
 
 use epserde::*;
 
-#[derive(MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(MemSize, MemDbg, TypeName, Debug, PartialEq, Eq, Default, Clone)]
 /// Create a new type around `Vec<Vec<T>>` because for orphan rule you can't
 /// implement `SerializeInner` and the other traits directly.
 struct Vec2D<T> {
@@ -82,7 +82,9 @@ where
     }
 }
 
-#[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(
+    Serialize, Deserialize, MemSize, MemDbg, TypeName, Debug, PartialEq, Eq, Default, Clone,
+)]
 /// Random struct we will use to test the nested serialization and deserialization.
 struct Data<A> {
     a: A,

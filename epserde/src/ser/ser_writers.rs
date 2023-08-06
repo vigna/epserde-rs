@@ -80,9 +80,9 @@ impl<F: WriteNoStd> WriteNoStd for WriteWithPos<F> {
 /// allow zero-copy deserialization.
 ///
 /// This is not meant to be used by the user and is only used internally.
-/// Moreover, [`FieldWrite::add_padding_to_align`], and [`FieldWrite::add_field`] could be implemented with
-/// `add_field_bytes`, but having this specialization allows us to automatically
-/// generate the schema.
+/// Moreover, [`FieldWrite::add_padding_to_align`] and [`FieldWrite::add_field`]
+/// could be implemented with [`FieldWrite::add_field_bytes`], but having this
+/// specialization allows us to automatically generate the schema.
 pub trait FieldWrite: WriteNoStd + Sized {
     #[inline(always)]
     /// Add some zero padding so that `self.get_pos() % align == 0`

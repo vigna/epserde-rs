@@ -19,7 +19,7 @@ extern crate alloc;
 #[cfg(feature = "derive")]
 extern crate epserde_derive;
 #[cfg(feature = "derive")]
-pub use epserde_derive::{Deserialize, MemSize, Serialize, TypeName};
+pub use epserde_derive::{Deserialize, MemDbg, MemSize, Serialize, TypeName};
 
 pub mod des;
 pub mod ser;
@@ -38,14 +38,17 @@ pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
 mod type_name;
 pub use type_name::*;
 
-mod memsize;
-pub use memsize::*;
+mod mem_size;
+pub use mem_size::*;
 
-mod memcase;
-pub use memcase::*;
+mod mem_dbg;
+pub use mem_dbg::*;
 
-mod zerocopy;
-pub use zerocopy::*;
+mod mem_case;
+pub use mem_case::*;
+
+mod zero_copy;
+pub use zero_copy::*;
 
 pub(crate) mod utils;
 

@@ -1,4 +1,4 @@
-/// Given a float, return it in a human readable format using metric prefixes.
+/// Given a float, return it in a human readable format using SI suffixes.
 pub fn humanize_float(mut x: f64) -> (f64, &'static str) {
     const UOM: &[&str] = &[
         "q", "r", "y", "z", "a", "f", "p", "n", "μ", "m", "", "K", "M", "G", "T", "P", "E", "Z",
