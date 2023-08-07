@@ -59,8 +59,7 @@ associated deserialized type `&[T]` or `&str`, respectively.
 - After deserialization, you will obtain a structure in which the type parameters
 have been instantiated to their respective associated deserialized type, which will usually reference the underlying
 serialized support (e.g., a memory-mapped region). If you need to store
-the deserialized structure of type `T` in a field of a new structure or to pass it
-around as a function argument,
+the deserialized structure of type `T` in a field of a new structure 
 you will need to couple permanently the deserialized structure with its serialized
 support, which is obtained by putting it in a [`MemCase`]. A [`MemCase`] will
 deref to `T`, so it can be used transparently as long as fields and methods are 
@@ -91,7 +90,7 @@ the structure you serialized. This is not the case with
 deserialization time is stored in newly allocated memory. This is not the case with
 [Abomonation](https://crates.io/crates/abomonation).
 
-## An Example
+## Examples
 
 Let us design a structure that will contain an integer,
 which will be copied, and a vector of integers that we want to ε-copy:
@@ -103,13 +102,6 @@ use epserde_derive::*;
 struct MyStruct<A> {
     id: isize,
     data: A,
-}
-
-/// This method can be called on both the original and the ε-copied structure
-impl<A: AsRef<[isize]>> MyStruct<A> {
-	fn sum(&self) -> isize {
-		self.data.as_ref().iter().sum()
-	}
 }
 
 // Create a structure where A is a Vec<isize>
@@ -126,9 +118,6 @@ let t: MyStruct<&[isize]> =
 assert_eq!(s.id, t.id);
 assert_eq!(s.data, Vec::from(t.data));
 
-// and we can call the methods on both structures
-assert_eq!(s.sum(), t.sum());
-
 // This is a traditional deserialization instead
 let t: MyStruct<Vec<isize>> = 
     <MyStruct::<Vec<isize>>>::deserialize_full_copy(b.as_ref()).unwrap();
@@ -139,6 +128,39 @@ replacement is generated automatically). The reference points inside `b`, so the
 no need to copy the field. Nonetheless, deserialization creates a new structure `MyStruct`,
 ε-copying the original data. The second call creates a full copy instead.
 
+We can write methods for our structure that will work for the ε-copied version: we just have
+to take care that they are defined in a way that will work both on the original type parameter and on
+its associated deserialized type; we can also use `type` to reduce the clutter:
+```rust
+use epserde::*;
+use epserde_derive::*;
+
+#[derive(Serialize, Deserialize, TypeName, Debug, PartialEq)]
+struct MyStructParam<A> {
+    id: isize,
+    data: A,
+}
+
+/// This method can be called on both the original and the ε-copied structure
+impl<A: AsRef<[isize]>> MyStructParam<A> {
+	fn sum(&self) -> isize {
+		self.data.as_ref().iter().sum()
+	}
+}
+
+type MyStruct = MyStructParam<Vec<isize>>;
+
+// Create a structure where A is a Vec<isize>
+let s = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
+// Serialize it
+s.serialize(std::fs::File::create("serialized").unwrap()).unwrap();
+// Load the serialized form in a buffer
+let b = std::fs::read("serialized").unwrap();
+let t = MyStruct::deserialize_eps_copy(b.as_ref()).unwrap();
+// We can call the method on both structures
+assert_eq!(s.sum(), t.sum());
+```
+
 If you want to memory-map the data structure, it is convenient to store the ε-copied structure
 and its support in a [`MemCase`]:
 ```rust
@@ -146,18 +168,18 @@ use epserde::*;
 use epserde_derive::*;
 
 #[derive(Serialize, Deserialize, TypeName, Debug, PartialEq)]
-struct MyStruct<A> {
+struct MyStructParam<A> {
     id: isize,
     data: A,
 }
 
-let s: MyStruct<Vec<isize>> = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
+type MyStruct = MyStructParam<Vec<isize>>;
+
+let s = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
 s.serialize(std::fs::File::create("serialized").unwrap()).unwrap();
 // Load the serialized form in a buffer
 let f = Flags::empty();
-// The type of t will be inferred--it is shown here only for clarity
-let t: MemCase<MyStruct<&[isize]>> = 
-    epserde::map::<MyStruct<Vec<isize>>>("serialized", &f).unwrap();
+let t = epserde::map::<MyStruct>("serialized", &f).unwrap();
 
 assert_eq!(s.id, t.id);
 assert_eq!(s.data, Vec::from(t.data));
