@@ -31,7 +31,7 @@ pub use ser::*;
 pub const VERSION: (u32, u32) = (0, 0);
 
 /// Magic + endianess marker
-pub const MAGIC: u64 = u64::from_ne_bytes(*b"epserdes");
+pub const MAGIC: u64 = u64::from_ne_bytes(*b"\xCE\xB5-serde"); // ε-serde
 /// What we will read if the endianness is mismatched
 pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
 
