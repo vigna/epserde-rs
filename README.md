@@ -32,8 +32,15 @@ time.
 We provide procedural macros implementing serialization and deserialization methods,
 basic (de)serialization for primitive types, vectors, etc.,
 convenience memory-mapping methods based on [mmap_rs](https://crates.io/crates/mmap-rs), 
-and a `MemCase` structure that couples a deserialized structure with its backend 
+and a [`MemCase`] structure that couples a deserialized structure with its backend 
 (e.g., a slice of memory or a memory-mapped region).
+
+## Who
+
+Tommaso Fontana, while working at INRIA under the supervision of Stefano Zacchiroli, 
+came up with the basic idea for ε-serde, that is, 
+replacing structures with equivalent references. The code was developed jointly
+with Sebastiano Vigna, who came up with the [`MemCase`] logic.
 
 ## Cons
 

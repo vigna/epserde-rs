@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 /// Given a float, return it in a human readable format using SI suffixes.
 pub fn humanize_float(mut x: f64) -> (f64, &'static str) {
     const UOM: &[&str] = &[
