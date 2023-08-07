@@ -142,3 +142,27 @@ impl<const N: usize, T: Serialize> SerializeInner for [T; N] {
     }
 }
  */
+
+macro_rules! impl_ser_vec {
+    ($ty:ty) => {
+        impl<T: SerializeInner + ZeroCopy + TypeName> SerializeInner for Vec<$ty> {
+            /// This type cannot be serialized just by writing its bytes
+            const IS_ZERO_COPY: bool = false;
+            /// We will read back this as a vec of slices
+
+            fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
+                // write the number of sub-fields
+                backend = backend.add_field("len", &self.len())?;
+                for (i, sub_vec) in self.iter().enumerate() {
+                    // serialize each sub-vector
+                    backend = backend.add_field(&format!("sub_vec_{}", i), sub_vec)?;
+                }
+
+                Ok(backend)
+            }
+        }
+    };
+}
+
+impl_ser_vec!(Vec<T>);
+impl_ser_vec!(Vec<Vec<T>>);

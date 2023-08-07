@@ -7,6 +7,7 @@
 
 use crate::des::*;
 use crate::CheckAlignment;
+use crate::ZeroCopy;
 
 macro_rules! impl_stuff{
     ($($ty:ty),*) => {$(
@@ -80,7 +81,7 @@ fn deserialize_slice<T>(backend: Cursor) -> Result<(&'_ [T], Cursor), Deserializ
     Ok((data, backend.skip(bytes)))
 }
 
-impl<T: DeserializeInner + 'static> DeserializeInner for Vec<T> {
+impl<T: DeserializeInner + ZeroCopy + 'static> DeserializeInner for Vec<T> {
     fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
         let (len, mut backend) = usize::_deserialize_full_copy_inner(backend)?;
         let mut res = Vec::with_capacity(len);
@@ -100,7 +101,7 @@ impl<T: DeserializeInner + 'static> DeserializeInner for Vec<T> {
     }
 }
 
-impl<T: DeserializeInner + 'static> DeserializeInner for Box<[T]> {
+impl<T: DeserializeInner + ZeroCopy + 'static> DeserializeInner for Box<[T]> {
     fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
         <Vec<T>>::_deserialize_full_copy_inner(backend).map(|(d, a)| (d.into_boxed_slice(), a))
     }
@@ -156,3 +157,47 @@ impl DeserializeInner for Box<str> {
         ))
     }
 }
+
+macro_rules! impl_deser_vec {
+    ($ty:ty) => {
+        impl<T: DeserializeInner + ZeroCopy + 'static> DeserializeInner for Vec<$ty> {
+            #[inline(always)]
+            fn _deserialize_full_copy_inner(
+                backend: Cursor,
+            ) -> core::result::Result<(Self, Cursor), DeserializeError> {
+                // read the len
+                let (len, mut backend) = usize::_deserialize_full_copy_inner(backend)?;
+                let mut vec = Vec::with_capacity(len);
+                // deserialize every subvector
+                for _ in 0..len {
+                    let (sub_vec, tmp) = <$ty>::_deserialize_full_copy_inner(backend)?;
+                    backend = tmp;
+                    vec.push(sub_vec);
+                }
+
+                Ok((vec, backend))
+            }
+            /// This is the return type of the ε-copy deserialization.
+            type DeserType<'a> = Vec<<$ty as DeserializeInner>::DeserType<'a>>;
+
+            fn _deserialize_eps_copy_inner(
+                backend: Cursor,
+            ) -> std::result::Result<(Self::DeserType<'_>, Cursor), DeserializeError> {
+                // read the len
+                let (len, mut backend) = usize::_deserialize_full_copy_inner(backend)?;
+                let mut vec = Vec::with_capacity(len);
+                // deserialize every subvector but using ε-copy!
+                for _ in 0..len {
+                    let (sub_vec, tmp) = <$ty>::_deserialize_eps_copy_inner(backend)?;
+                    backend = tmp;
+                    vec.push(sub_vec);
+                }
+
+                Ok((vec, backend))
+            }
+        }
+    };
+}
+
+impl_deser_vec!(Vec<T>);
+impl_deser_vec!(Vec<Vec<T>>);
