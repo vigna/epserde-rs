@@ -51,9 +51,9 @@ These are the main limitations you should be aware of before choosing to use ε-
 - While we provide procedural macros that implement serialization and deserialization, 
 they require that your type is written and used in a specific way; in particular, 
 the fields you want to ε-copy must be type parameters implementing
-[`Deserialize`], to which a [deserialized type](`DeserializeInner::DeserType`) is associated.
+[`DeserializeInner`], to which a [deserialized type](`DeserializeInner::DeserType`) is associated.
 For example, we provide implementations for
-`Vec<T>`/`Box<[T]>`, where `T` [is zero-copy](`IsZeroCopy`), or `String`/`Box<str>`, which have 
+`Vec<T>`/`Box<[T]>`, where `T` [is zero-copy](`ZeroCopy`), or `String`/`Box<str>`, which have 
 associated deserialized type `&[T]` or `&str`, respectively.
 
 - After deserialization, you will obtain a structure in which the type parameters
@@ -63,9 +63,15 @@ the deserialized structure of type `T` in a field of a new structure or to pass 
 around as a function argument,
 you will need to couple permanently the deserialized structure with its serialized
 support, which is obtained by putting it in a [`MemCase`]. A [`MemCase`] will
-deref to `T`, so it can be used transparently as long as methods are 
+deref to `T`, so it can be used transparently as long as fields and methods are 
 concerned, but the field of the new structure will have to be of type `MemCase<T>`,
 not `T`.
+
+- Until Rust gets specialization, vectors and boxed slices can be automatically
+(e.g., using derive) ε-copy serialized and deserialized *only* if the type 
+of their elements [is zero-copy](`ZeroCopy`). If you need to
+store, say, a vector of vectors of integers, you must to implement the 
+(de)serialization logic by yourself.
 
 ## Pros
 
@@ -99,7 +105,7 @@ struct MyStruct<A> {
     data: A,
 }
 
-/// This method can be called on both the original and the ep-copied structure
+/// This method can be called on both the original and the ε-copied structure
 impl<A: AsRef<[isize]>> MyStruct<A> {
 	fn sum(&self) -> isize {
 		self.data.as_ref().iter().sum()

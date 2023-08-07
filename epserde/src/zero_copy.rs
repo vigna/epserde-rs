@@ -8,23 +8,25 @@
 
 A marker trait for data that can be zero-copy deserialized.
 
-For a slice of elements of type `T` to be ε-copy deserializable, `T` must implement `IsZeroCopy`.
-The conditions for this marker trait are that `T` is a copy type, that it has a fixed
+For a vector or boxed slice of elements of type `T` to be ε-copy serializable and
+deserializable, `T` must implement `ZeroCopy`. The conditions for this marker trait are that
+`T` is a copy type, that it has a fixed
 memory layout, and that it does not contain any reference.
 
-Here we implement `IsZeroCopy` for all the primitive types, arrays of zero-copy types, and tuples
+Here we implement `ZeroCopy` for all the primitive types, arrays of zero-copy types, and tuples
 (up to length 10) of zero-copy types.
 
-You can implement `IsZeroCopy` for your copy types, but you must ensure that the type does not
+You can implement `ZeroCopy` for your copy types, but you must ensure that the type does not
 contain references and has a fixed memory layout; for structures, this requires
-`repr(C)`.
+`repr(C)`. ε-serde will checks for these conditions at runtime, and in case of failure
+serialization/deserialization will panic.
 
 */
-pub trait IsZeroCopy: 'static {}
+pub trait ZeroCopy: 'static {}
 
 macro_rules! impl_stuff{
     ($($ty:ty),*) => {$(
-        impl IsZeroCopy for $ty {
+        impl ZeroCopy for $ty {
         }
     )*};
 }
@@ -49,11 +51,11 @@ impl_stuff!(
     f64
 );
 
-impl<T: IsZeroCopy, const N: usize> IsZeroCopy for [T; N] {}
+impl<T: ZeroCopy, const N: usize> ZeroCopy for [T; N] {}
 
 macro_rules! impl_tuples {
     ($($t:ident),*) => {
-        impl<$($t: IsZeroCopy,)*> IsZeroCopy for ($($t,)*) {}
+        impl<$($t: ZeroCopy,)*> ZeroCopy for ($($t,)*) {}
     };
 }
 

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{IsZeroCopy, TypeName};
+use crate::{TypeName, ZeroCopy};
 
 use super::ser::{FieldWrite, Result, Serialize, SerializeInner};
 
@@ -78,7 +78,7 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(data: &[T], mut backend: F) -> R
     Ok(backend)
 }
 
-impl<T: Serialize + IsZeroCopy + TypeName> SerializeInner for Vec<T> {
+impl<T: Serialize + ZeroCopy + TypeName> SerializeInner for Vec<T> {
     // Vec<$ty> can, but Vec<Vec<$ty>> cannot!
     const IS_ZERO_COPY: bool = false;
 
@@ -87,7 +87,7 @@ impl<T: Serialize + IsZeroCopy + TypeName> SerializeInner for Vec<T> {
     }
 }
 
-impl<T: Serialize + IsZeroCopy + TypeName + ?Sized> SerializeInner for Box<[T]> {
+impl<T: Serialize + ZeroCopy + TypeName + ?Sized> SerializeInner for Box<[T]> {
     // Box<[$ty]> can, but Vec<Box<[$ty]>> cannot!
     const IS_ZERO_COPY: bool = false;
 
