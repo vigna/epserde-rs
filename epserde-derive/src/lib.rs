@@ -94,6 +94,9 @@ impl CommonDeriveInput {
 #[proc_macro_derive(Serialize)]
 pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
+    let is_repr_c = input.attrs.iter().any(|x| {
+        x.meta.path().is_ident("repr") && x.meta.require_list().unwrap().tokens.to_string() == "C"
+    });
     let CommonDeriveInput {
         name,
         generics,
@@ -134,7 +137,7 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
             quote! {
                 #[automatically_derived]
                 impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
-                    const IS_ZERO_COPY: bool = true #(
+                    const IS_ZERO_COPY: bool = #is_repr_c #(
                         && <#fields>::IS_ZERO_COPY
                     )*;
 

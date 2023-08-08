@@ -13,6 +13,7 @@ struct PersonVec<A, B> {
     test: isize,
 }
 
+#[repr(C)]
 #[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A> {
     a: A,
