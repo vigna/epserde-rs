@@ -6,13 +6,6 @@
 
 use epserde::*;
 
-#[derive(TypeHash, Debug, PartialEq, Eq, Default, Clone)]
-/// Create a new type around `Vec<Vec<T>>` because for orphan rule you can't
-/// implement `SerializeInner` and the other traits directly.
-struct Vec2D<A> {
-    data: A,
-}
-
 #[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
 /// Random struct we will use to test the nested serialization and deserialization.
 struct Data<A> {
