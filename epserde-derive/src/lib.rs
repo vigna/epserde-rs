@@ -140,9 +140,6 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
 
                     #[inline(always)]
                     fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
-                        if Self::IS_ZERO_COPY {
-                            backend.add_padding_to_align(core::mem::align_of::<Self>())?;
-                        }
                         #(
                             backend= backend.add_field(stringify!(#fields_names), &self.#fields_names)?;
                         )*
