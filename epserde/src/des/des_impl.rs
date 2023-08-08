@@ -6,7 +6,7 @@
  */
 
 use crate::des::*;
-use crate::CheckAlignment;
+use crate::Align;
 use crate::ZeroCopy;
 
 macro_rules! impl_stuff{
@@ -14,7 +14,7 @@ macro_rules! impl_stuff{
         impl DeserializeInner for $ty {
             #[inline(always)]
             fn _deserialize_full_copy_inner(mut backend:Cursor) -> Result<(Self,Cursor), DeserializeError> {
-                backend = <$ty>::check_alignment(backend)?;
+                backend = <$ty>::pad_align_and_check(backend)?;
                 Ok((
                     <$ty>::from_ne_bytes(backend.data[..core::mem::size_of::<$ty>()].try_into().unwrap()),
                     backend.skip(core::mem::size_of::<$ty>()),
@@ -74,7 +74,7 @@ fn deserialize_slice<T>(backend: Cursor) -> Result<(&'_ [T], Cursor), Deserializ
     let bytes = len * core::mem::size_of::<T>();
     // a slice can only be deserialized with zero copy
     // outerwise you need a vec, TODO!: how do we enforce this at compile time?
-    backend = <T>::check_alignment(backend)?;
+    backend = <T>::pad_align_and_check(backend)?;
     let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<T>() };
     debug_assert!(pre.is_empty());
     debug_assert!(after.is_empty());

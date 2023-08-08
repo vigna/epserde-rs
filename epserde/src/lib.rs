@@ -66,17 +66,19 @@ pub fn pad_align_to(value: usize, bits: usize) -> usize {
     value.wrapping_neg() & (bits - 1)
 }
 
-/// A trait to make it easier to check alignment
-pub trait CheckAlignment: Sized {
-    /// Inner function used to check that the given cursor is aligned
-    /// correctly to deserialize the current type
-    fn check_alignment(
+/// A trait padding a cursor to the correct alignment
+/// and checking that the resulting pointer is aligned
+/// correctly.
+trait Align: Sized {
+    /// Pad the cursor to the correct alignment and check that the resulting
+    /// pointer is aligned correctly.
+    fn pad_align_and_check(
         mut backend: des::Cursor,
     ) -> core::result::Result<des::Cursor, des::DeserializeError> {
-        // skip the bytes as needed
+        // Skip bytes as needed
         let padding = pad_align_to(backend.pos, core::mem::align_of::<Self>());
         backend = backend.skip(padding);
-        // check that the ptr is aligned
+        // Check that the ptr is indeed aligned
         if backend.data.as_ptr() as usize % std::mem::align_of::<Self>() != 0 {
             Err(des::DeserializeError::AlignmentError)
         } else {
@@ -84,4 +86,4 @@ pub trait CheckAlignment: Sized {
         }
     }
 }
-impl<T: Sized> CheckAlignment for T {}
+impl<T: Sized> Align for T {}
