@@ -7,14 +7,14 @@
 
 use epserde::*;
 
-#[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
 struct PersonVec<A, B> {
     a: A,
     b: B,
     test: isize,
 }
 
-#[derive(Serialize, Deserialize, MemSize, TypeName, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A> {
     a: A,
     /// This is an inner field, so IT WILL NOT BE ZERO-COPIED

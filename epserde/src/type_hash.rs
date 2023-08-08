@@ -6,30 +6,13 @@
 
 use core::hash::Hash;
 
-/// A simple trait to get the name of a type recursively solving generics.
-///
-/// This is closely related to [`core::any::type_name`] but as it's noted on its
-/// documentation:
-/// > The returned string must not be considered to be a unique identifier of a
-/// > type as multiple types may map to the same type name. Similarly, there is
-/// > no guarantee that all parts of a type will appear in the returned string:
-/// > for example, lifetime specifiers are currently not included. In addition,
-/// > the output may change between versions of the compiler.
-///
-/// And we need a stable way to get the name of a type for both dbg info and
-/// serialization.
-pub trait TypeName {
-    /// Just the type name, without the module path.
-    fn type_name() -> String;
+/// Compute a stable hash for a type. This is used during deserialization to
+/// check that the type of the data matches the type of the value being
+/// deserialized into.
+pub trait TypeHash {
     /// Hash the type, this considers the name, order, and type of the fields
     /// and the type of the struct.  
     fn type_hash(hasher: &mut impl core::hash::Hasher);
-
-    /// Call type_name on a value
-    #[inline(always)]
-    fn type_name_val(&self) -> String {
-        Self::type_name()
-    }
     /// Call type_hash on a value
     #[inline(always)]
     fn type_hash_val(&self, hasher: &mut impl core::hash::Hasher) {
@@ -39,11 +22,7 @@ pub trait TypeName {
 
 // Blanket impls
 
-impl<T: TypeName + ?Sized> TypeName for &'_ T {
-    #[inline(always)]
-    fn type_name() -> String {
-        format!("&{}", T::type_name())
-    }
+impl<T: TypeHash + ?Sized> TypeHash for &'_ T {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         '&'.hash(hasher);
@@ -53,11 +32,7 @@ impl<T: TypeName + ?Sized> TypeName for &'_ T {
 
 // Core types
 
-impl<T: TypeName> TypeName for Option<T> {
-    #[inline(always)]
-    fn type_name() -> String {
-        format!("Option<{}>", T::type_name())
-    }
+impl<T: TypeHash> TypeHash for Option<T> {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "Option".hash(hasher);
@@ -65,11 +40,7 @@ impl<T: TypeName> TypeName for Option<T> {
     }
 }
 
-impl<S: TypeName, E: TypeName> TypeName for Result<S, E> {
-    #[inline(always)]
-    fn type_name() -> String {
-        format!("Result<{}, {}>", S::type_name(), E::type_name())
-    }
+impl<S: TypeHash, E: TypeHash> TypeHash for Result<S, E> {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "Result".hash(hasher);
@@ -80,11 +51,7 @@ impl<S: TypeName, E: TypeName> TypeName for Result<S, E> {
 
 // Primitive types
 
-impl<T: TypeName, const N: usize> TypeName for [T; N] {
-    #[inline(always)]
-    fn type_name() -> String {
-        format!("[{}; {}]", T::type_name(), N)
-    }
+impl<T: TypeHash, const N: usize> TypeHash for [T; N] {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "[;]".hash(hasher);
@@ -93,11 +60,7 @@ impl<T: TypeName, const N: usize> TypeName for [T; N] {
     }
 }
 
-impl<T: TypeName> TypeName for [T] {
-    #[inline(always)]
-    fn type_name() -> String {
-        format!("[{}]", T::type_name())
-    }
+impl<T: TypeHash> TypeHash for [T] {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "[]".hash(hasher);
@@ -107,9 +70,7 @@ impl<T: TypeName> TypeName for [T] {
 
 macro_rules! impl_primitives {
     ($($ty:ty),*) => {$(
-impl TypeName for $ty {
-    #[inline(always)]
-    fn type_name() -> String {stringify!($ty).into()}
+impl TypeHash for $ty {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         stringify!($ty).hash(hasher);
@@ -130,11 +91,7 @@ impl_primitives! {
 use alloc::string::String;
 
 #[cfg(feature = "alloc")]
-impl TypeName for String {
-    #[inline(always)]
-    fn type_name() -> String {
-        "String".into()
-    }
+impl TypeHash for String {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "String".hash(hasher);
@@ -144,11 +101,7 @@ impl TypeName for String {
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::vec::Vec;
 #[cfg(feature = "alloc")]
-impl<T: TypeName> TypeName for Vec<T> {
-    #[inline(always)]
-    fn type_name() -> String {
-        format!("Vec<{}>", T::type_name())
-    }
+impl<T: TypeHash> TypeHash for Vec<T> {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "Vec".hash(hasher);
@@ -159,11 +112,7 @@ impl<T: TypeName> TypeName for Vec<T> {
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
-impl<T: TypeName + ?Sized> TypeName for Box<T> {
-    #[inline(always)]
-    fn type_name() -> String {
-        format!("Box<{}>", T::type_name())
-    }
+impl<T: TypeHash + ?Sized> TypeHash for Box<T> {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "Box".hash(hasher);
@@ -174,11 +123,7 @@ impl<T: TypeName + ?Sized> TypeName for Box<T> {
 // foreign types
 
 #[cfg(feature = "mmap_rs")]
-impl TypeName for mmap_rs::Mmap {
-    #[inline(always)]
-    fn type_name() -> String {
-        "Mmap".into()
-    }
+impl TypeHash for mmap_rs::Mmap {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "Mmap".hash(hasher);
@@ -186,11 +131,7 @@ impl TypeName for mmap_rs::Mmap {
 }
 
 #[cfg(feature = "mmap_rs")]
-impl TypeName for mmap_rs::MmapMut {
-    #[inline(always)]
-    fn type_name() -> String {
-        "MmapMut".into()
-    }
+impl TypeHash for mmap_rs::MmapMut {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "MmapMut".hash(hasher);
@@ -201,17 +142,8 @@ impl TypeName for mmap_rs::MmapMut {
 
 macro_rules! impl_tuples {
     ($($t:ident),*) => {
-        impl<$($t: TypeName,)*> TypeName for ($($t,)*)
+        impl<$($t: TypeHash,)*> TypeHash for ($($t,)*)
         {
-            #[inline(always)]
-            fn type_name() -> String {
-                let mut res = "(".to_string();
-                $(
-                    res.push_str(&<$t>::type_name());
-                )*
-                res.push(')');
-                res
-            }
             #[inline(always)]
             fn type_hash(hasher: &mut impl core::hash::Hasher) {
                 "()".hash(hasher);

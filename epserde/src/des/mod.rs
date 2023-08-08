@@ -13,7 +13,7 @@
 //! starting from a slice of bytes. The implementation of this trait
 //! is based on [`DeserializeInner`], which is automatically derived
 //! with `#[derive(Deserialize)]`.
-use crate::{Serialize, TypeName, MAGIC, MAGIC_REV, VERSION};
+use crate::{Serialize, TypeHash, MAGIC, MAGIC_REV, VERSION};
 use core::hash::Hasher;
 
 mod des_impl;
@@ -28,8 +28,8 @@ pub use des_impl::*;
 /// the user from modifying the methods in [`Deserialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait DeserializeInner: TypeName + Sized {
-    type DeserType<'a>: TypeName;
+pub trait DeserializeInner: TypeHash + Sized {
+    type DeserType<'a>: TypeHash;
     fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError>;
 
     fn _deserialize_eps_copy_inner(
@@ -47,7 +47,7 @@ pub trait Deserialize: DeserializeInner {
     fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>, DeserializeError>;
 }
 
-impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
+impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
     fn deserialize_full_copy(backend: &[u8]) -> Result<Self, DeserializeError> {
         let mut backend = Cursor::new(backend);
 
@@ -55,7 +55,11 @@ impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
         Self::type_hash(&mut hasher);
         let self_hash = hasher.finish();
 
-        backend = check_header(backend, self_hash, Self::type_name())?;
+        backend = check_header(
+            backend,
+            self_hash,
+            core::any::type_name::<Self>().to_string(),
+        )?;
         let (res, _) = Self::_deserialize_full_copy_inner(backend)?;
         Ok(res)
     }
@@ -66,7 +70,11 @@ impl<T: DeserializeInner + TypeName + Serialize> Deserialize for T {
         Self::type_hash(&mut hasher);
         let self_hash = hasher.finish();
 
-        backend = check_header(backend, self_hash, Self::type_name())?;
+        backend = check_header(
+            backend,
+            self_hash,
+            core::any::type_name::<Self>().to_string(),
+        )?;
         let (res, _) = Self::_deserialize_eps_copy_inner(backend)?;
         Ok(res)
     }

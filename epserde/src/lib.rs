@@ -19,7 +19,7 @@ extern crate alloc;
 #[cfg(feature = "derive")]
 extern crate epserde_derive;
 #[cfg(feature = "derive")]
-pub use epserde_derive::{Deserialize, MemDbg, MemSize, Serialize, TypeName};
+pub use epserde_derive::{Deserialize, Serialize, TypeHash};
 
 pub mod des;
 pub mod ser;
@@ -35,22 +35,14 @@ pub const MAGIC: u64 = u64::from_ne_bytes(*b"epserde ");
 /// What we will read if the endianness is mismatched
 pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
 
-mod type_name;
-pub use type_name::*;
-
-mod mem_size;
-pub use mem_size::*;
-
-mod mem_dbg;
-pub use mem_dbg::*;
+mod type_hash;
+pub use type_hash::*;
 
 mod mem_case;
 pub use mem_case::*;
 
 mod zero_copy;
 pub use zero_copy::*;
-
-pub(crate) mod utils;
 
 /// Compute the padding needed for alignment, that is, the smallest
 /// number such that `((value + pad_align_to(value, bits) & (bits - 1) == 0`.

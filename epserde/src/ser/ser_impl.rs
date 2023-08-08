@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{TypeName, ZeroCopy};
+use crate::{TypeHash, ZeroCopy};
 
 use super::ser::{FieldWrite, Result, Serialize, SerializeInner};
 
@@ -67,8 +67,12 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(data: &[T], mut backend: F) -> R
             #[allow(clippy::manual_slice_size_calculation)]
             core::slice::from_raw_parts(data.as_ptr() as *const u8, len * core::mem::size_of::<T>())
         };
-        backend =
-            backend.add_field_bytes("data", T::type_name(), buffer, core::mem::align_of::<T>())?;
+        backend = backend.add_field_bytes(
+            "data",
+            core::any::type_name::<T>().to_string(),
+            buffer,
+            core::mem::align_of::<T>(),
+        )?;
     } else {
         for item in data.iter() {
             backend = backend.add_field("data", item)?;
@@ -78,7 +82,7 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(data: &[T], mut backend: F) -> R
     Ok(backend)
 }
 
-impl<T: Serialize + ZeroCopy + TypeName> SerializeInner for Vec<T> {
+impl<T: Serialize + ZeroCopy + TypeHash> SerializeInner for Vec<T> {
     // Vec<$ty> can, but Vec<Vec<$ty>> cannot!
     const IS_ZERO_COPY: bool = false;
 
@@ -87,7 +91,7 @@ impl<T: Serialize + ZeroCopy + TypeName> SerializeInner for Vec<T> {
     }
 }
 
-impl<T: Serialize + ZeroCopy + TypeName + ?Sized> SerializeInner for Box<[T]> {
+impl<T: Serialize + ZeroCopy + TypeHash + ?Sized> SerializeInner for Box<[T]> {
     // Box<[$ty]> can, but Vec<Box<[$ty]>> cannot!
     const IS_ZERO_COPY: bool = false;
 
@@ -145,7 +149,7 @@ impl<const N: usize, T: Serialize> SerializeInner for [T; N] {
 
 macro_rules! impl_ser_vec {
     ($ty:ty) => {
-        impl<T: SerializeInner + ZeroCopy + TypeName> SerializeInner for Vec<$ty> {
+        impl<T: SerializeInner + ZeroCopy + TypeHash> SerializeInner for Vec<$ty> {
             /// This type cannot be serialized just by writing its bytes
             const IS_ZERO_COPY: bool = false;
             /// We will read back this as a vec of slices

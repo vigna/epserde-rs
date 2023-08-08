@@ -272,7 +272,7 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
         let struct_idx = self.schema.0.len();
         self.schema.0.push(SchemaRow {
             field: self.path.join("."),
-            ty: V::type_name(),
+            ty: core::any::type_name::<V>().to_string(),
             offset: self.get_pos(),
             align: core::mem::align_of::<V>(),
             size: 0,

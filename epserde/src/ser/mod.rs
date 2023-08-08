@@ -29,7 +29,7 @@ pub use ser_writers::*;
 /// the user from modifying the methods in [`Serialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait SerializeInner: TypeName + Sized {
+pub trait SerializeInner: TypeHash + Sized {
     /// Inner constant used to keep track recursively if we can optimize the
     /// serialization of the type; i.e., if we can serialize the type without
     /// recursively calling the serialization of the inner types.
@@ -70,7 +70,7 @@ pub trait Serialize: SerializeInner {
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
         Self::type_hash(&mut hasher);
         backend = backend.add_field("TYPE_HASH", &hasher.finish())?;
-        backend = backend.add_field("TYPE_NAME", &Self::type_name())?;
+        backend = backend.add_field("TYPE_NAME", &core::any::type_name::<Self>().to_string())?;
 
         backend = backend.add_field("ROOT", self)?;
         backend.flush()?;

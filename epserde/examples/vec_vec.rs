@@ -6,7 +6,7 @@
 
 use epserde::*;
 
-#[derive(MemSize, MemDbg, TypeName, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(TypeHash, Debug, PartialEq, Eq, Default, Clone)]
 /// Create a new type around `Vec<Vec<T>>` because for orphan rule you can't
 /// implement `SerializeInner` and the other traits directly.
 struct Vec2D<T> {
@@ -23,7 +23,7 @@ impl<T> std::ops::Deref for Vec2D<T> {
 
 /// Implement the serialization. [`ZeroCopy`] is needed so we can safely
 /// deserialize as slice the inner pieces.
-impl<T: SerializeInner + ZeroCopy + TypeName> SerializeInner for Vec2D<T> {
+impl<T: SerializeInner + ZeroCopy + TypeHash> SerializeInner for Vec2D<T> {
     /// This type cannot be serialized just by writing its bytes
     const IS_ZERO_COPY: bool = false;
     /// We will read back this as a vec of slices
@@ -41,7 +41,7 @@ impl<T: SerializeInner + ZeroCopy + TypeName> SerializeInner for Vec2D<T> {
 }
 
 /// Implement the full and ε-copy deserialization
-impl<T: TypeName> DeserializeInner for Vec2D<T>
+impl<T: TypeHash> DeserializeInner for Vec2D<T>
 where
     Vec<T>: DeserializeInner,
 {
@@ -81,9 +81,7 @@ where
     }
 }
 
-#[derive(
-    Serialize, Deserialize, MemSize, MemDbg, TypeName, Debug, PartialEq, Eq, Default, Clone,
-)]
+#[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
 /// Random struct we will use to test the nested serialization and deserialization.
 struct Data<A> {
     a: A,

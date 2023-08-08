@@ -237,91 +237,7 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
     out.into()
 }
 
-#[proc_macro_derive(MemSize)]
-pub fn epserde_mem_size(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let CommonDeriveInput {
-        name,
-        generics,
-        generics_names,
-        where_clause,
-        ..
-    } = CommonDeriveInput::new(
-        input.clone(),
-        vec![syn::parse_quote!(epserde::MemSize)],
-        vec![],
-    );
-
-    let out = match input.data {
-        Data::Struct(s) => {
-            let fields = s
-                .fields
-                .iter()
-                .map(|field| field.ident.to_owned().unwrap())
-                .collect::<Vec<_>>();
-
-            quote! {
-                #[automatically_derived]
-                impl<#generics> epserde::MemSize for #name<#generics_names> #where_clause{
-                    fn mem_size(&self) -> usize {
-                        let mut bytes = 0;
-                        #(bytes += self.#fields.mem_size();)*
-                        bytes
-                    }
-                }
-            }
-        }
-        _ => todo!(),
-    };
-    out.into()
-}
-
-#[proc_macro_derive(MemDbg)]
-pub fn epserde_mem_dbg(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let CommonDeriveInput {
-        name,
-        generics,
-        generics_names,
-        where_clause,
-        ..
-    } = CommonDeriveInput::new(
-        input.clone(),
-        vec![syn::parse_quote!(epserde::MemDbg)],
-        vec![],
-    );
-
-    let out = match input.data {
-        Data::Struct(s) => {
-            let fields = s
-                .fields
-                .iter()
-                .map(|field| field.ident.to_owned().unwrap())
-                .collect::<Vec<_>>();
-
-            quote! {
-                #[automatically_derived]
-                impl<#generics> epserde::MemDbg for #name<#generics_names> #where_clause{
-                    fn _mem_dbg_rec_on(
-                        &self,
-                        writer: &mut impl core::fmt::Write,
-                        depth: usize,
-                        max_depth: usize,
-                        type_name: bool,
-                        humanize: bool,
-                    ) -> core::fmt::Result {
-                        #(self.#fields.mem_dbg_depth_on(writer, depth + 1, max_depth, Some(stringify!(#fields)), type_name, humanize)?;)*
-                        Ok(())
-                    }
-                }
-            }
-        }
-        _ => todo!(),
-    };
-    out.into()
-}
-
-#[proc_macro_derive(TypeName)]
+#[proc_macro_derive(TypeHash)]
 pub fn epserde_type_name(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let CommonDeriveInput {
@@ -333,7 +249,7 @@ pub fn epserde_type_name(input: TokenStream) -> TokenStream {
         consts_names_raw,
     } = CommonDeriveInput::new(
         input.clone(),
-        vec![syn::parse_quote!(epserde::TypeName)],
+        vec![syn::parse_quote!(epserde::TypeHash)],
         vec![],
     );
 
@@ -379,13 +295,7 @@ pub fn epserde_type_name(input: TokenStream) -> TokenStream {
 
             quote! {
                 #[automatically_derived]
-                impl<#generics> epserde::TypeName for #name<#generics_names> #where_clause{
-                    /// Just the type name, without the module path.
-                    #[inline(always)]
-                    fn type_name() -> String {
-                        #type_name
-                    }
-
+                impl<#generics> epserde::TypeHash for #name<#generics_names> #where_clause{
                     #[inline(always)]
                     fn type_hash(hasher: &mut impl core::hash::Hasher) {
                         use core::hash::Hash;
@@ -394,7 +304,7 @@ pub fn epserde_type_name(input: TokenStream) -> TokenStream {
                             #fields_names.hash(hasher);
                         )*
                         #(
-                            <#fields_types as epserde::TypeName>::type_hash(hasher);
+                            <#fields_types as epserde::TypeHash>::type_hash(hasher);
                         )*
                     }
                 }

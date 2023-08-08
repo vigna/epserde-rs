@@ -11,11 +11,9 @@ macro_rules! impl_test {
 
         let full_copy = <$ty>::deserialize_full_copy(&v).unwrap();
         assert_eq!($data, full_copy);
-        assert_eq!($data.type_name_val(), full_copy.type_name_val());
 
         let epscopy = <$ty>::deserialize_eps_copy(&v).unwrap();
         assert_eq!($data, epscopy);
-        assert_eq!($data.type_name_val(), epscopy.type_name_val());
     }
     {
         let mut v = vec![];
@@ -24,11 +22,9 @@ macro_rules! impl_test {
 
         let full_copy = <$ty>::deserialize_full_copy(&v).unwrap();
         assert_eq!($data, full_copy);
-        assert_eq!($data.type_name_val(), full_copy.type_name_val());
 
         let epscopy = <$ty>::deserialize_eps_copy(&v).unwrap();
         assert_eq!($data, epscopy);
-        assert_eq!($data.type_name_val(), epscopy.type_name_val());
     }};
 }
 

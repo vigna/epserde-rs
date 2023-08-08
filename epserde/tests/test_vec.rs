@@ -24,14 +24,8 @@ fn test_vec() {
     println!("{}", schema.to_csv());
 
     let a1 = A::deserialize_full_copy(&v).unwrap();
-    println!("a1: {}", a1.type_name_val());
     assert_eq!(a, a1);
 
     let a2 = <A>::deserialize_eps_copy(&v).unwrap();
-    println!("a2: {}", a2.type_name_val());
     assert_eq!(a, a2);
-
-    // check that the type names are different between full serialization vs
-    // zero-copy deserialization
-    assert_ne!(a1.type_name_val(), a2.type_name_val());
 }
