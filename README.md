@@ -143,9 +143,9 @@ struct MyStructParam<A> {
 
 /// This method can be called on both the original and the ε-copied structure
 impl<A: AsRef<[isize]>> MyStructParam<A> {
-	fn sum(&self) -> isize {
-		self.data.as_ref().iter().sum()
-	}
+    fn sum(&self) -> isize {
+        self.data.as_ref().iter().sum()
+    }
 }
 
 type MyStruct = MyStructParam<Vec<isize>>;
@@ -161,8 +161,8 @@ let t = MyStruct::deserialize_eps_copy(b.as_ref()).unwrap();
 assert_eq!(s.sum(), t.sum());
 ```
 
-If you want to memory-map the data structure, it is convenient to store the ε-copied structure
-and its support in a [`MemCase`]:
+If you want to map the data structure into memory, you can use a convenience method
+that stores the ε-copied structure and its support in a [`MemCase`]:
 ```rust
 use epserde::*;
 use epserde_derive::*;
@@ -175,13 +175,23 @@ struct MyStructParam<A> {
 
 type MyStruct = MyStructParam<Vec<isize>>;
 
+impl<A: AsRef<[isize]>> MyStructParam<A> {
+    fn sum(&self) -> isize {
+        self.data.as_ref().iter().sum()
+    }
+}
+
 let s = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
 s.serialize(std::fs::File::create("serialized").unwrap()).unwrap();
 // Load the serialized form in a buffer
 let f = Flags::empty();
-let t = epserde::map::<MyStruct>("serialized", &f).unwrap();
+// The type of t will be inferred--it is shown here only for clarity
+let t: MemCase<MyStructParam<&[isize]>> =
+    epserde::map::<MyStruct>("serialized", &f).unwrap();
 
+// t works transparently as a MyStructParam<&[isize]>
 assert_eq!(s.id, t.id);
 assert_eq!(s.data, Vec::from(t.data));
+assert_eq!(s.sum(), t.sum());
 ```
 
