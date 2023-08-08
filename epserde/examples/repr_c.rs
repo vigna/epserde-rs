@@ -7,29 +7,24 @@
 use epserde::*;
 
 #[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
-struct PersonVec<A, B> {
+struct Object<A> {
     a: A,
-    b: B,
     test: isize,
 }
 
+#[repr(C)]
 #[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
-struct Data<A> {
-    a: A,
-    /// This is an inner field, so IT WILL NOT BE ZERO-COPIED
-    b: Vec<i32>,
+struct Point {
+    x: usize,
+    y: usize,
 }
 
-type Person = PersonVec<Vec<usize>, Data<Vec<u16>>>;
+impl ZeroCopy for Point {}
 
 fn main() {
     // create a new value to serialize
-    let person0: Person = PersonVec {
-        a: vec![0x89; 6],
-        b: Data {
-            a: vec![0x42; 7],
-            b: vec![0xbadf00d; 2],
-        },
+    let person0: Object<Vec<Point>> = Object {
+        a: vec![Point { x: 2, y: 1 }; 6],
         test: -0xbadf00d,
     };
     // create an aligned vector to serialize into so we can do a zero-copy
@@ -50,17 +45,15 @@ fn main() {
     let _bytes_written = person0.serialize(&mut buf).unwrap();
 
     // do a full-copy deserialization
-    let person1 = Person::deserialize_full_copy(&v).unwrap();
+    let person1 = <Object<Vec<Point>>>::deserialize_full_copy(&v).unwrap();
     println!("{:02x?}", person1);
     assert_eq!(person0, person1);
 
     println!("\n");
 
     // do a zero-copy deserialization
-    let person2 = Person::deserialize_eps_copy(&v).unwrap();
+    let person2 = <Object<Vec<Point>>>::deserialize_eps_copy(&v).unwrap();
     println!("{:x?}", person2);
     assert_eq!(person0.a, person2.a);
-    assert_eq!(person0.b.a, person2.b.a);
-    assert_eq!(person0.b.b, person2.b.b);
     assert_eq!(person0.test, person2.test);
 }
