@@ -52,17 +52,9 @@ pub use zero_copy::*;
 
 pub(crate) mod utils;
 
-/// Compute the padding needed for alignment, i.e., the number so that
-/// `((value + pad_align_to(value, bits) & (bits - 1) == 0`.
-///
-/// ```
-/// use epserde::pad_align_to;
-/// assert_eq!(7 + pad_align_to(7, 8), 8);
-/// assert_eq!(8 + pad_align_to(8, 8), 8);
-/// assert_eq!(9 + pad_align_to(9, 8), 16);
-/// assert_eq!(36 + pad_align_to(36, 16), 48);
-/// ```
-pub fn pad_align_to(value: usize, bits: usize) -> usize {
+/// Compute the padding needed for alignment, that is, the smallest
+/// number such that `((value + pad_align_to(value, bits) & (bits - 1) == 0`.
+fn pad_align_to(value: usize, bits: usize) -> usize {
     value.wrapping_neg() & (bits - 1)
 }
 
@@ -87,3 +79,12 @@ trait Align: Sized {
     }
 }
 impl<T: Sized> Align for T {}
+
+#[test]
+
+fn test_pad_align_to() {
+    assert_eq!(7 + pad_align_to(7, 8), 8);
+    assert_eq!(8 + pad_align_to(8, 8), 8);
+    assert_eq!(9 + pad_align_to(9, 8), 16);
+    assert_eq!(36 + pad_align_to(36, 16), 48);
+}
