@@ -19,7 +19,7 @@ struct Point {
     y: usize,
 }
 
-impl ZeroCopy for Point {}
+zero_copy!(Point);
 
 fn main() {
     // create a new value to serialize

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{TypeHash, ZeroCopy};
+use crate::{CopySelector, CopyType, Eps, EpsCopy, TypeHash, Zero, ZeroCopy};
 
 use super::ser::{FieldWrite, Result, Serialize, SerializeInner};
 
@@ -82,21 +82,34 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(data: &[T], mut backend: F) -> R
     Ok(backend)
 }
 
-impl<T: Serialize + ZeroCopy + TypeHash> SerializeInner for Vec<T> {
-    // Vec<$ty> can, but Vec<Vec<$ty>> cannot!
+// This delegates to a private helper trait which we can specialize on in stable rust
+impl<T: CopyType + SerializeInner + TypeHash> SerializeInner for Vec<T>
+where
+    Vec<T>: SerializeHelper<<T as CopyType>::Type>,
+{
     const IS_ZERO_COPY: bool = false;
+    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
+        SerializeHelper::_serialize_inner(self, backend)
+    }
+}
 
+// Since impls with distinct parameters are considered disjoint
+// we can write multiple blanket impls for DeserializeHelper given different paremeters
+trait SerializeHelper<T: CopySelector> {
+    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;
+}
+
+// blanket impl 1
+impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Vec<T> {
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
         serialize_slice(self.as_slice(), backend)
     }
 }
 
-impl<T: Serialize + ZeroCopy + TypeHash + ?Sized> SerializeInner for Box<[T]> {
-    // Box<[$ty]> can, but Vec<Box<[$ty]>> cannot!
-    const IS_ZERO_COPY: bool = false;
-
+// blanket impl 2
+impl<T: EpsCopy + SerializeInner> SerializeHelper<Eps> for Vec<T> {
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
-        serialize_slice(self.as_ref(), backend)
+        serialize_slice(self.as_slice(), backend)
     }
 }
 
@@ -117,35 +130,6 @@ impl SerializeInner for String {
         serialize_slice(self.as_bytes(), backend)
     }
 }
-
-/*
-impl<const N: usize, T: Serialize> SerializeInner for [T; N] {
-    const WRITE_ALL_OPTIMIZATION: bool = true;
-
-    fn _serialize_inner<F: WriteWithPosNoStd>(&self, mut backend: F) -> Result<F> {
-        if <T>::WRITE_ALL_OPTIMIZATION {
-            backend.add_padding_to_align(core::mem::align_of::<T>())?;
-            let buffer = unsafe {
-                core::slice::from_raw_parts(
-                    self.as_ptr() as *const u8,
-                    N * core::mem::size_of::<T>(),
-                )
-            };
-            backend = backend.add_field_bytes(
-                "data",
-                Self::DeserType::type_name(),
-                &buffer,
-                core::mem::align_of::<T>(),
-            )?;
-        } else {
-            for item in self.iter() {
-                backend = backend.add_field("data", item)?;
-            }
-        }
-        Ok(backend)
-    }
-}
- */
 
 macro_rules! impl_ser_vec {
     ($ty:ty) => {
@@ -168,5 +152,18 @@ macro_rules! impl_ser_vec {
     };
 }
 
-impl_ser_vec!(Vec<T>);
-impl_ser_vec!(Vec<Vec<T>>);
+pub trait SerializeInnerRef<T: SerializeInner>: AsRef<[T]> {
+    /// This type cannot be serialized just by writing its bytes
+    const IS_ZERO_COPY: bool = false;
+
+    fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
+        // write the number of sub-fields
+        backend = backend.add_field("len", &self.as_ref().len())?;
+        for (i, sub_vec) in self.as_ref().iter().enumerate() {
+            // serialize each sub-vector
+            backend = backend.add_field(&format!("sub_vec_{}", i), sub_vec)?;
+        }
+
+        Ok(backend)
+    }
+}

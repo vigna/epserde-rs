@@ -22,12 +22,42 @@ contain references and has a fixed memory layout; for structures, this requires
 serialization/deserialization will panic.
 
 */
-pub trait ZeroCopy: 'static {}
+pub trait CopySelector {}
+pub struct Eps {}
+pub struct Zero {}
 
+impl CopySelector for Zero {}
+impl CopySelector for Eps {}
+
+pub trait CopyType {
+    type Type: CopySelector;
+}
+
+pub trait ZeroCopy: CopyType<Type = Zero> {}
+pub trait EpsCopy: CopyType<Type = Eps> {}
+
+#[macro_export]
+macro_rules! zero_copy {
+    ($ty:ty) => {
+        impl CopyType for $ty {
+            type Type = Zero;
+        }
+        impl ZeroCopy for $ty {}
+    };
+}
+
+#[macro_export]
+macro_rules! eps_copy {
+    ($ty:ty) => {
+        impl CopyType for $ty {
+            type Type = Eps;
+        }
+        impl EpsCopy for $ty {}
+    };
+}
 macro_rules! impl_stuff{
     ($($ty:ty),*) => {$(
-        impl ZeroCopy for $ty {
-        }
+        zero_copy!($ty);
     )*};
 }
 
@@ -51,10 +81,19 @@ impl_stuff!(
     f64
 );
 
+impl<T: CopyType, const N: usize> CopyType for [T; N] {
+    type Type = T::Type;
+}
 impl<T: ZeroCopy, const N: usize> ZeroCopy for [T; N] {}
+impl<T: EpsCopy, const N: usize> EpsCopy for [T; N] {}
 
+/// TODO
 macro_rules! impl_tuples {
     ($($t:ident),*) => {
+        impl<$($t: ZeroCopy,)*> CopyType for ($($t,)*)  {
+            /// TODO
+            type Type = Zero;
+        }
         impl<$($t: ZeroCopy,)*> ZeroCopy for ($($t,)*) {}
     };
 }
