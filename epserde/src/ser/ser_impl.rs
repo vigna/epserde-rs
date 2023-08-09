@@ -62,6 +62,7 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(
     mut backend: F,
     zero_copy: bool,
 ) -> Result<F> {
+    // TODO: check for IS_ZERO_COPY
     let len = data.len();
     backend = backend.add_field("len", &len)?;
     if zero_copy {
@@ -86,6 +87,12 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(
     Ok(backend)
 }
 
+// Since impls with distinct parameters are considered disjoint
+// we can write multiple blanket impls for SerializeHelper given different paremeters
+trait SerializeHelper<T: CopySelector> {
+    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;
+}
+
 // This delegates to a private helper trait which we can specialize on in stable rust
 impl<T: CopyType + SerializeInner + TypeHash> SerializeInner for Vec<T>
 where
@@ -97,23 +104,42 @@ where
     }
 }
 
-// Since impls with distinct parameters are considered disjoint
-// we can write multiple blanket impls for DeserializeHelper given different paremeters
-trait SerializeHelper<T: CopySelector> {
-    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;
-}
-
-// blanket impl 1
 impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Vec<T> {
+    #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
         serialize_slice(self.as_slice(), backend, true)
     }
 }
 
-// blanket impl 2
 impl<T: EpsCopy + SerializeInner> SerializeHelper<Eps> for Vec<T> {
+    #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
         serialize_slice(self.as_slice(), backend, false)
+    }
+}
+
+// This delegates to a private helper trait which we can specialize on in stable rust
+impl<T: CopyType + SerializeInner + TypeHash> SerializeInner for Box<[T]>
+where
+    Box<[T]>: SerializeHelper<<T as CopyType>::Type>,
+{
+    const IS_ZERO_COPY: bool = false;
+    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
+        SerializeHelper::_serialize_inner(self, backend)
+    }
+}
+
+impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Box<[T]> {
+    #[inline(always)]
+    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
+        serialize_slice(self, backend, true)
+    }
+}
+
+impl<T: EpsCopy + SerializeInner> SerializeHelper<Eps> for Box<[T]> {
+    #[inline(always)]
+    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
+        serialize_slice(self, backend, false)
     }
 }
 
