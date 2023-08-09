@@ -57,10 +57,14 @@ impl SerializeInner for char {
 
 /// this is a private function so we have a consistent implementation
 /// and slice can't be generally serialized
-fn serialize_slice<T: Serialize, F: FieldWrite>(data: &[T], mut backend: F) -> Result<F> {
+fn serialize_slice<T: Serialize, F: FieldWrite>(
+    data: &[T],
+    mut backend: F,
+    zero_copy: bool,
+) -> Result<F> {
     let len = data.len();
     backend = backend.add_field("len", &len)?;
-    if <T>::IS_ZERO_COPY {
+    if zero_copy {
         // ensure alignment
         backend.add_padding_to_align(core::mem::align_of::<T>())?;
         let buffer = unsafe {
@@ -102,14 +106,14 @@ trait SerializeHelper<T: CopySelector> {
 // blanket impl 1
 impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Vec<T> {
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
-        serialize_slice(self.as_slice(), backend)
+        serialize_slice(self.as_slice(), backend, true)
     }
 }
 
 // blanket impl 2
 impl<T: EpsCopy + SerializeInner> SerializeHelper<Eps> for Vec<T> {
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
-        serialize_slice(self.as_slice(), backend)
+        serialize_slice(self.as_slice(), backend, false)
     }
 }
 
@@ -118,7 +122,7 @@ impl SerializeInner for Box<str> {
     const IS_ZERO_COPY: bool = false;
 
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
-        serialize_slice(self.as_bytes(), backend)
+        serialize_slice(self.as_bytes(), backend, true)
     }
 }
 
@@ -127,7 +131,7 @@ impl SerializeInner for String {
     const IS_ZERO_COPY: bool = false;
 
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
-        serialize_slice(self.as_bytes(), backend)
+        serialize_slice(self.as_bytes(), backend, true)
     }
 }
 
