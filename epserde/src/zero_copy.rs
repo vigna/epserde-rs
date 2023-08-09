@@ -110,3 +110,23 @@ macro_rules! impl_tuples_muncher {
 }
 
 impl_tuples_muncher!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
+
+impl<T> CopyType for Vec<T> {
+    type Type = Eps;
+}
+impl<T> EpsCopy for Vec<T> {}
+
+impl<T> CopyType for Box<[T]> {
+    type Type = Eps;
+}
+impl<T> EpsCopy for Box<[T]> {}
+
+impl<T> CopyType for Option<T> {
+    type Type = Eps;
+}
+impl<T> EpsCopy for Option<T> {}
+
+impl<R, E> CopyType for Result<R, E> {
+    type Type = Eps;
+}
+impl<R, E> EpsCopy for Result<R, E> {}
