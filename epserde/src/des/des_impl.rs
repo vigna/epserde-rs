@@ -159,6 +159,9 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T
 
 impl<T: EpsCopy + DeserializeInner + 'static> DeserializeHelper<Eps> for Vec<T> {
     type FullType = Self;
+    /// TODO: This should be
+    /// type DeserType<'a> = Vec<<T as DeserializeInner>::DeserType<'a>>;
+    /// or nested vecs won't work
     type DeserType<'a> = Self;
     fn _deserialize_full_copy_inner_impl(
         backend: Cursor,
