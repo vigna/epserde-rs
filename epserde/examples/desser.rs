@@ -16,15 +16,17 @@ struct PersonVec<A, B> {
 #[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A> {
     a: A,
-    /// This is an inner field, so IT WILL NOT BE ZERO-COPIED
+    /// TODO: does it depend on the fact it's inner?
+    /// This is an inner field whose type is not a parameter,
+    /// so it will not be ε-copied, but rather fully copied.
     b: Vec<i32>,
 }
 
 type Person = PersonVec<Vec<usize>, Data<Vec<u16>>>;
 
 fn main() {
-    // create a new value to serialize
-    let person0: Person = PersonVec {
+    // Create a new value to serialize
+    let person = Person {
         a: vec![0x89; 6],
         b: Data {
             a: vec![0x42; 7],
@@ -32,7 +34,7 @@ fn main() {
         },
         test: -0xbadf00d,
     };
-    // create an aligned vector to serialize into so we can do a zero-copy
+    // Create an aligned vector to serialize into so we can do a zero-copy
     // deserialization safely
     let len = 100;
     let mut v = unsafe {
@@ -43,24 +45,32 @@ fn main() {
         )
     };
     assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
-    // wrap the vector in a cursor so we can serialize into it
+    // Wrap the vector in a cursor so we can serialize into it
     let mut buf = std::io::Cursor::new(&mut v);
 
-    // serialize
-    let _bytes_written = person0.serialize(&mut buf).unwrap();
+    // Serialize
+    let _bytes_written = person.serialize(&mut buf).unwrap();
 
-    // do a full-copy deserialization
-    let person1 = Person::deserialize_full_copy(&v).unwrap();
-    println!("{:02x?}", person1);
-    assert_eq!(person0, person1);
+    // Do a full-copy deserialization
+    let full = Person::deserialize_full_copy(&v).unwrap();
+    println!(
+        "Full-deserialization type: {}",
+        std::any::type_name::<Person>(),
+    );
+    println!("Value: {:x?}", full);
+    assert_eq!(person, full);
 
-    println!("\n");
+    println!();
 
-    // do a zero-copy deserialization
-    let person2 = Person::deserialize_eps_copy(&v).unwrap();
-    println!("{:x?}", person2);
-    assert_eq!(person0.a, person2.a);
-    assert_eq!(person0.b.a, person2.b.a);
-    assert_eq!(person0.b.b, person2.b.b);
-    assert_eq!(person0.test, person2.test);
+    // Do an ε-copy deserialization
+    let eps = Person::deserialize_eps_copy(&v).unwrap();
+    println!(
+        "ε-deserialization type: {}",
+        std::any::type_name::<<Person as DeserializeInner>::DeserType<'_>>(),
+    );
+    println!("Value: {:x?}", eps);
+    assert_eq!(person.a, eps.a);
+    assert_eq!(person.b.a, eps.b.a);
+    assert_eq!(person.b.b, eps.b.b);
+    assert_eq!(person.test, eps.test);
 }

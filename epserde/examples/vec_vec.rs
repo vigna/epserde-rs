@@ -14,13 +14,13 @@ struct Data<A> {
 }
 
 fn main() {
-    // create a new value to serialize
+    // Create a new value to serialize
     let data = Data {
         a: vec![vec![0x89; 6]; 9],
         test: -0xbadf00d,
     };
 
-    // create an aligned vector to serialize into so we can do a zero-copy
+    // Create an aligned vector to serialize into so we can do an ε-copy
     // deserialization safely
     let len = 100;
     let mut v = unsafe {
@@ -34,20 +34,28 @@ fn main() {
     // wrap the vector in a cursor so we can serialize into it
     let mut buf = std::io::Cursor::new(&mut v);
 
-    // serialize
+    // Serialize
     let mut schema = data.serialize_with_schema(&mut buf).unwrap();
-    // sort the schema by offset so we can print it in order
+    // Sort the schema by offset so we can print it in order
     schema.0.sort_by_key(|a| a.offset);
     let buf = buf.into_inner();
     println!("{}", schema.debug(buf));
 
-    // do a full-copy deserialization
-    let data1 = <Data<Vec<i32>>>::deserialize_full_copy(&v).unwrap();
-    println!("{:02x?}", data1);
+    // Do a full-copy deserialization
+    let full = <Data<Vec<Vec<i32>>>>::deserialize_full_copy(&v).unwrap();
+    println!(
+        "Full-deserialization type: {}",
+        std::any::type_name::<Data<Vec<Vec<i32>>>>(),
+    );
+    println!("Value: {:x?}", full);
 
     println!("\n");
 
-    // do a zero-copy deserialization
-    let data2 = <Data<Vec<i32>>>::deserialize_eps_copy(&v).unwrap();
-    println!("{:x?}", data2);
+    // Do an ε-copy deserialization
+    let eps = <Data<Vec<Vec<i32>>>>::deserialize_eps_copy(&v).unwrap();
+    println!(
+        "ε-deserialization type: {}",
+        std::any::type_name::<<Data<Vec<Vec<i32>>> as DeserializeInner>::DeserType<'_>>(),
+    );
+    println!("Value: {:x?}", eps);
 }

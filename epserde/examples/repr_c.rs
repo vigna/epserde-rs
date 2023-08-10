@@ -19,15 +19,17 @@ struct Point {
     y: usize,
 }
 
+// We want to use zero-copy deserialization on Point,
+// and thus ε-copy deserialization on Vec<Point>, etc.
 zero_copy!(Point);
 
 fn main() {
-    // create a new value to serialize
-    let person0: Object<Vec<Point>> = Object {
+    // Create a new value to serialize
+    let point: Object<Vec<Point>> = Object {
         a: vec![Point { x: 2, y: 1 }; 6],
         test: -0xbadf00d,
     };
-    // create an aligned vector to serialize into so we can do a zero-copy
+    // Create an aligned vector to serialize into so we can do a zero-copy
     // deserialization safely
     let len = 100;
     let mut v = unsafe {
@@ -38,22 +40,30 @@ fn main() {
         )
     };
     assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
-    // wrap the vector in a cursor so we can serialize into it
+    // Wrap the vector in a cursor so we can serialize into it
     let mut buf = std::io::Cursor::new(&mut v);
 
-    // serialize
-    let _bytes_written = person0.serialize(&mut buf).unwrap();
+    // Serialize
+    let _bytes_written = point.serialize(&mut buf).unwrap();
 
-    // do a full-copy deserialization
-    let person1 = <Object<Vec<Point>>>::deserialize_full_copy(&v).unwrap();
-    println!("{:02x?}", person1);
-    assert_eq!(person0, person1);
+    // Do a full-copy deserialization
+    let full = <Object<Vec<Point>>>::deserialize_full_copy(&v).unwrap();
+    println!(
+        "Full-deserialization type: {}",
+        std::any::type_name::<Object<Vec<Point>>>(),
+    );
+    println!("Value: {:x?}", full);
+    assert_eq!(point, full);
 
-    println!("\n");
+    println!();
 
-    // do a zero-copy deserialization
-    let person2 = <Object<Vec<Point>>>::deserialize_eps_copy(&v).unwrap();
-    println!("{:x?}", person2);
-    assert_eq!(person0.a, person2.a);
-    assert_eq!(person0.test, person2.test);
+    // Do an ε-copy deserialization
+    let eps = <Object<Vec<Point>>>::deserialize_eps_copy(&v).unwrap();
+    println!(
+        "ε-deserialization type: {}",
+        std::any::type_name::<<Object<Vec<Point>> as DeserializeInner>::DeserType<'_>>(),
+    );
+    println!("Value: {:x?}", eps);
+    assert_eq!(point.a, eps.a);
+    assert_eq!(point.test, eps.test);
 }
