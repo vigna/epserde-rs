@@ -22,7 +22,7 @@ struct Point {
 // We want to use zero-copy deserialization on Point,
 // and thus ε-copy deserialization on Vec<Point>, etc.
 impl CopyType for Point {
-    type Type = Zero;
+    type Copy = Zero;
 }
 
 fn main() {

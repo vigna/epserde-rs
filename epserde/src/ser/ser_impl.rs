@@ -96,7 +96,7 @@ trait SerializeHelper<T: CopySelector> {
 // This delegates to a private helper trait which we can specialize on in stable rust
 impl<T: CopyType + SerializeInner + TypeHash> SerializeInner for Vec<T>
 where
-    Vec<T>: SerializeHelper<<T as CopyType>::Type>,
+    Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
 {
     const IS_ZERO_COPY: bool = false;
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
@@ -121,7 +121,7 @@ impl<T: EpsCopy + SerializeInner> SerializeHelper<Eps> for Vec<T> {
 // This delegates to a private helper trait which we can specialize on in stable rust
 impl<T: CopyType + SerializeInner + TypeHash> SerializeInner for Box<[T]>
 where
-    Box<[T]>: SerializeHelper<<T as CopyType>::Type>,
+    Box<[T]>: SerializeHelper<<T as CopyType>::Copy>,
 {
     const IS_ZERO_COPY: bool = false;
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {

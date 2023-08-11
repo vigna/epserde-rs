@@ -26,7 +26,7 @@ use epserde::*;
 struct MyType {}
 
 impl CopyType for MyType {
-    type Type = Zero;
+    type Copy = Zero;
 }
 // Now MyType implements ZeroCopy
 ````
@@ -59,18 +59,18 @@ contrived way we implement mutually exclusive types.
 */
 
 pub trait CopyType {
-    type Type: CopySelector;
+    type Copy: CopySelector;
 }
 
-pub trait ZeroCopy: CopyType<Type = Zero> {}
-impl<T: CopyType<Type = Zero>> ZeroCopy for T {}
-pub trait EpsCopy: CopyType<Type = Eps> {}
-impl<T: CopyType<Type = Eps>> EpsCopy for T {}
+pub trait ZeroCopy: CopyType<Copy = Zero> {}
+impl<T: CopyType<Copy = Zero>> ZeroCopy for T {}
+pub trait EpsCopy: CopyType<Copy = Eps> {}
+impl<T: CopyType<Copy = Eps>> EpsCopy for T {}
 
 macro_rules! impl_stuff{
     ($($ty:ty),*) => {$(
         impl CopyType for $ty {
-            type Type = Zero;
+            type Copy = Zero;
         }
     )*};
 }
@@ -96,7 +96,7 @@ impl_stuff!(
 );
 
 impl<T: CopyType, const N: usize> CopyType for [T; N] {
-    type Type = T::Type;
+    type Copy = T::Copy;
 }
 
 /// TODO
@@ -104,7 +104,7 @@ macro_rules! impl_tuples {
     ($($t:ident),*) => {
         impl<$($t: ZeroCopy,)*> CopyType for ($($t,)*)  {
             /// TODO
-            type Type = Zero;
+            type Copy = Zero;
         }
     };
 }
@@ -123,25 +123,25 @@ macro_rules! impl_tuples_muncher {
 impl_tuples_muncher!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 
 impl<T> CopyType for Vec<T> {
-    type Type = Eps;
+    type Copy = Eps;
 }
 
 impl<T> CopyType for Box<[T]> {
-    type Type = Eps;
+    type Copy = Eps;
 }
 
 impl<T> CopyType for Option<T> {
-    type Type = Eps;
+    type Copy = Eps;
 }
 
 impl<R, E> CopyType for Result<R, E> {
-    type Type = Eps;
+    type Copy = Eps;
 }
 
 impl CopyType for String {
-    type Type = Eps;
+    type Copy = Eps;
 }
 
 impl CopyType for Box<str> {
-    type Type = Eps;
+    type Copy = Eps;
 }
