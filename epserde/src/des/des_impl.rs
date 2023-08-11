@@ -86,7 +86,20 @@ fn deserialize_slice<T: ZeroCopy>(backend: Cursor) -> Result<(&'_ [T], Cursor), 
     Ok((data, backend.skip(bytes)))
 }
 
-fn deserialize_vec<T: DeserializeInner>(
+fn deserialize_vec_eps<T: DeserializeInner>(
+    backend: Cursor,
+) -> Result<(Vec<<T as DeserializeInner>::DeserType<'_>>, Cursor), DeserializeError> {
+    let (len, mut backend) = usize::_deserialize_full_copy_inner(backend)?;
+    let mut res = Vec::with_capacity(len);
+    for _ in 0..len {
+        let (elem, new_backend) = T::_deserialize_eps_copy_inner(backend)?;
+        res.push(elem);
+        backend = new_backend;
+    }
+    Ok((res, backend))
+}
+
+fn deserialize_vec_full<T: DeserializeInner>(
     backend: Cursor,
 ) -> Result<(Vec<T>, Cursor), DeserializeError> {
     let (len, mut backend) = usize::_deserialize_full_copy_inner(backend)?;
@@ -147,7 +160,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T
     fn _deserialize_full_copy_inner_impl(
         backend: Cursor,
     ) -> Result<(Vec<T>, Cursor), DeserializeError> {
-        deserialize_vec(backend)
+        deserialize_vec_full(backend)
     }
     #[inline(always)]
     fn _deserialize_eps_copy_inner_impl(
@@ -159,20 +172,17 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T
 
 impl<T: EpsCopy + DeserializeInner + 'static> DeserializeHelper<Eps> for Vec<T> {
     type FullType = Self;
-    /// TODO: This should be
-    /// type DeserType<'a> = Vec<<T as DeserializeInner>::DeserType<'a>>;
-    /// or nested vecs won't work
-    type DeserType<'a> = Self;
+    type DeserType<'a> = Vec<<T as DeserializeInner>::DeserType<'a>>;
     fn _deserialize_full_copy_inner_impl(
         backend: Cursor,
     ) -> Result<(Self, Cursor), DeserializeError> {
-        deserialize_vec(backend)
+        deserialize_vec_full(backend)
     }
     #[inline(always)]
     fn _deserialize_eps_copy_inner_impl(
         backend: Cursor,
     ) -> Result<(<Self as DeserializeInner>::DeserType<'_>, Cursor), DeserializeError> {
-        deserialize_vec(backend)
+        deserialize_vec_eps::<T>(backend)
     }
 }
 
@@ -211,7 +221,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Box<[
     fn _deserialize_full_copy_inner_impl(
         backend: Cursor,
     ) -> Result<(Box<[T]>, Cursor), DeserializeError> {
-        deserialize_vec(backend).map(|(v, b)| (v.into_boxed_slice(), b))
+        deserialize_vec_full(backend).map(|(v, b)| (v.into_boxed_slice(), b))
     }
     #[inline(always)]
     fn _deserialize_eps_copy_inner_impl(
@@ -223,17 +233,17 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Box<[
 
 impl<T: EpsCopy + DeserializeInner + 'static> DeserializeHelper<Eps> for Box<[T]> {
     type FullType = Self;
-    type DeserType<'a> = Self;
+    type DeserType<'a> = Box<[<T as DeserializeInner>::DeserType<'a>]>;
     fn _deserialize_full_copy_inner_impl(
         backend: Cursor,
     ) -> Result<(Self, Cursor), DeserializeError> {
-        deserialize_vec(backend).map(|(v, b)| (v.into_boxed_slice(), b))
+        deserialize_vec_full(backend).map(|(v, b)| (v.into_boxed_slice(), b))
     }
     #[inline(always)]
     fn _deserialize_eps_copy_inner_impl(
         backend: Cursor,
     ) -> Result<(<Self as DeserializeInner>::DeserType<'_>, Cursor), DeserializeError> {
-        deserialize_vec(backend).map(|(v, b)| (v.into_boxed_slice(), b))
+        deserialize_vec_eps::<T>(backend).map(|(v, b)| (v.into_boxed_slice(), b))
     }
 }
 
