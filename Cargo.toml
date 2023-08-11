@@ -3,6 +3,5 @@ resolver = "2"
 
 members = [
     "epserde-derive",
-    "epserde-trait",
-    "test-epserde",
+    "epserde",
 ]
