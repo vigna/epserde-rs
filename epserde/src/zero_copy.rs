@@ -132,3 +132,4 @@ impl<R, E> CopyType for Result<R, E> {
 impl<R, E> EpsCopy for Result<R, E> {}
 
 eps_copy!(String);
+eps_copy!(Box<str>);
