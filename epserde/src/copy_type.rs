@@ -28,7 +28,7 @@ struct MyType {}
 impl CopyType for MyType {
     type Type = Zero;
 }
-/// Now MyType implements ZeroCopy
+// Now MyType implements ZeroCopy
 ````
 
 We use this trait to implement a different behavior for [`ZeroCopy`] and [`EpsCopy`] types,
