@@ -17,9 +17,9 @@ Marker trait for data in vectors, boxes slices, or custom types
 that need to know whether a slice of data can be zero-copy deserialized.
 
 The trait comes in two flavors: `CopySelector<Type=Zero>` and
-`CopySelector<Type=Eps>`. To each of these flavors corresponds a different
-dependent trait: [`ZeroCopy`] and [`EpsCopy`]. Implementation must always be done for both
-traits, as in the following example:
+`CopySelector<Type=Eps>`. To each of these flavors corresponds two
+dependent traits, [`ZeroCopy`] and [`EpsCopy`], which are automatically
+implemented:
 ```rust
 use epserde::*;
 
@@ -28,6 +28,7 @@ struct MyType {}
 impl CopyType for MyType {
     type Type = Zero;
 }
+/// Now MyType implements ZeroCopy
 ````
 
 We use this trait to implement a different behavior for [`ZeroCopy`] and [`EpsCopy`] types,
@@ -36,19 +37,19 @@ for the two flavors of `CopySelector` are mutually
 exclusive](https://github.com/rust-lang/rfcs/pull/1672#issuecomment-1405377983).
 
 For a slice of elements of type `T` to be zero-copy serializable and
-deserializable, `T` must implement [`ZeroCopy`]. The conditions for this marker trait are that
+deserializable, `T` must implement `CopySelector<Type=Zero>`. The conditions for this marker trait are that
 `T` is a copy type, that it has a fixed memory layout, and that it does not contain any reference.
 If this happen, a slice of `T` can be zero-copy deserialized just by taking a reference, and
 consequently vectors of `T` or boxed slices of `T` can be ε-copy deserialized
 using the reference.
 
-You can implement [`ZeroCopy`] for your copy types, but you must ensure that the type does not
+You can implement `CopySelector<Type=Zero>` for your copy types, but you must ensure that the type does not
 contain references and has a fixed memory layout; for structures, this requires
 `repr(C)`. ε-serde will track these conditions at compile time and check them at
 runtime: in case of failure, serialization/deserialization will panic.
 
 Since we cannot use negative trait bounds, every type that is used as a parameter of
-a vector or boxed slice must implement either [`ZeroCopy`] or [`EpsCopy`]. In the latter
+a vector or boxed slice must implement either `CopySelector<Type=Zero>` or `CopySelector<Type=Eps>`. In the latter
 case, slices will be deserialized element by element, and the result will be a fully
 deserialized vector or boxed
 slice. If you do not implement either of these traits, the type will not be serializable inside
