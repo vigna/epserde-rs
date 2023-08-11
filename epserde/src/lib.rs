@@ -41,8 +41,8 @@ pub use type_hash::*;
 mod mem_case;
 pub use mem_case::*;
 
-mod zero_copy;
-pub use zero_copy::*;
+mod copy_type;
+pub use copy_type::*;
 
 /// Compute the padding needed for alignment, that is, the smallest
 /// number such that `((value + pad_align_to(value, bits) & (bits - 1) == 0`.

@@ -21,7 +21,9 @@ struct Point {
 
 // We want to use zero-copy deserialization on Point,
 // and thus ε-copy deserialization on Vec<Point>, etc.
-zero_copy!(Point);
+impl CopyType for Point {
+    type Type = Zero;
+}
 
 fn main() {
     // Create a new value to serialize
