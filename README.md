@@ -107,9 +107,11 @@ struct MyStruct<A> {
 // Create a structure where A is a Vec<isize>
 let s: MyStruct<Vec<isize>> = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
 // Serialize it
-s.serialize(std::fs::File::create("serialized").unwrap()).unwrap();
+let mut file = std::env::temp_dir();
+file.push("serialized");
+s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
 // Load the serialized form in a buffer
-let b = std::fs::read("serialized").unwrap();
+let b = std::fs::read(&file).unwrap();
 
 // The type of t will be inferred--it is shown here only for clarity
 let t: MyStruct<&[isize]> = 
@@ -153,9 +155,11 @@ type MyStruct = MyStructParam<Vec<isize>>;
 // Create a structure where A is a Vec<isize>
 let s = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
 // Serialize it
-s.serialize(std::fs::File::create("serialized").unwrap()).unwrap();
+let mut file = std::env::temp_dir();
+file.push("serialized");
+s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
 // Load the serialized form in a buffer
-let b = std::fs::read("serialized").unwrap();
+let b = std::fs::read(&file).unwrap();
 let t = MyStruct::deserialize_eps_copy(b.as_ref()).unwrap();
 // We can call the method on both structures
 assert_eq!(s.sum(), t.sum());
@@ -182,12 +186,14 @@ impl<A: AsRef<[isize]>> MyStructParam<A> {
 }
 
 let s = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
-s.serialize(std::fs::File::create("serialized").unwrap()).unwrap();
+let mut file = std::env::temp_dir();
+file.push("serialized");
+s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
 // Load the serialized form in a buffer
 let f = Flags::empty();
 // The type of t will be inferred--it is shown here only for clarity
 let t: MemCase<MyStructParam<&[isize]>> =
-    epserde::map::<MyStruct>("serialized", &f).unwrap();
+    epserde::map::<MyStruct>(&file, &f).unwrap();
 
 // t works transparently as a MyStructParam<&[isize]>
 assert_eq!(s.id, t.id);
