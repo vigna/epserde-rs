@@ -130,3 +130,5 @@ impl<R, E> CopyType for Result<R, E> {
     type Type = Eps;
 }
 impl<R, E> EpsCopy for Result<R, E> {}
+
+eps_copy!(String);

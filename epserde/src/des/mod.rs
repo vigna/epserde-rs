@@ -5,14 +5,23 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Deserialization traits and types
-//!
-//! [`Deserialize`] is the main deserialization trait, providing methods
-//! [`Deserialize::deserialize_eps_copy`] and [`Deserialize::deserialize_full_copy`]
-//! which implement ε-copy and full-copy deserialization, respectively,
-//! starting from a slice of bytes. The implementation of this trait
-//! is based on [`DeserializeInner`], which is automatically derived
-//! with `#[derive(Deserialize)]`.
+/*!
+
+Deserialization traits and types
+
+[`Deserialize`] is the main deserialization trait, providing methods
+[`Deserialize::deserialize_eps_copy`] and [`Deserialize::deserialize_full_copy`]
+which implement ε-copy and full-copy deserialization, respectively,
+starting from a slice of bytes. The implementation of this trait
+is based on [`DeserializeInner`], which is automatically derived
+with `#[derive(Deserialize)]`.
+
+Note that [`Deserialize::deserialize_full_copy`] is internally necessary
+to deserialize fields whose type is not a parameter, but technically
+it could be hidden from the user interface. It can however be useful
+for debugging and in cases in which a full copy is necessary.
+
+*/
 use crate::{Serialize, TypeHash, MAGIC, MAGIC_REV, VERSION};
 use core::hash::Hasher;
 
