@@ -101,10 +101,6 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
         .attrs
         .iter()
         .any(|x| x.meta.path().is_ident("zero_copy"));
-    let is_eps_copy = input
-        .attrs
-        .iter()
-        .any(|x| x.meta.path().is_ident("eps_copy"));
     let CommonDeriveInput {
         name,
         generics,
@@ -164,17 +160,13 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
     out.into()
 }
 
-#[proc_macro_derive(Deserialize, attributes(eps_copy, zero_copy))]
+#[proc_macro_derive(Deserialize, attributes(zero_copy))]
 pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let is_zero_copy = input
+    let _is_zero_copy = input
         .attrs
         .iter()
         .any(|x| x.meta.path().is_ident("zero_copy"));
-    let is_eps_copy = input
-        .attrs
-        .iter()
-        .any(|x| x.meta.path().is_ident("eps_copy"));
     let CommonDeriveInput {
         name,
         generics_names_raw,
@@ -214,39 +206,78 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                 }
             });
 
-            quote! {
-                #[automatically_derived]
-                impl<#generics> epserde::des::DeserializeInner for #name<#generics_names> #where_clause
-                #(
-                    #generic_types: epserde::des::DeserializeInner,
-                )*{
-                    fn _deserialize_full_copy_inner(
-                        backend: epserde::des::Cursor,
-                    ) -> core::result::Result<(Self, epserde::des::Cursor), epserde::des::DeserializeError> {
-                        use epserde::des::DeserializeInner;
-                        #(
-                            let (#fields, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;
-                        )*
-                        Ok((#name{
-                            #(#fields),*
-                        }, backend))
+            if _is_zero_copy {
+                quote! {
+                    #[automatically_derived]
+                    impl<#generics> epserde::des::DeserializeInner for #name<#generics_names> #where_clause
+                    #(
+                        #generic_types: epserde::des::DeserializeInner,
+                    )*{
+                        fn _deserialize_full_copy_inner(
+                            backend: epserde::des::Cursor,
+                        ) -> core::result::Result<(Self, epserde::des::Cursor), epserde::des::DeserializeError> {
+                            use epserde::des::DeserializeInner;
+                            #(
+                                let (#fields, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;
+                            )*
+                            Ok((#name{
+                                #(#fields),*
+                            }, backend))
+                        }
+
+                        type DeserType<'a> = #name<#(
+                            <#generic_types as epserde::des::DeserializeInner>::DeserType<'a>
+                        ,)*>;
+
+                        fn _deserialize_eps_copy_inner(
+                            backend: epserde::des::Cursor,
+                        ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::Cursor), epserde::des::DeserializeError>
+                        {
+                            use epserde::des::DeserializeInner;
+                            #(
+                                let (#fields, backend) = <#fields_types>::#methods(backend)?;
+                            )*
+                            Ok((#name{
+                                #(#fields),*
+                            }, backend))
+                        }
                     }
+                }
+            } else {
+                quote! {
+                    #[automatically_derived]
+                    impl<#generics> epserde::des::DeserializeInner for #name<#generics_names> #where_clause
+                    #(
+                        #generic_types: epserde::des::DeserializeInner,
+                    )*{
+                        fn _deserialize_full_copy_inner(
+                            backend: epserde::des::Cursor,
+                        ) -> core::result::Result<(Self, epserde::des::Cursor), epserde::des::DeserializeError> {
+                            use epserde::des::DeserializeInner;
+                            #(
+                                let (#fields, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;
+                            )*
+                            Ok((#name{
+                                #(#fields),*
+                            }, backend))
+                        }
 
-                    type DeserType<'a> = #name<#(
-                        <#generic_types as epserde::des::DeserializeInner>::DeserType<'a>
-                    ,)*>;
+                        type DeserType<'a> = #name<#(
+                            <#generic_types as epserde::des::DeserializeInner>::DeserType<'a>
+                        ,)*>;
 
-                    fn _deserialize_eps_copy_inner(
-                        backend: epserde::des::Cursor,
-                    ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::Cursor), epserde::des::DeserializeError>
-                    {
-                        use epserde::des::DeserializeInner;
-                        #(
-                            let (#fields, backend) = <#fields_types>::#methods(backend)?;
-                        )*
-                        Ok((#name{
-                            #(#fields),*
-                        }, backend))
+                        fn _deserialize_eps_copy_inner(
+                            backend: epserde::des::Cursor,
+                        ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::Cursor), epserde::des::DeserializeError>
+                        {
+                            use epserde::des::DeserializeInner;
+                            #(
+                                let (#fields, backend) = <#fields_types>::#methods(backend)?;
+                            )*
+                            Ok((#name{
+                                #(#fields),*
+                            }, backend))
+                        }
                     }
                 }
             }

@@ -14,7 +14,7 @@ use crate::EpsCopy;
 use crate::Zero;
 use crate::ZeroCopy;
 
-macro_rules! impl_stuff{
+macro_rules! impl_prim{
     ($($ty:ty),*) => {$(
         impl DeserializeInner for $ty {
             #[inline(always)]
@@ -36,7 +36,7 @@ macro_rules! impl_stuff{
     )*};
 }
 
-impl_stuff!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32, f64);
+impl_prim!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32, f64);
 
 impl DeserializeInner for () {
     #[inline(always)]
@@ -70,6 +70,32 @@ impl DeserializeInner for char {
         Self::_deserialize_full_copy_inner(backend)
     }
 }
+
+macro_rules! impl_zero_stuff {
+    ($($ty:ty),*) => {$(
+        impl DeserializeInner for $ty {
+            #[inline(always)]
+            fn _deserialize_full_copy_inner(mut backend:Cursor) -> Result<(Self,Cursor), DeserializeError> {
+                Self::_deserialize_eps_copy_inner(backend).map(|(x,y)| (x.clone(),y))
+            }
+            type DeserType<'a> = &'a $ty;
+            #[inline(always)]
+            fn _deserialize_eps_copy_inner(
+                backend: Cursor,
+            ) -> Result<(Self::DeserType<'_>, Cursor), DeserializeError> {
+                let mut backend = backend;
+                let bytes = core::mem::size_of::<Self>();
+                backend = <Self>::pad_align_and_check(backend)?;
+                let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<Self>() };
+                debug_assert!(pre.is_empty());
+                debug_assert!(after.is_empty());
+                Ok((&data[0], backend.skip(bytes)))
+            }
+        }
+    )*};
+}
+
+impl_zero_stuff!([usize; 100]);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -256,7 +282,7 @@ impl DeserializeInner for String {
         let data = &backend.data[..len];
         backend.data = &backend.data[len..];
         let res = String::from_utf8(data.to_vec()).unwrap();
-        Ok((res, backend))
+        Ok((res, backend.skip(len)))
     }
     type DeserType<'a> = &'a str;
     #[inline(always)]
@@ -264,6 +290,7 @@ impl DeserializeInner for String {
         backend: Cursor,
     ) -> Result<(Self::DeserType<'_>, Cursor), DeserializeError> {
         let (slice, backend) = deserialize_slice(backend)?;
+        dbg!(slice.len());
         Ok((
             unsafe {
                 #[allow(clippy::transmute_bytes_to_str)]

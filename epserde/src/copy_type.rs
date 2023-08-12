@@ -11,7 +11,7 @@ pub struct Zero {}
 impl CopySelector for Zero {}
 impl CopySelector for Eps {}
 
-/**!
+/**
 
 Marker trait for data in vectors, boxes slices, or custom types
 that need to know whether a slice of data can be zero-copy deserialized.
