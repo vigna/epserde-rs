@@ -204,9 +204,9 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                 #(
                     #generic_types: epserde::des::DeserializeInner,
                 )*{
-                    fn _deserialize_full_copy_inner<'epserde_lifetime>(
-                        backend: epserde::des::Cursor<'epserde_lifetime>,
-                    ) -> core::result::Result<(Self, epserde::des::Cursor<'epserde_lifetime>), epserde::des::DeserializeError> {
+                    fn _deserialize_full_copy_inner(
+                        backend: epserde::des::Cursor,
+                    ) -> core::result::Result<(Self, epserde::des::Cursor), epserde::des::DeserializeError> {
                         use epserde::des::DeserializeInner;
                         #(
                             let (#fields, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;
@@ -220,9 +220,9 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                         <#generic_types as epserde::des::DeserializeInner>::DeserType<'a>
                     ,)*>;
 
-                    fn _deserialize_eps_copy_inner<'epserde_lifetime>(
-                        backend: epserde::des::Cursor<'epserde_lifetime>,
-                    ) -> core::result::Result<(Self::DeserType<'epserde_lifetime>, epserde::des::Cursor<'epserde_lifetime>), epserde::des::DeserializeError>
+                    fn _deserialize_eps_copy_inner(
+                        backend: epserde::des::Cursor,
+                    ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::Cursor), epserde::des::DeserializeError>
                     {
                         use epserde::des::DeserializeInner;
                         #(
