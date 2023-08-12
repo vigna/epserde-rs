@@ -30,7 +30,7 @@ macro_rules! impl_zero_copy {
             const IS_ZERO_COPY: bool = true;
 
             #[inline(always)]
-            fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
+            fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
                 serialize_zero_copy(self, backend)
             }
         }

@@ -75,7 +75,7 @@ macro_rules! impl_zero_stuff {
     ($($ty:ty),*) => {$(
         impl DeserializeInner for $ty {
             #[inline(always)]
-            fn _deserialize_full_copy_inner(mut backend:Cursor) -> Result<(Self,Cursor), DeserializeError> {
+            fn _deserialize_full_copy_inner(backend:Cursor) -> Result<(Self,Cursor), DeserializeError> {
                 Self::_deserialize_eps_copy_inner(backend).map(|(x,y)| (x.clone(),y))
             }
             type DeserType<'a> = &'a $ty;

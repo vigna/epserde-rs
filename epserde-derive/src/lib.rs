@@ -97,7 +97,7 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
     let is_repr_c = input.attrs.iter().any(|x| {
         x.meta.path().is_ident("repr") && x.meta.require_list().unwrap().tokens.to_string() == "C"
     });
-    let is_zero_copy = input
+    let _is_zero_copy = input
         .attrs
         .iter()
         .any(|x| x.meta.path().is_ident("zero_copy"));
@@ -225,7 +225,7 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                             }, backend))
                         }
 
-                        type DeserType<'a> = #name<#(
+                        type DeserType<'a> = &<'a> #name<#(
                             <#generic_types as epserde::des::DeserializeInner>::DeserType<'a>
                         ,)*>;
 
