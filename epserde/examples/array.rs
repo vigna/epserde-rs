@@ -38,7 +38,7 @@ fn main() {
 
     println!("\n");
 
-    // Do an ε-copy deserialization
+    // Do a ε-copy deserialization (which will be a zero-copy deserialization)
     let eps = <[usize; 100]>::deserialize_eps_copy(&v).unwrap();
     println!(
         "ε-deserialization type: {}",
