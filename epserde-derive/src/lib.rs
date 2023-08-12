@@ -91,12 +91,20 @@ impl CommonDeriveInput {
     }
 }
 
-#[proc_macro_derive(Serialize)]
+#[proc_macro_derive(Serialize, attributes(eps_copy, zero_copy))]
 pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let is_repr_c = input.attrs.iter().any(|x| {
         x.meta.path().is_ident("repr") && x.meta.require_list().unwrap().tokens.to_string() == "C"
     });
+    let is_zero_copy = input
+        .attrs
+        .iter()
+        .any(|x| x.meta.path().is_ident("zero_copy"));
+    let is_eps_copy = input
+        .attrs
+        .iter()
+        .any(|x| x.meta.path().is_ident("eps_copy"));
     let CommonDeriveInput {
         name,
         generics,
@@ -156,9 +164,17 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
     out.into()
 }
 
-#[proc_macro_derive(Deserialize)]
+#[proc_macro_derive(Deserialize, attributes(eps_copy, zero_copy))]
 pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
+    let is_zero_copy = input
+        .attrs
+        .iter()
+        .any(|x| x.meta.path().is_ident("zero_copy"));
+    let is_eps_copy = input
+        .attrs
+        .iter()
+        .any(|x| x.meta.path().is_ident("eps_copy"));
     let CommonDeriveInput {
         name,
         generics_names_raw,
