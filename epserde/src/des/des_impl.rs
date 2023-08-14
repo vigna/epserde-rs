@@ -5,6 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use core::default;
+use core::mem::MaybeUninit;
+
 use crate::des::*;
 use crate::Align;
 use crate::CopySelector;
@@ -71,34 +74,6 @@ impl DeserializeInner for char {
     }
 }
 
-// TODO: replace with suitable proc macro
-
-macro_rules! impl_zero_stuff {
-    ($($ty:ty),*) => {$(
-        impl DeserializeInner for $ty {
-            #[inline(always)]
-            fn _deserialize_full_copy_inner(backend:Cursor) -> Result<(Self,Cursor), DeserializeError> {
-                Self::_deserialize_eps_copy_inner(backend).map(|(x,y)| (x.clone(),y))
-            }
-            type DeserType<'a> = &'a $ty;
-            #[inline(always)]
-            fn _deserialize_eps_copy_inner(
-                backend: Cursor,
-            ) -> Result<(Self::DeserType<'_>, Cursor), DeserializeError> {
-                let mut backend = backend;
-                let bytes = core::mem::size_of::<Self>();
-                backend = <Self>::pad_align_and_check(backend)?;
-                let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<Self>() };
-                debug_assert!(pre.is_empty());
-                debug_assert!(after.is_empty());
-                Ok((&data[0], backend.skip(bytes)))
-            }
-        }
-    )*};
-}
-
-impl_zero_stuff!([usize; 100]);
-
 ////////////////////////////////////////////////////////////////////////////////
 
 fn deserialize_slice<T: ZeroCopy>(backend: Cursor) -> Result<(&'_ [T], Cursor), DeserializeError> {
@@ -106,15 +81,117 @@ fn deserialize_slice<T: ZeroCopy>(backend: Cursor) -> Result<(&'_ [T], Cursor), 
     let bytes = len * core::mem::size_of::<T>();
     // a slice can only be deserialized with zero copy
     // outerwise you need a vec, TODO!: how do we enforce this at compile time?
-    backend = <T>::pad_align_and_check(backend)?;
+    backend = T::pad_align_and_check(backend)?;
     let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<T>() };
     debug_assert!(pre.is_empty());
     debug_assert!(after.is_empty());
     Ok((data, backend.skip(bytes)))
 }
 
+fn deserialize_array_zero<T: DeserializeInner, const N: usize>(
+    mut backend: Cursor,
+) -> Result<(&'_ [T; N], Cursor), DeserializeError> {
+    let bytes = std::mem::size_of::<[T; N]>();
+    backend = T::pad_align_and_check(backend)?;
+    let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<[T; N]>() };
+    debug_assert!(pre.is_empty());
+    debug_assert!(after.is_empty());
+    Ok((&data[0], backend.skip(bytes)))
+}
+
+fn deserialize_array_eps<T: DeserializeInner, const N: usize>(
+    mut backend: Cursor,
+) -> Result<([<T as DeserializeInner>::DeserType<'_>; N], Cursor), DeserializeError> {
+    backend = T::pad_align_and_check(backend)?;
+    let mut res = MaybeUninit::<[<T as DeserializeInner>::DeserType<'_>; N]>::uninit();
+    unsafe {
+        for item in &mut res.assume_init_mut().into_iter() {
+            let (elem, new_backend) = T::_deserialize_eps_copy_inner(backend)?;
+            std::ptr::write(item, elem);
+            backend = new_backend;
+        }
+        Ok((res.assume_init(), backend))
+    }
+}
+
+fn deserialize_array_full<T: DeserializeInner, const N: usize>(
+    mut backend: Cursor,
+) -> Result<([T; N], Cursor), DeserializeError> {
+    backend = T::pad_align_and_check(backend)?;
+    let mut res = MaybeUninit::<[T; N]>::uninit();
+    unsafe {
+        for item in &mut res.assume_init_mut().into_iter() {
+            let (elem, new_backend) = T::_deserialize_full_copy_inner(backend)?;
+            std::ptr::write(item, elem);
+            backend = new_backend;
+        }
+        Ok((res.assume_init(), backend))
+    }
+}
+
 mod private {
     use super::*;
+
+    // This delegates to a private helper trait which we can specialize on in stable rust
+    impl<T: CopyType + DeserializeInner + 'static, const N: usize> DeserializeInner for [T; N]
+    where
+        [T; N]: DeserializeHelper<<T as CopyType>::Copy, FullType = [T; N]>,
+    {
+        type DeserType<'a> = <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
+        fn _deserialize_full_copy_inner(
+            backend: Cursor,
+        ) -> Result<([T; N], Cursor), DeserializeError> {
+            <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_copy_inner_impl(
+                backend,
+            )
+        }
+
+        fn _deserialize_eps_copy_inner(
+            backend: Cursor,
+        ) -> Result<
+            (
+                <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'_>,
+                Cursor,
+            ),
+            DeserializeError,
+        > {
+            <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_eps_copy_inner_impl(
+                backend,
+            )
+        }
+    }
+
+    impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<Zero> for [T; N] {
+        type FullType = Self;
+        type DeserType<'a> = &'a [T; N];
+        fn _deserialize_full_copy_inner_impl(
+            backend: Cursor,
+        ) -> Result<([T; N], Cursor), DeserializeError> {
+            deserialize_array_full(backend)
+        }
+        #[inline(always)]
+        fn _deserialize_eps_copy_inner_impl(
+            backend: Cursor,
+        ) -> Result<(<Self as DeserializeInner>::DeserType<'_>, Cursor), DeserializeError> {
+            deserialize_array_zero(backend)
+        }
+    }
+
+    impl<T: EpsCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<Eps> for [T; N] {
+        type FullType = Self;
+        type DeserType<'a> = [<T as DeserializeInner>::DeserType<'a>; N];
+        fn _deserialize_full_copy_inner_impl(
+            backend: Cursor,
+        ) -> Result<(Self, Cursor), DeserializeError> {
+            deserialize_array_full(backend)
+        }
+        #[inline(always)]
+        fn _deserialize_eps_copy_inner_impl(
+            backend: Cursor,
+        ) -> Result<(<Self as DeserializeInner>::DeserType<'_>, Cursor), DeserializeError> {
+            deserialize_array_eps::<T, N>(backend)
+        }
+    }
 
     fn deserialize_vec_eps<T: DeserializeInner>(
         backend: Cursor,
