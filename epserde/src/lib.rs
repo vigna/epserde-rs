@@ -53,7 +53,7 @@ fn pad_align_to(value: usize, bits: usize) -> usize {
 /// A trait padding a cursor to the correct alignment
 /// and checking that the resulting pointer is aligned
 /// correctly.
-trait Align: Sized {
+pub trait Align: Sized {
     /// Pad the cursor to the correct alignment and check that the resulting
     /// pointer is aligned correctly.
     fn pad_align_and_check(
@@ -70,6 +70,7 @@ trait Align: Sized {
         }
     }
 }
+
 impl<T: Sized> Align for T {}
 
 #[test]

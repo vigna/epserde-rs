@@ -71,6 +71,8 @@ impl DeserializeInner for char {
     }
 }
 
+// TODO: replace with suitable proc macro
+
 macro_rules! impl_zero_stuff {
     ($($ty:ty),*) => {$(
         impl DeserializeInner for $ty {

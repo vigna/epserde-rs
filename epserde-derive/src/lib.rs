@@ -163,7 +163,7 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Deserialize, attributes(zero_copy))]
 pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let _is_zero_copy = input
+    let is_zero_copy = input
         .attrs
         .iter()
         .any(|x| x.meta.path().is_ident("zero_copy"));
@@ -206,7 +206,7 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                 }
             });
 
-            if _is_zero_copy {
+            if is_zero_copy {
                 quote! {
                     #[automatically_derived]
                     impl<#generics> epserde::des::DeserializeInner for #name<#generics_names> #where_clause
@@ -225,7 +225,7 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                             }, backend))
                         }
 
-                        type DeserType<'a> = &<'a> #name<#(
+                        type DeserType<'a> = &'a #name<#(
                             <#generic_types as epserde::des::DeserializeInner>::DeserType<'a>
                         ,)*>;
 
@@ -233,13 +233,13 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                             backend: epserde::des::Cursor,
                         ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::Cursor), epserde::des::DeserializeError>
                         {
-                            use epserde::des::DeserializeInner;
-                            #(
-                                let (#fields, backend) = <#fields_types>::#methods(backend)?;
-                            )*
-                            Ok((#name{
-                                #(#fields),*
-                            }, backend))
+                            let mut backend = backend;
+                            let bytes = core::mem::size_of::<Self>();
+                            backend = Self::pad_align_and_check(backend)?;
+                            let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<Self>() };
+                            debug_assert!(pre.is_empty());
+                            debug_assert!(after.is_empty());
+                            Ok((&data[0], backend.skip(bytes)))
                         }
                     }
                 }
