@@ -5,7 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use core::default;
 use core::mem::MaybeUninit;
 
 use crate::des::*;
@@ -105,7 +104,7 @@ fn deserialize_array_eps<T: DeserializeInner, const N: usize>(
     backend = T::pad_align_and_check(backend)?;
     let mut res = MaybeUninit::<[<T as DeserializeInner>::DeserType<'_>; N]>::uninit();
     unsafe {
-        for item in &mut res.assume_init_mut().into_iter() {
+        for item in &mut res.assume_init_mut().iter_mut() {
             let (elem, new_backend) = T::_deserialize_eps_copy_inner(backend)?;
             std::ptr::write(item, elem);
             backend = new_backend;
@@ -120,7 +119,7 @@ fn deserialize_array_full<T: DeserializeInner, const N: usize>(
     backend = T::pad_align_and_check(backend)?;
     let mut res = MaybeUninit::<[T; N]>::uninit();
     unsafe {
-        for item in &mut res.assume_init_mut().into_iter() {
+        for item in &mut res.assume_init_mut().iter_mut() {
             let (elem, new_backend) = T::_deserialize_full_copy_inner(backend)?;
             std::ptr::write(item, elem);
             backend = new_backend;
