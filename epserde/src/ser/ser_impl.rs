@@ -24,19 +24,6 @@ macro_rules! impl_stuff{
     )*};
 }
 
-macro_rules! impl_zero_copy {
-    ($($ty:ty),*) => {$(
-        impl SerializeInner for $ty {
-            const IS_ZERO_COPY: bool = true;
-
-            #[inline(always)]
-            fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
-                serialize_zero_copy(self, backend)
-            }
-        }
-    )*};
-}
-
 impl_stuff!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32, f64);
 
 /// this is a private function so we have a consistent implementation
@@ -57,8 +44,6 @@ fn serialize_zero_copy<T: Serialize, F: FieldWrite>(data: &T, mut backend: F) ->
 
     Ok(backend)
 }
-
-impl_zero_copy!([usize; 100]);
 
 impl SerializeInner for () {
     const IS_ZERO_COPY: bool = true;
@@ -125,6 +110,34 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(
 // we can write multiple blanket impls for SerializeHelper given different paremeters
 trait SerializeHelper<T: CopySelector> {
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;
+}
+
+// This delegates to a private helper trait which we can specialize on in stable rust
+impl<T: CopyType + SerializeInner + TypeHash, const N: usize> SerializeInner for [T; N]
+where
+    [T; N]: SerializeHelper<<T as CopyType>::Copy>,
+{
+    const IS_ZERO_COPY: bool = T::IS_ZERO_COPY;
+    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
+        SerializeHelper::_serialize_inner(self, backend)
+    }
+}
+
+impl<T: ZeroCopy + SerializeInner, const N: usize> SerializeHelper<Zero> for [T; N] {
+    #[inline(always)]
+    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
+        serialize_zero_copy(self, backend)
+    }
+}
+
+impl<T: EpsCopy + SerializeInner, const N: usize> SerializeHelper<Eps> for [T; N] {
+    #[inline(always)]
+    fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
+        for item in self.iter() {
+            backend = backend.add_field("data", item)?;
+        }
+        Ok(backend)
+    }
 }
 
 // This delegates to a private helper trait which we can specialize on in stable rust
