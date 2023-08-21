@@ -17,6 +17,12 @@ bitflags! {
     }
 }
 
+impl core::default::Default for Flags {
+    fn default() -> Self {
+        unsafe { core::mem::transmute::<u32, Flags>(0) }
+    }
+}
+
 impl Flags {
     pub fn mmap_flags(&self) -> mmap_rs::MmapFlags {
         match self.contains(Flags::TRANSPARENT_HUGE_PAGES) {

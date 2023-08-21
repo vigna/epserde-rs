@@ -382,7 +382,6 @@ impl DeserializeInner for String {
         backend: Cursor,
     ) -> Result<(Self::DeserType<'_>, Cursor), DeserializeError> {
         let (slice, backend) = deserialize_slice(backend)?;
-        dbg!(slice.len());
         Ok((
             unsafe {
                 #[allow(clippy::transmute_bytes_to_str)]

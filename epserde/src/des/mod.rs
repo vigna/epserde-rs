@@ -117,16 +117,16 @@ fn check_header(
     if type_hash != self_hash {
         return Err(DeserializeError::WrongTypeHash {
             got_type_name: self_name,
+            got: self_hash,
             expected_type_name: type_name.to_string(),
-            expected: self_hash,
-            got: type_hash,
+            expected: type_hash,
         });
     }
 
     Ok(backend)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 /// Errors that can happen during deserialization
 pub enum DeserializeError {
     /// The file is reasonable but the endianess is wrong.
