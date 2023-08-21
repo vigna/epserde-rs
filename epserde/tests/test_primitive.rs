@@ -91,6 +91,9 @@ fn test_string() {
 
             let epscopy = <String>::deserialize_eps_copy(&v).unwrap();
             assert_eq!(s.as_str(), epscopy);
+
+            let _ = schema.to_csv();
+            let _ = schema.debug(&v);
         }
         {
             let mut v = vec![];
