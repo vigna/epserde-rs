@@ -2,3 +2,5 @@
 /Cargo.lock
 .vscode
 serialized
+lcov.info
+test.bin
