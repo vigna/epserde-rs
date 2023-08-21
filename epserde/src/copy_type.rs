@@ -4,14 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-pub trait CopySelector {}
-pub struct Eps {}
-pub struct Zero {}
-
-impl CopySelector for Zero {}
-impl CopySelector for Eps {}
-
-/**
+/*!
 
 Marker trait for data in vectors, boxes slices, or custom types
 that need to know whether a slice of data can be zero-copy deserialized.
@@ -29,7 +22,7 @@ impl CopyType for MyType {
     type Copy = Zero;
 }
 // Now MyType implements ZeroCopy
-````
+```
 
 We use this trait to implement a different behavior for [`ZeroCopy`] and [`EpsCopy`] types,
 [working around the bug that prevents the compiler from understanding that implementations
@@ -57,6 +50,19 @@ vectors or boxed slices but error messages will be very unhelpful due to the
 contrived way we implement mutually exclusive types.
 
 */
+
+pub trait CopySelector {
+    const IS_ZERO_COPY: bool;
+}
+pub struct Eps {}
+pub struct Zero {}
+
+impl CopySelector for Eps {
+    const IS_ZERO_COPY: bool = false;
+}
+impl CopySelector for Zero {
+    const IS_ZERO_COPY: bool = true;
+}
 
 pub trait CopyType {
     type Copy: CopySelector;

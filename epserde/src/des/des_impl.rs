@@ -46,6 +46,7 @@ impl DeserializeInner for () {
         Ok(((), backend))
     }
     type DeserType<'a> = Self;
+    #[inline(always)]
     fn _deserialize_eps_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
         Self::_deserialize_full_copy_inner(backend)
     }
@@ -57,6 +58,7 @@ impl DeserializeInner for bool {
         Ok((backend.data[0] != 0, backend.skip(1)))
     }
     type DeserType<'a> = Self;
+    #[inline(always)]
     fn _deserialize_eps_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
         Self::_deserialize_full_copy_inner(backend)
     }
@@ -68,6 +70,7 @@ impl DeserializeInner for char {
         u32::_deserialize_full_copy_inner(backend).map(|(x, y)| (char::from_u32(x).unwrap(), y))
     }
     type DeserType<'a> = Self;
+    #[inline(always)]
     fn _deserialize_eps_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
         Self::_deserialize_full_copy_inner(backend)
     }
@@ -137,6 +140,7 @@ mod private {
         [T; N]: DeserializeHelper<<T as CopyType>::Copy, FullType = [T; N]>,
     {
         type DeserType<'a> = <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
+        #[inline(always)]
         fn _deserialize_full_copy_inner(
             backend: Cursor,
         ) -> Result<([T; N], Cursor), DeserializeError> {
@@ -145,6 +149,7 @@ mod private {
             )
         }
 
+        #[inline(always)]
         fn _deserialize_eps_copy_inner(
             backend: Cursor,
         ) -> Result<
@@ -163,6 +168,7 @@ mod private {
     impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<Zero> for [T; N] {
         type FullType = Self;
         type DeserType<'a> = &'a [T; N];
+        #[inline(always)]
         fn _deserialize_full_copy_inner_impl(
             backend: Cursor,
         ) -> Result<([T; N], Cursor), DeserializeError> {
@@ -179,6 +185,7 @@ mod private {
     impl<T: EpsCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<Eps> for [T; N] {
         type FullType = Self;
         type DeserType<'a> = [<T as DeserializeInner>::DeserType<'a>; N];
+        #[inline(always)]
         fn _deserialize_full_copy_inner_impl(
             backend: Cursor,
         ) -> Result<(Self, Cursor), DeserializeError> {
@@ -217,6 +224,7 @@ mod private {
         }
         Ok((res, backend))
     }
+
     // Since impls with distinct parameters are considered disjoint
     // we can write multiple blanket impls for DeserializeHelper given different paremeters
     pub trait DeserializeHelper<T: CopySelector> {
@@ -237,6 +245,7 @@ mod private {
         Vec<T>: DeserializeHelper<<T as CopyType>::Copy, FullType = Vec<T>>,
     {
         type DeserType<'a> = <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
+        #[inline(always)]
         fn _deserialize_full_copy_inner(
             backend: Cursor,
         ) -> Result<(Vec<T>, Cursor), DeserializeError> {
@@ -245,6 +254,7 @@ mod private {
             )
         }
 
+        #[inline(always)]
         fn _deserialize_eps_copy_inner(
             backend: Cursor,
         ) -> Result<
@@ -263,6 +273,7 @@ mod private {
     impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T> {
         type FullType = Self;
         type DeserType<'a> = &'a [T];
+        #[inline(always)]
         fn _deserialize_full_copy_inner_impl(
             backend: Cursor,
         ) -> Result<(Vec<T>, Cursor), DeserializeError> {
@@ -279,6 +290,7 @@ mod private {
     impl<T: EpsCopy + DeserializeInner + 'static> DeserializeHelper<Eps> for Vec<T> {
         type FullType = Self;
         type DeserType<'a> = Vec<<T as DeserializeInner>::DeserType<'a>>;
+        #[inline(always)]
         fn _deserialize_full_copy_inner_impl(
             backend: Cursor,
         ) -> Result<(Self, Cursor), DeserializeError> {
@@ -298,6 +310,7 @@ mod private {
         Box<[T]>: DeserializeHelper<<T as CopyType>::Copy, FullType = Box<[T]>>,
     {
         type DeserType<'a> = <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
+        #[inline(always)]
         fn _deserialize_full_copy_inner(
             backend: Cursor,
         ) -> Result<(Box<[T]>, Cursor), DeserializeError> {
@@ -306,6 +319,7 @@ mod private {
         )
         }
 
+        #[inline(always)]
         fn _deserialize_eps_copy_inner(
             backend: Cursor,
         ) -> Result<
@@ -324,6 +338,7 @@ mod private {
     impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Box<[T]> {
         type FullType = Self;
         type DeserType<'a> = &'a [T];
+        #[inline(always)]
         fn _deserialize_full_copy_inner_impl(
             backend: Cursor,
         ) -> Result<(Box<[T]>, Cursor), DeserializeError> {
@@ -340,6 +355,7 @@ mod private {
     impl<T: EpsCopy + DeserializeInner + 'static> DeserializeHelper<Eps> for Box<[T]> {
         type FullType = Self;
         type DeserType<'a> = Box<[<T as DeserializeInner>::DeserType<'a>]>;
+        #[inline(always)]
         fn _deserialize_full_copy_inner_impl(
             backend: Cursor,
         ) -> Result<(Self, Cursor), DeserializeError> {
@@ -356,11 +372,9 @@ mod private {
 
 impl DeserializeInner for String {
     fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
-        let (len, mut backend) = usize::_deserialize_full_copy_inner(backend)?;
-        let data = &backend.data[..len];
-        backend.data = &backend.data[len..];
-        let res = String::from_utf8(data.to_vec()).unwrap();
-        Ok((res, backend.skip(len)))
+        let (slice, backend) = deserialize_slice(backend)?;
+        let res = String::from_utf8(slice.to_vec()).unwrap();
+        Ok((res, backend))
     }
     type DeserType<'a> = &'a str;
     #[inline(always)]
@@ -380,6 +394,7 @@ impl DeserializeInner for String {
 }
 
 impl DeserializeInner for Box<str> {
+    #[inline(always)]
     fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
         String::_deserialize_full_copy_inner(backend).map(|(d, a)| (d.into_boxed_str(), a))
     }
