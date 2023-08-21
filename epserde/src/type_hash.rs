@@ -122,7 +122,7 @@ impl<T: TypeHash + ?Sized> TypeHash for Box<T> {
 
 // foreign types
 
-#[cfg(feature = "mmap_rs")]
+#[cfg(feature = "mmap-rs")]
 impl TypeHash for mmap_rs::Mmap {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
@@ -130,7 +130,7 @@ impl TypeHash for mmap_rs::Mmap {
     }
 }
 
-#[cfg(feature = "mmap_rs")]
+#[cfg(feature = "mmap-rs")]
 impl TypeHash for mmap_rs::MmapMut {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
