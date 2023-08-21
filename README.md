@@ -1,4 +1,4 @@
-# ε-serde
+# ε-serde ![GitHub CI](https://github.com/vigna/epserde-rs/actions/workflows/rust.yml/badge.svg) ![Rust Version](https://img.shields.io/badge/status-stable-success) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 
 ε-serde is a Rust framework for *ε*-copy *ser*ialization and *de*serialization.
 
