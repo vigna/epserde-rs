@@ -66,16 +66,10 @@ deref to `T`, so it can be used transparently as long as fields and methods are
 concerned, but the field of the new structure will have to be of type `MemCase<T>`,
 not `T`.
 
-- Until Rust gets specialization, vectors and boxed slices can be automatically
-(e.g., using derive) ε-copy serialized and deserialized *only* if the type 
-of their elements [is zero-copy](`ZeroCopy`). If you need to
-store, say, a vector of vectors of integers, you must to implement the 
-(de)serialization logic by yourself.
-
 ## Pros
 
 - Almost instant deserialization with minimal allocation, provided that you designed
-your type following the ε-serde guidelines.
+your type following the ε-serde guidelines or that you use standard types.
 
 - The structure you get by deserialization is of the same type as the structure
 you serialized (but with different type parameters).
@@ -90,7 +84,80 @@ the structure you serialized. This is not the case with
 deserialization time is stored in newly allocated memory. This is not the case with
 [Abomonation](https://crates.io/crates/abomonation).
 
-## Examples
+## Example: Zero copy
+
+Let us start with the simplest case: data that can be zero copied. In this case,
+we serialize an array of a thousand zeros, and get back a reference to such 
+an array:
+```rust
+use epserde::*;
+use epserde_derive::*;
+
+let s = [0_usize; 1000];
+
+// Serialize it
+let mut file = std::env::temp_dir();
+file.push("serialized");
+s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
+// Load the serialized form in a buffer
+let b = std::fs::read(&file).unwrap();
+
+// The type of t will be inferred--it is shown here only for clarity
+let t: &[usize; 1000] =
+    <[usize; 1000]>::deserialize_eps_copy(b.as_ref()).unwrap();
+
+assert_eq!(s, *t);
+
+// This is a traditional deserialization instead
+let t: [usize; 1000] = 
+    <[usize; 1000]>::deserialize_full_copy(b.as_ref()).unwrap();
+assert_eq!(s, t);
+```
+Note how we serialize an array, but we deserialize a reference. 
+The reference points inside `b`, so there is 
+no copy performed. The second call creates a new array instead.
+
+## Examples: ε-copy of standard structures
+
+Zero copy is not that interesting because it can be applied only to
+data whose memory layout is stable and known at compile time. 
+This time, let us serialize a `Vec` containing a 
+a thousand zeros: ε-serde will deserialize its associated
+deserialization type, which is a reference to a slice.
+```rust
+use epserde::*;
+use epserde_derive::*;
+
+let s = vec![0; 1000];
+
+// Serialize it
+let mut file = std::env::temp_dir();
+file.push("serialized");
+s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
+// Load the serialized form in a buffer
+let b = std::fs::read(&file).unwrap();
+
+// The type of t will be inferred--it is shown here only for clarity
+let t: &[usize] =
+    <Vec<usize>>::deserialize_eps_copy(b.as_ref()).unwrap();
+
+assert_eq!(s, *t);
+
+// This is a traditional deserialization instead
+let t: Vec<usize> = 
+    <Vec<usize>>::deserialize_full_copy(b.as_ref()).unwrap();
+assert_eq!(s, t);
+```
+Note how we serialize an vector, but we deserialize a reference
+to a slice; the same would happen when serializing a boxed slice.
+The reference points inside `b`, so there is very little
+copy performed (in fact, just a field containing the length of the slice).
+
+If your code must work both with the original and the deserialized
+version, however, it must be written for a trait that is implemented
+by both types, like `AsRef<[usize]>`.
+
+## Examples: ε-copy of custom structures
 
 Let us design a structure that will contain an integer,
 which will be copied, and a vector of integers that we want to ε-copy:
