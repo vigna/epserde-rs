@@ -102,13 +102,20 @@ fn check_header(
         magic => Err(DeserializeError::MagicNumberError(magic)),
     }?;
 
-    let (major, backend) = u32::_deserialize_full_copy_inner(backend)?;
+    let (major, backend) = u16::_deserialize_full_copy_inner(backend)?;
     if major != VERSION.0 {
         return Err(DeserializeError::MajorVersionMismatch(major));
     }
-    let (minor, backend) = u32::_deserialize_full_copy_inner(backend)?;
+    let (minor, backend) = u16::_deserialize_full_copy_inner(backend)?;
     if minor > VERSION.1 {
         return Err(DeserializeError::MinorVersionMismatch(minor));
+    };
+
+    let (usize_size, backend) = u16::_deserialize_full_copy_inner(backend)?;
+    let usize_size = usize_size as usize;
+    let native_usize_size = core::mem::size_of::<usize>();
+    if usize_size != native_usize_size {
+        return Err(DeserializeError::UsizeSizeMismatch(usize_size));
     };
 
     let (type_hash, backend) = u64::_deserialize_full_copy_inner(backend)?;
@@ -135,10 +142,16 @@ pub enum DeserializeError {
     /// bug or a collision in the type hash.
     AlignmentError,
     /// The file was serialized with a version of epserde that is not compatible
-    MajorVersionMismatch(u32),
+    MajorVersionMismatch(u16),
     /// The file was serialized with a compatible, but too new version of epserde
     /// so we might be missing features.
-    MinorVersionMismatch(u32),
+    MinorVersionMismatch(u16),
+    /// The the `pointer_width` of the serialized file is different from the
+    /// `pointer_width` of the current architecture.
+    /// E.g. the file was serialized on a 64-bit machine and we are trying to
+    /// deserialize it on a 32-bit machine.
+    /// We could check if the usizes are actually used, but currently we don't.
+    UsizeSizeMismatch(usize),
     /// The magic number is wrong. The file is not an epserde file.
     MagicNumberError(u64),
     /// The type hash is wrong. Probabliy the user is trying to deserialize a
@@ -186,6 +199,12 @@ impl core::fmt::Display for DeserializeError {
                 f,
                 "Minor Version Mismatch. Expected {} but got {}",
                 VERSION.1, found_minor,
+            ),
+            Self::UsizeSizeMismatch(usize_size) => write!(
+                f,
+                "The file was serialized on a machine where an usize is {} bytes, but on the current machine it is {}.",
+                usize_size,
+                core::mem::size_of::<usize>()
             ),
             Self::AlignmentError => write!(f, "Alignment Error"),
             Self::WrongTypeHash {

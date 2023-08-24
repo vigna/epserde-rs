@@ -47,6 +47,16 @@ pub enum MemBackend {
     Mmap(mmap_rs::Mmap),
 }
 
+impl MemBackend {
+    pub fn as_ref(&self) -> Option<&[u8]> {
+        match self {
+            MemBackend::None => None,
+            MemBackend::Memory(mem) => Some(bytemuck::cast_slice::<u64, u8>(mem)),
+            MemBackend::Mmap(mmap) => Some(mmap),
+        }
+    }
+}
+
 /// A wrapper keeping together an immutable structure and the memory
 /// it was deserialized from. It is specifically designed for
 /// the case of memory-mapped regions, where the mapping must
@@ -132,16 +142,12 @@ pub fn map<S: Deserialize>(
             addr_of_mut!((*ptr).1).write(MemBackend::Mmap(mmap));
         }
 
-        if let MemBackend::Mmap(mmap) = unsafe { &(*ptr).1 } {
-            let s = S::deserialize_eps_copy(mmap)?;
-            unsafe {
-                addr_of_mut!((*ptr).0).write(s);
-            }
-
-            unsafe { uninit.assume_init() }
-        } else {
-            unreachable!()
+        let mmap = unsafe { (*ptr).1.as_ref().unwrap() };
+        let s = S::deserialize_eps_copy(mmap)?;
+        unsafe {
+            addr_of_mut!((*ptr).0).write(s);
         }
+        unsafe { uninit.assume_init() }
     })
 }
 
@@ -157,40 +163,20 @@ pub fn load<S: Deserialize>(
     let mut file = std::fs::File::open(path)?;
     let capacity = (file_len + 7) / 8;
 
-    if flags.contains(Flags::MMAP) {
+    let mut uninit: MaybeUninit<MemCase<<S as DeserializeInner>::DeserType<'_>>> =
+        MaybeUninit::uninit();
+    let ptr = uninit.as_mut_ptr();
+
+    let backend = if flags.contains(Flags::MMAP) {
         let mut mmap = mmap_rs::MmapOptions::new(capacity * 8)?
             .with_flags(flags.mmap_flags())
             .map_mut()?;
-        Ok({
-            let mut uninit: MaybeUninit<MemCase<<S as DeserializeInner>::DeserType<'_>>> =
-                MaybeUninit::uninit();
-            let ptr = uninit.as_mut_ptr();
+        file.read_exact(&mut mmap[..file_len])?;
+        // Fixes the last few bytes to guarantee zero-extension semantics
+        // for bit vectors.
+        mmap[file_len..].fill(0);
 
-            file.read_exact(&mut mmap[..file_len])?;
-            // Fixes the last few bytes to guarantee zero-extension semantics
-            // for bit vectors.
-            mmap[file_len..].fill(0);
-
-            unsafe {
-                if let Ok(mmap_ro) = mmap.make_read_only() {
-                    addr_of_mut!((*ptr).1).write(MemBackend::Mmap(mmap_ro));
-                } else {
-                    unreachable!("make_read_only() failed")
-                }
-            }
-
-            if let MemBackend::Mmap(mmap) = unsafe { &mut (*ptr).1 } {
-                let s = S::deserialize_eps_copy(mmap)?;
-
-                unsafe {
-                    addr_of_mut!((*ptr).0).write(s);
-                }
-
-                unsafe { uninit.assume_init() }
-            } else {
-                unreachable!()
-            }
-        })
+        MemBackend::Mmap(mmap.make_read_only().map_err(|(_, err)| err).unwrap())
     } else {
         let mut mem = Vec::<u64>::with_capacity(capacity);
         unsafe {
@@ -198,32 +184,24 @@ pub fn load<S: Deserialize>(
             // reading from a file.
             mem.set_len(capacity);
         }
-        Ok({
-            let mut uninit: MaybeUninit<MemCase<<S as DeserializeInner>::DeserType<'_>>> =
-                MaybeUninit::uninit();
-            let ptr = uninit.as_mut_ptr();
-
-            let bytes: &mut [u8] = bytemuck::cast_slice_mut::<u64, u8>(mem.as_mut_slice());
-            file.read_exact(&mut bytes[..file_len])?;
-            // Fixes the last few bytes to guarantee zero-extension semantics
-            // for bit vectors.
-            bytes[file_len..].fill(0);
-
-            unsafe {
-                addr_of_mut!((*ptr).1).write(MemBackend::Memory(mem));
-            }
-
-            if let MemBackend::Memory(mem) = unsafe { &mut (*ptr).1 } {
-                let s = S::deserialize_eps_copy(bytemuck::cast_slice::<u64, u8>(mem))?;
-
-                unsafe {
-                    addr_of_mut!((*ptr).0).write(s);
-                }
-
-                unsafe { uninit.assume_init() }
-            } else {
-                unreachable!()
-            }
-        })
+        let bytes: &mut [u8] = bytemuck::cast_slice_mut::<u64, u8>(mem.as_mut_slice());
+        file.read_exact(&mut bytes[..file_len])?;
+        // Fixes the last few bytes to guarantee zero-extension semantics
+        // for bit vectors.
+        bytes[file_len..].fill(0);
+        MemBackend::Memory(mem)
+    };
+    // store the backend inside the MemCase
+    unsafe {
+        addr_of_mut!((*ptr).1).write(backend);
     }
+    // deserialize the data structure
+    let mem = unsafe { (*ptr).1.as_ref().unwrap() };
+    let s = S::deserialize_eps_copy(mem)?;
+    // write the deserialized struct in the memcase
+    unsafe {
+        addr_of_mut!((*ptr).0).write(s);
+    }
+    // finish init
+    Ok(unsafe { uninit.assume_init() })
 }

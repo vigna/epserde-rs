@@ -66,6 +66,7 @@ pub trait Serialize: SerializeInner {
         backend = backend.add_field("MAGIC", &MAGIC)?;
         backend = backend.add_field("VERSION_MAJOR", &VERSION.0)?;
         backend = backend.add_field("VERSION_MINOR", &VERSION.1)?;
+        backend = backend.add_field("USIZE_SIZE", &(core::mem::size_of::<usize>() as u16))?;
 
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
         Self::type_hash(&mut hasher);
