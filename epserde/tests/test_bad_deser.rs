@@ -44,8 +44,8 @@ fn test_wrong_endianess() {
 
     // reset the magic, but set a wrong version
     v[0..8].copy_from_slice(&MAGIC.to_ne_bytes());
-    let bad_version: u32 = 0xffffffff;
-    v[8..12].copy_from_slice(&bad_version.to_ne_bytes());
+    let bad_version: u16 = 0xffff;
+    v[8..10].copy_from_slice(&bad_version.to_ne_bytes());
 
     assert_eq!(
         <usize>::deserialize_full_copy(&v).unwrap_err(),
@@ -59,9 +59,9 @@ fn test_wrong_endianess() {
     println!("{}", <usize>::deserialize_eps_copy(&v).unwrap_err());
 
     // reset the Major version, but set a wrong minor version
-    v[8..12].copy_from_slice(&VERSION.0.to_ne_bytes());
-    let bad_version: u32 = 0xffffffff;
-    v[12..16].copy_from_slice(&bad_version.to_ne_bytes());
+    v[8..10].copy_from_slice(&VERSION.0.to_ne_bytes());
+    let bad_version: u16 = 0xffff;
+    v[10..12].copy_from_slice(&bad_version.to_ne_bytes());
 
     assert_eq!(
         <usize>::deserialize_full_copy(&v).unwrap_err(),
@@ -75,7 +75,7 @@ fn test_wrong_endianess() {
     println!("{}", <usize>::deserialize_eps_copy(&v).unwrap_err());
 
     // reset the minor version, but deserialize with the wrong type
-    v[12..16].copy_from_slice(&VERSION.1.to_ne_bytes());
+    v[10..12].copy_from_slice(&VERSION.1.to_ne_bytes());
 
     let mut hasher = Xxh3::with_seed(0);
     <usize>::type_hash(&mut hasher);
