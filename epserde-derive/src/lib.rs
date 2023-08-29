@@ -97,7 +97,7 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
     let is_repr_c = input.attrs.iter().any(|x| {
         x.meta.path().is_ident("repr") && x.meta.require_list().unwrap().tokens.to_string() == "C"
     });
-    let _is_zero_copy = input
+    let is_zero_copy = input
         .attrs
         .iter()
         .any(|x| x.meta.path().is_ident("zero_copy"));
@@ -138,19 +138,39 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
                 fields_names.push(field_name);
             });
 
-            quote! {
-                #[automatically_derived]
-                impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
-                    const IS_ZERO_COPY: bool = #is_repr_c #(
-                        && <#fields>::IS_ZERO_COPY
-                    )*;
+            if is_zero_copy {
+                quote! {
+                    #[automatically_derived]
+                    impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
+                        const IS_ZERO_COPY: bool = #is_repr_c #(
+                            && <#fields>::IS_ZERO_COPY
+                        )*;
 
-                    #[inline(always)]
-                    fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
-                        #(
-                            backend= backend.add_field(stringify!(#fields_names), &self.#fields_names)?;
-                        )*
-                        Ok(backend)
+                        #[inline(always)]
+                        fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
+                            #(
+                                backend= backend.add_field(stringify!(#fields_names), &self.#fields_names)?;
+                            )*
+                            Ok(backend)
+                        }
+                    }
+                }
+            } else {
+                quote! {
+                    #[automatically_derived]
+                    impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
+                        const IS_ZERO_COPY: bool = #is_repr_c #(
+                            && <#fields>::IS_ZERO_COPY
+                        )*;
+
+                        #[inline(always)]
+                        fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
+                            backend.add_padding_to_align(core::mem::align_of::<Self>())?;
+                            #(
+                                backend= backend.add_field(stringify!(#fields_names), &self.#fields_names)?;
+                            )*
+                            Ok(backend)
+                        }
                     }
                 }
             }
@@ -214,9 +234,10 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                         #generic_types: epserde::des::DeserializeInner,
                     )*{
                         fn _deserialize_full_copy_inner(
-                            backend: epserde::des::Cursor,
+                            mut backend: epserde::des::Cursor,
                         ) -> core::result::Result<(Self, epserde::des::Cursor), epserde::des::DeserializeError> {
                             use epserde::des::DeserializeInner;
+                            backend = Self::pad_align_and_check(backend)?;
                             #(
                                 let (#fields, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;
                             )*
