@@ -54,10 +54,11 @@ the fields you want to ε-copy must be type parameters implementing
 [`DeserializeInner`], to which a [deserialized type](`DeserializeInner::DeserType`) is associated.
 For example, we provide implementations for
 `Vec<T>`/`Box<[T]>`, where `T` [is zero-copy](`ZeroCopy`), or `String`/`Box<str>`, which have 
-associated deserialized type `&[T]` or `&str`, respectively.
+associated deserialized type `&[T]` or `&str`, respectively. Vectors and boxed slices of
+types that are not zero copy will be fully deserialized in memory instead.
 
-- After deserialization, you will obtain a structure in which the type parameters
-have been instantiated to their respective associated deserialized type, which will usually reference the underlying
+- After deserialization, you will obtain an associated deserialized type, which 
+will usually reference the underlying
 serialized support (e.g., a memory-mapped region). If you need to store
 the deserialized structure of type `T` in a field of a new structure 
 you will need to couple permanently the deserialized structure with its serialized
@@ -71,8 +72,9 @@ not `T`.
 - Almost instant deserialization with minimal allocation, provided that you designed
 your type following the ε-serde guidelines or that you use standard types.
 
-- The structure you get by deserialization is of the same type as the structure
-you serialized (but with different type parameters).
+- The structure you get by deserialization is essentially of the same type as the structure
+you serialized (e.g., vectors become references to slices, structures remain the same 
+but with different type parameters, etc.).
 This is not the case with [rkiv](https://crates.io/crates/rkyv/),
 which requires you to reimplement all methods on the deserialized type.
 
@@ -84,14 +86,13 @@ the structure you serialized. This is not the case with
 deserialization time is stored in newly allocated memory. This is not the case with
 [Abomonation](https://crates.io/crates/abomonation).
 
-## Example: Zero copy
+## Example: Zero copy of standard types
 
 Let us start with the simplest case: data that can be zero copied. In this case,
 we serialize an array of a thousand zeros, and get back a reference to such 
 an array:
 ```rust
 use epserde::*;
-use epserde_derive::*;
 
 let s = [0_usize; 1000];
 
@@ -112,10 +113,21 @@ assert_eq!(s, *t);
 let t: [usize; 1000] = 
     <[usize; 1000]>::deserialize_full_copy(b.as_ref()).unwrap();
 assert_eq!(s, t);
+
+// In this case we map the data structure into memory
+let flags = Flags::empty();
+let u: MemCase<&[usize; 1000]> = 
+    epserde::map::<[usize; 1000]>(&file, &flags).unwrap();
+assert_eq!(s, **u);
 ```
 Note how we serialize an array, but we deserialize a reference. 
 The reference points inside `b`, so there is 
 no copy performed. The second call creates a new array instead.
+The third call maps the data structure into memory and returns
+a [`MemCase`] that can be used transparently as a reference to the array;
+moreover, the [`MemCase`] can be passed to other functions or stored
+in a structure field, as it contains both the structure and the
+memory-mapped region that supports it.
 
 ## Examples: ε-copy of standard structures
 
@@ -126,7 +138,6 @@ a thousand zeros: ε-serde will deserialize its associated
 deserialization type, which is a reference to a slice.
 ```rust
 use epserde::*;
-use epserde_derive::*;
 
 let s = vec![0; 1000];
 
@@ -147,17 +158,76 @@ assert_eq!(s, *t);
 let t: Vec<usize> = 
     <Vec<usize>>::deserialize_full_copy(b.as_ref()).unwrap();
 assert_eq!(s, t);
+
+// In this case we map the data structure into memory
+let flags = Flags::empty();
+let u: MemCase<&[usize]> = 
+    epserde::map::<Vec<usize>>(&file, &flags).unwrap();
+assert_eq!(s, **u);
 ```
 Note how we serialize an vector, but we deserialize a reference
 to a slice; the same would happen when serializing a boxed slice.
 The reference points inside `b`, so there is very little
 copy performed (in fact, just a field containing the length of the slice).
+All this is due to the fact that `usize` is a zero-copy type.
 
 If your code must work both with the original and the deserialized
 version, however, it must be written for a trait that is implemented
 by both types, like `AsRef<[usize]>`.
 
-## Examples: ε-copy of custom structures
+## Example: Zero-copy structures
+
+You can define your own types to be zero copy, in which case they will
+work like `usize` in the previous examples. This requires the structure
+to be made of zero-copy fields, and to be annotated with `#[zero_copy]` 
+and `#[repr(C)]`:
+```rust
+use epserde::*;
+use epserde_derive::*;
+
+#[derive(Epserde, Debug, PartialEq, Copy, Clone)]
+#[repr(C)]
+#[zero_copy]
+struct Data {
+    foo: usize,
+    bar: usize,
+}
+
+let s = vec![Data { foo: 0, bar: 0 }; 1000];
+
+// Serialize it
+let mut file = std::env::temp_dir();
+file.push("serialized0");
+s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
+// Load the serialized form in a buffer
+let b = std::fs::read(&file).unwrap();
+
+// The type of t will be inferred--it is shown here only for clarity
+let t: &[Data] =
+    <Vec<Data>>::deserialize_eps_copy(b.as_ref()).unwrap();
+
+assert_eq!(s, *t);
+
+// This is a traditional deserialization instead
+let t: Vec<Data> = 
+    <Vec<Data>>::deserialize_full_copy(b.as_ref()).unwrap();
+assert_eq!(s, t);
+
+// In this case we map the data structure into memory
+let flags = Flags::empty();
+let u: MemCase<&[Data]> = 
+    epserde::map::<Vec<Data>>(&file, &flags).unwrap();
+assert_eq!(s, **u);
+```
+If a structure is not zero copy, vectors will be always deserialized to vectors
+(i.e., the full copy and the ε-copy will be the same).
+
+## Examples: ε-copy structures
+
+More flexibility can be obtained by defining structures with fields
+whose field types are defined by parameters. In this case, ε-serde
+will deserialize the structure replacing its type parameters with
+the associated deserialized type.
 
 Let us design a structure that will contain an integer,
 which will be copied, and a vector of integers that we want to ε-copy:
@@ -191,6 +261,13 @@ assert_eq!(s.data, Vec::from(t.data));
 let t: MyStruct<Vec<isize>> = 
     <MyStruct::<Vec<isize>>>::deserialize_full_copy(b.as_ref()).unwrap();
 assert_eq!(s, t);
+
+// In this case we map the data structure into memory
+let flags = Flags::empty();
+let u: MemCase<MyStruct<&[isize]>> = 
+    epserde::map::<MyStruct::<Vec<isize>>>(&file, &flags).unwrap();
+assert_eq!(s.id, u.id);
+assert_eq!(s.data, u.data.as_ref());
 ```
 Note how the field originally containing a `Vec<isize>` now contains a `&[isize]` (this 
 replacement is generated automatically). The reference points inside `b`, so there is 
@@ -230,41 +307,12 @@ let b = std::fs::read(&file).unwrap();
 let t = MyStruct::deserialize_eps_copy(b.as_ref()).unwrap();
 // We can call the method on both structures
 assert_eq!(s.sum(), t.sum());
-```
 
-If you want to map the data structure into memory, you can use a convenience method
-that stores the ε-copied structure and its support in a [`MemCase`]:
-```rust
-use epserde::*;
-use epserde_derive::*;
-
-#[derive(Epserde, Debug, PartialEq)]
-struct MyStructParam<A> {
-    id: isize,
-    data: A,
-}
-
-type MyStruct = MyStructParam<Vec<isize>>;
-
-impl<A: AsRef<[isize]>> MyStructParam<A> {
-    fn sum(&self) -> isize {
-        self.data.as_ref().iter().sum()
-    }
-}
-
-let s = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
-let mut file = std::env::temp_dir();
-file.push("serialized4");
-s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
-// Load the serialized form in a buffer
 let f = Flags::empty();
-// The type of t will be inferred--it is shown here only for clarity
-let t: MemCase<MyStructParam<&[isize]>> =
-    epserde::map::<MyStruct>(&file, &f).unwrap();
+let t = epserde::map::<MyStruct>(&file, &f).unwrap();
 
 // t works transparently as a MyStructParam<&[isize]>
 assert_eq!(s.id, t.id);
-assert_eq!(s.data, Vec::from(t.data));
+assert_eq!(s.data, t.data.as_ref());
 assert_eq!(s.sum(), t.sum());
 ```
-
