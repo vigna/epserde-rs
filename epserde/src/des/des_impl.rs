@@ -20,19 +20,24 @@ macro_rules! impl_prim{
     ($($ty:ty),*) => {$(
         impl DeserializeInner for $ty {
             #[inline(always)]
-            fn _deserialize_full_copy_inner(mut backend:Cursor) -> Result<(Self,Cursor), DeserializeError> {
-                backend = <$ty>::pad_align_and_check(backend)?;
-                Ok((
-                    <$ty>::from_ne_bytes(backend.data[..core::mem::size_of::<$ty>()].try_into().unwrap()),
-                    backend.skip(core::mem::size_of::<$ty>()),
-                ))
+            fn _deserialize_full_copy_inner(backend:Cursor) -> Result<(Self,Cursor), DeserializeError> {
+                <$ty as DeserializeInner>::_deserialize_eps_copy_inner(backend).map(|(x, c)| (*x, c))
             }
-            type DeserType<'a> = $ty;
+            type DeserType<'a> = &'a $ty;
             #[inline(always)]
             fn _deserialize_eps_copy_inner(
-                backend: Cursor,
+                mut backend: Cursor,
             ) -> Result<(Self::DeserType<'_>, Cursor), DeserializeError> {
-                <$ty as DeserializeInner>::_deserialize_full_copy_inner(backend)
+                backend = <$ty>::pad_align_and_check(backend)?;
+                debug_assert!(backend.data.len() >= core::mem::size_of::<$ty>());
+                Ok((
+                    // SAFETY: we just checked that the pointer is aligned and
+                    // we cannot check proper initialization of the value but
+                    // we cannot serialize pointers or references so
+                    // deserializing should never produce a seg fault
+                    unsafe{&*(backend.data.as_ptr() as *const $ty)},
+                    backend.skip(core::mem::size_of::<$ty>()),
+                ))
             }
         }
     )*};
@@ -45,10 +50,13 @@ impl DeserializeInner for () {
     fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
         Ok(((), backend))
     }
-    type DeserType<'a> = Self;
+    type DeserType<'a> = &'a Self;
     #[inline(always)]
-    fn _deserialize_eps_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
-        Self::_deserialize_full_copy_inner(backend)
+    fn _deserialize_eps_copy_inner(
+        backend: Cursor,
+    ) -> Result<(Self::DeserType<'_>, Cursor), DeserializeError> {
+        // TODO!: check if this can be done better
+        Ok((unsafe { &*(backend.data.as_ptr() as *const ()) }, backend))
     }
 }
 
@@ -57,10 +65,15 @@ impl DeserializeInner for bool {
     fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
         Ok((backend.data[0] != 0, backend.skip(1)))
     }
-    type DeserType<'a> = Self;
+    type DeserType<'a> = &'a Self;
     #[inline(always)]
-    fn _deserialize_eps_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
-        Self::_deserialize_full_copy_inner(backend)
+    fn _deserialize_eps_copy_inner(
+        backend: Cursor,
+    ) -> Result<(Self::DeserType<'_>, Cursor), DeserializeError> {
+        Ok((
+            unsafe { &*(backend.data.as_ptr() as *const bool) },
+            backend.skip(1),
+        ))
     }
 }
 
@@ -69,10 +82,13 @@ impl DeserializeInner for char {
     fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
         u32::_deserialize_full_copy_inner(backend).map(|(x, y)| (char::from_u32(x).unwrap(), y))
     }
-    type DeserType<'a> = Self;
+    type DeserType<'a> = &'a Self;
     #[inline(always)]
-    fn _deserialize_eps_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
-        Self::_deserialize_full_copy_inner(backend)
+    fn _deserialize_eps_copy_inner(
+        backend: Cursor,
+    ) -> Result<(Self::DeserType<'_>, Cursor), DeserializeError> {
+        u32::_deserialize_eps_copy_inner(backend)
+            .map(|(x, c)| (unsafe { core::mem::transmute::<&u32, &char>(x) }, c))
     }
 }
 
