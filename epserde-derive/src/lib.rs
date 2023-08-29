@@ -394,14 +394,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                 .attrs
                 .iter()
                 .filter(|x| x.meta.path().is_ident("repr"))
-                .map(|x| {
-                    x.meta
-                        .require_list()
-                        .unwrap()
-                        .tokens
-                        .to_string()
-                        .to_string()
-                })
+                .map(|x| x.meta.require_list().unwrap().tokens.to_string())
                 .collect::<Vec<_>>();
 
             quote! {
