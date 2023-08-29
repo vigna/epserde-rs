@@ -97,7 +97,7 @@ let s = [0_usize; 1000];
 
 // Serialize it
 let mut file = std::env::temp_dir();
-file.push("serialized");
+file.push("serialized0");
 s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
 // Load the serialized form in a buffer
 let b = std::fs::read(&file).unwrap();
@@ -132,7 +132,7 @@ let s = vec![0; 1000];
 
 // Serialize it
 let mut file = std::env::temp_dir();
-file.push("serialized");
+file.push("serialized1");
 s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
 // Load the serialized form in a buffer
 let b = std::fs::read(&file).unwrap();
@@ -175,7 +175,7 @@ struct MyStruct<A> {
 let s: MyStruct<Vec<isize>> = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
 // Serialize it
 let mut file = std::env::temp_dir();
-file.push("serialized");
+file.push("serialized2");
 s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
 // Load the serialized form in a buffer
 let b = std::fs::read(&file).unwrap();
@@ -223,7 +223,7 @@ type MyStruct = MyStructParam<Vec<isize>>;
 let s = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
 // Serialize it
 let mut file = std::env::temp_dir();
-file.push("serialized");
+file.push("serialized3");
 s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
 // Load the serialized form in a buffer
 let b = std::fs::read(&file).unwrap();
@@ -254,7 +254,7 @@ impl<A: AsRef<[isize]>> MyStructParam<A> {
 
 let s = MyStruct { id: 0, data: vec![0, 1, 2, 3] };
 let mut file = std::env::temp_dir();
-file.push("serialized");
+file.push("serialized4");
 s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
 // Load the serialized form in a buffer
 let f = Flags::empty();
