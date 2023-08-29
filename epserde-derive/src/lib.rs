@@ -185,6 +185,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
+                    impl<#generics> CopyType for  #name<#generics_names> #where_clause_deserialize {
+                        type Copy = Zero;
+                    }
+
+                    #[automatically_derived]
                     impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_deserialize {
                         const IS_ZERO_COPY: bool = #is_repr_c #(
                             && <#fields_types>::IS_ZERO_COPY
@@ -243,6 +248,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 }
             } else {
                 quote! {
+                    #[automatically_derived]
+                    impl<#generics> CopyType for  #name<#generics_names> #where_clause_deserialize {
+                        type Copy = Eps;
+                    }
+
                     #[automatically_derived]
                     impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_serialize {
                         const IS_ZERO_COPY: bool = #is_repr_c #(

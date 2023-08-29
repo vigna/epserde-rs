@@ -14,15 +14,12 @@ struct Object<A> {
 
 #[repr(C)]
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
+// We want to use zero-copy deserialization on Point,
+// and thus ε-copy deserialization on Vec<Point>, etc.
+#[zero_copy]
 struct Point {
     x: usize,
     y: usize,
-}
-
-// We want to use zero-copy deserialization on Point,
-// and thus ε-copy deserialization on Vec<Point>, etc.
-impl CopyType for Point {
-    type Copy = Zero;
 }
 
 fn main() {
