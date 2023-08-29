@@ -91,9 +91,7 @@ impl CommonDeriveInput {
     }
 }
 
-#[proc_macro_derive(Serialize, attributes(eps_copy, zero_copy))]
-pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
+fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     let is_repr_c = input.attrs.iter().any(|x| {
         x.meta.path().is_ident("repr") && x.meta.require_list().unwrap().tokens.to_string() == "C"
     });
@@ -101,6 +99,30 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
         .attrs
         .iter()
         .any(|x| x.meta.path().is_ident("zero_copy"));
+    let is_full_copy = input
+        .attrs
+        .iter()
+        .any(|x| x.meta.path().is_ident("full_copy"));
+    if is_zero_copy && !is_repr_c {
+        panic!(
+            "Type {} is declared as zero copy, but it is not repr(C)",
+            input.ident
+        );
+    }
+    if is_zero_copy && is_full_copy {
+        panic!(
+            "Type {} is declared as both zero copy and full copy",
+            input.ident
+        );
+    }
+
+    (is_repr_c, is_zero_copy, is_full_copy)
+}
+
+#[proc_macro_derive(Serialize, attributes(zero_copy, full_copy))]
+pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let (is_repr_c, is_zero_copy, is_full_copy) = check_attrs(&input);
     let CommonDeriveInput {
         name,
         generics,
@@ -148,6 +170,10 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
 
                         #[inline(always)]
                         fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
+                            if ! Self::IS_ZERO_COPY {
+                                panic!("Cannot serialize non zero-copy type {} declared as zero copy", core::any::type_name::<Self>());
+                            }
+                            backend.add_padding_to_align(core::mem::align_of::<Self>())?;
                             #(
                                 backend= backend.add_field(stringify!(#fields_names), &self.#fields_names)?;
                             )*
@@ -165,7 +191,9 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
 
                         #[inline(always)]
                         fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
-                            backend.add_padding_to_align(core::mem::align_of::<Self>())?;
+                            if Self::IS_ZERO_COPY && ! #is_full_copy {
+                                eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<Self>());
+                            }
                             #(
                                 backend= backend.add_field(stringify!(#fields_names), &self.#fields_names)?;
                             )*
@@ -180,13 +208,10 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
     out.into()
 }
 
-#[proc_macro_derive(Deserialize, attributes(zero_copy))]
+#[proc_macro_derive(Deserialize, attributes(zero_copy, full_copy))]
 pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let is_zero_copy = input
-        .attrs
-        .iter()
-        .any(|x| x.meta.path().is_ident("zero_copy"));
+    let (_, is_zero_copy, _) = check_attrs(&input);
     let CommonDeriveInput {
         name,
         generics_names_raw,
@@ -311,6 +336,7 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(TypeHash)]
 pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
+    let (_, is_zero_copy, _) = check_attrs(&input);
     let CommonDeriveInput {
         name,
         generics,
@@ -370,6 +396,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                     #[inline(always)]
                     fn type_hash(hasher: &mut impl core::hash::Hasher) {
                         use core::hash::Hash;
+                        #is_zero_copy.hash(hasher);
                         #name_literal.hash(hasher);
                         #(
                             #fields_names.hash(hasher);
