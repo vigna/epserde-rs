@@ -6,7 +6,7 @@
 
 use epserde::*;
 
-#[derive(Serialize, Deserialize, TypeHash, Debug)]
+#[derive(Epserde, Debug)]
 #[repr(C)]
 #[zero_copy]
 struct Data {

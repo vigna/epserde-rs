@@ -7,14 +7,14 @@
 
 use epserde::*;
 
-#[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct PersonVec<A, B> {
     a: A,
     b: B,
     test: isize,
 }
 
-#[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A> {
     a: A,
     /// TODO: does it depend on the fact it's inner?

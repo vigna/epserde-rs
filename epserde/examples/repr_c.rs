@@ -6,14 +6,14 @@
 
 use epserde::*;
 
-#[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Object<A> {
     a: A,
     test: isize,
 }
 
 #[repr(C)]
-#[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Point {
     x: usize,
     y: usize,

@@ -6,7 +6,7 @@
 
 use epserde::*;
 
-#[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 #[repr(C)]
 #[zero_copy]
 

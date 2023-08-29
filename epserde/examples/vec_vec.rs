@@ -6,7 +6,7 @@
 
 use epserde::*;
 
-#[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 /// Random struct we will use to test the nested serialization and deserialization.
 struct Data<A> {
     a: A,

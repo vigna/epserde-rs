@@ -165,7 +165,7 @@ which will be copied, and a vector of integers that we want to ε-copy:
 use epserde::*;
 use epserde_derive::*;
 
-#[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq)]
+#[derive(Epserde, Debug, PartialEq)]
 struct MyStruct<A> {
     id: isize,
     data: A,
@@ -204,7 +204,7 @@ its associated deserialized type; we can also use `type` to reduce the clutter:
 use epserde::*;
 use epserde_derive::*;
 
-#[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq)]
+#[derive(Epserde, Debug, PartialEq)]
 struct MyStructParam<A> {
     id: isize,
     data: A,
@@ -238,7 +238,7 @@ that stores the ε-copied structure and its support in a [`MemCase`]:
 use epserde::*;
 use epserde_derive::*;
 
-#[derive(Serialize, Deserialize, TypeHash, Debug, PartialEq)]
+#[derive(Epserde, Debug, PartialEq)]
 struct MyStructParam<A> {
     id: isize,
     data: A,
