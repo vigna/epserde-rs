@@ -10,9 +10,19 @@ use bitflags::bitflags;
 use core::ops::Deref;
 
 bitflags! {
+    /// Flags for [`map`] and [`load`].
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Flags: u32 {
+        /// Use memory mapping instead of standard allocation for [`load`].
+        /// Useful, for example, in conjunction with [`Flags::TRANSPARENT_HUGE_PAGES`].
+        /// It has no effect on [`map`].
         const MMAP = 1 << 0;
+        /// Suggest to map a region using transparent huge pages. This flag
+        /// is only a suggestion, and it is ignored if the kernel does not
+        /// support transparent huge pages. It is mainly useful to support
+        /// `madvise()`-based huge pages on Linux. Note that at the time
+        /// of this writing Linux does not support transparent huge pages
+        /// in file-based memory mappings.
         const TRANSPARENT_HUGE_PAGES = 1 << 1;
     }
 }
@@ -119,10 +129,10 @@ use std::{io::Read, mem::MaybeUninit, path::Path, ptr::addr_of_mut};
 /// returning a [`MemCase`] containing the data structure and the
 /// memory mapping.
 #[allow(clippy::uninit_vec)]
-pub fn map<S: Deserialize>(
+pub fn map<'a, 'b, S: Deserialize>(
     path: impl AsRef<Path>,
-    flags: &Flags,
-) -> Result<MemCase<<S as DeserializeInner>::DeserType<'_>>> {
+    flags: &'a Flags,
+) -> Result<MemCase<<S as DeserializeInner>::DeserType<'b>>> {
     let file_len = path.as_ref().metadata()?.len();
     let file = std::fs::File::open(path)?;
 
@@ -155,10 +165,10 @@ pub fn map<S: Deserialize>(
 /// returning a [`MemCase`] containing the data structure and the
 /// memory. Excess bytes are zeroed out.
 #[allow(clippy::uninit_vec)]
-pub fn load<S: Deserialize>(
+pub fn load<'a, 'b, S: Deserialize>(
     path: impl AsRef<Path>,
-    flags: &Flags,
-) -> Result<MemCase<<S as DeserializeInner>::DeserType<'_>>> {
+    flags: &'a Flags,
+) -> Result<MemCase<<S as DeserializeInner>::DeserType<'b>>> {
     let file_len = path.as_ref().metadata()?.len() as usize;
     let mut file = std::fs::File::open(path)?;
     let capacity = (file_len + 7) / 8;

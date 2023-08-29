@@ -115,9 +115,8 @@ let t: [usize; 1000] =
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let flags = Flags::empty();
 let u: MemCase<&[usize; 1000]> = 
-    epserde::map::<[usize; 1000]>(&file, &flags).unwrap();
+    epserde::map::<[usize; 1000]>(&file, &Flags::empty()).unwrap();
 assert_eq!(s, **u);
 ```
 Note how we serialize an array, but we deserialize a reference. 
@@ -160,9 +159,8 @@ let t: Vec<usize> =
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let flags = Flags::empty();
 let u: MemCase<&[usize]> = 
-    epserde::map::<Vec<usize>>(&file, &flags).unwrap();
+    epserde::map::<Vec<usize>>(&file, &Flags::empty()).unwrap();
 assert_eq!(s, **u);
 ```
 Note how we serialize a vector, but we deserialize a reference
@@ -214,9 +212,8 @@ let t: Vec<Data> =
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let flags = Flags::empty();
 let u: MemCase<&[Data]> = 
-    epserde::map::<Vec<Data>>(&file, &flags).unwrap();
+    epserde::map::<Vec<Data>>(&file, &Flags::empty()).unwrap();
 assert_eq!(s, **u);
 ```
 If a structure is not zero copy, vectors will be always deserialized to vectors
@@ -263,9 +260,8 @@ let t: MyStruct<Vec<isize>> =
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let flags = Flags::empty();
 let u: MemCase<MyStruct<&[isize]>> = 
-    epserde::map::<MyStruct::<Vec<isize>>>(&file, &flags).unwrap();
+    epserde::map::<MyStruct::<Vec<isize>>>(&file, &Flags::empty()).unwrap();
 assert_eq!(s.id, u.id);
 assert_eq!(s.data, u.data.as_ref());
 ```
@@ -308,8 +304,7 @@ let t = MyStruct::deserialize_eps_copy(b.as_ref()).unwrap();
 // We can call the method on both structures
 assert_eq!(s.sum(), t.sum());
 
-let f = Flags::empty();
-let t = epserde::map::<MyStruct>(&file, &f).unwrap();
+let t = epserde::map::<MyStruct>(&file, &Flags::empty()).unwrap();
 
 // t works transparently as a MyStructParam<&[isize]>
 assert_eq!(s.id, t.id);
