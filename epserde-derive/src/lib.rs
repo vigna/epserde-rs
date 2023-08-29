@@ -390,6 +390,20 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
 
             let name_literal = format!("\"{}\"", type_name);
 
+            let repr = input
+                .attrs
+                .iter()
+                .filter(|x| x.meta.path().is_ident("repr"))
+                .map(|x| {
+                    x.meta
+                        .require_list()
+                        .unwrap()
+                        .tokens
+                        .to_string()
+                        .to_string()
+                })
+                .collect::<Vec<_>>();
+
             quote! {
                 #[automatically_derived]
                 impl<#generics> epserde::TypeHash for #name<#generics_names> #where_clause{
@@ -397,6 +411,9 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                     fn type_hash(hasher: &mut impl core::hash::Hasher) {
                         use core::hash::Hash;
                         #is_zero_copy.hash(hasher);
+                        #(
+                            #repr.hash(hasher);
+                        )*
                         #name_literal.hash(hasher);
                         #(
                             #fields_names.hash(hasher);
