@@ -165,7 +165,7 @@ let u: MemCase<&[usize]> =
     epserde::map::<Vec<usize>>(&file, &flags).unwrap();
 assert_eq!(s, **u);
 ```
-Note how we serialize an vector, but we deserialize a reference
+Note how we serialize a vector, but we deserialize a reference
 to a slice; the same would happen when serializing a boxed slice.
 The reference points inside `b`, so there is very little
 copy performed (in fact, just a field containing the length of the slice).

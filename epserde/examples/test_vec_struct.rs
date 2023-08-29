@@ -9,7 +9,6 @@ use epserde::*;
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 #[repr(C)]
 #[zero_copy]
-
 struct Data {
     a: usize,
 }
@@ -37,20 +36,20 @@ fn main() {
     let _bytes_written = a.serialize(&mut buf).unwrap();
 
     // Do a full-copy deserialization
-    let full = Data::deserialize_full_copy(&v).unwrap();
+    let full = <Vec<Data>>::deserialize_full_copy(&v).unwrap();
     println!(
         "Full-deserialization type: {}",
-        std::any::type_name::<Data>(),
+        std::any::type_name::<Vec<Data>>(),
     );
     println!("Value: {:x?}", full);
 
     println!("\n");
 
     // Do an ε-copy deserialization
-    let eps = Data::deserialize_eps_copy(&v).unwrap();
+    let eps = <Vec<Data>>::deserialize_eps_copy(&v).unwrap();
     println!(
         "ε-deserialization type: {}",
-        std::any::type_name::<<Data as DeserializeInner>::DeserType<'_>>(),
+        std::any::type_name::<<Vec<Data> as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);
 }
