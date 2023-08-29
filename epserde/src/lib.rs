@@ -19,7 +19,7 @@ extern crate alloc;
 #[cfg(feature = "derive")]
 extern crate epserde_derive;
 #[cfg(feature = "derive")]
-pub use epserde_derive::{Deserialize, Serialize, TypeHash};
+pub use epserde_derive::{Epserde, TypeHash};
 
 pub mod des;
 pub mod ser;

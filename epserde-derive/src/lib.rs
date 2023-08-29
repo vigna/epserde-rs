@@ -119,27 +119,38 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     (is_repr_c, is_zero_copy, is_full_copy)
 }
 
-#[proc_macro_derive(Serialize, attributes(zero_copy, full_copy))]
-pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let (is_repr_c, is_zero_copy, is_full_copy) = check_attrs(&input);
+#[proc_macro_derive(Epserde, attributes(zero_copy, full_copy))]
+pub fn epserde_derive(input: TokenStream) -> TokenStream {
+    let input_for_typehash = input.clone();
+    let derive_input = parse_macro_input!(input as DeriveInput);
+    let (is_repr_c, is_zero_copy, is_full_copy) = check_attrs(&derive_input);
+    // values for serialize
     let CommonDeriveInput {
         name,
         generics,
         generics_names,
-        where_clause,
+        where_clause: where_clause_deserialize,
         generics_names_raw,
         ..
     } = CommonDeriveInput::new(
-        input.clone(),
+        derive_input.clone(),
         vec![syn::parse_quote!(epserde::ser::SerializeInner)],
+        vec![],
+    );
+    // values for deserialize
+    let CommonDeriveInput {
+        where_clause: where_clause_serialize,
+        ..
+    } = CommonDeriveInput::new(
+        derive_input.clone(),
+        vec![syn::parse_quote!(epserde::des::DeserializeInner)],
         vec![],
     );
     // We have to play with this to get type parameters working
 
-    let out = match input.data {
+    let out = match derive_input.data {
         Data::Struct(s) => {
-            let mut fields = vec![];
+            let mut fields_types = vec![];
             let mut fields_names = vec![];
             let mut non_generic_fields = vec![];
             let mut non_generic_types = vec![];
@@ -156,16 +167,27 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
                     non_generic_fields.push(field_name.clone());
                     non_generic_types.push(ty);
                 }
-                fields.push(ty);
+                fields_types.push(ty);
                 fields_names.push(field_name);
+            });
+
+            let mut methods: Vec<proc_macro2::TokenStream> = vec![];
+
+            s.fields.iter().for_each(|field| {
+                let ty = &field.ty;
+                if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                    methods.push(syn::parse_quote!(_deserialize_eps_copy_inner));
+                } else {
+                    methods.push(syn::parse_quote!(_deserialize_full_copy_inner));
+                }
             });
 
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
+                    impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_deserialize {
                         const IS_ZERO_COPY: bool = #is_repr_c #(
-                            && <#fields>::IS_ZERO_COPY
+                            && <#fields_types>::IS_ZERO_COPY
                         )*;
 
                         const ZERO_COPY_MISMATCH: bool = false;
@@ -182,83 +204,9 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
                             Ok(backend)
                         }
                     }
-                }
-            } else {
-                quote! {
+
                     #[automatically_derived]
-                    impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
-                        const IS_ZERO_COPY: bool = #is_repr_c #(
-                            && <#fields>::IS_ZERO_COPY
-                        )*;
-
-                        const ZERO_COPY_MISMATCH: bool = ! #is_full_copy #(&& <#fields>::IS_ZERO_COPY)*;
-
-                        #[inline(always)]
-                        fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
-                            if Self::ZERO_COPY_MISMATCH {
-                                eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<Self>());
-                            }
-                            #(
-                                backend= backend.add_field(stringify!(#fields_names), &self.#fields_names)?;
-                            )*
-                            Ok(backend)
-                        }
-                    }
-                }
-            }
-        }
-        _ => todo!(),
-    };
-    out.into()
-}
-
-#[proc_macro_derive(Deserialize, attributes(zero_copy, full_copy))]
-pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let (_, is_zero_copy, _) = check_attrs(&input);
-    let CommonDeriveInput {
-        name,
-        generics_names_raw,
-        generics,
-        generics_names,
-        where_clause,
-        ..
-    } = CommonDeriveInput::new(
-        input.clone(),
-        vec![syn::parse_quote!(epserde::des::DeserializeInner)],
-        vec![],
-    );
-    let out = match input.data {
-        Data::Struct(s) => {
-            let fields = s
-                .fields
-                .iter()
-                .map(|field| field.ident.to_owned().unwrap())
-                .collect::<Vec<_>>();
-
-            let fields_types = s
-                .fields
-                .iter()
-                .map(|field| field.ty.to_owned())
-                .collect::<Vec<_>>();
-
-            let mut generic_types = vec![];
-            let mut methods: Vec<proc_macro2::TokenStream> = vec![];
-
-            s.fields.iter().for_each(|field| {
-                let ty = &field.ty;
-                if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
-                    generic_types.push(ty);
-                    methods.push(syn::parse_quote!(_deserialize_eps_copy_inner));
-                } else {
-                    methods.push(syn::parse_quote!(_deserialize_full_copy_inner));
-                }
-            });
-
-            if is_zero_copy {
-                quote! {
-                    #[automatically_derived]
-                    impl<#generics> epserde::des::DeserializeInner for #name<#generics_names> #where_clause
+                    impl<#generics> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_deserialize
                     #(
                         #generic_types: epserde::des::DeserializeInner,
                     )*{
@@ -268,10 +216,10 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                             use epserde::des::DeserializeInner;
                             backend = Self::pad_align_and_check(backend)?;
                             #(
-                                let (#fields, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;
+                                let (#fields_names, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;
                             )*
                             Ok((#name{
-                                #(#fields),*
+                                #(#fields_names),*
                             }, backend))
                         }
 
@@ -296,7 +244,27 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> epserde::des::DeserializeInner for #name<#generics_names> #where_clause
+                    impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_serialize {
+                        const IS_ZERO_COPY: bool = #is_repr_c #(
+                            && <#fields_types>::IS_ZERO_COPY
+                        )*;
+
+                        const ZERO_COPY_MISMATCH: bool = ! #is_full_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
+
+                        #[inline(always)]
+                        fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
+                            if Self::ZERO_COPY_MISMATCH {
+                                eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<Self>());
+                            }
+                            #(
+                                backend= backend.add_field(stringify!(#fields_names), &self.#fields_names)?;
+                            )*
+                            Ok(backend)
+                        }
+                    }
+
+                    #[automatically_derived]
+                    impl<#generics> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_deserialize
                     #(
                         #generic_types: epserde::des::DeserializeInner,
                     )*{
@@ -305,10 +273,10 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                         ) -> core::result::Result<(Self, epserde::des::Cursor), epserde::des::DeserializeError> {
                             use epserde::des::DeserializeInner;
                             #(
-                                let (#fields, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;
+                                let (#fields_names, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;
                             )*
                             Ok((#name{
-                                #(#fields),*
+                                #(#fields_names),*
                             }, backend))
                         }
 
@@ -322,10 +290,10 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
                         {
                             use epserde::des::DeserializeInner;
                             #(
-                                let (#fields, backend) = <#fields_types>::#methods(backend)?;
+                                let (#fields_names, backend) = <#fields_types>::#methods(backend)?;
                             )*
                             Ok((#name{
-                                #(#fields),*
+                                #(#fields_names),*
                             }, backend))
                         }
                     }
@@ -334,7 +302,11 @@ pub fn epserde_deserialize_derive(input: TokenStream) -> TokenStream {
         }
         _ => todo!(),
     };
-    out.into()
+
+    // automatically derive type hash
+    let mut out: TokenStream = out.into();
+    out.extend(epserde_type_hash(input_for_typehash));
+    out
 }
 
 #[proc_macro_derive(TypeHash)]
