@@ -13,6 +13,7 @@ macro_rules! impl_stuff{
     ($($ty:ty),*) => {$(
         impl SerializeInner for $ty {
             const IS_ZERO_COPY: bool = true;
+            const ZERO_COPY_MISMATCH: bool = false;
 
             #[inline(always)]
             fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
@@ -47,6 +48,7 @@ fn serialize_zero_copy<T: Serialize, F: FieldWrite>(data: &T, mut backend: F) ->
 
 impl SerializeInner for () {
     const IS_ZERO_COPY: bool = true;
+    const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
@@ -56,6 +58,7 @@ impl SerializeInner for () {
 
 impl SerializeInner for bool {
     const IS_ZERO_COPY: bool = true;
+    const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
@@ -67,6 +70,7 @@ impl SerializeInner for bool {
 
 impl SerializeInner for char {
     const IS_ZERO_COPY: bool = true;
+    const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
@@ -85,6 +89,12 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(
     let len = data.len();
     backend = backend.add_field("len", &len)?;
     if zero_copy {
+        if !T::IS_ZERO_COPY {
+            panic!(
+                "Cannot serialize non zero-copy type {} declared as zero copy",
+                core::any::type_name::<T>()
+            );
+        }
         // ensure alignment
         backend.add_padding_to_align(core::mem::align_of::<T>())?;
         let buffer = unsafe {
@@ -98,6 +108,9 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(
             core::mem::align_of::<T>(),
         )?;
     } else {
+        if T::ZERO_COPY_MISMATCH {
+            eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<T>());
+        }
         for item in data.iter() {
             backend = backend.add_field("data", item)?;
         }
@@ -118,6 +131,7 @@ where
     [T; N]: SerializeHelper<<T as CopyType>::Copy>,
 {
     const IS_ZERO_COPY: bool = T::IS_ZERO_COPY;
+    const ZERO_COPY_MISMATCH: bool = T::ZERO_COPY_MISMATCH;
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
         SerializeHelper::_serialize_inner(self, backend)
     }
@@ -146,6 +160,7 @@ where
     Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
 {
     const IS_ZERO_COPY: bool = false;
+    const ZERO_COPY_MISMATCH: bool = false;
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
         SerializeHelper::_serialize_inner(self, backend)
     }
@@ -171,6 +186,7 @@ where
     Box<[T]>: SerializeHelper<<T as CopyType>::Copy>,
 {
     const IS_ZERO_COPY: bool = false;
+    const ZERO_COPY_MISMATCH: bool = false;
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
         SerializeHelper::_serialize_inner(self, backend)
     }
@@ -193,6 +209,7 @@ impl<T: EpsCopy + SerializeInner> SerializeHelper<Eps> for Box<[T]> {
 impl SerializeInner for Box<str> {
     // Box<[$ty]> can, but Vec<Box<[$ty]>> cannot!
     const IS_ZERO_COPY: bool = false;
+    const ZERO_COPY_MISMATCH: bool = false;
 
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
         serialize_slice(self.as_bytes(), backend, true)
@@ -202,6 +219,7 @@ impl SerializeInner for Box<str> {
 impl SerializeInner for String {
     // Vec<$ty> can, but Vec<Vec<$ty>> cannot!
     const IS_ZERO_COPY: bool = false;
+    const ZERO_COPY_MISMATCH: bool = false;
 
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
         serialize_slice(self.as_bytes(), backend, true)

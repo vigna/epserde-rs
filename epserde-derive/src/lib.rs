@@ -168,6 +168,8 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
                             && <#fields>::IS_ZERO_COPY
                         )*;
 
+                        const ZERO_COPY_MISMATCH: bool = false;
+
                         #[inline(always)]
                         fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
                             if ! Self::IS_ZERO_COPY {
@@ -189,9 +191,11 @@ pub fn epserde_serialize_derive(input: TokenStream) -> TokenStream {
                             && <#fields>::IS_ZERO_COPY
                         )*;
 
+                        const ZERO_COPY_MISMATCH: bool = ! #is_full_copy #(&& <#fields>::IS_ZERO_COPY)*;
+
                         #[inline(always)]
                         fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
-                            if Self::IS_ZERO_COPY && ! #is_full_copy {
+                            if Self::ZERO_COPY_MISMATCH {
                                 eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<Self>());
                             }
                             #(

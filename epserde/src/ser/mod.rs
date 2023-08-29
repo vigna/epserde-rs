@@ -37,6 +37,11 @@ pub trait SerializeInner: TypeHash + Sized {
     /// This is used to optimize the serialization of arrays, tuples, etc.
     const IS_ZERO_COPY: bool;
 
+    /// Inner constant that keeps track of whether a type has been not declared
+    /// full copy, has not been declared zero copy, but nonetheless all its
+    /// fields are zero copy.
+    const ZERO_COPY_MISMATCH: bool;
+
     /// Serialize this structure using the given backend.
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;
 }
