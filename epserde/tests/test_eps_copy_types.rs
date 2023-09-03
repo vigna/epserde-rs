@@ -79,7 +79,7 @@ fn test_box_slice_usize() {
     println!("{}", schema.to_csv());
 
     let a1 = <Box<[usize]>>::deserialize_full_copy(&v).unwrap();
-    assert_eq!(a, a1.into());
+    assert_eq!(a, a1);
 
     let a2 = <Box<[usize]>>::deserialize_eps_copy(&v).unwrap();
     assert_eq!(a, a2.into());

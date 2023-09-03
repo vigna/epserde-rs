@@ -46,7 +46,7 @@ pub use copy_type::*;
 
 /// Compute the padding needed for alignment, that is, the smallest
 /// number such that `((value + pad_align_to(value, align_to) & (align_to - 1) == 0`.
-fn pad_align_to_to(value: usize, align_to: usize) -> usize {
+fn pad_align_to(value: usize, align_to: usize) -> usize {
     value.wrapping_neg() & (align_to - 1)
 }
 

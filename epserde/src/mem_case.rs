@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{Deserialize, DeserializeInner};
+use crate::{pad_align_to, Deserialize, DeserializeInner};
 use anyhow::Result;
 use bitflags::bitflags;
 use core::ops::Deref;
@@ -13,17 +13,13 @@ bitflags! {
     /// Flags for [`map`] and [`load`].
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Flags: u32 {
-        /// Use memory mapping instead of standard allocation for [`load`].
-        /// Useful, for example, in conjunction with [`Flags::TRANSPARENT_HUGE_PAGES`].
-        /// It has no effect on [`map`].
-        const MMAP = 1 << 0;
         /// Suggest to map a region using transparent huge pages. This flag
         /// is only a suggestion, and it is ignored if the kernel does not
         /// support transparent huge pages. It is mainly useful to support
         /// `madvise()`-based huge pages on Linux. Note that at the time
         /// of this writing Linux does not support transparent huge pages
         /// in file-based memory mappings.
-        const TRANSPARENT_HUGE_PAGES = 1 << 1;
+        const TRANSPARENT_HUGE_PAGES = 1 << 0;
     }
 }
 
@@ -38,7 +34,7 @@ impl Flags {
         match self.contains(Flags::TRANSPARENT_HUGE_PAGES) {
             // By passing COPY_ON_WRITE we set the MAP_PRIVATE flag, which
             // in necessary for transparent huge pages to work.
-            true => mmap_rs::MmapFlags::TRANSPARENT_HUGE_PAGES | mmap_rs::MmapFlags::COPY_ON_WRITE,
+            true => mmap_rs::MmapFlags::TRANSPARENT_HUGE_PAGES,
             false => mmap_rs::MmapFlags::empty(),
         }
     }
@@ -50,10 +46,13 @@ impl Flags {
 /// the data structure is deserialized from a memory-mapped region.
 pub enum MemBackend {
     /// No backend. The data structure is a standard Rust data structure.
+    /// This variant is returned by [`encase_mem`].
     None,
-    /// The backend is an allocated in a memory region aligned to 64 bits.
-    Memory(Vec<u64>),
-    /// The backend is a memory-mapped region.
+    /// The backend is a heap-allocated in a memory region aligned to 4096 bytes.
+    /// This variant is returned by [`load`].
+    Memory(Vec<u8>),
+    /// The backend is the result to a call to `mmap()`.
+    /// This variant is returned by [`load_mmap`] and [`map`].
     Mmap(mmap_rs::Mmap),
 }
 
@@ -61,7 +60,7 @@ impl MemBackend {
     pub fn as_ref(&self) -> Option<&[u8]> {
         match self {
             MemBackend::None => None,
-            MemBackend::Memory(mem) => Some(bytemuck::cast_slice::<u64, u8>(mem)),
+            MemBackend::Memory(mem) => Some(mem),
             MemBackend::Mmap(mmap) => Some(mmap),
         }
     }
@@ -125,82 +124,37 @@ impl<S: Send + Sync> From<S> for MemCase<S> {
 
 use std::{io::Read, mem::MaybeUninit, path::Path, ptr::addr_of_mut};
 
-/// Memory map a file and deserialize a data structure from it,
-/// returning a [`MemCase`] containing the data structure and the
-/// memory mapping.
-#[allow(clippy::uninit_vec)]
-pub fn map<'a, 'b, S: Deserialize>(
-    path: impl AsRef<Path>,
-    flags: &'a Flags,
-) -> Result<MemCase<<S as DeserializeInner>::DeserType<'b>>> {
-    let file_len = path.as_ref().metadata()?.len();
-    let file = std::fs::File::open(path)?;
-
-    Ok({
-        let mut uninit: MaybeUninit<MemCase<<S as DeserializeInner>::DeserType<'_>>> =
-            MaybeUninit::uninit();
-        let ptr = uninit.as_mut_ptr();
-
-        let mmap = unsafe {
-            mmap_rs::MmapOptions::new(file_len as _)?
-                .with_flags(flags.mmap_flags())
-                .with_file(file, 0)
-                .map()?
-        };
-
-        unsafe {
-            addr_of_mut!((*ptr).1).write(MemBackend::Mmap(mmap));
-        }
-
-        let mmap = unsafe { (*ptr).1.as_ref().unwrap() };
-        let s = S::deserialize_eps_copy(mmap)?;
-        unsafe {
-            addr_of_mut!((*ptr).0).write(s);
-        }
-        unsafe { uninit.assume_init() }
-    })
-}
-
-/// Load a file into memory and deserialize a data structure from it,
+/// Load a file into heap-allocated memory and deserialize a data structure from it,
 /// returning a [`MemCase`] containing the data structure and the
 /// memory. Excess bytes are zeroed out.
-#[allow(clippy::uninit_vec)]
-pub fn load<'a, 'b, S: Deserialize>(
+pub fn load<'a, S: Deserialize>(
     path: impl AsRef<Path>,
-    flags: &'a Flags,
-) -> Result<MemCase<<S as DeserializeInner>::DeserType<'b>>> {
+) -> Result<MemCase<<S as DeserializeInner>::DeserType<'a>>> {
     let file_len = path.as_ref().metadata()?.len() as usize;
     let mut file = std::fs::File::open(path)?;
-    let capacity = (file_len + 7) / 8;
+    // Round up to u128 size
+    let len = file_len + pad_align_to(file_len, 16);
 
     let mut uninit: MaybeUninit<MemCase<<S as DeserializeInner>::DeserType<'_>>> =
         MaybeUninit::uninit();
     let ptr = uninit.as_mut_ptr();
 
-    let backend = if flags.contains(Flags::MMAP) {
-        let mut mmap = mmap_rs::MmapOptions::new(capacity * 8)?
-            .with_flags(flags.mmap_flags())
-            .map_mut()?;
-        file.read_exact(&mut mmap[..file_len])?;
-        // Fixes the last few bytes to guarantee zero-extension semantics
-        // for bit vectors.
-        mmap[file_len..].fill(0);
-
-        MemBackend::Mmap(mmap.make_read_only().map_err(|(_, err)| err).unwrap())
-    } else {
-        let mut mem = Vec::<u64>::with_capacity(capacity);
-        unsafe {
-            // This is safe because we are filling the vector
-            // reading from a file.
-            mem.set_len(capacity);
-        }
-        let bytes: &mut [u8] = bytemuck::cast_slice_mut::<u64, u8>(mem.as_mut_slice());
-        file.read_exact(&mut bytes[..file_len])?;
-        // Fixes the last few bytes to guarantee zero-extension semantics
-        // for bit vectors.
-        bytes[file_len..].fill(0);
-        MemBackend::Memory(mem)
+    // SAFETY: the entire vector will be filled with data read from the file,
+    // or with zeroes if the file is shorter than the vector.
+    let mut bytes = unsafe {
+        Vec::from_raw_parts(
+            std::alloc::alloc(std::alloc::Layout::from_size_align(len, 4096)?),
+            len,
+            len,
+        )
     };
+
+    file.read_exact(&mut bytes[..file_len])?;
+    // Fixes the last few bytes to guarantee zero-extension semantics
+    // for bit vectors and full-vector initialization.
+    bytes[file_len..].fill(0);
+    let backend = MemBackend::Memory(bytes);
+
     // store the backend inside the MemCase
     unsafe {
         addr_of_mut!((*ptr).1).write(backend);
@@ -209,6 +163,91 @@ pub fn load<'a, 'b, S: Deserialize>(
     let mem = unsafe { (*ptr).1.as_ref().unwrap() };
     let s = S::deserialize_eps_copy(mem)?;
     // write the deserialized struct in the memcase
+    unsafe {
+        addr_of_mut!((*ptr).0).write(s);
+    }
+    // finish init
+    Ok(unsafe { uninit.assume_init() })
+}
+
+/// Load a file into `mmap()`-allocated memory and deserialize a data structure from it,
+/// returning a [`MemCase`] containing the data structure and the
+/// memory. Excess bytes are zeroed out.
+///
+/// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
+/// just pass `&Flags::empty()`.
+#[allow(clippy::uninit_vec)]
+pub fn load_mmap<'a, S: Deserialize>(
+    path: impl AsRef<Path>,
+    flags: &Flags,
+) -> Result<MemCase<<S as DeserializeInner>::DeserType<'a>>> {
+    let file_len = path.as_ref().metadata()?.len() as usize;
+    let mut file = std::fs::File::open(path)?;
+    let capacity = (file_len + 7) / 8;
+
+    let mut uninit: MaybeUninit<MemCase<<S as DeserializeInner>::DeserType<'_>>> =
+        MaybeUninit::uninit();
+    let ptr = uninit.as_mut_ptr();
+
+    let mut mmap = mmap_rs::MmapOptions::new(capacity * 8)?
+        .with_flags(flags.mmap_flags())
+        .map_mut()?;
+    file.read_exact(&mut mmap[..file_len])?;
+    // Fixes the last few bytes to guarantee zero-extension semantics
+    // for bit vectors.
+    mmap[file_len..].fill(0);
+
+    let backend = MemBackend::Mmap(mmap.make_read_only().map_err(|(_, err)| err).unwrap());
+
+    // store the backend inside the MemCase
+    unsafe {
+        addr_of_mut!((*ptr).1).write(backend);
+    }
+    // deserialize the data structure
+    let mem = unsafe { (*ptr).1.as_ref().unwrap() };
+    let s = S::deserialize_eps_copy(mem)?;
+    // write the deserialized struct in the MemCase
+    unsafe {
+        addr_of_mut!((*ptr).0).write(s);
+    }
+    // finish init
+    Ok(unsafe { uninit.assume_init() })
+}
+
+/// Memory map a file and deserialize a data structure from it,
+/// returning a [`MemCase`] containing the data structure and the
+/// memory mapping.
+///
+/// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
+/// just pass `&Flags::empty()`.
+#[allow(clippy::uninit_vec)]
+pub fn map<'a, S: Deserialize>(
+    path: impl AsRef<Path>,
+    flags: &Flags,
+) -> Result<MemCase<<S as DeserializeInner>::DeserType<'a>>> {
+    let file_len = path.as_ref().metadata()?.len();
+    let file = std::fs::File::open(path)?;
+
+    let mut uninit: MaybeUninit<MemCase<<S as DeserializeInner>::DeserType<'_>>> =
+        MaybeUninit::uninit();
+    let ptr = uninit.as_mut_ptr();
+
+    let mmap = unsafe {
+        mmap_rs::MmapOptions::new(file_len as _)?
+            .with_flags(flags.mmap_flags() | mmap_rs::MmapFlags::COPY_ON_WRITE)
+            .with_file(file, 0)
+            .map()?
+    };
+
+    // store the backend inside the MemCase
+    unsafe {
+        addr_of_mut!((*ptr).1).write(MemBackend::Mmap(mmap));
+    }
+
+    let mmap = unsafe { (*ptr).1.as_ref().unwrap() };
+    // deserialize the data structure
+    let s = S::deserialize_eps_copy(mmap)?;
+    // write the deserialized struct in the MemCase
     unsafe {
         addr_of_mut!((*ptr).0).write(s);
     }
