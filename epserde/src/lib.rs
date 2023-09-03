@@ -45,9 +45,9 @@ mod copy_type;
 pub use copy_type::*;
 
 /// Compute the padding needed for alignment, that is, the smallest
-/// number such that `((value + pad_align_to(value, bits) & (bits - 1) == 0`.
-fn pad_align_to(value: usize, bits: usize) -> usize {
-    value.wrapping_neg() & (bits - 1)
+/// number such that `((value + pad_align_to(value, align_to) & (align_to - 1) == 0`.
+fn pad_align_to_to(value: usize, align_to: usize) -> usize {
+    value.wrapping_neg() & (align_to - 1)
 }
 
 /// A trait padding a cursor to the correct alignment
