@@ -10,7 +10,7 @@ use bitflags::bitflags;
 use core::ops::Deref;
 
 bitflags! {
-    /// Flags for [`map`] and [`load`].
+    /// Flags for [`map`] and [`load_mmap`].
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Flags: u32 {
         /// Suggest to map a region using transparent huge pages. This flag
@@ -42,11 +42,11 @@ impl Flags {
 
 /// Possible backends of a [`MemCase`]. The `None` variant is used when the data structure is
 /// created in memory; the `Memory` variant is used when the data structure is deserialized
-/// from a file loaded into an allocated memory region; the `Mmap` variant is used when
-/// the data structure is deserialized from a memory-mapped region.
+/// from a file loaded into a heap-allocated memory region; the `Mmap` variant is used when
+/// the data structure is deserialized from a `mmap()`-based region.
 pub enum MemBackend {
     /// No backend. The data structure is a standard Rust data structure.
-    /// This variant is returned by [`encase_mem`].
+    /// This variant is returned by [`encase`].
     None,
     /// The backend is a heap-allocated in a memory region aligned to 4096 bytes.
     /// This variant is returned by [`load`].
@@ -88,7 +88,7 @@ impl MemBackend {
 /// to use [`MemCase`] as the type of the field.
 /// [`MemCase`] implements [`From`] for the
 /// wrapped type, using the no-op [`None`](`MemBackend#variant.None`) variant
-/// of [`MemBackend`], so a data structure can be [encased](encase_mem)
+/// of [`MemBackend`], so a data structure can be [encased](encase)
 /// almost transparently.
 
 pub struct MemCase<S>(pub S, MemBackend);
@@ -112,13 +112,13 @@ impl<S> AsRef<S> for MemCase<S> {
 }
 
 /// Encases a data structure in a [`MemCase`] with no backend.
-pub fn encase_mem<S>(s: S) -> MemCase<S> {
+pub fn encase<S>(s: S) -> MemCase<S> {
     MemCase(s, MemBackend::None)
 }
 
 impl<S: Send + Sync> From<S> for MemCase<S> {
     fn from(s: S) -> Self {
-        encase_mem(s)
+        encase(s)
     }
 }
 
