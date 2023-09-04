@@ -25,8 +25,7 @@ impl CopySelector for Eps {
 
 /**
 
-Marker trait for data in vectors, boxes slices, or custom types
-that need to know whether a slice of data can be zero-copy deserialized.
+Marker trait for data specifying whether it can be zero-copy deserialized.
 
 The trait comes in two flavors: `CopySelector<Type=Zero>` and
 `CopySelector<Type=Eps>`. To each of these flavors corresponds two
@@ -52,9 +51,9 @@ exclusive](https://github.com/rust-lang/rfcs/pull/1672#issuecomment-1405377983).
 For a slice of elements of type `T` to be zero-copy serializable and
 deserializable, `T` must implement `CopySelector<Type=Zero>`. The conditions for this marker trait are that
 `T` is a copy type, that it has a fixed memory layout, and that it does not contain any reference.
-If this happen, a slice of `T` can be zero-copy deserialized just by taking a reference, and
+If this happen, a value of type `T` can be zero-copy deserialized just by taking a reference, and
 consequently vectors of `T` or boxed slices of `T` can be ε-copy deserialized
-using the reference.
+using a reference to a slice of `T`.
 
 You can implement `CopySelector<Type=Zero>` for your copy types, but you must ensure that the type does not
 contain references and has a fixed memory layout; for structures, this requires
