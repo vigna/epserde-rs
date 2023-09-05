@@ -219,7 +219,7 @@ pub fn load_mmap<'a, S: Deserialize>(
 /// memory mapping.
 ///
 /// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
-/// just pass `&Flags::empty()`.
+/// just pass `Flags::empty()`.
 #[allow(clippy::uninit_vec)]
 pub fn map<'a, S: Deserialize>(
     path: impl AsRef<Path>,
