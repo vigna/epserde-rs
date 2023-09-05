@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use core::marker::PhantomData;
+
 use crate::{CopySelector, CopyType, Eps, EpsCopy, TypeHash, Zero, ZeroCopy};
 
 use super::ser::{FieldWrite, Result, Serialize, SerializeInner};
@@ -97,6 +99,20 @@ impl<T: SerializeInner> SerializeInner for Option<T> {
                 backend = backend.add_field("Some", val)?;
             }
         };
+        Ok(backend)
+    }
+}
+
+impl<T> CopyType for PhantomData<T> {
+    type Copy = Zero;
+}
+
+impl<T: SerializeInner> SerializeInner for PhantomData<T> {
+    const IS_ZERO_COPY: bool = false;
+    const ZERO_COPY_MISMATCH: bool = false;
+
+    #[inline(always)]
+    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
         Ok(backend)
     }
 }

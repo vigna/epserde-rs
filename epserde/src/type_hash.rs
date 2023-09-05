@@ -5,6 +5,7 @@
  */
 
 use core::hash::Hash;
+use core::marker::PhantomData;
 
 /// Compute a stable hash for a type. This is used during deserialization to
 /// check that the type of the data matches the type of the value being
@@ -38,6 +39,11 @@ impl<T: TypeHash> TypeHash for Option<T> {
         "Option".hash(hasher);
         T::type_hash(hasher);
     }
+}
+
+impl<T: TypeHash> TypeHash for PhantomData<T> {
+    #[inline(always)]
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {}
 }
 
 impl<S: TypeHash, E: TypeHash> TypeHash for Result<S, E> {

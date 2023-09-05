@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
 use crate::des::*;
@@ -117,6 +118,23 @@ impl<T: DeserializeInner> DeserializeInner for Option<T> {
             }
             _ => Err(DeserializeError::InvalidTag(backend.data[0])),
         }
+    }
+}
+
+impl<T: DeserializeInner> DeserializeInner for PhantomData<T> {
+    #[inline(always)]
+    fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
+        Ok((PhantomData::<T>, backend))
+    }
+    type DeserType<'a> = PhantomData<<T as DeserializeInner>::DeserType<'a>>;
+    #[inline(always)]
+    fn _deserialize_eps_copy_inner(
+        backend: Cursor,
+    ) -> Result<(Self::DeserType<'_>, Cursor), DeserializeError> {
+        Ok((
+            PhantomData::<<T as DeserializeInner>::DeserType<'_>>,
+            backend,
+        ))
     }
 }
 
