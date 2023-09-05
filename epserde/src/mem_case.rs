@@ -34,7 +34,7 @@ impl Flags {
         match self.contains(Flags::TRANSPARENT_HUGE_PAGES) {
             // By passing COPY_ON_WRITE we set the MAP_PRIVATE flag, which
             // in necessary for transparent huge pages to work.
-            true => mmap_rs::MmapFlags::TRANSPARENT_HUGE_PAGES,
+            true => mmap_rs::MmapFlags::TRANSPARENT_HUGE_PAGES | mmap_rs::MmapFlags::COPY_ON_WRITE,
             false => mmap_rs::MmapFlags::empty(),
         }
     }
@@ -234,7 +234,7 @@ pub fn map<'a, S: Deserialize>(
 
     let mmap = unsafe {
         mmap_rs::MmapOptions::new(file_len as _)?
-            .with_flags(flags.mmap_flags() | mmap_rs::MmapFlags::COPY_ON_WRITE)
+            .with_flags(flags.mmap_flags())
             .with_file(file, 0)
             .map()?
     };
