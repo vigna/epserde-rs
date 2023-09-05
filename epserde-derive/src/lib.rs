@@ -17,6 +17,7 @@ struct CommonDeriveInput {
     name: syn::Ident,
     generics: proc_macro2::TokenStream,
     generics_names: proc_macro2::TokenStream,
+    generics_call_vec: Vec<proc_macro2::TokenStream>,
     generics_names_raw: Vec<String>,
     consts_names_raw: Vec<String>,
     where_clause: proc_macro2::TokenStream,
@@ -32,6 +33,7 @@ impl CommonDeriveInput {
         let mut generics = quote!();
         let mut generics_names_raw = vec![];
         let mut consts_names_raw = vec![];
+        let mut generics_call_vec = vec![];
         let mut generics_names = quote!();
         if !input.generics.params.is_empty() {
             input.generics.params.iter().for_each(|x| {
@@ -66,10 +68,15 @@ impl CommonDeriveInput {
                             .push(syn::TypeParamBound::Lifetime(lifetime_to_add.clone()));
                     }
                     generics.extend(quote!(#t,));
+                    generics_call_vec.push(t.ident.to_token_stream());
                 }
-                x => {
-                    generics.extend(x.to_token_stream());
-                    generics.extend(quote!(,))
+                syn::GenericParam::Const(c) => {
+                    generics.extend(quote!(#c,));
+                    generics_call_vec.push(c.ident.to_token_stream());
+                }
+                syn::GenericParam::Lifetime(l) => {
+                    generics.extend(quote!(#l,));
+                    generics_call_vec.push(l.lifetime.to_token_stream());
                 }
             });
         }
@@ -87,6 +94,7 @@ impl CommonDeriveInput {
             where_clause,
             generics_names_raw,
             consts_names_raw,
+            generics_call_vec,
         }
     }
 }
@@ -127,10 +135,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
     // values for serialize
     let CommonDeriveInput {
         name,
-        generics,
+        generics: generics_serialize,
         generics_names,
-        where_clause: where_clause_deserialize,
+        where_clause,
         generics_names_raw,
+        generics_call_vec,
         ..
     } = CommonDeriveInput::new(
         derive_input.clone(),
@@ -139,13 +148,19 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
     );
     // values for deserialize
     let CommonDeriveInput {
-        where_clause: where_clause_serialize,
+        generics: generics_deserialize,
         ..
     } = CommonDeriveInput::new(
         derive_input.clone(),
         vec![syn::parse_quote!(epserde::des::DeserializeInner)],
         vec![],
     );
+    // values for deserialize
+    let CommonDeriveInput {
+        generics: generics_copytype,
+        ..
+    } = CommonDeriveInput::new(derive_input.clone(), vec![], vec![]);
+
     // We have to play with this to get type parameters working
 
     let out = match derive_input.data {
@@ -182,15 +197,29 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 }
             });
 
+            let desser_type_generics = generics_call_vec
+                .iter()
+                .map(|ty| {
+                    if generic_types
+                        .iter()
+                        .any(|x| x.to_token_stream().to_string() == ty.to_string())
+                    {
+                        quote!(<#ty as epserde::des::DeserializeInner>::DeserType<'a>)
+                    } else {
+                        ty.clone()
+                    }
+                })
+                .collect::<Vec<_>>();
+
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> CopyType for  #name<#generics_names> #where_clause_deserialize {
+                    impl<#generics_copytype> CopyType for  #name<#generics_names> #where_clause {
                         type Copy = Zero;
                     }
 
                     #[automatically_derived]
-                    impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_deserialize {
+                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
                         const IS_ZERO_COPY: bool = #is_repr_c #(
                             && <#fields_types>::IS_ZERO_COPY
                         )*;
@@ -211,10 +240,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    impl<#generics> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_deserialize
-                    #(
-                        #generic_types: epserde::des::DeserializeInner,
-                    )*{
+                    impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause
+                    {
                         fn _deserialize_full_copy_inner(
                             mut backend: epserde::des::Cursor,
                         ) -> core::result::Result<(Self, epserde::des::Cursor), epserde::des::DeserializeError> {
@@ -228,9 +255,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             }, backend))
                         }
 
-                        type DeserType<'a> = &'a #name<#(
-                            <#generic_types as epserde::des::DeserializeInner>::DeserType<'a>
-                        ,)*>;
+                        type DeserType<'a> = &'a #name<#(#desser_type_generics,)*>;
 
                         fn _deserialize_eps_copy_inner(
                             backend: epserde::des::Cursor,
@@ -249,12 +274,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> CopyType for  #name<#generics_names> #where_clause_deserialize {
+                    impl<#generics_copytype> CopyType for  #name<#generics_names> #where_clause {
                         type Copy = Eps;
                     }
 
                     #[automatically_derived]
-                    impl<#generics> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_serialize {
+                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
                         const IS_ZERO_COPY: bool = #is_repr_c #(
                             && <#fields_types>::IS_ZERO_COPY
                         )*;
@@ -274,10 +299,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    impl<#generics> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_deserialize
-                    #(
-                        #generic_types: epserde::des::DeserializeInner,
-                    )*{
+                    impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause {
                         fn _deserialize_full_copy_inner(
                             backend: epserde::des::Cursor,
                         ) -> core::result::Result<(Self, epserde::des::Cursor), epserde::des::DeserializeError> {
@@ -290,9 +312,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             }, backend))
                         }
 
-                        type DeserType<'a> = #name<#(
-                            <#generic_types as epserde::des::DeserializeInner>::DeserType<'a>
-                        ,)*>;
+                        type DeserType<'a> = #name<#(#desser_type_generics,)*>;
 
                         fn _deserialize_eps_copy_inner(
                             backend: epserde::des::Cursor,
@@ -330,6 +350,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         where_clause,
         generics_names_raw,
         consts_names_raw,
+        ..
     } = CommonDeriveInput::new(
         input.clone(),
         vec![syn::parse_quote!(epserde::TypeHash)],
