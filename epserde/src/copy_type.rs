@@ -151,14 +151,6 @@ impl<T> CopyType for Box<[T]> {
     type Copy = Eps;
 }
 
-impl<T> CopyType for Option<T> {
-    type Copy = Eps;
-}
-
-impl<R, E> CopyType for Result<R, E> {
-    type Copy = Eps;
-}
-
 impl CopyType for String {
     type Copy = Eps;
 }

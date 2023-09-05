@@ -154,6 +154,8 @@ pub enum DeserializeError {
     UsizeSizeMismatch(usize),
     /// The magic number is wrong. The file is not an epserde file.
     MagicNumberError(u64),
+    /// A tag is wrong (e.g., for [`Option`]).
+    InvalidTag(u8),
     /// The type hash is wrong. Probabliy the user is trying to deserialize a
     /// file with the wrong type.
     WrongTypeHash {
@@ -207,6 +209,7 @@ impl core::fmt::Display for DeserializeError {
                 core::mem::size_of::<usize>()
             ),
             Self::AlignmentError => write!(f, "Alignment Error"),
+            Self::InvalidTag(tag) => write!(f, "Invalid tag: 0x{:02x}", tag),
             Self::WrongTypeHash {
                 got_type_name,
                 expected_type_name,

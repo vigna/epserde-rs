@@ -78,6 +78,29 @@ impl SerializeInner for char {
     }
 }
 
+impl<T> CopyType for Option<T> {
+    type Copy = Eps;
+}
+
+impl<T: SerializeInner> SerializeInner for Option<T> {
+    const IS_ZERO_COPY: bool = false;
+    const ZERO_COPY_MISMATCH: bool = false;
+
+    #[inline(always)]
+    fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
+        match self {
+            None => {
+                backend = backend.add_field("Tag", &0_u8)?;
+            }
+            Some(val) => {
+                backend = backend.add_field("Tag", &1_u8)?;
+                backend = backend.add_field("Some", val)?;
+            }
+        };
+        Ok(backend)
+    }
+}
+
 /// this is a private function so we have a consistent implementation
 /// and slice can't be generally serialized
 fn serialize_slice<T: Serialize, F: FieldWrite>(

@@ -92,6 +92,34 @@ impl DeserializeInner for char {
     }
 }
 
+impl<T: DeserializeInner> DeserializeInner for Option<T> {
+    #[inline(always)]
+    fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError> {
+        match backend.data[0] {
+            0 => Ok((None, backend.skip(1))),
+            1 => {
+                let (elem, backend) = T::_deserialize_full_copy_inner(backend.skip(1))?;
+                Ok((Some(elem), backend))
+            }
+            _ => Err(DeserializeError::InvalidTag(backend.data[0])),
+        }
+    }
+    type DeserType<'a> = Option<<T as DeserializeInner>::DeserType<'a>>;
+    #[inline(always)]
+    fn _deserialize_eps_copy_inner(
+        backend: Cursor,
+    ) -> Result<(Self::DeserType<'_>, Cursor), DeserializeError> {
+        match backend.data[0] {
+            0 => Ok((None, backend.skip(1))),
+            1 => {
+                let (value, backend) = T::_deserialize_eps_copy_inner(backend.skip(1))?;
+                Ok((Some(value), backend))
+            }
+            _ => Err(DeserializeError::InvalidTag(backend.data[0])),
+        }
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 fn deserialize_slice<T: ZeroCopy>(backend: Cursor) -> Result<(&'_ [T], Cursor), DeserializeError> {
