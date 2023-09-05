@@ -42,7 +42,7 @@ fn test_mem_case() {
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
-    let res = load_mmap::<Person>("test.bin", &Flags::empty()).unwrap();
+    let res = load_mmap::<Person>("test.bin", Flags::empty()).unwrap();
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
@@ -54,19 +54,19 @@ fn test_mem_case() {
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
-    let res = map::<Person>("test.bin", &Flags::empty()).unwrap();
+    let res = map::<Person>("test.bin", Flags::empty()).unwrap();
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
-    let res = map::<Person>("test.bin", &Flags::TRANSPARENT_HUGE_PAGES).unwrap();
+    let res = map::<Person>("test.bin", Flags::TRANSPARENT_HUGE_PAGES).unwrap();
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
-    let res = map::<Person>("test.bin", &Flags::empty()).unwrap();
+    let res = map::<Person>("test.bin", Flags::empty()).unwrap();
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);

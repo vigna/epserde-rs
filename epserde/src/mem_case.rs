@@ -175,11 +175,11 @@ pub fn load<'a, S: Deserialize>(
 /// memory. Excess bytes are zeroed out.
 ///
 /// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
-/// just pass `&Flags::empty()`.
+/// just pass `Flags::empty()`.
 #[allow(clippy::uninit_vec)]
 pub fn load_mmap<'a, S: Deserialize>(
     path: impl AsRef<Path>,
-    flags: &Flags,
+    flags: Flags,
 ) -> Result<MemCase<<S as DeserializeInner>::DeserType<'a>>> {
     let file_len = path.as_ref().metadata()?.len() as usize;
     let mut file = std::fs::File::open(path)?;
@@ -223,7 +223,7 @@ pub fn load_mmap<'a, S: Deserialize>(
 #[allow(clippy::uninit_vec)]
 pub fn map<'a, S: Deserialize>(
     path: impl AsRef<Path>,
-    flags: &Flags,
+    flags: Flags,
 ) -> Result<MemCase<<S as DeserializeInner>::DeserType<'a>>> {
     let file_len = path.as_ref().metadata()?.len();
     let file = std::fs::File::open(path)?;
