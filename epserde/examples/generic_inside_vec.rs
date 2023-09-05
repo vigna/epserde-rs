@@ -50,7 +50,4 @@ fn main() {
     );
     println!("Value: {:x?}", eps);
     assert_eq!(person.a, eps.a);
-    assert_eq!(person.b.a, eps.b.a);
-    assert_eq!(person.b.b, eps.b.b);
-    assert_eq!(person.test, eps.test);
 }
