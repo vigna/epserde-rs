@@ -57,7 +57,7 @@ fn test_inner_param_eps() {
     // Create a new value to serialize
     let data = Data2::<usize, Vec<usize>> {
         a: vec![0x89; 6],
-        _marker: PhantomData::default(),
+        _marker: PhantomData,
     };
     // Create an aligned vector to serialize into so we can do a zero-copy
     // deserialization safely
