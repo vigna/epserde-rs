@@ -70,7 +70,9 @@ impl CommonDeriveInput {
                     generics.extend(quote!(#t,));
                     generics_call_vec.push(t.ident.to_token_stream());
                 }
-                syn::GenericParam::Const(c) => {
+                syn::GenericParam::Const(mut c) => {
+                    c.default = None; // remove the defaults from the const generics
+                                      // otherwise we can't use them in the impl generics
                     generics.extend(quote!(#c,));
                     generics_call_vec.push(c.ident.to_token_stream());
                 }

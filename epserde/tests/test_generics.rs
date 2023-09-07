@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use epserde::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-struct Data<A, const Q: usize> {
+struct Data<A, const Q: usize = 3> {
     a: A,
     b: [i32; Q],
 }
