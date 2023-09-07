@@ -311,3 +311,39 @@ assert_eq!(s.id, t.id);
 assert_eq!(s.data, t.data.as_ref());
 assert_eq!(s.sum(), t.sum());
 ```
+
+## Design
+
+Every type serializable with ε-serde has two features that are in principle orthogonal,
+but that in practice often condition one another:
+
+- the type has an *associated deserialization type* which is the type you obtain
+upon deserialization;
+- the type can be either [`ZeroCopy`] or [`EpsCopy`]; it can also be neither.
+
+There is no constraint on the associated deserialization type: it can be literally
+anything. In general, however, one tries to have a deserialization type that is somewhat
+compatible with the original type: for example, ε-serde deserializes vectors as 
+references to slices, so all mutation method that do not change the length work on both.
+
+Being [`ZeroCopy`] or [`EpsCopy`] decides instead how the type will be treated 
+when serializing and deserializing sequences, such as slices, boxed slices, and vectors. 
+Sequences of zero-copy types are deserialized using a reference, where as sequences
+of ε-copy types are fully deserialized in allocated memory. It is important to remark
+that *you cannot serialize a vector whose elements are of a type that is neither*
+(see the [`CopyType`] documentation for a deeper explanation)
+
+Logically, zero-copy types should be deserialized to references, and this indeed happens
+in most cases, and certainly in the derived code: however, *primitive types are always
+fully deserialized*. There are two reasons behind this non-orthogonal choice:
+
+- primitive types occupy so little space that deserializing them as a reference is
+not efficient;
+- if a type parameter `T` is a primitive type, writing generic code for `AsRef<T>` is
+really not nice.
+
+Since this is true only of primitive types, when deserializing a
+1-tuple containing a primitive type one obtains a reference (and indeed this
+workaround can be used if you really need to deserialize a primitive type as a reference).
+The same happens if you deserialize a zero-copy 
+struct containing a single field of primitive type.

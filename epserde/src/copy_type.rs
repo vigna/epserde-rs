@@ -48,11 +48,10 @@ on arrays, vectors, and boxed slices,
 for the two flavors of `CopySelector` are mutually
 exclusive](https://github.com/rust-lang/rfcs/pull/1672#issuecomment-1405377983).
 
-For a slice of elements of type `T` to be zero-copy serializable and
+For an array of elements of type `T` to be zero-copy serializable and
 deserializable, `T` must implement `CopySelector<Type=Zero>`. The conditions for this marker trait are that
 `T` is a copy type, that it has a fixed memory layout, and that it does not contain any reference.
-If this happen, a value of type `T` can be zero-copy deserialized just by taking a reference, and
-consequently vectors of `T` or boxed slices of `T` can be ε-copy deserialized
+If this happen vectors of `T` or boxed slices of `T` can be ε-copy deserialized
 using a reference to a slice of `T`.
 
 You can implement `CopySelector<Type=Zero>` for your copy types, but you must ensure that the type does not
