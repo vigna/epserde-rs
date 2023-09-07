@@ -12,6 +12,10 @@
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, Data, DeriveInput};
+use syn::{
+    punctuated::Punctuated, token, BoundLifetimes, GenericParam, LifetimeParam, PredicateType,
+    WhereClause, WherePredicate,
+};
 
 struct CommonDeriveInput {
     name: syn::Ident,
@@ -139,7 +143,6 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
         name,
         generics: generics_serialize,
         generics_names,
-        where_clause,
         generics_names_raw,
         generics_call_vec,
         ..
@@ -206,12 +209,65 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .iter()
                         .any(|x| x.to_token_stream().to_string() == ty.to_string())
                     {
-                        quote!(<#ty as epserde::des::DeserializeInner>::DeserType<'a>)
+                        quote!(<#ty as epserde::des::DeserializeInner>::DeserType<'epserde_desertype>)
                     } else {
                         ty.clone()
                     }
                 })
                 .collect::<Vec<_>>();
+
+            let where_clause = derive_input
+                .generics
+                .where_clause
+                .clone()
+                .unwrap_or_else(|| WhereClause {
+                    where_token: token::Where::default(),
+                    predicates: Punctuated::new(),
+                });
+
+            let mut where_clause_des =
+                derive_input
+                    .generics
+                    .where_clause
+                    .clone()
+                    .unwrap_or_else(|| WhereClause {
+                        where_token: token::Where::default(),
+                        predicates: Punctuated::new(),
+                    });
+
+            derive_input.generics.params.iter().for_each(|param| {
+                match param {
+                    GenericParam::Type(t) => {
+                        let ty = &t.ident;
+                        if t.bounds.is_empty() {
+                            return;
+                        }
+                        let mut lifetimes = Punctuated::new();
+                        lifetimes.push(GenericParam::Lifetime(LifetimeParam {
+                            attrs: vec![],
+                            lifetime: syn::Lifetime::new("'epserde_desertype", proc_macro2::Span::call_site()),
+                            colon_token: None,
+                            bounds: Punctuated::new(),
+                        }));
+                        where_clause_des
+                            .predicates
+                            .push(WherePredicate::Type(PredicateType {
+                                lifetimes: Some(BoundLifetimes {
+                                    for_token: token::For::default(),
+                                    lt_token: token::Lt::default(),
+                                    lifetimes,
+                                    gt_token: token::Gt::default(),
+                                }),
+                                bounded_ty: syn::parse_quote!(
+                                    <#ty as epserde::des::DeserializeInner>::DeserType<'epserde_desertype>
+                                ),
+                                colon_token: token::Colon::default(),
+                                bounds: t.bounds.clone(),
+                            }));
+                    }
+                    _ => {}
+                };
+            });
 
             if is_zero_copy {
                 quote! {
@@ -242,7 +298,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause
+                    impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_des
                     {
                         fn _deserialize_full_copy_inner(
                             mut backend: epserde::des::Cursor,
@@ -257,7 +313,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             }, backend))
                         }
 
-                        type DeserType<'a> = &'a #name<#(#desser_type_generics,)*>;
+                        type DeserType<'epserde_desertype> = &'epserde_desertype #name<#(#desser_type_generics,)*>;
 
                         fn _deserialize_eps_copy_inner(
                             backend: epserde::des::Cursor,
@@ -301,7 +357,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause {
+                    impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_des {
                         fn _deserialize_full_copy_inner(
                             backend: epserde::des::Cursor,
                         ) -> core::result::Result<(Self, epserde::des::Cursor), epserde::des::DeserializeError> {
@@ -314,7 +370,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             }, backend))
                         }
 
-                        type DeserType<'a> = #name<#(#desser_type_generics,)*>;
+                        type DeserType<'epserde_desertype> = #name<#(#desser_type_generics,)*>;
 
                         fn _deserialize_eps_copy_inner(
                             backend: epserde::des::Cursor,

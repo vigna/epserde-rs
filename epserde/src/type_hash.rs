@@ -43,7 +43,7 @@ impl<T: TypeHash> TypeHash for Option<T> {
 
 impl<T: TypeHash> TypeHash for PhantomData<T> {
     #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {}
+    fn type_hash(_hasher: &mut impl core::hash::Hasher) {}
 }
 
 impl<S: TypeHash, E: TypeHash> TypeHash for Result<S, E> {
