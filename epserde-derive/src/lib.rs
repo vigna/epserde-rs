@@ -57,8 +57,8 @@ impl CommonDeriveInput {
                 generics_names.extend(quote!(,))
             });
             input.generics.params.into_iter().for_each(|x| match x {
-                syn::GenericParam::Type(t) => {
-                    let mut t = t;
+                syn::GenericParam::Type(mut t) => {
+                    t.default = None;
                     for trait_to_add in traits_to_add.iter() {
                         t.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
                             paren_token: None,
