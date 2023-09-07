@@ -14,6 +14,9 @@ use super::ser::{FieldWrite, Result, Serialize, SerializeInner};
 macro_rules! impl_stuff{
     ($($ty:ty),*) => {$(
         impl SerializeInner for $ty {
+            // here we are lying :)
+            // primitive types are zero copy, but we won't return
+            // a reference to them
             const IS_ZERO_COPY: bool = true;
             const ZERO_COPY_MISMATCH: bool = false;
 

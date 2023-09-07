@@ -13,7 +13,7 @@ macro_rules! impl_test {
         assert_eq!($data, full_copy);
 
         let epscopy = <$ty>::deserialize_eps_copy(&v).unwrap();
-        assert_eq!($data, *epscopy);
+        assert_eq!($data, epscopy);
     }
     {
         let mut v = vec![];
@@ -24,7 +24,7 @@ macro_rules! impl_test {
         assert_eq!($data, full_copy);
 
         let epscopy = <$ty>::deserialize_eps_copy(&v).unwrap();
-        assert_eq!($data, *epscopy);
+        assert_eq!($data, epscopy);
     }};
 }
 
