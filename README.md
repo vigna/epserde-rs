@@ -328,10 +328,10 @@ references to slices, so all mutation method that do not change the length work 
 
 Being [`ZeroCopy`] or [`EpsCopy`] decides instead how the type will be treated 
 when serializing and deserializing sequences, such as slices, boxed slices, and vectors. 
-Sequences of zero-copy types are deserialized using a reference, where as sequences
+Sequences of zero-copy types are deserialized using a reference, whereas sequences
 of ε-copy types are fully deserialized in allocated memory. It is important to remark
 that *you cannot serialize a vector whose elements are of a type that is neither*
-(see the [`CopyType`] documentation for a deeper explanation)
+(see the [`CopyType`] documentation for a deeper explanation).
 
 Logically, zero-copy types should be deserialized to references, and this indeed happens
 in most cases, and certainly in the derived code: however, *primitive types are always
