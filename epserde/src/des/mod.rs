@@ -23,10 +23,15 @@ for debugging and in cases in which a full copy is necessary.
 
 */
 
-use crate::des;
-use crate::{CopySelector, Serialize, TypeHash, ZeroCopy, MAGIC, MAGIC_REV, VERSION};
-use core::{hash::Hasher, mem::MaybeUninit};
+use crate::{CopySelector, Serialize, TypeHash, MAGIC, MAGIC_REV, VERSION};
+use core::hash::Hasher;
 use std::{io::BufReader, path::Path};
+
+pub mod read_with_pos;
+pub use read_with_pos::*;
+
+pub mod slice_with_pos;
+pub use slice_with_pos::*;
 
 pub type Result<T> = core::result::Result<T, DeserializeError>;
 
@@ -57,6 +62,7 @@ pub trait Deserialize: DeserializeInner {
     /// ε-copy deserialize a structure of this type from the given backend.
     fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
 
+    /// Commodity method to full deserialize from a file.
     fn load_full(path: impl AsRef<Path>) -> Result<Self> {
         let file = std::fs::File::open(path).map_err(DeserializeError::FileOpenError)?;
         let mut buf_reader = BufReader::new(file);
@@ -309,230 +315,5 @@ impl core::fmt::Display for DeserializeError {
                 )
             }
         }
-    }
-}
-
-/// [`std::io::Cursor`]-like trait for deserialization that does not
-/// depend on [`std`].
-#[derive(Debug)]
-pub struct SliceWithPos<'a> {
-    pub data: &'a [u8],
-    pub pos: usize,
-}
-
-impl<'a> SliceWithPos<'a> {
-    pub fn new(backend: &'a [u8]) -> Self {
-        Self {
-            data: backend,
-            pos: 0,
-        }
-    }
-
-    pub fn skip(&self, bytes: usize) -> Self {
-        Self {
-            data: &self.data[bytes..],
-            pos: self.pos + bytes,
-        }
-    }
-
-    /// Read a zero-copy type from the backend.
-    pub fn read_eps_zero_copy<T: ZeroCopy>(mut self) -> Result<(&'a T, Self)> {
-        let bytes = core::mem::size_of::<T>();
-        // a slice can only be deserialized with zero copy
-        // outerwise you need a vec, TODO!: how do we enforce this at compile time?
-        self = self.pad_align_and_check::<T>()?;
-        let (pre, data, after) = unsafe { self.data[..bytes].align_to::<T>() };
-        debug_assert!(pre.is_empty());
-        debug_assert!(after.is_empty());
-        Ok((&data[0], self.skip(bytes)))
-    }
-
-    pub fn deserialize_vec_eps_eps<T: DeserializeInner>(
-        self,
-    ) -> des::Result<(Vec<<T as DeserializeInner>::DeserType<'a>>, Self)> {
-        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
-        let mut res = Vec::with_capacity(len);
-        for _ in 0..len {
-            let (elem, new_res_self) = T::_deserialize_eps_copy_inner(res_self)?;
-            res.push(elem);
-            res_self = new_res_self;
-        }
-        Ok((res, res_self))
-    }
-
-    pub fn deserialize_slice_zero<T: ZeroCopy>(self) -> des::Result<(&'a [T], Self)> {
-        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
-        let bytes = len * core::mem::size_of::<T>();
-        // a slice can only be deserialized with zero copy
-        // outerwise you need a vec, TODO!: how do we enforce this at compile time?
-        res_self = res_self.pad_align_and_check::<T>()?;
-        let (pre, data, after) = unsafe { res_self.data[..bytes].align_to::<T>() };
-        debug_assert!(pre.is_empty());
-        debug_assert!(after.is_empty());
-        Ok((data, res_self.skip(bytes)))
-    }
-}
-
-impl<'a> ReadNoStd for SliceWithPos<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let len = buf.len();
-        if len > self.data.len() {
-            return Err(DeserializeError::ReadError);
-        }
-        buf.copy_from_slice(&self.data[..len]);
-        self.data = &self.data[len..];
-        self.pos += len;
-        Ok(len)
-    }
-
-    fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
-        self.read(buf).map(|_| ())
-    }
-}
-
-impl<'a> ReadWithPos for SliceWithPos<'a> {
-    fn pos(&self) -> usize {
-        self.pos
-    }
-
-    fn pad_align_and_check<T>(mut self) -> Result<Self> {
-        // Skip bytes as needed
-        let padding = crate::pad_align_to(self.pos, core::mem::align_of::<T>());
-        self = self.skip(padding);
-        // Check that the ptr is indeed aligned
-        if self.data.as_ptr() as usize % std::mem::align_of::<T>() != 0 {
-            Err(DeserializeError::AlignmentError)
-        } else {
-            Ok(self)
-        }
-    }
-}
-
-/// [`std::io::Read`]-like trait for serialization that does not
-/// depend on [`std`].
-///
-/// In an [`std`] context, the user does not need to use directly
-/// this trait as we provide a blanket
-/// implementation that implements [`ReadNoStd`] for all types that implement
-/// [`std::io::Read`]. In particular, in such a context you can use [`std::io::Cursor`]
-/// for in-memory deserialization.
-pub trait ReadNoStd {
-    /// Read some bytes and return the number of bytes read
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize>;
-
-    fn read_exact(&mut self, buf: &mut [u8]) -> Result<()>;
-}
-
-#[cfg(feature = "std")]
-use std::io::Read;
-#[cfg(feature = "std")]
-impl<W: Read> ReadNoStd for W {
-    #[inline(always)]
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        Read::read(self, buf).map_err(|_| DeserializeError::ReadError)
-    }
-
-    #[inline(always)]
-    fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
-        Read::read_exact(self, buf).map_err(|_| DeserializeError::ReadError)
-    }
-}
-
-/// A trait for [`ReadNoStd`] that also keeps track of the current position.
-///
-/// This is needed because the [`Read`] trait doesn't have a `seek` method and
-/// [`std::io::Seek`] would be a requirement much stronger than needed.
-pub trait ReadWithPos: ReadNoStd + Sized {
-    fn pos(&self) -> usize;
-
-    /// Pad the cursor to the correct alignment and check that the resulting
-    /// pointer is aligned correctly.
-    fn pad_align_and_check<T>(self) -> Result<Self>;
-
-    /// Read a zero-copy type from the backend.
-    fn read_full_zero_copy<T: ZeroCopy>(mut self) -> Result<(T, Self)> {
-        self = self.pad_align_and_check::<Self>()?;
-        unsafe {
-            #[allow(clippy::uninit_assumed_init)]
-            let mut buf: T = MaybeUninit::uninit().assume_init();
-            let slice = core::slice::from_raw_parts_mut(
-                &mut buf as *mut T as *mut u8,
-                core::mem::size_of::<T>(),
-            );
-            self.read_exact(slice)?;
-            Ok((buf, self))
-        }
-    }
-
-    fn deserialize_vec_full_zero<T: DeserializeInner>(self) -> Result<(Vec<T>, Self)> {
-        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
-        res_self = res_self.pad_align_and_check::<T>()?;
-        let mut res = Vec::with_capacity(len);
-        // SAFETY: we just allocated this vector so it is safe to set the length.
-        // read_exact guarantees that the vector will be filled with data.
-        #[allow(clippy::uninit_vec)]
-        unsafe {
-            res.set_len(len);
-            res_self.read_exact(res.align_to_mut::<u8>().1)?;
-        }
-
-        Ok((res, res_self))
-    }
-
-    fn deserialize_vec_full_eps<T: DeserializeInner>(self) -> Result<(Vec<T>, Self)> {
-        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
-        let mut res = Vec::with_capacity(len);
-        for _ in 0..len {
-            let (elem, temp_self) = T::_deserialize_full_copy_inner(res_self)?;
-            res.push(elem);
-            res_self = temp_self;
-        }
-        Ok((res, res_self))
-    }
-}
-
-/// A wrapper for a [`ReadNoStd`] that implements [`ReadWithPos`]
-/// by keeping track of the current position.
-pub struct ReaderWithPos<F: ReadNoStd> {
-    /// What we actually readfrom
-    backend: F,
-    /// How many bytes we have read from the start
-    pos: usize,
-}
-
-impl<F: ReadNoStd> ReaderWithPos<F> {
-    #[inline(always)]
-    /// Create a new [`ReadWithPos`] on top of a generic Reader `F`
-    pub fn new(backend: F) -> Self {
-        Self { backend, pos: 0 }
-    }
-}
-
-impl<F: ReadNoStd> ReadNoStd for ReaderWithPos<F> {
-    #[inline(always)]
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let res = self.backend.read(buf)?;
-        self.pos += res;
-        Ok(res)
-    }
-
-    fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
-        self.backend.read_exact(buf)?;
-        self.pos += buf.len();
-        Ok(())
-    }
-}
-
-impl<F: ReadNoStd> ReadWithPos for ReaderWithPos<F> {
-    fn pos(&self) -> usize {
-        self.pos
-    }
-
-    fn pad_align_and_check<T>(mut self) -> Result<Self> {
-        // Skip bytes as needed
-        let padding = crate::pad_align_to(self.pos, core::mem::align_of::<T>());
-        self.read_exact(&mut vec![0; padding])?;
-        // No alignment check, we are fully deserializing
-        Ok(self)
     }
 }

@@ -90,6 +90,7 @@ pub trait Serialize: SerializeInner {
         Ok(backend)
     }
 
+    /// Commodity method to serialize to a file.
     fn store(&self, path: impl AsRef<Path>) -> Result<()> {
         let file = std::fs::File::create(path).map_err(SerializeError::FileOpenError)?;
         let mut buf_writer = BufWriter::new(file);
