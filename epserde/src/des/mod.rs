@@ -42,7 +42,7 @@ pub type Result<T> = core::result::Result<T, DeserializeError>;
 /// The user should not implement this trait directly, but rather derive it.
 pub trait DeserializeInner: TypeHash + Sized {
     type DeserType<'a>: TypeHash;
-    fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor)>;
+    fn _deserialize_full_copy_inner<R: ReadNoStd>(backend: R) -> Result<(Self, R)>;
 
     fn _deserialize_eps_copy_inner(backend: Cursor) -> Result<(Self::DeserType<'_>, Cursor)>;
 }
@@ -52,18 +52,15 @@ pub trait DeserializeInner: TypeHash + Sized {
 /// methods.
 pub trait Deserialize: DeserializeInner {
     /// Full-copy deserialize a structure of this type from the given backend.
-    fn deserialize_full_copy(backend: &[u8]) -> Result<Self>;
+    fn deserialize_full_copy(backend: impl ReadNoStd) -> Result<Self>;
     /// ε-copy deserialize a structure of this type from the given backend.
     fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
 
-    /*
     fn load_full(&self, path: impl AsRef<Path>) -> Result<Self> {
-        let mut file = std::fs::File::open(path)?;
+        let mut file = std::fs::File::open(path).map_err(DeserializeError::FileOpenError)?;
         let mut buf_reader = BufReader::new(file);
-        Self::deserialize_full(&mut buf_reader)?;
-        Ok(())
+        Self::deserialize_full_copy(&mut buf_reader)
     }
-    */
 }
 
 impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
@@ -139,9 +136,11 @@ fn check_header(backend: Cursor, self_hash: u64, self_name: String) -> Result<Cu
     Ok(backend)
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug)]
 /// Errors that can happen during deserialization
 pub enum DeserializeError {
+    /// [`Deserialize::load_full`] could not open the provided file.
+    FileOpenError(std::io::Error),
     /// The underlying reader returned an error
     ReadError,
     /// The file is reasonable but the endianess is wrong.
@@ -180,6 +179,9 @@ impl core::fmt::Display for DeserializeError {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
             Self::ReadError => write!(f, "Read error during ε-serde serialization"),
+            Self::FileOpenError(error) => {
+                write!(f, "Write error during ε-serde serialization: {}", error)
+            }
             Self::EndiannessError => write!(
                 f,
                 "The current arch is {}-endian but the data is {}-endian.",
