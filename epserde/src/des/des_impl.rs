@@ -52,7 +52,7 @@ impl_prim!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32, 
 
 impl DeserializeInner for () {
     #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
+    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
         Ok(((), backend))
     }
     type DeserType<'a> = Self;
@@ -66,7 +66,7 @@ impl DeserializeInner for () {
 
 impl DeserializeInner for bool {
     #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
+    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
         u8::_deserialize_full_copy_inner(backend).map(|(x, b)| (x != 0, b))
     }
     type DeserType<'a> = Self;
@@ -80,7 +80,7 @@ impl DeserializeInner for bool {
 
 impl DeserializeInner for char {
     #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
+    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
         u32::_deserialize_full_copy_inner(backend).map(|(x, c)| (char::from_u32(x).unwrap(), c))
     }
     type DeserType<'a> = Self;
@@ -94,7 +94,7 @@ impl DeserializeInner for char {
 
 impl<T: DeserializeInner> DeserializeInner for Option<T> {
     #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
+    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
         let (tag, backend) = u8::_deserialize_full_copy_inner(backend)?;
         match tag {
             0 => Ok((None, backend)),
@@ -123,7 +123,7 @@ impl<T: DeserializeInner> DeserializeInner for Option<T> {
 
 impl<T: DeserializeInner> DeserializeInner for PhantomData<T> {
     #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
+    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
         Ok((PhantomData::<T>, backend))
     }
     type DeserType<'a> = PhantomData<<T as DeserializeInner>::DeserType<'a>>;
@@ -204,7 +204,7 @@ mod private {
     {
         type DeserType<'a> = <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
         #[inline(always)]
-        fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> Result<([T; N], R)> {
+        fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<([T; N], R)> {
             <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_copy_inner_impl(
                 backend,
             )
@@ -228,7 +228,7 @@ mod private {
         type DeserType<'a> = &'a [T; N];
         #[inline(always)]
         fn _deserialize_full_copy_inner_impl<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
-            let (len, mut backend) = usize::_deserialize_full_copy_inner(backend)?;
+            let (_len, mut backend) = usize::_deserialize_full_copy_inner(backend)?;
             backend = backend.pad_align_and_check::<T>()?;
             let mut res = MaybeUninit::<[T; N]>::uninit();
             // SAFETY: read_exact guarantees that the array will be filled with data.
@@ -305,7 +305,7 @@ mod private {
     {
         type DeserType<'a> = <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
         #[inline(always)]
-        fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
+        fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
             <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_copy_inner_impl(
                 backend,
             )
@@ -361,7 +361,7 @@ mod private {
     {
         type DeserType<'a> = <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
         #[inline(always)]
-        fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
+        fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
             <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_copy_inner_impl(
             backend,
         )
@@ -412,7 +412,7 @@ mod private {
 }
 
 impl DeserializeInner for String {
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
+    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
         let (slice, backend) = deserialize_vec_full_zero(backend)?;
         let res = String::from_utf8(slice).unwrap();
         Ok((res, backend))
@@ -435,7 +435,7 @@ impl DeserializeInner for String {
 
 impl DeserializeInner for Box<str> {
     #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
+    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
         String::_deserialize_full_copy_inner(backend).map(|(d, a)| (d.into_boxed_str(), a))
     }
     type DeserType<'a> = &'a str;

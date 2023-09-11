@@ -300,9 +300,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     #[automatically_derived]
                     impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_des
                     {
-                        fn _deserialize_full_copy_inner(
-                            mut backend: epserde::des::Cursor,
-                        ) -> core::result::Result<(Self, epserde::des::Cursor), epserde::des::DeserializeError> {
+                        fn _deserialize_full_copy_inner<R: ReadWithPos>(
+                            mut backend: R,
+                        ) -> core::result::Result<(Self, R), epserde::des::DeserializeError> {
                             use epserde::des::DeserializeInner;
                             backend = Self::pad_align_and_check(backend)?;
                             #(
@@ -358,9 +358,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     #[automatically_derived]
                     impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_des {
-                        fn _deserialize_full_copy_inner(
-                            backend: epserde::des::Cursor,
-                        ) -> core::result::Result<(Self, epserde::des::Cursor), epserde::des::DeserializeError> {
+                        fn _deserialize_full_copy_inner<R: ReadWithPos>(
+                            backend: R,
+                        ) -> core::result::Result<(Self, R), epserde::des::DeserializeError> {
                             use epserde::des::DeserializeInner;
                             #(
                                 let (#fields_names, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;

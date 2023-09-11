@@ -87,7 +87,7 @@ pub trait Serialize: SerializeInner {
     }
 
     fn store(&self, path: impl AsRef<Path>) -> Result<()> {
-        let mut file = std::fs::File::create(path).map_err(SerializeError::FileOpenError)?;
+        let file = std::fs::File::create(path).map_err(SerializeError::FileOpenError)?;
         let mut buf_writer = BufWriter::new(file);
         self.serialize(&mut buf_writer)?;
         Ok(())

@@ -59,7 +59,7 @@ pub trait Deserialize: DeserializeInner {
     fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
 
     fn load_full(&self, path: impl AsRef<Path>) -> Result<Self> {
-        let mut file = std::fs::File::open(path).map_err(DeserializeError::FileOpenError)?;
+        let file = std::fs::File::open(path).map_err(DeserializeError::FileOpenError)?;
         let mut buf_reader = BufReader::new(file);
         Self::deserialize_full_copy(&mut buf_reader)
     }
@@ -383,7 +383,7 @@ impl<F: ReadNoStd> ReadWithPos for ReaderWithPos<F> {
     fn pad_align_and_check<T>(mut self) -> Result<Self> {
         // Skip bytes as needed
         let padding = crate::pad_align_to(self.pos, core::mem::align_of::<Self>());
-        self.read_exact(&mut vec![0; padding]);
+        self.read_exact(&mut vec![0; padding])?;
         // No alignment check, we are fully deserializing
         Ok(self)
     }

@@ -86,7 +86,8 @@ fn test_string() {
             let mut schema = s.serialize_with_schema(&mut buf).unwrap();
             schema.0.sort_by_key(|a| a.offset);
 
-            let full_copy = <String>::deserialize_full_copy(&v).unwrap();
+            buf.set_position(0);
+            let full_copy = <String>::deserialize_full_copy(&buf).unwrap();
             assert_eq!(s, full_copy);
 
             let epscopy = <String>::deserialize_eps_copy(&v).unwrap();
@@ -100,7 +101,8 @@ fn test_string() {
             let mut buf = std::io::Cursor::new(&mut v);
             s.serialize(&mut buf).unwrap();
 
-            let full_copy = <String>::deserialize_full_copy(&v).unwrap();
+            buf.set_position(0);
+            let full_copy = <String>::deserialize_full_copy(buf).unwrap();
             assert_eq!(s, full_copy);
 
             let epscopy = <String>::deserialize_eps_copy(&v).unwrap();
@@ -120,7 +122,8 @@ fn test_box_str() {
             let mut schema = s.serialize_with_schema(&mut buf).unwrap();
             schema.0.sort_by_key(|a| a.offset);
 
-            let full_copy = <Box<str>>::deserialize_full_copy(&v).unwrap();
+            buf.set_position(0);
+            let full_copy = <Box<str>>::deserialize_full_copy(buf).unwrap();
             assert_eq!(s, full_copy);
 
             let epscopy = <Box<str>>::deserialize_eps_copy(&v).unwrap();
@@ -131,7 +134,8 @@ fn test_box_str() {
             let mut buf = std::io::Cursor::new(&mut v);
             s.serialize(&mut buf).unwrap();
 
-            let full_copy = <Box<str>>::deserialize_full_copy(&v).unwrap();
+            buf.set_position(0);
+            let full_copy = <Box<str>>::deserialize_full_copy(buf).unwrap();
             assert_eq!(s, full_copy);
 
             let epscopy = <Box<str>>::deserialize_eps_copy(&v).unwrap();
