@@ -13,7 +13,9 @@
 //! is based on [`SerializeInner`], which is automatically derived
 //! with `#[derive(Serialize)]`.
 use crate::*;
+use anyhow::Result;
 use core::hash::Hasher;
+use std::{io::BufWriter, path::Path};
 
 pub mod ser_impl;
 pub use ser_impl::*;
@@ -81,6 +83,13 @@ pub trait Serialize: SerializeInner {
         backend = backend.add_field("ROOT", self)?;
         backend.flush()?;
         Ok(backend)
+    }
+
+    fn store(&self, path: impl AsRef<Path>) -> Result<()> {
+        let mut file = std::fs::File::create(path)?;
+        let mut buf_writer = BufWriter::new(file);
+        self.serialize(&mut buf_writer)?;
+        Ok(())
     }
 }
 
