@@ -33,19 +33,12 @@ impl_stuff!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32,
 
 /// this is a private function so we have a consistent implementation
 /// and slice can't be generally serialized
-fn serialize_zero_copy<T: Serialize, F: FieldWrite>(data: &T, mut backend: F) -> Result<F> {
+fn serialize_zero_copy<T: Serialize, F: FieldWrite>(data: &T, backend: F) -> Result<F> {
     let buffer = unsafe {
         #[allow(clippy::manual_slice_size_calculation)]
         core::slice::from_raw_parts(data as *const T as *const u8, core::mem::size_of::<T>())
     };
-    backend = backend.add_field_bytes(
-        "data",
-        core::any::type_name::<T>().to_string(),
-        buffer,
-        core::mem::align_of::<T>(),
-    )?;
-
-    Ok(backend)
+    backend.add_field_bytes::<T>("data", buffer)
 }
 
 impl SerializeInner for () {
@@ -138,12 +131,7 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(
             #[allow(clippy::manual_slice_size_calculation)]
             core::slice::from_raw_parts(data.as_ptr() as *const u8, len * core::mem::size_of::<T>())
         };
-        backend = backend.add_field_bytes(
-            "data",
-            core::any::type_name::<T>().to_string(),
-            buffer,
-            core::mem::align_of::<T>(),
-        )?;
+        backend.add_field_bytes::<T>("data", buffer)
     } else {
         if T::ZERO_COPY_MISMATCH {
             eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<T>());
@@ -151,9 +139,8 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(
         for item in data.iter() {
             backend = backend.add_field("data", item)?;
         }
+        Ok(backend)
     }
-
-    Ok(backend)
 }
 
 // Since impls with distinct parameters are considered disjoint

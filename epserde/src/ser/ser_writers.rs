@@ -55,25 +55,14 @@ pub trait FieldWrite: WriteNoStd + Sized {
             #[allow(clippy::manual_slice_size_calculation)]
             core::slice::from_raw_parts(value as *const V as *const u8, core::mem::size_of::<V>())
         };
-        self.add_field_bytes(
-            field_name,
-            core::any::type_name::<V>().to_string(),
-            buffer,
-            core::mem::align_of::<V>(),
-        )
+        self.add_field_bytes::<V>(field_name, buffer)
     }
 
     #[inline(always)]
     /// Add raw bytes to the serialization, this is mostly used by the zero-copy
     /// implementations
-    fn add_field_bytes(
-        mut self,
-        _field_name: &str,
-        _type_name: String,
-        value: &[u8],
-        align: usize,
-    ) -> Result<Self> {
-        self.add_padding_to_align(align)?;
+    fn add_field_bytes<T>(mut self, _field_name: &str, value: &[u8]) -> Result<Self> {
+        self.add_padding_to_align(core::mem::align_of::<T>())?;
         self.write(value)?;
         Ok(self)
     }
@@ -244,13 +233,9 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
     }
 
     #[inline(always)]
-    fn add_field_bytes(
-        mut self,
-        field_name: &str,
-        type_name: String,
-        value: &[u8],
-        align: usize,
-    ) -> Result<Self> {
+    fn add_field_bytes<V>(mut self, field_name: &str, value: &[u8]) -> Result<Self> {
+        let align = core::mem::align_of::<V>();
+        let type_name = core::any::type_name::<V>().to_string();
         self.add_padding_to_align(align)?;
         // prepare a row with the field name and the type
         self.path.push(field_name.into());
