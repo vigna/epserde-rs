@@ -111,7 +111,7 @@ assert_eq!(s, *t);
 
 // This is a traditional deserialization instead
 let t: [usize; 1000] = 
-    <[usize; 1000]>::deserialize_full_copy(b.as_ref()).unwrap();
+    <[usize; 1000]>::deserialize_full_copy(std::fs::File::open(&file).unwrap()).unwrap();
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
@@ -155,7 +155,7 @@ assert_eq!(s, *t);
 
 // This is a traditional deserialization instead
 let t: Vec<usize> = 
-    <Vec<usize>>::deserialize_full_copy(b.as_ref()).unwrap();
+    <Vec<usize>>::load_full(&file).unwrap();
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
@@ -168,6 +168,7 @@ to a slice; the same would happen when serializing a boxed slice.
 The reference points inside `b`, so there is very little
 copy performed (in fact, just a field containing the length of the slice).
 All this is due to the fact that `usize` is a zero-copy type.
+Note also that we use the convenience method [`Deserialize::load_full`].
 
 If your code must work both with the original and the deserialized
 version, however, it must be written for a trait that is implemented
@@ -208,7 +209,7 @@ assert_eq!(s, *t);
 
 // This is a traditional deserialization instead
 let t: Vec<Data> = 
-    <Vec<Data>>::deserialize_full_copy(b.as_ref()).unwrap();
+    <Vec<Data>>::load_full(&file).unwrap();
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
@@ -256,7 +257,7 @@ assert_eq!(s.data, Vec::from(t.data));
 
 // This is a traditional deserialization instead
 let t: MyStruct<Vec<isize>> = 
-    <MyStruct::<Vec<isize>>>::deserialize_full_copy(b.as_ref()).unwrap();
+    <MyStruct::<Vec<isize>>>::load_full(&file).unwrap();
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory

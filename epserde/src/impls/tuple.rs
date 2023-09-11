@@ -9,8 +9,11 @@
 
 Implementations for tuples.
 
-*/
+For the time being, we only support tuples of up to 10 elements all of which
+are [`ZeroCopy`]. For tuples of more than 10 elements, or tuples with elements
+that are not [`ZeroCopy`], you must use [`epserde_derive::Epserde`] on a newtype.
 
+*/
 use crate::*;
 use core::hash::Hash;
 

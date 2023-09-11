@@ -58,7 +58,7 @@ pub trait Deserialize: DeserializeInner {
     /// ε-copy deserialize a structure of this type from the given backend.
     fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
 
-    fn load_full(&self, path: impl AsRef<Path>) -> Result<Self> {
+    fn load_full(path: impl AsRef<Path>) -> Result<Self> {
         let file = std::fs::File::open(path).map_err(DeserializeError::FileOpenError)?;
         let mut buf_reader = BufReader::new(file);
         Self::deserialize_full_copy(&mut buf_reader)
