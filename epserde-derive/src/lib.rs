@@ -286,8 +286,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         #[inline(always)]
                         fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
-                            backend.add_zero_copy("data", self)?;
-                            Ok(backend)
+                            backend.add_zero_copy("data", self)
                         }
                     }
 

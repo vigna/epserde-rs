@@ -42,7 +42,7 @@ fn main() {
     println!("{}", schema.debug(buf));
 
     // Do a full-copy deserialization
-    let mut buf = std::io::Cursor::new(&mut v);
+    let buf = std::io::Cursor::new(&mut v);
     let full = <Data<Vec<Vec<i32>>>>::deserialize_full_copy(buf).unwrap();
     println!(
         "Full-deserialization type: {}",
