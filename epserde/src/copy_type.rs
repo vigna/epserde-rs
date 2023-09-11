@@ -119,29 +119,6 @@ impl<T: CopyType, const N: usize> CopyType for [T; N] {
     type Copy = T::Copy;
 }
 
-/// TODO
-macro_rules! impl_tuples {
-    ($($t:ident),*) => {
-        impl<$($t: ZeroCopy,)*> CopyType for ($($t,)*)  {
-            /// TODO
-            type Copy = Zero;
-        }
-    };
-}
-
-macro_rules! impl_tuples_muncher {
-    ($ty:ident, $($t:ident),*) => {
-        impl_tuples!($ty, $($t),*);
-        impl_tuples_muncher!($($t),*);
-    };
-    ($ty:ident) => {
-        impl_tuples!($ty);
-    };
-    () => {};
-}
-
-impl_tuples_muncher!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
-
 impl<T> CopyType for Vec<T> {
     type Copy = Eps;
 }

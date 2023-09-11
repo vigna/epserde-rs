@@ -44,6 +44,9 @@ pub use mem_case::*;
 mod copy_type;
 pub use copy_type::*;
 
+mod impls;
+pub use impls::*;
+
 /// Compute the padding needed for alignment, that is, the smallest
 /// number such that `((value + pad_align_to(value, align_to) & (align_to - 1) == 0`.
 pub fn pad_align_to(value: usize, align_to: usize) -> usize {
