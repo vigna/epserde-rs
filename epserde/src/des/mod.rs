@@ -72,10 +72,14 @@ impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
         Self::type_hash(&mut hasher);
         let self_hash = hasher.finish();
+        let mut hasher = xxhash_rust::xxh3::Xxh3::new();
+        Self::type_repr_hash(&mut hasher);
+        let self_repr_hash = hasher.finish();
 
         backend = check_header(
             backend,
             self_hash,
+            self_repr_hash,
             core::any::type_name::<Self>().to_string(),
         )?;
         let (res, _) = Self::_deserialize_full_copy_inner(backend)?;
@@ -87,10 +91,14 @@ impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
         Self::type_hash(&mut hasher);
         let self_hash = hasher.finish();
+        let mut hasher = xxhash_rust::xxh3::Xxh3::new();
+        Self::type_repr_hash(&mut hasher);
+        let self_repr_hash = hasher.finish();
 
         backend = check_header(
             backend,
             self_hash,
+            self_repr_hash,
             core::any::type_name::<Self>().to_string(),
         )?;
         let (res, _) = Self::_deserialize_eps_copy_inner(backend)?;
@@ -99,7 +107,12 @@ impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
 }
 
 /// Common code for both full-copy and zero-copy deserialization
-fn check_header<R: ReadWithPos>(backend: R, self_hash: u64, self_name: String) -> Result<R> {
+fn check_header<R: ReadWithPos>(
+    backend: R,
+    self_hash: u64,
+    self_repr_hash: u64,
+    self_name: String,
+) -> Result<R> {
     let (magic, backend) = u64::_deserialize_full_copy_inner(backend)?;
     match magic {
         MAGIC => Ok(()),
@@ -124,6 +137,7 @@ fn check_header<R: ReadWithPos>(backend: R, self_hash: u64, self_name: String) -
     };
 
     let (type_hash, backend) = u64::_deserialize_full_copy_inner(backend)?;
+    let (type_repr_hash, backend) = u64::_deserialize_full_copy_inner(backend)?;
     let (type_name, backend) = String::_deserialize_full_copy_inner(backend)?;
 
     if type_hash != self_hash {
@@ -132,6 +146,14 @@ fn check_header<R: ReadWithPos>(backend: R, self_hash: u64, self_name: String) -
             got: self_hash,
             expected_type_name: type_name,
             expected: type_hash,
+        });
+    }
+    if type_repr_hash != self_repr_hash {
+        return Err(DeserializeError::WrongTypeReprHash {
+            got_type_name: self_name,
+            got: self_repr_hash,
+            expected_type_name: type_name,
+            expected: type_repr_hash,
         });
     }
 
@@ -168,6 +190,15 @@ pub enum DeserializeError {
     /// The type hash is wrong. Probabliy the user is trying to deserialize a
     /// file with the wrong type.
     WrongTypeHash {
+        got_type_name: String,
+        expected_type_name: String,
+        expected: u64,
+        got: u64,
+    },
+    /// The type representation hash is wrong. Probabliy the user is trying to
+    /// deserialize a file with the right type but this type has different in
+    /// memory representations on the serializzation arch and the current one.
+    WrongTypeReprHash {
         got_type_name: String,
         expected_type_name: String,
         expected: u64,
@@ -234,6 +265,22 @@ impl core::fmt::Display for DeserializeError {
                     concat!(
                         "Wrong type hash. Expected=0x{:016x}, Got=0x{:016x}.\n",
                         "The serialized type is '{}' but the deserialized type is '{}'",
+                    ),
+                    expected, got, expected_type_name, got_type_name,
+                )
+            },
+            Self::WrongTypeReprHash {
+                got_type_name,
+                expected_type_name,
+                expected,
+                got,
+            } => {
+                write!(
+                    f,
+                    concat!(
+                        "Wrong type repr hash your arch is probably not compatible with the serialization one. ",
+                        "Expected=0x{:016x}, Got=0x{:016x}.\n",
+                        "The serialized type is '{}' and the deserialized type is '{}'",
                     ),
                     expected, got, expected_type_name, got_type_name,
                 )

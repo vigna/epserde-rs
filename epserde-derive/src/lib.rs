@@ -465,13 +465,23 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             quote! {
                 #[automatically_derived]
                 impl<#generics> epserde::TypeHash for #name<#generics_names> #where_clause{
+
+                    #[inline(always)]
+                    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
+                        core::mem::align_of::<Self>().hash(hasher);
+                        core::mem::size_of::<Self>().hash(hasher);
+                        #(
+                            #repr.hash(hasher);
+                        )*
+                        #(
+                            <#fields_types as epserde::TypeHash>::type_repr_hash(hasher);
+                        )*
+                    }
+
                     #[inline(always)]
                     fn type_hash(hasher: &mut impl core::hash::Hasher) {
                         use core::hash::Hash;
                         #is_zero_copy.hash(hasher);
-                        #(
-                            #repr.hash(hasher);
-                        )*
                         #name_literal.hash(hasher);
                         #(
                             #fields_names.hash(hasher);
