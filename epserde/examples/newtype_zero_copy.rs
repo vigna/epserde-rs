@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/**!
+/*
  * This example shows how the standard behavior of ε-serde on primitive
  * types (returning a value rather than a reference) is somewhat custom:
  * if we derive code for a zero-copy newtype containing just a `usize`,

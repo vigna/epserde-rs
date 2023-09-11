@@ -236,37 +236,34 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     });
 
             derive_input.generics.params.iter().for_each(|param| {
-                match param {
-                    GenericParam::Type(t) => {
-                        let ty = &t.ident;
-                        if t.bounds.is_empty() {
-                            return;
-                        }
-                        let mut lifetimes = Punctuated::new();
-                        lifetimes.push(GenericParam::Lifetime(LifetimeParam {
-                            attrs: vec![],
-                            lifetime: syn::Lifetime::new("'epserde_desertype", proc_macro2::Span::call_site()),
-                            colon_token: None,
-                            bounds: Punctuated::new(),
-                        }));
-                        where_clause_des
-                            .predicates
-                            .push(WherePredicate::Type(PredicateType {
-                                lifetimes: Some(BoundLifetimes {
-                                    for_token: token::For::default(),
-                                    lt_token: token::Lt::default(),
-                                    lifetimes,
-                                    gt_token: token::Gt::default(),
-                                }),
-                                bounded_ty: syn::parse_quote!(
-                                    <#ty as epserde::des::DeserializeInner>::DeserType<'epserde_desertype>
-                                ),
-                                colon_token: token::Colon::default(),
-                                bounds: t.bounds.clone(),
-                            }));
+                if let GenericParam::Type(t) = param {
+                    let ty = &t.ident;
+                    if t.bounds.is_empty() {
+                        return;
                     }
-                    _ => {}
-                };
+                    let mut lifetimes = Punctuated::new();
+                    lifetimes.push(GenericParam::Lifetime(LifetimeParam {
+                        attrs: vec![],
+                        lifetime: syn::Lifetime::new("'epserde_desertype", proc_macro2::Span::call_site()),
+                        colon_token: None,
+                        bounds: Punctuated::new(),
+                    }));
+                    where_clause_des
+                        .predicates
+                        .push(WherePredicate::Type(PredicateType {
+                            lifetimes: Some(BoundLifetimes {
+                                for_token: token::For::default(),
+                                lt_token: token::Lt::default(),
+                                lifetimes,
+                                gt_token: token::Gt::default(),
+                            }),
+                            bounded_ty: syn::parse_quote!(
+                                <#ty as epserde::des::DeserializeInner>::DeserType<'epserde_desertype>
+                            ),
+                            colon_token: token::Colon::default(),
+                            bounds: t.bounds.clone(),
+                        }));
+                }
             });
 
             if is_zero_copy {

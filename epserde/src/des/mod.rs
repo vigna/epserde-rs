@@ -453,6 +453,7 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     fn read_full_zero_copy<T: ZeroCopy>(mut self) -> Result<(T, Self)> {
         self = self.pad_align_and_check::<Self>()?;
         unsafe {
+            #[allow(clippy::uninit_assumed_init)]
             let mut buf: T = MaybeUninit::uninit().assume_init();
             let slice = core::slice::from_raw_parts_mut(
                 &mut buf as *mut T as *mut u8,
@@ -469,6 +470,7 @@ pub trait ReadWithPos: ReadNoStd + Sized {
         let mut res = Vec::with_capacity(len);
         // SAFETY: we just allocated this vector so it is safe to set the length.
         // read_exact guarantees that the vector will be filled with data.
+        #[allow(clippy::uninit_vec)]
         unsafe {
             res.set_len(len);
             res_self.read_exact(res.align_to_mut::<u8>().1)?;
