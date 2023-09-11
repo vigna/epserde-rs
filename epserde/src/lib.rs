@@ -24,8 +24,11 @@ pub use epserde_derive::{Epserde, TypeHash};
 pub mod des;
 pub mod ser;
 
-pub use des::*;
-pub use ser::*;
+pub use des::{
+    Deserialize, DeserializeError, DeserializeInner, ReadNoStd, ReadWithPos, ReaderWithPos,
+    SliceWithPos,
+};
+pub use ser::{FieldWrite, Serialize, SerializeError, SerializeInner, WriteNoStd, WriteWithPos};
 
 /// (Major, Minor) version of the file format, this follows semantic versioning
 pub const VERSION: (u16, u16) = (0, 0);
