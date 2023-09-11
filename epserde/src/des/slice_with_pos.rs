@@ -49,8 +49,8 @@ impl<'a> SliceWithPos<'a> {
         }
     }
 
-    /// Read a zero-copy type from the backend.
-    pub fn read_eps_zero_copy<T: ZeroCopy>(mut self) -> des::Result<(&'a T, Self)> {
+    /// Return a reference to a zero-copy type.
+    pub fn deserialize_eps_zero<T: ZeroCopy>(mut self) -> des::Result<(&'a T, Self)> {
         let bytes = core::mem::size_of::<T>();
         // a slice can only be deserialized with zero copy
         // outerwise you need a vec, TODO!: how do we enforce this at compile time?
@@ -59,6 +59,18 @@ impl<'a> SliceWithPos<'a> {
         debug_assert!(pre.is_empty());
         debug_assert!(after.is_empty());
         Ok((&data[0], self.skip(bytes)))
+    }
+
+    pub fn deserialize_slice_zero<T: ZeroCopy>(self) -> des::Result<(&'a [T], Self)> {
+        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
+        let bytes = len * core::mem::size_of::<T>();
+        // a slice can only be deserialized with zero copy
+        // outerwise you need a vec, TODO!: how do we enforce this at compile time?
+        res_self = res_self.align::<T>()?;
+        let (pre, data, after) = unsafe { res_self.data[..bytes].align_to::<T>() };
+        debug_assert!(pre.is_empty());
+        debug_assert!(after.is_empty());
+        Ok((data, res_self.skip(bytes)))
     }
 
     pub fn deserialize_vec_eps_eps<T: DeserializeInner>(
@@ -72,18 +84,6 @@ impl<'a> SliceWithPos<'a> {
             res_self = new_res_self;
         }
         Ok((res, res_self))
-    }
-
-    pub fn deserialize_slice_zero<T: ZeroCopy>(self) -> des::Result<(&'a [T], Self)> {
-        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
-        let bytes = len * core::mem::size_of::<T>();
-        // a slice can only be deserialized with zero copy
-        // outerwise you need a vec, TODO!: how do we enforce this at compile time?
-        res_self = res_self.align::<T>()?;
-        let (pre, data, after) = unsafe { res_self.data[..bytes].align_to::<T>() };
-        debug_assert!(pre.is_empty());
-        debug_assert!(after.is_empty());
-        Ok((data, res_self.skip(bytes)))
     }
 }
 

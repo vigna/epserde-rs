@@ -294,7 +294,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             mut backend: R,
                         ) -> core::result::Result<(Self, R), epserde::des::DeserializeError> {
                             use epserde::des::DeserializeInner;
-                            backend.read_full_zero_copy::<Self>()
+                            backend.deserialize_full_zero::<Self>()
                         }
 
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#(#desser_type_generics,)*>;
@@ -303,7 +303,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             backend: epserde::des::SliceWithPos,
                         ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::SliceWithPos), epserde::des::DeserializeError>
                         {
-                            backend.read_eps_zero_copy::<Self>()
+                            backend.deserialize_eps_zero::<Self>()
                         }
                     }
                 }

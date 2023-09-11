@@ -50,8 +50,8 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     /// Pad the cursor to the correct alignment.
     fn align<T>(self) -> des::Result<Self>;
 
-    /// Read a zero-copy type from the backend after calling [`pad_align_and_check`].
-    fn read_full_zero_copy<T: ZeroCopy>(mut self) -> des::Result<(T, Self)> {
+    /// Fully deserialize a zero-copy type from the backend.
+    fn deserialize_full_zero<T: ZeroCopy>(mut self) -> des::Result<(T, Self)> {
         self = self.align::<T>()?;
         unsafe {
             #[allow(clippy::uninit_assumed_init)]
@@ -65,7 +65,7 @@ pub trait ReadWithPos: ReadNoStd + Sized {
         }
     }
 
-    /// Deserializes fully a vector of [`ZeroCopy`] types.
+    /// Fully deserialize a vector of [`ZeroCopy`] types.
     ///
     /// Note that this method uses a single [`ReadNoStd::read_exact`]
     /// call to read the entire vector.
