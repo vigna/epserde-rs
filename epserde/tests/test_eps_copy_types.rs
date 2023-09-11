@@ -20,7 +20,7 @@ macro_rules! impl_test {
         schema.0.sort_by_key(|a| a.offset);
         println!("{}", schema.to_csv());
 
-        let a1 = <$ty>::deserialize_full_copy(&v).unwrap();
+        let a1 = <$ty>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
         assert_eq!(a, a1);
 
         let a2 = <$ty>::deserialize_eps_copy(&v).unwrap();
@@ -47,7 +47,7 @@ fn test_array_usize() {
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
-    let a1 = <[usize; 5]>::deserialize_full_copy(&v).unwrap();
+    let a1 = <[usize; 5]>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
     assert_eq!(a, a1);
 
     let a2 = <[usize; 5]>::deserialize_eps_copy(&v).unwrap();
@@ -78,7 +78,7 @@ fn test_box_slice_usize() {
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
-    let a1 = <Box<[usize]>>::deserialize_full_copy(&v).unwrap();
+    let a1 = <Box<[usize]>>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
     assert_eq!(a, a1);
 
     let a2 = <Box<[usize]>>::deserialize_eps_copy(&v).unwrap();
@@ -104,7 +104,7 @@ fn test_box_slice_string() {
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
-    let a1 = <Box<[String]>>::deserialize_full_copy(&v).unwrap();
+    let a1 = <Box<[String]>>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
     assert_eq!(a, a1);
 
     let a2 = <Box<[String]>>::deserialize_eps_copy(&v).unwrap();

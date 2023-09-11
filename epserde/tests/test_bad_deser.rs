@@ -16,63 +16,74 @@ fn test_wrong_endianess() {
     // set the reversed endianess
     v[0..8].copy_from_slice(&MAGIC_REV.to_ne_bytes());
 
-    assert_eq!(
-        <usize>::deserialize_full_copy(&v),
-        Err(DeserializeError::EndiannessError)
-    );
-    assert_eq!(
-        <usize>::deserialize_eps_copy(&v),
-        Err(DeserializeError::EndiannessError)
-    );
-    println!("{:?}", <usize>::deserialize_eps_copy(&v));
-    println!("{}", <usize>::deserialize_eps_copy(&v).unwrap_err());
+    let err = <usize>::deserialize_full_copy(std::io::Cursor::new(&v));
+    assert!(err.is_err());
+    assert!(matches!(
+        err.unwrap_err(),
+        DeserializeError::EndiannessError
+    ));
+
+    let err = <usize>::deserialize_eps_copy(&v);
+    assert!(err.is_err());
+    assert!(matches!(
+        err.unwrap_err(),
+        DeserializeError::EndiannessError
+    ));
 
     // set a wrong magic number
     let bad_magic: u64 = 0x8989898989898989;
     v[0..8].copy_from_slice(&bad_magic.to_ne_bytes());
 
-    assert_eq!(
-        <usize>::deserialize_full_copy(&v).unwrap_err(),
-        DeserializeError::MagicNumberError(bad_magic),
-    );
-    assert_eq!(
-        <usize>::deserialize_eps_copy(&v).unwrap_err(),
-        DeserializeError::MagicNumberError(bad_magic),
-    );
-    println!("{:?}", <usize>::deserialize_eps_copy(&v));
-    println!("{}", <usize>::deserialize_eps_copy(&v).unwrap_err());
+    let err = <usize>::deserialize_full_copy(std::io::Cursor::new(&v));
+    if let DeserializeError::MagicNumberError(bad_magic_read) = err.unwrap_err() {
+        assert_eq!(bad_magic_read, bad_magic);
+    } else {
+        panic!("wrong error type");
+    }
 
+    let err = <usize>::deserialize_eps_copy(&v);
+    if let DeserializeError::MagicNumberError(bad_magic_read) = err.unwrap_err() {
+        assert_eq!(bad_magic_read, bad_magic);
+    } else {
+        panic!("wrong error type");
+    }
     // reset the magic, but set a wrong version
     v[0..8].copy_from_slice(&MAGIC.to_ne_bytes());
     let bad_version: u16 = 0xffff;
     v[8..10].copy_from_slice(&bad_version.to_ne_bytes());
 
-    assert_eq!(
-        <usize>::deserialize_full_copy(&v).unwrap_err(),
-        DeserializeError::MajorVersionMismatch(bad_version),
-    );
-    assert_eq!(
-        <usize>::deserialize_eps_copy(&v).unwrap_err(),
-        DeserializeError::MajorVersionMismatch(bad_version),
-    );
-    println!("{:?}", <usize>::deserialize_eps_copy(&v));
-    println!("{}", <usize>::deserialize_eps_copy(&v).unwrap_err());
+    let err = <u16>::deserialize_full_copy(std::io::Cursor::new(&v));
+    if let DeserializeError::MajorVersionMismatch(bad_version_read) = err.unwrap_err() {
+        assert_eq!(bad_version_read, bad_version);
+    } else {
+        panic!("wrong error type");
+    }
+
+    let err = <u16>::deserialize_eps_copy(&v);
+    if let DeserializeError::MajorVersionMismatch(bad_version_read) = err.unwrap_err() {
+        assert_eq!(bad_version_read, bad_version);
+    } else {
+        panic!("wrong error type");
+    }
 
     // reset the Major version, but set a wrong minor version
     v[8..10].copy_from_slice(&VERSION.0.to_ne_bytes());
     let bad_version: u16 = 0xffff;
     v[10..12].copy_from_slice(&bad_version.to_ne_bytes());
 
-    assert_eq!(
-        <usize>::deserialize_full_copy(&v).unwrap_err(),
-        DeserializeError::MinorVersionMismatch(bad_version),
-    );
-    assert_eq!(
-        <usize>::deserialize_eps_copy(&v).unwrap_err(),
-        DeserializeError::MinorVersionMismatch(bad_version),
-    );
-    println!("{:?}", <usize>::deserialize_eps_copy(&v));
-    println!("{}", <usize>::deserialize_eps_copy(&v).unwrap_err());
+    let err = <u16>::deserialize_full_copy(std::io::Cursor::new(&v));
+    if let DeserializeError::MinorVersionMismatch(bad_version_read) = err.unwrap_err() {
+        assert_eq!(bad_version_read, bad_version);
+    } else {
+        panic!("wrong error type");
+    }
+
+    let err = <u16>::deserialize_eps_copy(&v);
+    if let DeserializeError::MinorVersionMismatch(bad_version_read) = err.unwrap_err() {
+        assert_eq!(bad_version_read, bad_version);
+    } else {
+        panic!("wrong error type");
+    }
 
     // reset the minor version, but deserialize with the wrong type
     v[10..12].copy_from_slice(&VERSION.1.to_ne_bytes());
@@ -85,24 +96,35 @@ fn test_wrong_endianess() {
     <i128>::type_hash(&mut hasher);
     let i128_hash = hasher.finish();
 
-    assert_eq!(
-        <i128>::deserialize_full_copy(&v).unwrap_err(),
-        DeserializeError::WrongTypeHash {
-            got_type_name: "i128".to_string(),
-            got: i128_hash,
-            expected: usize_hash,
-            expected_type_name: "usize".to_string(),
-        },
-    );
-    assert_eq!(
-        <i128>::deserialize_eps_copy(&v).unwrap_err(),
-        DeserializeError::WrongTypeHash {
-            got_type_name: "i128".to_string(),
-            got: i128_hash,
-            expected: usize_hash,
-            expected_type_name: "usize".to_string(),
-        },
-    );
-    println!("{:?}", <i128>::deserialize_eps_copy(&v));
-    println!("{}", <i128>::deserialize_eps_copy(&v).unwrap_err());
+    let err = <i128>::deserialize_full_copy(std::io::Cursor::new(&v));
+    if let DeserializeError::WrongTypeHash {
+        got_type_name,
+        got,
+        expected,
+        expected_type_name,
+    } = err.unwrap_err()
+    {
+        assert_eq!(got_type_name, "i128");
+        assert_eq!(got, i128_hash);
+        assert_eq!(expected, usize_hash);
+        assert_eq!(expected_type_name, "usize");
+    } else {
+        panic!("wrong error type");
+    }
+
+    let err = <i128>::deserialize_eps_copy(&v);
+    if let DeserializeError::WrongTypeHash {
+        got_type_name,
+        got,
+        expected,
+        expected_type_name,
+    } = err.unwrap_err()
+    {
+        assert_eq!(got_type_name, "i128");
+        assert_eq!(got, i128_hash);
+        assert_eq!(expected, usize_hash);
+        assert_eq!(expected_type_name, "usize");
+    } else {
+        panic!("wrong error type");
+    }
 }
