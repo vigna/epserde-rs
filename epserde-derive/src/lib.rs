@@ -471,6 +471,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
 
                     #[inline(always)]
                     fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
+                        use core::hash::Hash;
                         core::mem::align_of::<Self>().hash(hasher);
                         core::mem::size_of::<Self>().hash(hasher);
                         #(
