@@ -68,24 +68,24 @@ pub trait Serialize: SerializeInner {
 
     /// Serialize the type using the given [`FieldWrite`].
     fn serialize_on_field_write<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
-        backend = backend.add_field("MAGIC", &MAGIC)?;
-        backend = backend.add_field("VERSION_MAJOR", &VERSION.0)?;
-        backend = backend.add_field("VERSION_MINOR", &VERSION.1)?;
-        backend = backend.add_field("USIZE_SIZE", &(core::mem::size_of::<usize>() as u16))?;
+        backend = backend.write_field("MAGIC", &MAGIC)?;
+        backend = backend.write_field("VERSION_MAJOR", &VERSION.0)?;
+        backend = backend.write_field("VERSION_MINOR", &VERSION.1)?;
+        backend = backend.write_field("USIZE_SIZE", &(core::mem::size_of::<usize>() as u16))?;
 
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
         Self::type_hash(&mut hasher);
-        backend = backend.add_field("TYPE_HASH", &hasher.finish())?;
+        backend = backend.write_field("TYPE_HASH", &hasher.finish())?;
 
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
         Self::type_repr_hash(&mut hasher);
-        backend = backend.add_field("TYPE_REPR_HASH", &hasher.finish())?;
+        backend = backend.write_field("TYPE_REPR_HASH", &hasher.finish())?;
 
         let type_name = core::any::type_name::<Self>().to_string();
-        backend = backend.add_field("TYPE_NAME_LEN", &type_name.len())?;
-        backend = backend.add_field_bytes::<u8>("TYPE_NAME", type_name.as_bytes())?;
+        backend = backend.write_field("TYPE_NAME_LEN", &type_name.len())?;
+        backend = backend.write_field_bytes::<u8>("TYPE_NAME", type_name.as_bytes())?;
 
-        backend = backend.add_field_align("ROOT", self)?;
+        backend = backend.write_field_align("ROOT", self)?;
         backend.flush()?;
         Ok(backend)
     }

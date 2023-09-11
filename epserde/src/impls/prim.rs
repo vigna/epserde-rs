@@ -248,11 +248,11 @@ impl<T: SerializeInner> SerializeInner for Option<T> {
     fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> ser::Result<F> {
         match self {
             None => {
-                backend = backend.add_field_align("Tag", &0_u8)?;
+                backend = backend.write_field("Tag", &0_u8)?;
             }
             Some(val) => {
-                backend = backend.add_field_align("Tag", &1_u8)?;
-                backend = backend.add_field_align("Some", val)?;
+                backend = backend.write_field("Tag", &1_u8)?;
+                backend = backend.write_field_align("Some", val)?;
             }
         };
         Ok(backend)
@@ -261,8 +261,8 @@ impl<T: SerializeInner> SerializeInner for Option<T> {
 
 impl<T: DeserializeInner> DeserializeInner for Option<T> {
     #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> des::Result<(Self, R)> {
-        let (tag, backend) = u8::_deserialize_full_copy_inner(backend)?;
+    fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> des::Result<(Self, R)> {
+        let tag = backend.read_u8()?;
         match tag {
             0 => Ok((None, backend)),
             1 => {
@@ -275,12 +275,13 @@ impl<T: DeserializeInner> DeserializeInner for Option<T> {
     type DeserType<'a> = Option<<T as DeserializeInner>::DeserType<'a>>;
     #[inline(always)]
     fn _deserialize_eps_copy_inner(
-        backend: SliceWithPos,
+        mut backend: SliceWithPos,
     ) -> des::Result<(Self::DeserType<'_>, SliceWithPos)> {
-        match backend.data[0] {
-            0 => Ok((None, backend.skip(1))),
+        let tag = backend.read_u8()?;
+        match tag {
+            0 => Ok((None, backend)),
             1 => {
-                let (value, backend) = T::_deserialize_eps_copy_inner(backend.skip(1))?;
+                let (value, backend) = T::_deserialize_eps_copy_inner(backend)?;
                 Ok((Some(value), backend))
             }
             _ => Err(DeserializeError::InvalidTag(backend.data[0])),

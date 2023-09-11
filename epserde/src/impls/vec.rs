@@ -47,14 +47,14 @@ where
 impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Vec<T> {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
-        backend.serialize_slice(self.as_slice(), true)
+        backend.write_slice_align(self.as_slice(), true)
     }
 }
 
 impl<T: EpsCopy + SerializeInner> SerializeHelper<Eps> for Vec<T> {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
-        backend.serialize_slice(self.as_slice(), false)
+        backend.write_slice_align(self.as_slice(), false)
     }
 }
 

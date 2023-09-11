@@ -51,7 +51,7 @@ macro_rules! impl_tuples {
 
             #[inline(always)]
             fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
-                backend.add_zero_copy("tuple", self)
+                backend.write_zero_align("tuple", self)
             }
         }
 

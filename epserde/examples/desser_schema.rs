@@ -17,8 +17,7 @@ struct PersonVec<A, B> {
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A> {
     a: A,
-    /// TODO: does it depend on the fact it's inner?
-    /// This is an inner field whose type is not a parameter,
+    /// This is a field whose type is not a parameter,
     /// so it will not be ε-copied, but rather fully copied.
     b: Vec<i32>,
 }

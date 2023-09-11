@@ -23,8 +23,8 @@ for debugging and in cases in which a full copy is necessary.
 
 */
 
-use crate::ZeroCopy;
 use crate::{des, DeserializeError, DeserializeInner, ReadNoStd, ReadWithPos};
+use crate::{EpsCopy, ZeroCopy};
 
 /// [`std::io::Cursor`]-like trait for deserialization that does not
 /// depend on [`std`].
@@ -49,7 +49,7 @@ impl<'a> SliceWithPos<'a> {
         }
     }
 
-    /// Return a reference to a zero-copy type.
+    /// Return a reference, backed by the `data` field, to a zero-copy type.
     pub fn deserialize_eps_zero<T: ZeroCopy>(mut self) -> des::Result<(&'a T, Self)> {
         let bytes = core::mem::size_of::<T>();
         // a slice can only be deserialized with zero copy
@@ -61,29 +61,32 @@ impl<'a> SliceWithPos<'a> {
         Ok((&data[0], self.skip(bytes)))
     }
 
-    pub fn deserialize_slice_zero<T: ZeroCopy>(self) -> des::Result<(&'a [T], Self)> {
-        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
+    /// Return a reference, backed by the `data` field,
+    /// to a slice whose elements are of zero-copy type.
+    pub fn deserialize_slice_zero<T: ZeroCopy>(mut self) -> des::Result<(&'a [T], Self)> {
+        let len = self.read_usize()?;
         let bytes = len * core::mem::size_of::<T>();
         // a slice can only be deserialized with zero copy
         // outerwise you need a vec, TODO!: how do we enforce this at compile time?
-        res_self = res_self.align::<T>()?;
-        let (pre, data, after) = unsafe { res_self.data[..bytes].align_to::<T>() };
+        self = self.align::<T>()?;
+        let (pre, data, after) = unsafe { self.data[..bytes].align_to::<T>() };
         debug_assert!(pre.is_empty());
         debug_assert!(after.is_empty());
-        Ok((data, res_self.skip(bytes)))
+        Ok((data, self.skip(bytes)))
     }
 
-    pub fn deserialize_vec_eps_eps<T: DeserializeInner>(
-        self,
+    /// Return a fully deserialized vector of elements
+    pub fn deserialize_vec_eps_eps<T: EpsCopy + DeserializeInner>(
+        mut self,
     ) -> des::Result<(Vec<<T as DeserializeInner>::DeserType<'a>>, Self)> {
-        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
+        let len = self.read_usize()?;
         let mut res = Vec::with_capacity(len);
         for _ in 0..len {
-            let (elem, new_res_self) = T::_deserialize_eps_copy_inner(res_self)?;
+            let (elem, new_self) = T::_deserialize_eps_copy_inner(self)?;
             res.push(elem);
-            res_self = new_res_self;
+            self = new_self;
         }
-        Ok((res, res_self))
+        Ok((res, self))
     }
 }
 

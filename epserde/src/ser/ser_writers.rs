@@ -31,25 +31,26 @@ pub trait FieldWrite: WriteNoStd + Sized {
     }
 
     #[inline(always)]
-    /// Add a complex field to the serialization, this is mostly used by the
+
     /// full-copy implementations
-    fn add_field_align<V: SerializeInner>(
+    fn write_field_align<V: SerializeInner>(
         mut self,
         field_name: &str,
         value: &V,
     ) -> super::ser::Result<Self> {
         self.align::<V>()?;
-        self.add_field(field_name, value)
+        self.write_field(field_name, value)
     }
 
+    /// Add a field to the serialization, this is mostly used by the
     #[inline(always)]
-    fn add_field<V: SerializeInner>(self, _field_name: &str, value: &V) -> Result<Self> {
+    fn write_field<V: SerializeInner>(self, _field_name: &str, value: &V) -> Result<Self> {
         value._serialize_inner(self)
     }
 
     /// add a single zero_copy value to the serializer
-    fn add_zero_copy<V: ZeroCopy + SerializeInner>(
-        self,
+    fn write_zero_align<V: ZeroCopy + SerializeInner>(
+        mut self,
         field_name: &str,
         value: &V,
     ) -> super::ser::Result<Self> {
@@ -63,22 +64,21 @@ pub trait FieldWrite: WriteNoStd + Sized {
             #[allow(clippy::manual_slice_size_calculation)]
             core::slice::from_raw_parts(value as *const V as *const u8, core::mem::size_of::<V>())
         };
-        self.add_field_bytes::<V>(field_name, buffer)
+        self.align::<V>()?;
+        self.write_field_bytes::<V>(field_name, buffer)
     }
 
     #[inline(always)]
     /// Add raw bytes to the serialization, this is mostly used by the zero-copy
     /// implementations
-    fn add_field_bytes<T>(mut self, _field_name: &str, value: &[u8]) -> Result<Self> {
-        self.align::<T>()?;
+    fn write_field_bytes<T>(mut self, _field_name: &str, value: &[u8]) -> Result<Self> {
         self.write(value)?;
         Ok(self)
     }
 
-    fn serialize_slice<T: Serialize>(mut self, data: &[T], zero_copy: bool) -> Result<Self> {
-        // TODO: check for IS_ZERO_COPY
+    fn write_slice_align<T: Serialize>(mut self, data: &[T], zero_copy: bool) -> Result<Self> {
         let len = data.len();
-        self = self.add_field_align("len", &len)?;
+        self = self.write_field("len", &len)?;
         if zero_copy {
             if !T::IS_ZERO_COPY {
                 panic!(
@@ -93,13 +93,14 @@ pub trait FieldWrite: WriteNoStd + Sized {
                     len * core::mem::size_of::<T>(),
                 )
             };
-            self.add_field_bytes::<T>("data", buffer)
+            self.align::<T>()?;
+            self.write_field_bytes::<T>("data", buffer)
         } else {
             if T::ZERO_COPY_MISMATCH {
                 eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<T>());
             }
             for item in data.iter() {
-                self = self.add_field_align("data", item)?;
+                self = self.write_field_align("data", item)?;
             }
             Ok(self)
         }
@@ -246,7 +247,7 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
     }
 
     #[inline(always)]
-    fn add_field<V: SerializeInner>(mut self, field_name: &str, value: &V) -> Result<Self> {
+    fn write_field<V: SerializeInner>(mut self, field_name: &str, value: &V) -> Result<Self> {
         // prepare a row with the field name and the type
         self.path.push(field_name.into());
         let struct_idx = self.schema.0.len();
@@ -267,7 +268,7 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
     }
 
     #[inline(always)]
-    fn add_field_bytes<V>(mut self, field_name: &str, value: &[u8]) -> Result<Self> {
+    fn write_field_bytes<V>(mut self, field_name: &str, value: &[u8]) -> Result<Self> {
         let align = core::mem::align_of::<V>();
         let type_name = core::any::type_name::<V>().to_string();
         self.align::<V>()?;

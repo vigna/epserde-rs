@@ -49,7 +49,7 @@ where
 impl<T: ZeroCopy + SerializeInner, const N: usize> SerializeHelper<Zero> for [T; N] {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
-        backend.add_zero_copy("data", self)
+        backend.write_zero_align("data", self)
     }
 }
 
@@ -57,7 +57,7 @@ impl<T: EpsCopy + SerializeInner, const N: usize> SerializeHelper<Eps> for [T; N
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> ser::Result<F> {
         for item in self.iter() {
-            backend = backend.add_field_align("data", item)?;
+            backend = backend.write_field_align("data", item)?;
         }
         Ok(backend)
     }

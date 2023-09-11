@@ -114,40 +114,31 @@ fn check_header<R: ReadWithPos>(
     self_repr_hash: u64,
     self_name: String,
 ) -> Result<R> {
-    macro_rules! consume {
-        ($backend:expr, $ty:ty) => {{
-            let mut buf = [0; core::mem::size_of::<$ty>()];
-            backend.read_exact(&mut buf)?;
-            <$ty>::from_ne_bytes(buf)
-        }};
-    }
-
-    let magic = consume!(backend, u64);
+    let magic = backend.read_u64()?;
     match magic {
         MAGIC => Ok(()),
         MAGIC_REV => Err(DeserializeError::EndiannessError),
         magic => Err(DeserializeError::MagicNumberError(magic)),
     }?;
 
-    let major = consume!(backend, u16);
+    let major = backend.read_u16()?;
     if major != VERSION.0 {
         return Err(DeserializeError::MajorVersionMismatch(major));
     }
-    let minor = consume!(backend, u16);
+    let minor = backend.read_u16()?;
     if minor > VERSION.1 {
         return Err(DeserializeError::MinorVersionMismatch(minor));
     };
 
-    let usize_size = consume!(backend, u16);
-    let usize_size = usize_size as usize;
+    let usize_size = backend.read_u16()? as usize;
     let native_usize_size = core::mem::size_of::<usize>();
     if usize_size != native_usize_size {
         return Err(DeserializeError::UsizeSizeMismatch(usize_size));
     };
 
-    let type_hash = consume!(backend, u64);
-    let type_repr_hash = consume!(backend, u64);
-    let str_len = consume!(backend, usize);
+    let type_hash = backend.read_u64()?;
+    let type_repr_hash = backend.read_u64()?;
+    let str_len = backend.read_usize()?;
     let mut buf = vec![0; str_len];
     backend.read_exact(&mut buf).unwrap();
     let type_name = String::from_utf8(buf).unwrap();
