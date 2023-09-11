@@ -87,34 +87,6 @@ impl<T: CopyType<Copy = Zero>> ZeroCopy for T {}
 pub trait EpsCopy: CopyType<Copy = Eps> {}
 impl<T: CopyType<Copy = Eps>> EpsCopy for T {}
 
-macro_rules! impl_stuff{
-    ($($ty:ty),*) => {$(
-        impl CopyType for $ty {
-            type Copy = Zero;
-        }
-    )*};
-}
-
-impl_stuff!(
-    (),
-    bool,
-    char,
-    isize,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    usize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    f32,
-    f64
-);
-
 impl<T: CopyType, const N: usize> CopyType for [T; N] {
     type Copy = T::Copy;
 }

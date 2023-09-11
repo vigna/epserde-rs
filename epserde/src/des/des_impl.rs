@@ -5,7 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 
 use crate::des::*;
@@ -15,129 +14,6 @@ use crate::Eps;
 use crate::EpsCopy;
 use crate::Zero;
 use crate::ZeroCopy;
-
-macro_rules! impl_prim{
-    ($($ty:ty),*) => {$(
-        impl DeserializeInner for $ty {
-            #[inline(always)]
-            fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
-                backend = backend.pad_align_and_check::<$ty>()?;
-                let mut buf = [0; core::mem::size_of::<$ty>()];
-                backend.read_exact(&mut buf)?;
-                Ok((
-                    <$ty>::from_ne_bytes(buf),
-                    backend
-                ))
-            }
-            type DeserType<'a> = $ty;
-            #[inline(always)]
-            fn _deserialize_eps_copy_inner(
-                mut backend: SliceWithPos,
-            ) -> Result<(Self::DeserType<'_>, SliceWithPos)> {
-                backend = backend.pad_align_and_check::<$ty>()?;
-                Ok((
-                    <$ty>::from_ne_bytes(
-                        backend.data[..core::mem::size_of::<$ty>()]
-                            .try_into()
-                            .unwrap(),
-                    ),
-                    backend.skip(core::mem::size_of::<$ty>()),
-                ))
-            }
-        }
-    )*};
-}
-
-impl_prim!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32, f64);
-
-impl DeserializeInner for () {
-    #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
-        Ok(((), backend))
-    }
-    type DeserType<'a> = Self;
-    #[inline(always)]
-    fn _deserialize_eps_copy_inner(
-        backend: SliceWithPos,
-    ) -> Result<(Self::DeserType<'_>, SliceWithPos)> {
-        Ok(((), backend))
-    }
-}
-
-impl DeserializeInner for bool {
-    #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
-        u8::_deserialize_full_copy_inner(backend).map(|(x, b)| (x != 0, b))
-    }
-    type DeserType<'a> = Self;
-    #[inline(always)]
-    fn _deserialize_eps_copy_inner(
-        backend: SliceWithPos,
-    ) -> Result<(Self::DeserType<'_>, SliceWithPos)> {
-        Ok((backend.data[0] != 0, backend.skip(1)))
-    }
-}
-
-impl DeserializeInner for char {
-    #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
-        u32::_deserialize_full_copy_inner(backend).map(|(x, c)| (char::from_u32(x).unwrap(), c))
-    }
-    type DeserType<'a> = Self;
-    #[inline(always)]
-    fn _deserialize_eps_copy_inner(
-        backend: SliceWithPos,
-    ) -> Result<(Self::DeserType<'_>, SliceWithPos)> {
-        u32::_deserialize_eps_copy_inner(backend).map(|(x, c)| (char::from_u32(x).unwrap(), c))
-    }
-}
-
-impl<T: DeserializeInner> DeserializeInner for Option<T> {
-    #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
-        let (tag, backend) = u8::_deserialize_full_copy_inner(backend)?;
-        match tag {
-            0 => Ok((None, backend)),
-            1 => {
-                let (elem, backend) = T::_deserialize_full_copy_inner(backend)?;
-                Ok((Some(elem), backend))
-            }
-            _ => Err(DeserializeError::InvalidTag(tag)),
-        }
-    }
-    type DeserType<'a> = Option<<T as DeserializeInner>::DeserType<'a>>;
-    #[inline(always)]
-    fn _deserialize_eps_copy_inner(
-        backend: SliceWithPos,
-    ) -> Result<(Self::DeserType<'_>, SliceWithPos)> {
-        match backend.data[0] {
-            0 => Ok((None, backend.skip(1))),
-            1 => {
-                let (value, backend) = T::_deserialize_eps_copy_inner(backend.skip(1))?;
-                Ok((Some(value), backend))
-            }
-            _ => Err(DeserializeError::InvalidTag(backend.data[0])),
-        }
-    }
-}
-
-impl<T: DeserializeInner> DeserializeInner for PhantomData<T> {
-    #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
-        Ok((PhantomData::<T>, backend))
-    }
-    type DeserType<'a> = PhantomData<<T as DeserializeInner>::DeserType<'a>>;
-    #[inline(always)]
-    fn _deserialize_eps_copy_inner(
-        backend: SliceWithPos,
-    ) -> Result<(Self::DeserType<'_>, SliceWithPos)> {
-        Ok((
-            PhantomData::<<T as DeserializeInner>::DeserType<'_>>,
-            backend,
-        ))
-    }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 fn deserialize_vec_full_zero<T: DeserializeInner, R: ReadWithPos>(
