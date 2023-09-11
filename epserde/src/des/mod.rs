@@ -108,37 +108,48 @@ impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
 
 /// Common code for both full-copy and zero-copy deserialization
 fn check_header<R: ReadWithPos>(
-    backend: R,
+    mut backend: R,
     self_hash: u64,
     self_repr_hash: u64,
     self_name: String,
 ) -> Result<R> {
-    let (magic, backend) = u64::_deserialize_full_copy_inner(backend)?;
+    macro_rules! consume {
+        ($backend:expr, $ty:ty) => {{
+            let mut buf = [0; core::mem::size_of::<$ty>()];
+            backend.read_exact(&mut buf)?;
+            <$ty>::from_ne_bytes(buf)
+        }};
+    }
+
+    let magic = consume!(backend, u64);
     match magic {
         MAGIC => Ok(()),
         MAGIC_REV => Err(DeserializeError::EndiannessError),
         magic => Err(DeserializeError::MagicNumberError(magic)),
     }?;
 
-    let (major, backend) = u16::_deserialize_full_copy_inner(backend)?;
+    let major = consume!(backend, u16);
     if major != VERSION.0 {
         return Err(DeserializeError::MajorVersionMismatch(major));
     }
-    let (minor, backend) = u16::_deserialize_full_copy_inner(backend)?;
+    let minor = consume!(backend, u16);
     if minor > VERSION.1 {
         return Err(DeserializeError::MinorVersionMismatch(minor));
     };
 
-    let (usize_size, backend) = u16::_deserialize_full_copy_inner(backend)?;
+    let usize_size = consume!(backend, u16);
     let usize_size = usize_size as usize;
     let native_usize_size = core::mem::size_of::<usize>();
     if usize_size != native_usize_size {
         return Err(DeserializeError::UsizeSizeMismatch(usize_size));
     };
 
-    let (type_hash, backend) = u64::_deserialize_full_copy_inner(backend)?;
-    let (type_repr_hash, backend) = u64::_deserialize_full_copy_inner(backend)?;
-    let (type_name, backend) = String::_deserialize_full_copy_inner(backend)?;
+    let type_hash = consume!(backend, u64);
+    let type_repr_hash = consume!(backend, u64);
+    let str_len = consume!(backend, usize);
+    let mut buff = vec![0; str_len];
+    backend.read_exact(&mut buff).unwrap();
+    let type_name = String::from_utf8(buff).unwrap();
 
     if type_hash != self_hash {
         return Err(DeserializeError::WrongTypeHash {

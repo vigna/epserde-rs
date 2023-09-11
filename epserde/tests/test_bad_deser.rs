@@ -8,7 +8,7 @@ use xxhash_rust::xxh3::Xxh3;
 fn test_wrong_endianess() {
     let data = 1337_usize;
 
-    let len = 1000;
+    let len = 20;
     let mut v = unsafe {
         Vec::from_raw_parts(
             std::alloc::alloc_zeroed(std::alloc::Layout::from_size_align(len, 4096).unwrap()),
@@ -21,6 +21,7 @@ fn test_wrong_endianess() {
 
     let schema = data.serialize_with_schema(&mut buf).unwrap();
     println!("{}", schema.debug(&v));
+    println!("{:02x?}", &v);
 
     // set the reversed endianess
     v[0..8].copy_from_slice(&MAGIC_REV.to_ne_bytes());
@@ -102,10 +103,10 @@ fn test_wrong_endianess() {
     let usize_hash = hasher.finish();
 
     let mut hasher = Xxh3::with_seed(0);
-    <i128>::type_hash(&mut hasher);
-    let i128_hash = hasher.finish();
+    <i8>::type_hash(&mut hasher);
+    let i8_hash = hasher.finish();
 
-    let err = <i128>::deserialize_full_copy(std::io::Cursor::new(&v));
+    let err = <i8>::deserialize_full_copy(std::io::Cursor::new(&v));
     if let Err(DeserializeError::WrongTypeHash {
         got_type_name,
         got,
@@ -113,14 +114,14 @@ fn test_wrong_endianess() {
         expected_type_name,
     }) = err
     {
-        assert_eq!(got_type_name, "i128");
-        assert_eq!(got, i128_hash);
+        assert_eq!(got_type_name, "i8");
+        assert_eq!(got, i8_hash);
         assert_eq!(expected, usize_hash);
         assert_eq!(expected_type_name, "usize");
     } else {
         panic!("wrong error type: {:?}", err);
     }
-    let err = <i128>::deserialize_eps_copy(&v);
+    let err = <i8>::deserialize_eps_copy(&v);
     if let Err(DeserializeError::WrongTypeHash {
         got_type_name,
         got,
@@ -128,8 +129,8 @@ fn test_wrong_endianess() {
         expected_type_name,
     }) = err
     {
-        assert_eq!(got_type_name, "i128");
-        assert_eq!(got, i128_hash);
+        assert_eq!(got_type_name, "i8");
+        assert_eq!(got, i8_hash);
         assert_eq!(expected, usize_hash);
         assert_eq!(expected_type_name, "usize");
     } else {

@@ -79,10 +79,14 @@ pub trait Serialize: SerializeInner {
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
         Self::type_hash(&mut hasher);
         backend = backend.add_field("TYPE_HASH", &hasher.finish())?;
+
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
         Self::type_repr_hash(&mut hasher);
         backend = backend.add_field("TYPE_REPR_HASH", &hasher.finish())?;
-        backend = backend.add_field("TYPE_NAME", &core::any::type_name::<Self>().to_string())?;
+
+        let type_name = core::any::type_name::<Self>().to_string();
+        backend = backend.add_field("TYPE_NAME_LEN", &type_name.len())?;
+        backend = backend.add_field_bytes::<u8>("TYPE_NAME", type_name.as_bytes())?;
 
         backend = backend.add_field_align("ROOT", self)?;
         backend.flush()?;

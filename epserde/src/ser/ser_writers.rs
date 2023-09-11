@@ -217,7 +217,6 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
 
     #[inline(always)]
     fn add_field<V: SerializeInner>(mut self, field_name: &str, value: &V) -> Result<Self> {
-        self.add_padding_to_align(core::mem::align_of::<V>())?;
         // prepare a row with the field name and the type
         self.path.push(field_name.into());
         let struct_idx = self.schema.0.len();
