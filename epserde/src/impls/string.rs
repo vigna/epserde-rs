@@ -13,8 +13,6 @@ Implementations for strings.
 use crate::des::*;
 use crate::*;
 
-use super::slice::serialize_slice;
-
 impl CopyType for String {
     type Copy = Eps;
 }
@@ -25,7 +23,7 @@ impl SerializeInner for String {
     const ZERO_COPY_MISMATCH: bool = false;
 
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
-        serialize_slice(self.as_bytes(), backend, true)
+        backend.serialize_slice(self.as_bytes(), true)
     }
 }
 
@@ -61,7 +59,7 @@ impl SerializeInner for Box<str> {
     const ZERO_COPY_MISMATCH: bool = false;
 
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
-        serialize_slice(self.as_bytes(), backend, true)
+        backend.serialize_slice(self.as_bytes(), true)
     }
 }
 
