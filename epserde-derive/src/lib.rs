@@ -304,13 +304,13 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             mut backend: R,
                         ) -> core::result::Result<(Self, R), epserde::des::DeserializeError> {
                             use epserde::des::DeserializeInner;
-                            backend = backend.pad_align_and_check::<Self>(backend)?;
-                            #(
-                                let (#fields_names, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;
-                            )*
-                            Ok((#name{
-                                #(#fields_names),*
-                            }, backend))
+                            use core::mem::MaybeUninit;
+                            let mut buf: MaybeUninit<Self> = MaybeUninit::uninit();
+                            backend = backend.pad_align_and_check::<Self>()?;
+                            unsafe {
+                                backend.read_exact(buf.assume_init_mut().align_to_mut::<u8>().1)?;
+                                Ok((buf.assume_init(), backend))
+                            };
                         }
 
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#(#desser_type_generics,)*>;

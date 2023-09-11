@@ -38,7 +38,8 @@ fn main() {
     let _bytes_written = data.serialize(&mut buf).unwrap();
 
     // Do a full-copy deserialization
-    let full = StringData::deserialize_full_copy(&v).unwrap();
+    buf.set_position(0);
+    let full = StringData::deserialize_full_copy(buf).unwrap();
     println!(
         "Full-deserialization type: {}",
         std::any::type_name::<StringData>(),

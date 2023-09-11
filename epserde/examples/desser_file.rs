@@ -42,7 +42,7 @@ fn main() {
 
     drop(file);
 
-    let mut file = std::fs::File::open("test.bin").unwrap();
+    let file = std::fs::File::open("test.bin").unwrap();
 
     // Do a full-copy deserialization
 
@@ -57,6 +57,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
+    let file = std::fs::read("test.bin").unwrap();
     let eps = Person::deserialize_eps_copy(&file).unwrap();
     println!(
         "ε-deserialization type: {}",
