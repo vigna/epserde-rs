@@ -44,12 +44,6 @@ pub use mem_case::*;
 mod copy_type;
 pub use copy_type::*;
 
-/// Compute the padding needed for alignment, that is, the smallest
-/// number such that `((value + pad_align_to(value, align_to) & (align_to - 1) == 0`.
-fn pad_align_to(value: usize, align_to: usize) -> usize {
-    value.wrapping_neg() & (align_to - 1)
-}
-
 /// A trait padding a cursor to the correct alignment
 /// and checking that the resulting pointer is aligned
 /// correctly.
@@ -57,8 +51,8 @@ pub trait Align: Sized {
     /// Pad the cursor to the correct alignment and check that the resulting
     /// pointer is aligned correctly.
     fn pad_align_and_check(
-        mut backend: des::Cursor,
-    ) -> core::result::Result<des::Cursor, des::DeserializeError> {
+        mut backend: des::SliceWithPos,
+    ) -> core::result::Result<des::SliceWithPos, des::DeserializeError> {
         // Skip bytes as needed
         let padding = pad_align_to(backend.pos, core::mem::align_of::<Self>());
         backend = backend.skip(padding);

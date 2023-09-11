@@ -42,9 +42,11 @@ pub type Result<T> = core::result::Result<T, DeserializeError>;
 /// The user should not implement this trait directly, but rather derive it.
 pub trait DeserializeInner: TypeHash + Sized {
     type DeserType<'a>: TypeHash;
-    fn _deserialize_full_copy_inner<R: ReadNoStd>(backend: R) -> Result<(Self, R)>;
+    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)>;
 
-    fn _deserialize_eps_copy_inner(backend: Cursor) -> Result<(Self::DeserType<'_>, Cursor)>;
+    fn _deserialize_eps_copy_inner(
+        backend: SliceWithPos,
+    ) -> Result<(Self::DeserType<'_>, SliceWithPos)>;
 }
 
 /// Main serialization trait. It is separated from [`DeserializeInner`] to
@@ -64,8 +66,8 @@ pub trait Deserialize: DeserializeInner {
 }
 
 impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
-    fn deserialize_full_copy(backend: &[u8]) -> Result<Self> {
-        let mut backend = Cursor::new(backend);
+    fn deserialize_full_copy(backend: impl ReadNoStd) -> Result<Self> {
+        let mut backend = ReaderWithPos::new(backend);
 
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
         Self::type_hash(&mut hasher);
@@ -80,7 +82,7 @@ impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
         Ok(res)
     }
     fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
-        let mut backend = Cursor::new(backend);
+        let mut backend = SliceWithPos::new(backend);
 
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
         Self::type_hash(&mut hasher);
@@ -97,7 +99,7 @@ impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
 }
 
 /// Common code for both full-copy and zero-copy deserialization
-fn check_header(backend: Cursor, self_hash: u64, self_name: String) -> Result<Cursor> {
+fn check_header<R: ReadWithPos>(backend: R, self_hash: u64, self_name: String) -> Result<R> {
     let (magic, backend) = u64::_deserialize_full_copy_inner(backend)?;
     match magic {
         MAGIC => Ok(()),
@@ -122,13 +124,13 @@ fn check_header(backend: Cursor, self_hash: u64, self_name: String) -> Result<Cu
     };
 
     let (type_hash, backend) = u64::_deserialize_full_copy_inner(backend)?;
-    let (type_name, backend) = String::_deserialize_eps_copy_inner(backend)?;
+    let (type_name, backend) = String::_deserialize_full_copy_inner(backend)?;
 
     if type_hash != self_hash {
         return Err(DeserializeError::WrongTypeHash {
             got_type_name: self_name,
             got: self_hash,
-            expected_type_name: type_name.to_string(),
+            expected_type_name: type_name,
             expected: type_hash,
         });
     }
@@ -243,12 +245,12 @@ impl core::fmt::Display for DeserializeError {
 /// [`std::io::Cursor`]-like trait for deserialization that does not
 /// depend on [`std`].
 #[derive(Debug)]
-pub struct Cursor<'a> {
+pub struct SliceWithPos<'a> {
     pub data: &'a [u8],
     pub pos: usize,
 }
 
-impl<'a> Cursor<'a> {
+impl<'a> SliceWithPos<'a> {
     pub fn new(backend: &'a [u8]) -> Self {
         Self {
             data: backend,
@@ -264,6 +266,47 @@ impl<'a> Cursor<'a> {
     }
 }
 
+impl<'a> ReadNoStd for SliceWithPos<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        let len = buf.len();
+        if len > self.data.len() {
+            return Err(DeserializeError::ReadError);
+        }
+        buf.copy_from_slice(&self.data[..len]);
+        self.data = &self.data[len..];
+        self.pos += len;
+        Ok(len)
+    }
+
+    fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
+        self.read(buf).map(|_| ())
+    }
+}
+
+/// Compute the padding needed for alignment, that is, the smallest
+/// number such that `((value + pad_align_to(value, align_to) & (align_to - 1) == 0`.
+fn pad_align_to(value: usize, align_to: usize) -> usize {
+    value.wrapping_neg() & (align_to - 1)
+}
+
+impl<'a> ReadWithPos for SliceWithPos<'a> {
+    fn pos(&self) -> usize {
+        self.pos
+    }
+
+    fn pad_align_and_check<T>(mut self) -> Result<Self> {
+        // Skip bytes as needed
+        let padding = pad_align_to(self.pos, core::mem::align_of::<Self>());
+        self = self.skip(padding);
+        // Check that the ptr is indeed aligned
+        if self.data.as_ptr() as usize % std::mem::align_of::<Self>() != 0 {
+            Err(DeserializeError::AlignmentError)
+        } else {
+            Ok(self)
+        }
+    }
+}
+
 /// [`std::io::Read`]-like trait for serialization that does not
 /// depend on [`std`].
 ///
@@ -275,6 +318,8 @@ impl<'a> Cursor<'a> {
 pub trait ReadNoStd {
     /// Read some bytes and return the number of bytes read
     fn read(&mut self, buf: &mut [u8]) -> Result<usize>;
+
+    fn read_exact(&mut self, buf: &mut [u8]) -> Result<()>;
 }
 
 #[cfg(feature = "std")]
@@ -285,21 +330,35 @@ impl<W: Read> ReadNoStd for W {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         Read::read(self, buf).map_err(|_| DeserializeError::ReadError)
     }
+
+    #[inline(always)]
+    fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
+        Read::read_exact(self, buf).map_err(|_| DeserializeError::ReadError)
+    }
 }
 
-/// A little wrapper around a reader that keeps track of the current position
-/// so we can align the data.
+/// A trait for [`ReadNoStd`] that also keeps track of the current position.
 ///
 /// This is needed because the [`Read`] trait doesn't have a `seek` method and
 /// [`std::io::Seek`] would be a requirement much stronger than needed.
-pub struct ReadWithPos<F: ReadNoStd> {
+pub trait ReadWithPos: ReadNoStd + Sized {
+    fn pos(&self) -> usize;
+
+    /// Pad the cursor to the correct alignment and check that the resulting
+    /// pointer is aligned correctly.
+    fn pad_align_and_check<T>(self) -> Result<Self>;
+}
+
+/// A wrapper for a [`ReadNoStd`] that implements [`ReadWithPos`]
+/// by keeping track of the current position.
+pub struct ReaderWithPos<F: ReadNoStd> {
     /// What we actually readfrom
     backend: F,
     /// How many bytes we have read from the start
     pos: usize,
 }
 
-impl<F: ReadNoStd> ReadWithPos<F> {
+impl<F: ReadNoStd> ReaderWithPos<F> {
     #[inline(always)]
     /// Create a new [`ReadWithPos`] on top of a generic Reader `F`
     pub fn new(backend: F) -> Self {
@@ -307,11 +366,31 @@ impl<F: ReadNoStd> ReadWithPos<F> {
     }
 }
 
-impl<F: ReadNoStd> ReadNoStd for ReadWithPos<F> {
+impl<F: ReadNoStd> ReadNoStd for ReaderWithPos<F> {
     #[inline(always)]
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         let res = self.backend.read(buf)?;
         self.pos += res;
         Ok(res)
+    }
+
+    fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
+        self.backend.read_exact(buf)?;
+        self.pos += buf.len();
+        Ok(())
+    }
+}
+
+impl<F: ReadNoStd> ReadWithPos for ReaderWithPos<F> {
+    fn pos(&self) -> usize {
+        self.pos
+    }
+
+    fn pad_align_and_check<T>(mut self) -> Result<Self> {
+        // Skip bytes as needed
+        let padding = pad_align_to(self.pos, core::mem::align_of::<Self>());
+        self.read_exact(&mut vec![0; padding]);
+        // No alignment check, we are fully deserializing
+        Ok(self)
     }
 }
