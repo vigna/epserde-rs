@@ -42,9 +42,10 @@ fn main() {
 
     drop(file);
 
-    let file = std::fs::read("test.bin").unwrap();
+    let mut file = std::fs::File::open("test.bin").unwrap();
 
     // Do a full-copy deserialization
+
     let full = Person::deserialize_full_copy(&file).unwrap();
     println!(
         "Full-deserialization type: {}",

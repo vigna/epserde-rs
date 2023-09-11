@@ -150,7 +150,7 @@ fn deserialize_vec_full_zero<T: DeserializeInner, R: ReadWithPos>(
     // read_exact guarantees that the vector will be filled with data.
     unsafe {
         res.set_len(len);
-        backend.read_exact(res.align_to_mut::<u8>().1);
+        backend.read_exact(res.align_to_mut::<u8>().1)?;
     }
 
     Ok((res, backend))
@@ -233,7 +233,7 @@ mod private {
             let mut res = MaybeUninit::<[T; N]>::uninit();
             // SAFETY: read_exact guarantees that the array will be filled with data.
             unsafe {
-                backend.read_exact(res.assume_init_mut().align_to_mut::<u8>().1);
+                backend.read_exact(res.assume_init_mut().align_to_mut::<u8>().1)?;
                 Ok((res.assume_init(), backend))
             }
         }

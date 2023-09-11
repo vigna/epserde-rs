@@ -52,7 +52,8 @@ fn main() {
     let _bytes_written = person.serialize(&mut buf).unwrap();
 
     // Do a full-copy deserialization
-    let full = Person::deserialize_full_copy(&v).unwrap();
+    buf.set_position(0);
+    let full = Person::deserialize_full_copy(buf).unwrap();
     println!(
         "Full-deserialization type: {}",
         std::any::type_name::<Person>(),
