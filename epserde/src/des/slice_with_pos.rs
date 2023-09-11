@@ -54,7 +54,7 @@ impl<'a> SliceWithPos<'a> {
         let bytes = core::mem::size_of::<T>();
         // a slice can only be deserialized with zero copy
         // outerwise you need a vec, TODO!: how do we enforce this at compile time?
-        self = self.pad_align_and_check::<T>()?;
+        self = self.align::<T>()?;
         let (pre, data, after) = unsafe { self.data[..bytes].align_to::<T>() };
         debug_assert!(pre.is_empty());
         debug_assert!(after.is_empty());
@@ -79,7 +79,7 @@ impl<'a> SliceWithPos<'a> {
         let bytes = len * core::mem::size_of::<T>();
         // a slice can only be deserialized with zero copy
         // outerwise you need a vec, TODO!: how do we enforce this at compile time?
-        res_self = res_self.pad_align_and_check::<T>()?;
+        res_self = res_self.align::<T>()?;
         let (pre, data, after) = unsafe { res_self.data[..bytes].align_to::<T>() };
         debug_assert!(pre.is_empty());
         debug_assert!(after.is_empty());
@@ -109,7 +109,11 @@ impl<'a> ReadWithPos for SliceWithPos<'a> {
         self.pos
     }
 
-    fn pad_align_and_check<T>(mut self) -> des::Result<Self> {
+    /// Pad the cursor to the correct alignment.
+    ///
+    /// Note that this method also checks that
+    /// the absolute memory position is properly aligned.
+    fn align<T>(mut self) -> des::Result<Self> {
         // Skip bytes as needed
         let padding = crate::pad_align_to(self.pos, core::mem::align_of::<T>());
         self = self.skip(padding);

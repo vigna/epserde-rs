@@ -16,14 +16,9 @@ starting from a slice of bytes. The implementation of this trait
 is based on [`DeserializeInner`], which is automatically derived
 with `#[derive(Deserialize)]`.
 
-Note that [`Deserialize::deserialize_full_copy`] is internally necessary
-to deserialize fields whose type is not a parameter, but technically
-it could be hidden from the user interface. It can however be useful
-for debugging and in cases in which a full copy is necessary.
-
 */
 
-use crate::{CopySelector, Serialize, TypeHash, MAGIC, MAGIC_REV, VERSION};
+use crate::{CopySelector, TypeHash, MAGIC, MAGIC_REV, VERSION};
 use core::hash::Hasher;
 use std::{io::BufReader, path::Path};
 
@@ -70,7 +65,7 @@ pub trait Deserialize: DeserializeInner {
     }
 }
 
-impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
+impl<T: DeserializeInner> Deserialize for T {
     fn deserialize_full_copy(backend: impl ReadNoStd) -> Result<Self> {
         let mut backend = ReaderWithPos::new(backend);
 
@@ -90,6 +85,7 @@ impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
         let (res, _) = Self::_deserialize_full_copy_inner(backend)?;
         Ok(res)
     }
+
     fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
         let mut backend = SliceWithPos::new(backend);
 
@@ -152,9 +148,9 @@ fn check_header<R: ReadWithPos>(
     let type_hash = consume!(backend, u64);
     let type_repr_hash = consume!(backend, u64);
     let str_len = consume!(backend, usize);
-    let mut buff = vec![0; str_len];
-    backend.read_exact(&mut buff).unwrap();
-    let type_name = String::from_utf8(buff).unwrap();
+    let mut buf = vec![0; str_len];
+    backend.read_exact(&mut buf).unwrap();
+    let type_name = String::from_utf8(buf).unwrap();
 
     if type_hash != self_hash {
         return Err(DeserializeError::WrongTypeHash {

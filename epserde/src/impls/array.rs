@@ -46,7 +46,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper
     type DeserType<'a> = &'a [T; N];
     #[inline(always)]
     fn _deserialize_full_copy_inner_impl<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
-        backend = backend.pad_align_and_check::<T>()?;
+        backend = backend.align::<T>()?;
         let mut res = MaybeUninit::<[T; N]>::uninit();
         // SAFETY: read_exact guarantees that the array will be filled with data.
         unsafe {
@@ -60,7 +60,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper
         mut backend: SliceWithPos,
     ) -> Result<(<Self as DeserializeInner>::DeserType<'_>, SliceWithPos)> {
         let bytes = std::mem::size_of::<[T; N]>();
-        backend = backend.pad_align_and_check::<T>()?;
+        backend = backend.align::<T>()?;
         let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<[T; N]>() };
         debug_assert!(pre.is_empty());
         debug_assert!(after.is_empty());
@@ -73,7 +73,7 @@ impl<T: EpsCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<
     type DeserType<'a> = [<T as DeserializeInner>::DeserType<'a>; N];
     #[inline(always)]
     fn _deserialize_full_copy_inner_impl<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
-        backend = backend.pad_align_and_check::<T>()?;
+        backend = backend.align::<T>()?;
         let mut res = MaybeUninit::<[T; N]>::uninit();
         unsafe {
             for item in &mut res.assume_init_mut().iter_mut() {
@@ -88,7 +88,7 @@ impl<T: EpsCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<
     fn _deserialize_eps_copy_inner_impl(
         mut backend: SliceWithPos,
     ) -> Result<(<Self as DeserializeInner>::DeserType<'_>, SliceWithPos)> {
-        backend = backend.pad_align_and_check::<T>()?;
+        backend = backend.align::<T>()?;
         let mut res = MaybeUninit::<<Self as DeserializeInner>::DeserType<'_>>::uninit();
         unsafe {
             for item in &mut res.assume_init_mut().iter_mut() {

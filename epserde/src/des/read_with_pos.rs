@@ -5,26 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
-
-Deserialization traits and types
-
-[`Deserialize`] is the main deserialization trait, providing methods
-[`Deserialize::deserialize_eps_copy`] and [`Deserialize::deserialize_full_copy`]
-which implement ε-copy and full-copy deserialization, respectively,
-starting from a slice of bytes. The implementation of this trait
-is based on [`DeserializeInner`], which is automatically derived
-with `#[derive(Deserialize)]`.
-
-Note that [`Deserialize::deserialize_full_copy`] is internally necessary
-to deserialize fields whose type is not a parameter, but technically
-it could be hidden from the user interface. It can however be useful
-for debugging and in cases in which a full copy is necessary.
-
-*/
-
-use crate::ZeroCopy;
 use crate::{des, DeserializeError, DeserializeInner};
+use crate::{EpsCopy, ZeroCopy};
 use core::mem::MaybeUninit;
 
 /// [`std::io::Read`]-like trait for serialization that does not
@@ -62,15 +44,15 @@ impl<W: Read> ReadNoStd for W {
 /// This is needed because the [`Read`] trait doesn't have a `seek` method and
 /// [`std::io::Seek`] would be a requirement much stronger than needed.
 pub trait ReadWithPos: ReadNoStd + Sized {
+    /// Return the current position.
     fn pos(&self) -> usize;
 
-    /// Pad the cursor to the correct alignment and check that the resulting
-    /// pointer is aligned correctly.
-    fn pad_align_and_check<T>(self) -> des::Result<Self>;
+    /// Pad the cursor to the correct alignment.
+    fn align<T>(self) -> des::Result<Self>;
 
-    /// Read a zero-copy type from the backend.
+    /// Read a zero-copy type from the backend after calling [`pad_align_and_check`].
     fn read_full_zero_copy<T: ZeroCopy>(mut self) -> des::Result<(T, Self)> {
-        self = self.pad_align_and_check::<Self>()?;
+        self = self.align::<T>()?;
         unsafe {
             #[allow(clippy::uninit_assumed_init)]
             let mut buf: T = MaybeUninit::uninit().assume_init();
@@ -83,9 +65,15 @@ pub trait ReadWithPos: ReadNoStd + Sized {
         }
     }
 
-    fn deserialize_vec_full_zero<T: DeserializeInner>(self) -> des::Result<(Vec<T>, Self)> {
+    /// Deserializes fully a vector of [`ZeroCopy`] types.
+    ///
+    /// Note that this method uses a single [`ReadNoStd::read_exact`]
+    /// call to read the entire vector.
+    fn deserialize_vec_full_zero<T: DeserializeInner + ZeroCopy>(
+        self,
+    ) -> des::Result<(Vec<T>, Self)> {
         let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
-        res_self = res_self.pad_align_and_check::<T>()?;
+        res_self = res_self.align::<T>()?;
         let mut res = Vec::with_capacity(len);
         // SAFETY: we just allocated this vector so it is safe to set the length.
         // read_exact guarantees that the vector will be filled with data.
@@ -98,7 +86,10 @@ pub trait ReadWithPos: ReadNoStd + Sized {
         Ok((res, res_self))
     }
 
-    fn deserialize_vec_full_eps<T: DeserializeInner>(self) -> des::Result<(Vec<T>, Self)> {
+    /// Deserializes fully a vector of [`EpsCopy`] types.
+    fn deserialize_vec_full_eps<T: DeserializeInner + EpsCopy>(
+        self,
+    ) -> des::Result<(Vec<T>, Self)> {
         let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
         let mut res = Vec::with_capacity(len);
         for _ in 0..len {
@@ -121,7 +112,7 @@ pub struct ReaderWithPos<F: ReadNoStd> {
 
 impl<F: ReadNoStd> ReaderWithPos<F> {
     #[inline(always)]
-    /// Create a new [`ReadWithPos`] on top of a generic Reader `F`
+    /// Create a new [`ReadWithPos`] on top of a generic [`ReadNoStd`].
     pub fn new(backend: F) -> Self {
         Self { backend, pos: 0 }
     }
@@ -147,7 +138,7 @@ impl<F: ReadNoStd> ReadWithPos for ReaderWithPos<F> {
         self.pos
     }
 
-    fn pad_align_and_check<T>(mut self) -> des::Result<Self> {
+    fn align<T>(mut self) -> des::Result<Self> {
         // Skip bytes as needed
         let padding = crate::pad_align_to(self.pos, core::mem::align_of::<T>());
         self.read_exact(&mut vec![0; padding])?;

@@ -42,7 +42,7 @@ macro_rules! impl_prim{
 		impl DeserializeInner for $ty {
             #[inline(always)]
             fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> des::Result<(Self, R)> {
-                backend = backend.pad_align_and_check::<$ty>()?;
+                backend = backend.align::<$ty>()?;
                 let mut buf = [0; core::mem::size_of::<$ty>()];
                 backend.read_exact(&mut buf)?;
                 Ok((
@@ -55,7 +55,7 @@ macro_rules! impl_prim{
             fn _deserialize_eps_copy_inner(
                 mut backend: SliceWithPos,
             ) -> des::Result<(Self::DeserType<'_>, SliceWithPos)> {
-                backend = backend.pad_align_and_check::<$ty>()?;
+                backend = backend.align::<$ty>()?;
                 Ok((
                     <$ty>::from_ne_bytes(
                         backend.data[..core::mem::size_of::<$ty>()]
