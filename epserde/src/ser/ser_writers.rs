@@ -39,11 +39,17 @@ pub trait FieldWrite: WriteNoStd + Sized {
     }
 
     /// add a single zero_copy value to the serializer
-    fn add_zero_copy<V: ZeroCopy>(
+    fn add_zero_copy<V: ZeroCopy + SerializeInner>(
         mut self,
         field_name: &str,
         value: &V,
     ) -> super::ser::Result<Self> {
+        if !V::IS_ZERO_COPY {
+            panic!(
+                "Cannot serialize non zero-copy type {} declared as zero copy",
+                core::any::type_name::<Self>()
+            );
+        }
         // ensure alignment
         self.add_padding_to_align(core::mem::align_of::<V>())?;
         let buffer = unsafe {

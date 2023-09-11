@@ -286,13 +286,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         #[inline(always)]
                         fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
-                            if ! Self::IS_ZERO_COPY {
-                                panic!("Cannot serialize non zero-copy type {} declared as zero copy", core::any::type_name::<Self>());
-                            }
-                            backend.add_padding_to_align(core::mem::align_of::<Self>())?;
-                            #(
-                                backend= backend.add_field(stringify!(#fields_names), &self.#fields_names)?;
-                            )*
+                            backend.add_zero_copy("data", self)?;
                             Ok(backend)
                         }
                     }
@@ -304,16 +298,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             mut backend: R,
                         ) -> core::result::Result<(Self, R), epserde::des::DeserializeError> {
                             use epserde::des::DeserializeInner;
-                            backend = backend.pad_align_and_check::<Self>()?;
-                            unsafe {
-                                let mut buf Self;
-                                let slice = core::slice::from_raw_parts(
-                                    &mut buf as *mut Self as *mut u8,
-                                    core::mem::size_of::<Self>(),
-                                );
-                                backend.read_exact(slice)?;
-                                Ok((buf, backend))
-                            };
+                            backend.read_full_zero_copy::<Self>()
                         }
 
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#(#desser_type_generics,)*>;
@@ -322,13 +307,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             backend: epserde::des::SliceWithPos,
                         ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::SliceWithPos), epserde::des::DeserializeError>
                         {
-                            let mut backend = backend;
-                            let bytes = core::mem::size_of::<Self>();
-                            backend = backend.pad_align_and_check::<Self>()?;
-                            let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<Self>() };
-                            debug_assert!(pre.is_empty());
-                            debug_assert!(after.is_empty());
-                            Ok((&data[0], backend.skip(bytes)))
+                            backend.read_eps_zero_copy::<Self>()
                         }
                     }
                 }
