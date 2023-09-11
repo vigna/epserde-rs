@@ -1,7 +1,13 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 #![cfg(test)]
 
+use core::hash::Hasher;
 use epserde::*;
-use std::hash::Hasher;
 use xxhash_rust::xxh3::Xxh3;
 
 #[test]

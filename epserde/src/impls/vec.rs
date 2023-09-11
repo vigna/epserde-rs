@@ -10,9 +10,27 @@ use crate::des::*;
 use crate::ser;
 use crate::ser::*;
 use crate::{CopyType, Eps, EpsCopy, TypeHash, Zero, ZeroCopy};
+use core::hash::Hash;
 
 impl<T> CopyType for Vec<T> {
     type Copy = Eps;
+}
+
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::vec::Vec;
+#[cfg(feature = "alloc")]
+impl<T: TypeHash> TypeHash for Vec<T> {
+    #[inline(always)]
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "Vec".hash(hasher);
+        T::type_hash(hasher);
+    }
+    #[inline(always)]
+    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
+        core::mem::align_of::<Self>().hash(hasher);
+        core::mem::size_of::<Self>().hash(hasher);
+        T::type_repr_hash(hasher);
+    }
 }
 
 impl<T: CopyType + SerializeInner + TypeHash> SerializeInner for Vec<T>

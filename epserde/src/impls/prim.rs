@@ -9,22 +9,31 @@ use core::marker::PhantomData;
 
 use crate::des;
 use crate::ser;
-use crate::ser::FieldWrite;
-use crate::CopyType;
-use crate::DeserializeError;
-use crate::DeserializeInner;
-use crate::Eps;
-use crate::ReadWithPos;
-use crate::SerializeInner;
-use crate::SliceWithPos;
-use crate::Zero;
+use crate::*;
+use core::hash::Hash;
 
-macro_rules! impl_prim{
+macro_rules! impl_prim_type_hash {
     ($($ty:ty),*) => {$(
         impl CopyType for $ty {
             type Copy = Zero;
         }
 
+        impl TypeHash for $ty {
+            #[inline(always)]
+            fn type_hash(hasher: &mut impl core::hash::Hasher) {
+                stringify!($ty).hash(hasher);
+            }
+            #[inline(always)]
+            fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
+                core::mem::align_of::<Self>().hash(hasher);
+                core::mem::size_of::<Self>().hash(hasher);
+            }
+        }
+    )*};
+}
+
+macro_rules! impl_prim_ser_des {
+    ($($ty:ty),*) => {$(
 		impl SerializeInner for $ty {
             // here we are lying :)
             // primitive types are zero copy, but we won't return
@@ -69,13 +78,28 @@ macro_rules! impl_prim{
     )*};
 }
 
-impl_prim!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32, f64);
+impl_prim_type_hash!(
+    isize,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    usize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    f32,
+    f64,
+    bool,
+    char,
+    ()
+);
+impl_prim_ser_des!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32, f64);
 
 // Booleans are zero-copy serialized as u8.
-
-impl CopyType for bool {
-    type Copy = Zero;
-}
 
 impl SerializeInner for bool {
     const IS_ZERO_COPY: bool = true;
@@ -105,10 +129,6 @@ impl DeserializeInner for bool {
 
 // Chars are zero-copy serialized as u32.
 
-impl CopyType for char {
-    type Copy = Zero;
-}
-
 impl SerializeInner for char {
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -133,10 +153,44 @@ impl DeserializeInner for char {
     }
 }
 
+// () is zero-copy. No reading or writing is performed when (de)serializing it.
+
+impl SerializeInner for () {
+    const IS_ZERO_COPY: bool = true;
+    const ZERO_COPY_MISMATCH: bool = false;
+
+    #[inline(always)]
+    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
+        Ok(backend)
+    }
+}
+
+impl DeserializeInner for () {
+    #[inline(always)]
+    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> des::Result<(Self, R)> {
+        Ok(((), backend))
+    }
+    type DeserType<'a> = Self;
+    #[inline(always)]
+    fn _deserialize_eps_copy_inner(
+        backend: SliceWithPos,
+    ) -> des::Result<(Self::DeserType<'_>, SliceWithPos)> {
+        Ok(((), backend))
+    }
+}
+
 // PhantomData is zero-copy. No reading or writing is performed when (de)serializing it.
 
 impl<T> CopyType for PhantomData<T> {
     type Copy = Zero;
+}
+
+impl<T: TypeHash> TypeHash for PhantomData<T> {
+    #[inline(always)]
+    fn type_hash(_hasher: &mut impl core::hash::Hasher) {}
+
+    #[inline(always)]
+    fn type_repr_hash(_hasher: &mut impl core::hash::Hasher) {}
 }
 
 impl<T: SerializeInner> SerializeInner for PhantomData<T> {
@@ -166,40 +220,24 @@ impl<T: DeserializeInner> DeserializeInner for PhantomData<T> {
     }
 }
 
-// () is zero-copy. No reading or writing is performed when (de)serializing it.
-
-impl CopyType for () {
-    type Copy = Zero;
-}
-
-impl SerializeInner for () {
-    const IS_ZERO_COPY: bool = true;
-    const ZERO_COPY_MISMATCH: bool = false;
-
-    #[inline(always)]
-    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
-        Ok(backend)
-    }
-}
-
-impl DeserializeInner for () {
-    #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> des::Result<(Self, R)> {
-        Ok(((), backend))
-    }
-    type DeserType<'a> = Self;
-    #[inline(always)]
-    fn _deserialize_eps_copy_inner(
-        backend: SliceWithPos,
-    ) -> des::Result<(Self::DeserType<'_>, SliceWithPos)> {
-        Ok(((), backend))
-    }
-}
-
 // Options are ε-copy types serialized as a one-byte tag (0 for None, 1 for Some) followed, in case, by the value.
 
 impl<T> CopyType for Option<T> {
     type Copy = Eps;
+}
+
+impl<T: TypeHash> TypeHash for Option<T> {
+    #[inline(always)]
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "Option".hash(hasher);
+        T::type_hash(hasher);
+    }
+    #[inline(always)]
+    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
+        core::mem::align_of::<Self>().hash(hasher);
+        core::mem::size_of::<Self>().hash(hasher);
+        T::type_repr_hash(hasher);
+    }
 }
 
 impl<T: SerializeInner> SerializeInner for Option<T> {

@@ -107,35 +107,6 @@ pub trait SerializeHelper<T: CopySelector> {
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;
 }
 
-// This delegates to a private helper trait which we can specialize on in stable rust
-impl<T: CopyType + SerializeInner + TypeHash, const N: usize> SerializeInner for [T; N]
-where
-    [T; N]: SerializeHelper<<T as CopyType>::Copy>,
-{
-    const IS_ZERO_COPY: bool = T::IS_ZERO_COPY;
-    const ZERO_COPY_MISMATCH: bool = T::ZERO_COPY_MISMATCH;
-    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
-        SerializeHelper::_serialize_inner(self, backend)
-    }
-}
-
-impl<T: ZeroCopy + SerializeInner, const N: usize> SerializeHelper<Zero> for [T; N] {
-    #[inline(always)]
-    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F> {
-        backend.add_zero_copy("data", self)
-    }
-}
-
-impl<T: EpsCopy + SerializeInner, const N: usize> SerializeHelper<Eps> for [T; N] {
-    #[inline(always)]
-    fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
-        for item in self.iter() {
-            backend = backend.add_field_align("data", item)?;
-        }
-        Ok(backend)
-    }
-}
-
 #[derive(Debug)]
 /// Errors that can happen during serialization
 pub enum SerializeError {

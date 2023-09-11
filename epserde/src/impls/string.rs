@@ -13,9 +13,38 @@ Implementations for strings.
 
 use crate::des::*;
 use crate::*;
+use core::hash::Hash;
 
 impl CopyType for String {
     type Copy = Eps;
+}
+
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::string::String;
+
+#[cfg(feature = "alloc")]
+impl TypeHash for String {
+    #[inline(always)]
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "String".hash(hasher);
+    }
+    #[inline(always)]
+    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
+        core::mem::align_of::<Self>().hash(hasher);
+        core::mem::size_of::<Self>().hash(hasher);
+    }
+}
+
+impl TypeHash for str {
+    #[inline(always)]
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "str".hash(hasher);
+    }
+    #[inline(always)]
+    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
+        core::mem::align_of::<char>().hash(hasher);
+        core::mem::size_of::<char>().hash(hasher);
+    }
 }
 
 impl SerializeInner for String {

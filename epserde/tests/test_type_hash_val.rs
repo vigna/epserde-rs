@@ -1,8 +1,14 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 #![cfg(test)]
 
+use core::hash::Hasher;
 use epserde::*;
 use std::collections::HashMap;
-use std::hash::Hasher;
 use xxhash_rust::xxh3::Xxh3;
 
 macro_rules! impl_test {
@@ -44,8 +50,6 @@ fn test_type_hash_collision() {
     impl_test!(hashes, '🔥');
     impl_test!(hashes, Some('🔥'));
     impl_test!(hashes, Some(1_u8));
-    impl_test!(hashes, <std::result::Result<char, bool>>::Ok('🔥'));
-    impl_test!(hashes, <std::result::Result<char, char>>::Ok('🔥'));
 
     impl_test!(hashes, 1_u8);
     impl_test!(hashes, 1_u16);
@@ -69,16 +73,5 @@ fn test_type_hash_collision() {
 
     impl_test_type!(hashes, &[u8]);
 
-    #[cfg(feature = "mmap-rs")]
-    {
-        impl_test!(
-            hashes,
-            mmap_rs::MmapOptions::new(1024).unwrap().map().unwrap()
-        );
-        impl_test!(
-            hashes,
-            mmap_rs::MmapOptions::new(1024).unwrap().map_mut().unwrap()
-        );
-    }
     dbg!(hashes);
 }

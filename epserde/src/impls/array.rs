@@ -7,22 +7,69 @@
 
 use core::mem::MaybeUninit;
 
-use crate::{CopyType, DeserializeInner, Eps, EpsCopy, SliceWithPos, Zero, ZeroCopy};
-
-use crate::des::*;
+use crate::des::{self, DeserializeHelper};
+use crate::ser;
+use crate::ser::SerializeHelper;
+use crate::{
+    CopyType, DeserializeInner, Eps, EpsCopy, FieldWrite, ReadWithPos, SerializeInner,
+    SliceWithPos, TypeHash, Zero, ZeroCopy,
+};
+use core::hash::Hash;
 
 impl<T: CopyType, const N: usize> CopyType for [T; N] {
     type Copy = T::Copy;
 }
 
-// This delegates to a private helper trait which we can specialize on in stable rust
+impl<T: TypeHash, const N: usize> TypeHash for [T; N] {
+    #[inline(always)]
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "[;]".hash(hasher);
+        T::type_hash(hasher);
+        N.hash(hasher);
+    }
+    #[inline(always)]
+    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
+        core::mem::align_of::<Self>().hash(hasher);
+        core::mem::size_of::<Self>().hash(hasher);
+        T::type_repr_hash(hasher);
+    }
+}
+
+impl<T: CopyType + SerializeInner + TypeHash, const N: usize> SerializeInner for [T; N]
+where
+    [T; N]: SerializeHelper<<T as CopyType>::Copy>,
+{
+    const IS_ZERO_COPY: bool = T::IS_ZERO_COPY;
+    const ZERO_COPY_MISMATCH: bool = T::ZERO_COPY_MISMATCH;
+    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
+        SerializeHelper::_serialize_inner(self, backend)
+    }
+}
+
+impl<T: ZeroCopy + SerializeInner, const N: usize> SerializeHelper<Zero> for [T; N] {
+    #[inline(always)]
+    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
+        backend.add_zero_copy("data", self)
+    }
+}
+
+impl<T: EpsCopy + SerializeInner, const N: usize> SerializeHelper<Eps> for [T; N] {
+    #[inline(always)]
+    fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> ser::Result<F> {
+        for item in self.iter() {
+            backend = backend.add_field_align("data", item)?;
+        }
+        Ok(backend)
+    }
+}
+
 impl<T: CopyType + DeserializeInner + 'static, const N: usize> DeserializeInner for [T; N]
 where
     [T; N]: DeserializeHelper<<T as CopyType>::Copy, FullType = [T; N]>,
 {
     type DeserType<'a> = <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
     #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<([T; N], R)> {
+    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> des::Result<([T; N], R)> {
         <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_copy_inner_impl(
             backend,
         )
@@ -31,7 +78,7 @@ where
     #[inline(always)]
     fn _deserialize_eps_copy_inner(
         backend: SliceWithPos,
-    ) -> Result<(
+    ) -> des::Result<(
         <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'_>,
         SliceWithPos,
     )> {
@@ -45,7 +92,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper
     type FullType = Self;
     type DeserType<'a> = &'a [T; N];
     #[inline(always)]
-    fn _deserialize_full_copy_inner_impl<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
+    fn _deserialize_full_copy_inner_impl<R: ReadWithPos>(mut backend: R) -> des::Result<(Self, R)> {
         backend = backend.align::<T>()?;
         let mut res = MaybeUninit::<[T; N]>::uninit();
         // SAFETY: read_exact guarantees that the array will be filled with data.
@@ -58,7 +105,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper
 
     fn _deserialize_eps_copy_inner_impl(
         mut backend: SliceWithPos,
-    ) -> Result<(<Self as DeserializeInner>::DeserType<'_>, SliceWithPos)> {
+    ) -> des::Result<(<Self as DeserializeInner>::DeserType<'_>, SliceWithPos)> {
         let bytes = std::mem::size_of::<[T; N]>();
         backend = backend.align::<T>()?;
         let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<[T; N]>() };
@@ -72,7 +119,7 @@ impl<T: EpsCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<
     type FullType = Self;
     type DeserType<'a> = [<T as DeserializeInner>::DeserType<'a>; N];
     #[inline(always)]
-    fn _deserialize_full_copy_inner_impl<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
+    fn _deserialize_full_copy_inner_impl<R: ReadWithPos>(mut backend: R) -> des::Result<(Self, R)> {
         backend = backend.align::<T>()?;
         let mut res = MaybeUninit::<[T; N]>::uninit();
         unsafe {
@@ -87,7 +134,7 @@ impl<T: EpsCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<
     #[inline(always)]
     fn _deserialize_eps_copy_inner_impl(
         mut backend: SliceWithPos,
-    ) -> Result<(<Self as DeserializeInner>::DeserType<'_>, SliceWithPos)> {
+    ) -> des::Result<(<Self as DeserializeInner>::DeserType<'_>, SliceWithPos)> {
         backend = backend.align::<T>()?;
         let mut res = MaybeUninit::<<Self as DeserializeInner>::DeserType<'_>>::uninit();
         unsafe {
