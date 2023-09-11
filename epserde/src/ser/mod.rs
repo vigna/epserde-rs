@@ -102,7 +102,7 @@ impl<T: SerializeInner> Serialize for T {}
 /// Errors that can happen during serialization
 pub enum SerializeError {
     /// The underlying writer returned an error
-    WriteError(core::fmt::Error),
+    WriteError,
     /// [`Serialize::store`] could not open the provided file.
     FileOpenError(std::io::Error),
 }
@@ -112,7 +112,8 @@ impl std::error::Error for SerializeError {}
 impl core::fmt::Display for SerializeError {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
-            Self::WriteError(error) => {
+            Self::WriteError => write!(f, "Write error during ε-serde serialization"),
+            Self::FileOpenError(error) => {
                 write!(f, "Write error during ε-serde serialization: {}", error)
             }
         }
@@ -141,11 +142,11 @@ use std::io::Write;
 impl<W: Write> WriteNoStd for W {
     #[inline(always)]
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        Write::write(self, buf).map_err(|_| core::fmt::Error)
+        Write::write(self, buf).map_err(|_| SerializeError::WriteError)
     }
     #[inline(always)]
     fn flush(&mut self) -> Result<()> {
-        Write::flush(self).map_err(|_| core::fmt::Error)
+        Write::flush(self).map_err(|_| SerializeError::WriteError)
     }
 }
 
