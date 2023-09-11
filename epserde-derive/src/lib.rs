@@ -304,7 +304,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             mut backend: R,
                         ) -> core::result::Result<(Self, R), epserde::des::DeserializeError> {
                             use epserde::des::DeserializeInner;
-                            backend = Self::pad_align_and_check(backend)?;
+                            backend = backend.pad_align_and_check::<Self>(backend)?;
                             #(
                                 let (#fields_names, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;
                             )*
@@ -321,7 +321,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         {
                             let mut backend = backend;
                             let bytes = core::mem::size_of::<Self>();
-                            backend = Self::pad_align_and_check(backend)?;
+                            backend = backend.pad_align_and_check::<Self>()?;
                             let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<Self>() };
                             debug_assert!(pre.is_empty());
                             debug_assert!(after.is_empty());
