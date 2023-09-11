@@ -24,9 +24,12 @@ for debugging and in cases in which a full copy is necessary.
 */
 use crate::{Serialize, TypeHash, MAGIC, MAGIC_REV, VERSION};
 use core::hash::Hasher;
+use std::{io::BufReader, path::Path};
 
 mod des_impl;
 pub use des_impl::*;
+
+pub type Result<T> = core::result::Result<T, DeserializeError>;
 
 /// Inner trait to implement deserialization of a type. This trait exists
 /// to separate the user-facing [`Deserialize`] trait from the low-level
@@ -39,11 +42,9 @@ pub use des_impl::*;
 /// The user should not implement this trait directly, but rather derive it.
 pub trait DeserializeInner: TypeHash + Sized {
     type DeserType<'a>: TypeHash;
-    fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor), DeserializeError>;
+    fn _deserialize_full_copy_inner(backend: Cursor) -> Result<(Self, Cursor)>;
 
-    fn _deserialize_eps_copy_inner(
-        backend: Cursor,
-    ) -> Result<(Self::DeserType<'_>, Cursor), DeserializeError>;
+    fn _deserialize_eps_copy_inner(backend: Cursor) -> Result<(Self::DeserType<'_>, Cursor)>;
 }
 
 /// Main serialization trait. It is separated from [`DeserializeInner`] to
@@ -51,13 +52,22 @@ pub trait DeserializeInner: TypeHash + Sized {
 /// methods.
 pub trait Deserialize: DeserializeInner {
     /// Full-copy deserialize a structure of this type from the given backend.
-    fn deserialize_full_copy(backend: &[u8]) -> Result<Self, DeserializeError>;
+    fn deserialize_full_copy(backend: &[u8]) -> Result<Self>;
     /// ε-copy deserialize a structure of this type from the given backend.
-    fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>, DeserializeError>;
+    fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
+
+    /*
+    fn load_full(&self, path: impl AsRef<Path>) -> Result<Self> {
+        let mut file = std::fs::File::open(path)?;
+        let mut buf_reader = BufReader::new(file);
+        Self::deserialize_full(&mut buf_reader)?;
+        Ok(())
+    }
+    */
 }
 
 impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
-    fn deserialize_full_copy(backend: &[u8]) -> Result<Self, DeserializeError> {
+    fn deserialize_full_copy(backend: &[u8]) -> Result<Self> {
         let mut backend = Cursor::new(backend);
 
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
@@ -72,7 +82,7 @@ impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
         let (res, _) = Self::_deserialize_full_copy_inner(backend)?;
         Ok(res)
     }
-    fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>, DeserializeError> {
+    fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
         let mut backend = Cursor::new(backend);
 
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
@@ -90,11 +100,7 @@ impl<T: DeserializeInner + TypeHash + Serialize> Deserialize for T {
 }
 
 /// Common code for both full-copy and zero-copy deserialization
-fn check_header(
-    backend: Cursor,
-    self_hash: u64,
-    self_name: String,
-) -> Result<Cursor, DeserializeError> {
+fn check_header(backend: Cursor, self_hash: u64, self_name: String) -> Result<Cursor> {
     let (magic, backend) = u64::_deserialize_full_copy_inner(backend)?;
     match magic {
         MAGIC => Ok(()),
@@ -136,6 +142,8 @@ fn check_header(
 #[derive(Debug, Clone, PartialEq)]
 /// Errors that can happen during deserialization
 pub enum DeserializeError {
+    /// The underlying reader returned an error
+    ReadError,
     /// The file is reasonable but the endianess is wrong.
     EndiannessError,
     /// Some field is not properly aligned. This can be either a serialization
@@ -171,6 +179,7 @@ impl std::error::Error for DeserializeError {}
 impl core::fmt::Display for DeserializeError {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
+            Self::ReadError => write!(f, "Read error during ε-serde serialization"),
             Self::EndiannessError => write!(
                 f,
                 "The current arch is {}-endian but the data is {}-endian.",
@@ -250,5 +259,57 @@ impl<'a> Cursor<'a> {
             data: &self.data[bytes..],
             pos: self.pos + bytes,
         }
+    }
+}
+
+/// [`std::io::Read`]-like trait for serialization that does not
+/// depend on [`std`].
+///
+/// In an [`std`] context, the user does not need to use directly
+/// this trait as we provide a blanket
+/// implementation that implements [`ReadNoStd`] for all types that implement
+/// [`std::io::Read`]. In particular, in such a context you can use [`std::io::Cursor`]
+/// for in-memory deserialization.
+pub trait ReadNoStd {
+    /// Read some bytes and return the number of bytes read
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize>;
+}
+
+#[cfg(feature = "std")]
+use std::io::Read;
+#[cfg(feature = "std")]
+impl<W: Read> ReadNoStd for W {
+    #[inline(always)]
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        Read::read(self, buf).map_err(|_| DeserializeError::ReadError)
+    }
+}
+
+/// A little wrapper around a reader that keeps track of the current position
+/// so we can align the data.
+///
+/// This is needed because the [`Read`] trait doesn't have a `seek` method and
+/// [`std::io::Seek`] would be a requirement much stronger than needed.
+pub struct ReadWithPos<F: ReadNoStd> {
+    /// What we actually readfrom
+    backend: F,
+    /// How many bytes we have read from the start
+    pos: usize,
+}
+
+impl<F: ReadNoStd> ReadWithPos<F> {
+    #[inline(always)]
+    /// Create a new [`ReadWithPos`] on top of a generic Reader `F`
+    pub fn new(backend: F) -> Self {
+        Self { backend, pos: 0 }
+    }
+}
+
+impl<F: ReadNoStd> ReadNoStd for ReadWithPos<F> {
+    #[inline(always)]
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        let res = self.backend.read(buf)?;
+        self.pos += res;
+        Ok(res)
     }
 }

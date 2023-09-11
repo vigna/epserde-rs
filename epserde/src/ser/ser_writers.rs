@@ -7,80 +7,6 @@
 
 use super::*;
 
-/// The type of result returned by the serialization functions
-pub type Result<T> = core::result::Result<T, core::fmt::Error>;
-
-/// [`std::io::Write`]-like trait for serialization that does not
-/// depend on [`std`].
-///
-/// In an [`std`] context, the user does not need to use directly
-/// this trait as we provide a blanket
-/// implementation that implements [`WriteNoStd`] for all types that implement
-/// [`std::io::Write`]. In particular, in such a context you can use [`std::io::Cursor`]
-/// for in-memory serialization.
-pub trait WriteNoStd {
-    /// Write some bytes and return the number of bytes written (trivial buf.len())
-    fn write(&mut self, buf: &[u8]) -> Result<usize>;
-
-    /// Flush all changes to the underlying storage if applicable
-    fn flush(&mut self) -> Result<()>;
-}
-
-#[cfg(feature = "std")]
-use std::io::Write;
-#[cfg(feature = "std")]
-impl<W: Write> WriteNoStd for W {
-    #[inline(always)]
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        Write::write(self, buf).map_err(|_| core::fmt::Error)
-    }
-    #[inline(always)]
-    fn flush(&mut self) -> Result<()> {
-        Write::flush(self).map_err(|_| core::fmt::Error)
-    }
-}
-
-/// A little wrapper around a writer that keeps track of the current position
-/// so we can align the data.
-///
-/// This is needed because the [`Write`] trait doesn't have a `seek` method and
-/// [`std::io::Seek`] would be a requirement much stronger than needed.
-pub struct WriteWithPos<F: WriteNoStd> {
-    /// What we actually write on
-    backend: F,
-    /// How many bytes we have written from the start
-    pos: usize,
-}
-
-impl<F: WriteNoStd> WriteWithPos<F> {
-    #[inline(always)]
-    /// Create a new [`WriteWithPos`] on top of a generic writer `F`
-    pub fn new(backend: F) -> Self {
-        Self { backend, pos: 0 }
-    }
-}
-
-impl<F: WriteNoStd> FieldWrite for WriteWithPos<F> {
-    #[inline(always)]
-    fn get_pos(&self) -> usize {
-        self.pos
-    }
-}
-
-impl<F: WriteNoStd> WriteNoStd for WriteWithPos<F> {
-    #[inline(always)]
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        let res = self.backend.write(buf)?;
-        self.pos += res;
-        Ok(res)
-    }
-
-    #[inline(always)]
-    fn flush(&mut self) -> Result<()> {
-        self.backend.flush()
-    }
-}
-
 /// Trait providing methods to write fields and bytes; moreover,
 /// implementors need to keep track of the current position
 /// in the [`WriteNoStd`] stream. This is needed to guarante the correct alignment of the data to
@@ -104,7 +30,11 @@ pub trait FieldWrite: WriteNoStd + Sized {
     #[inline(always)]
     /// Add a complex field to the serialization, this is mostly used by the
     /// full-copy implementations
-    fn add_field<V: SerializeInner>(self, _field_name: &str, value: &V) -> Result<Self> {
+    fn add_field<V: SerializeInner>(
+        self,
+        _field_name: &str,
+        value: &V,
+    ) -> super::ser::Result<Self> {
         value._serialize_inner(self)
     }
 
