@@ -22,12 +22,11 @@ it could be hidden from the user interface. It can however be useful
 for debugging and in cases in which a full copy is necessary.
 
 */
-use crate::{Serialize, TypeHash, ZeroCopy, MAGIC, MAGIC_REV, VERSION};
+
+use crate::des;
+use crate::{CopySelector, Serialize, TypeHash, ZeroCopy, MAGIC, MAGIC_REV, VERSION};
 use core::{hash::Hasher, mem::MaybeUninit};
 use std::{io::BufReader, path::Path};
-
-mod des_impl;
-pub use des_impl::*;
 
 pub type Result<T> = core::result::Result<T, DeserializeError>;
 
@@ -169,6 +168,19 @@ fn check_header<R: ReadWithPos>(
     }
 
     Ok(backend)
+}
+
+// Since impls with distinct parameters are considered disjoint
+// we can write multiple blanket impls for DeserializeHelper given different paremeters
+pub trait DeserializeHelper<T: CopySelector> {
+    // TODO: do we really need this?
+    type FullType: TypeHash;
+    type DeserType<'a>: TypeHash;
+    fn _deserialize_full_copy_inner_impl<R: ReadWithPos>(backend: R)
+        -> Result<(Self::FullType, R)>;
+    fn _deserialize_eps_copy_inner_impl(
+        backend: SliceWithPos,
+    ) -> Result<(Self::DeserType<'_>, SliceWithPos)>;
 }
 
 #[derive(Debug)]
@@ -334,6 +346,31 @@ impl<'a> SliceWithPos<'a> {
         debug_assert!(after.is_empty());
         Ok((&data[0], self.skip(bytes)))
     }
+
+    pub fn deserialize_vec_eps_eps<T: DeserializeInner>(
+        self,
+    ) -> des::Result<(Vec<<T as DeserializeInner>::DeserType<'a>>, Self)> {
+        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
+        let mut res = Vec::with_capacity(len);
+        for _ in 0..len {
+            let (elem, new_res_self) = T::_deserialize_eps_copy_inner(res_self)?;
+            res.push(elem);
+            res_self = new_res_self;
+        }
+        Ok((res, res_self))
+    }
+
+    pub fn deserialize_slice_zero<T: ZeroCopy>(self) -> des::Result<(&'a [T], Self)> {
+        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
+        let bytes = len * core::mem::size_of::<T>();
+        // a slice can only be deserialized with zero copy
+        // outerwise you need a vec, TODO!: how do we enforce this at compile time?
+        res_self = res_self.pad_align_and_check::<T>()?;
+        let (pre, data, after) = unsafe { res_self.data[..bytes].align_to::<T>() };
+        debug_assert!(pre.is_empty());
+        debug_assert!(after.is_empty());
+        Ok((data, res_self.skip(bytes)))
+    }
 }
 
 impl<'a> ReadNoStd for SliceWithPos<'a> {
@@ -424,6 +461,31 @@ pub trait ReadWithPos: ReadNoStd + Sized {
             self.read_exact(slice)?;
             Ok((buf, self))
         }
+    }
+
+    fn deserialize_vec_full_zero<T: DeserializeInner>(self) -> Result<(Vec<T>, Self)> {
+        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
+        res_self = res_self.pad_align_and_check::<T>()?;
+        let mut res = Vec::with_capacity(len);
+        // SAFETY: we just allocated this vector so it is safe to set the length.
+        // read_exact guarantees that the vector will be filled with data.
+        unsafe {
+            res.set_len(len);
+            res_self.read_exact(res.align_to_mut::<u8>().1)?;
+        }
+
+        Ok((res, res_self))
+    }
+
+    fn deserialize_vec_full_eps<T: DeserializeInner>(self) -> Result<(Vec<T>, Self)> {
+        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
+        let mut res = Vec::with_capacity(len);
+        for _ in 0..len {
+            let (elem, temp_self) = T::_deserialize_full_copy_inner(res_self)?;
+            res.push(elem);
+            res_self = temp_self;
+        }
+        Ok((res, res_self))
     }
 }
 

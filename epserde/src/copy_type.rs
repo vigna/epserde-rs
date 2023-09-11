@@ -86,23 +86,3 @@ impl<T: CopyType<Copy = Zero>> ZeroCopy for T {}
 /// this trait manually, but rather implement [`CopyType`] with `Copy=Eps`.
 pub trait EpsCopy: CopyType<Copy = Eps> {}
 impl<T: CopyType<Copy = Eps>> EpsCopy for T {}
-
-impl<T: CopyType, const N: usize> CopyType for [T; N] {
-    type Copy = T::Copy;
-}
-
-impl<T> CopyType for Vec<T> {
-    type Copy = Eps;
-}
-
-impl<T> CopyType for Box<[T]> {
-    type Copy = Eps;
-}
-
-impl CopyType for String {
-    type Copy = Eps;
-}
-
-impl CopyType for Box<str> {
-    type Copy = Eps;
-}

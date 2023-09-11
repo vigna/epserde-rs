@@ -5,6 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+pub mod array;
+pub mod boxed_slice;
 pub mod prim;
 pub mod slice;
+pub mod string;
 pub mod tuple;
+pub mod vec;
