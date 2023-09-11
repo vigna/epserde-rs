@@ -11,7 +11,8 @@ fn test_wrong_endianess() {
     let mut v = vec![];
     let mut buf = std::io::Cursor::new(&mut v);
 
-    let _ = data.serialize_with_schema(&mut buf).unwrap();
+    let schema = data.serialize_with_schema(&mut buf).unwrap();
+    println!("{}", schema.debug(&v));
 
     // set the reversed endianess
     v[0..8].copy_from_slice(&MAGIC_REV.to_ne_bytes());
@@ -111,7 +112,6 @@ fn test_wrong_endianess() {
     } else {
         panic!("wrong error type");
     }
-
     let err = <i128>::deserialize_eps_copy(&v);
     if let DeserializeError::WrongTypeHash {
         got_type_name,

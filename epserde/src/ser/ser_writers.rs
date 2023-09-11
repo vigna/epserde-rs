@@ -31,16 +31,17 @@ pub trait FieldWrite: WriteNoStd + Sized {
     /// Add a complex field to the serialization, this is mostly used by the
     /// full-copy implementations
     fn add_field<V: SerializeInner>(
-        self,
+        mut self,
         _field_name: &str,
         value: &V,
     ) -> super::ser::Result<Self> {
+        self.add_padding_to_align(core::mem::align_of::<V>())?;
         value._serialize_inner(self)
     }
 
     /// add a single zero_copy value to the serializer
     fn add_zero_copy<V: ZeroCopy + SerializeInner>(
-        mut self,
+        self,
         field_name: &str,
         value: &V,
     ) -> super::ser::Result<Self> {
@@ -50,8 +51,6 @@ pub trait FieldWrite: WriteNoStd + Sized {
                 core::any::type_name::<Self>()
             );
         }
-        // ensure alignment
-        self.add_padding_to_align(core::mem::align_of::<V>())?;
         let buffer = unsafe {
             #[allow(clippy::manual_slice_size_calculation)]
             core::slice::from_raw_parts(value as *const V as *const u8, core::mem::size_of::<V>())
@@ -72,8 +71,9 @@ pub trait FieldWrite: WriteNoStd + Sized {
         _field_name: &str,
         _type_name: String,
         value: &[u8],
-        _align: usize,
+        align: usize,
     ) -> Result<Self> {
+        self.add_padding_to_align(align)?;
         self.write(value)?;
         Ok(self)
     }
@@ -223,6 +223,7 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
 
     #[inline(always)]
     fn add_field<V: SerializeInner>(mut self, field_name: &str, value: &V) -> Result<Self> {
+        self.add_padding_to_align(core::mem::align_of::<V>())?;
         // prepare a row with the field name and the type
         self.path.push(field_name.into());
         let struct_idx = self.schema.0.len();
@@ -250,6 +251,7 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
         value: &[u8],
         align: usize,
     ) -> Result<Self> {
+        self.add_padding_to_align(align)?;
         // prepare a row with the field name and the type
         self.path.push(field_name.into());
         self.schema.0.push(SchemaRow {

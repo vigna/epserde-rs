@@ -22,7 +22,6 @@ macro_rules! impl_stuff{
 
             #[inline(always)]
             fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
-                backend.add_padding_to_align(core::mem::align_of::<Self>())?;
                 backend.write(&self.to_ne_bytes())?;
                 Ok(backend)
             }
@@ -35,8 +34,6 @@ impl_stuff!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32,
 /// this is a private function so we have a consistent implementation
 /// and slice can't be generally serialized
 fn serialize_zero_copy<T: Serialize, F: FieldWrite>(data: &T, mut backend: F) -> Result<F> {
-    // ensure alignment
-    backend.add_padding_to_align(core::mem::align_of::<T>())?;
     let buffer = unsafe {
         #[allow(clippy::manual_slice_size_calculation)]
         core::slice::from_raw_parts(data as *const T as *const u8, core::mem::size_of::<T>())
@@ -137,8 +134,6 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(
                 core::any::type_name::<T>()
             );
         }
-        // ensure alignment
-        backend.add_padding_to_align(core::mem::align_of::<T>())?;
         let buffer = unsafe {
             #[allow(clippy::manual_slice_size_calculation)]
             core::slice::from_raw_parts(data.as_ptr() as *const u8, len * core::mem::size_of::<T>())
