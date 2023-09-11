@@ -9,7 +9,7 @@ macro_rules! impl_test {
 
         let _ = $data.serialize_with_schema(&mut buf).unwrap();
 
-        let full_copy = <$ty>::deserialize_full_copy(&v).unwrap();
+        let full_copy = <$ty>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
         assert_eq!($data, full_copy);
 
         let epscopy = <$ty>::deserialize_eps_copy(&v).unwrap();
@@ -20,7 +20,7 @@ macro_rules! impl_test {
         let mut buf = std::io::Cursor::new(&mut v);
         $data.serialize(&mut buf).unwrap();
 
-        let full_copy = <$ty>::deserialize_full_copy(&v).unwrap();
+        let full_copy = <$ty>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
         assert_eq!($data, full_copy);
 
         let epscopy = <$ty>::deserialize_eps_copy(&v).unwrap();
@@ -87,7 +87,7 @@ fn test_string() {
             schema.0.sort_by_key(|a| a.offset);
 
             buf.set_position(0);
-            let full_copy = <String>::deserialize_full_copy(&buf).unwrap();
+            let full_copy = <String>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
             assert_eq!(s, full_copy);
 
             let epscopy = <String>::deserialize_eps_copy(&v).unwrap();
@@ -102,7 +102,7 @@ fn test_string() {
             s.serialize(&mut buf).unwrap();
 
             buf.set_position(0);
-            let full_copy = <String>::deserialize_full_copy(buf).unwrap();
+            let full_copy = <String>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
             assert_eq!(s, full_copy);
 
             let epscopy = <String>::deserialize_eps_copy(&v).unwrap();
@@ -123,7 +123,7 @@ fn test_box_str() {
             schema.0.sort_by_key(|a| a.offset);
 
             buf.set_position(0);
-            let full_copy = <Box<str>>::deserialize_full_copy(buf).unwrap();
+            let full_copy = <Box<str>>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
             assert_eq!(s, full_copy);
 
             let epscopy = <Box<str>>::deserialize_eps_copy(&v).unwrap();
@@ -135,7 +135,7 @@ fn test_box_str() {
             s.serialize(&mut buf).unwrap();
 
             buf.set_position(0);
-            let full_copy = <Box<str>>::deserialize_full_copy(buf).unwrap();
+            let full_copy = <Box<str>>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
             assert_eq!(s, full_copy);
 
             let epscopy = <Box<str>>::deserialize_eps_copy(&v).unwrap();
