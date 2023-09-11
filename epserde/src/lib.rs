@@ -44,28 +44,11 @@ pub use mem_case::*;
 mod copy_type;
 pub use copy_type::*;
 
-/// A trait padding a cursor to the correct alignment
-/// and checking that the resulting pointer is aligned
-/// correctly.
-pub trait Align: Sized {
-    /// Pad the cursor to the correct alignment and check that the resulting
-    /// pointer is aligned correctly.
-    fn pad_align_and_check(
-        mut backend: des::SliceWithPos,
-    ) -> core::result::Result<des::SliceWithPos, des::DeserializeError> {
-        // Skip bytes as needed
-        let padding = pad_align_to(backend.pos, core::mem::align_of::<Self>());
-        backend = backend.skip(padding);
-        // Check that the ptr is indeed aligned
-        if backend.data.as_ptr() as usize % std::mem::align_of::<Self>() != 0 {
-            Err(des::DeserializeError::AlignmentError)
-        } else {
-            Ok(backend)
-        }
-    }
+/// Compute the padding needed for alignment, that is, the smallest
+/// number such that `((value + pad_align_to(value, align_to) & (align_to - 1) == 0`.
+pub fn pad_align_to(value: usize, align_to: usize) -> usize {
+    value.wrapping_neg() & (align_to - 1)
 }
-
-impl<T: Sized> Align for T {}
 
 #[test]
 

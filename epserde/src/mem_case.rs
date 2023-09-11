@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{pad_align_to, Deserialize, DeserializeInner};
+use crate::{Deserialize, DeserializeInner};
 use anyhow::Result;
 use bitflags::bitflags;
 use core::ops::Deref;
@@ -133,7 +133,7 @@ pub fn load<'a, S: Deserialize>(
     let file_len = path.as_ref().metadata()?.len() as usize;
     let mut file = std::fs::File::open(path)?;
     // Round up to u128 size
-    let len = file_len + pad_align_to(file_len, 16);
+    let len = file_len + crate::pad_align_to(file_len, 16);
 
     let mut uninit: MaybeUninit<MemCase<<S as DeserializeInner>::DeserType<'_>>> =
         MaybeUninit::uninit();

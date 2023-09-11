@@ -283,12 +283,6 @@ impl<'a> ReadNoStd for SliceWithPos<'a> {
     }
 }
 
-/// Compute the padding needed for alignment, that is, the smallest
-/// number such that `((value + pad_align_to(value, align_to) & (align_to - 1) == 0`.
-fn pad_align_to(value: usize, align_to: usize) -> usize {
-    value.wrapping_neg() & (align_to - 1)
-}
-
 impl<'a> ReadWithPos for SliceWithPos<'a> {
     fn pos(&self) -> usize {
         self.pos
@@ -296,7 +290,7 @@ impl<'a> ReadWithPos for SliceWithPos<'a> {
 
     fn pad_align_and_check<T>(mut self) -> Result<Self> {
         // Skip bytes as needed
-        let padding = pad_align_to(self.pos, core::mem::align_of::<Self>());
+        let padding = crate::pad_align_to(self.pos, core::mem::align_of::<Self>());
         self = self.skip(padding);
         // Check that the ptr is indeed aligned
         if self.data.as_ptr() as usize % std::mem::align_of::<Self>() != 0 {
@@ -388,7 +382,7 @@ impl<F: ReadNoStd> ReadWithPos for ReaderWithPos<F> {
 
     fn pad_align_and_check<T>(mut self) -> Result<Self> {
         // Skip bytes as needed
-        let padding = pad_align_to(self.pos, core::mem::align_of::<Self>());
+        let padding = crate::pad_align_to(self.pos, core::mem::align_of::<Self>());
         self.read_exact(&mut vec![0; padding]);
         // No alignment check, we are fully deserializing
         Ok(self)
