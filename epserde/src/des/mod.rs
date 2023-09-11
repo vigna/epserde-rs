@@ -311,6 +311,18 @@ impl<'a> SliceWithPos<'a> {
             pos: self.pos + bytes,
         }
     }
+
+    /// Read a zero-copy type from the backend.
+    pub fn read_eps_zero_copy<T: ZeroCopy>(mut self) -> Result<(&'a T, Self)> {
+        let bytes = core::mem::size_of::<T>();
+        // a slice can only be deserialized with zero copy
+        // outerwise you need a vec, TODO!: how do we enforce this at compile time?
+        self = self.pad_align_and_check::<T>()?;
+        let (pre, data, after) = unsafe { self.data[..bytes].align_to::<T>() };
+        debug_assert!(pre.is_empty());
+        debug_assert!(after.is_empty());
+        Ok((&data[0], self.skip(bytes)))
+    }
 }
 
 impl<'a> ReadNoStd for SliceWithPos<'a> {
@@ -390,7 +402,7 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     fn pad_align_and_check<T>(self) -> Result<Self>;
 
     /// Read a zero-copy type from the backend.
-    fn read_zero_copy<T: ZeroCopy>(mut self) -> Result<(T, Self)> {
+    fn read_full_zero_copy<T: ZeroCopy>(mut self) -> Result<(T, Self)> {
         self = self.pad_align_and_check::<Self>()?;
         unsafe {
             let mut buf: T = MaybeUninit::uninit().assume_init();
