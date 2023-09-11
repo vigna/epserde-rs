@@ -348,3 +348,11 @@ Since this is true only of primitive types, when deserializing a
 workaround can be used if you really need to deserialize a primitive type as a reference).
 The same happens if you deserialize a zero-copy 
 struct containing a single field of primitive type.
+
+Zero-copy types are always serialized and deserialized by either referencing or reading/writing
+directly a sequence of bytes. Sequences (arrays, vectors and boxed slices) of zero-copy types
+behave in the same way: in particular, even if the deserialization type of a zero-copy type is 
+a reference, a sequence of elements is ε-deserialized as a reference to a slice of elements, 
+not as a (reference to) a slice of references, and it is fully deserialized as a sequence
+of elements. This is different from the behavior of ε-copy types, which are always fully
+deserialized to a sequence of elements whose type is defined by the deserialization type.
