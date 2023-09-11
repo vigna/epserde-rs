@@ -316,8 +316,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#(#desser_type_generics,)*>;
 
                         fn _deserialize_eps_copy_inner(
-                            backend: epserde::des::Cursor,
-                        ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::Cursor), epserde::des::DeserializeError>
+                            backend: epserde::des::SliceWithPos,
+                        ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::SliceWithPos), epserde::des::DeserializeError>
                         {
                             let mut backend = backend;
                             let bytes = core::mem::size_of::<Self>();
@@ -373,8 +373,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         type DeserType<'epserde_desertype> = #name<#(#desser_type_generics,)*>;
 
                         fn _deserialize_eps_copy_inner(
-                            backend: epserde::des::Cursor,
-                        ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::Cursor), epserde::des::DeserializeError>
+                            backend: epserde::des::SliceWithPos,
+                        ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::SliceWithPos), epserde::des::DeserializeError>
                         {
                             use epserde::des::DeserializeInner;
                             #(
