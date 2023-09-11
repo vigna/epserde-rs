@@ -22,8 +22,8 @@ it could be hidden from the user interface. It can however be useful
 for debugging and in cases in which a full copy is necessary.
 
 */
-use crate::{Serialize, TypeHash, MAGIC, MAGIC_REV, VERSION};
-use core::hash::Hasher;
+use crate::{Serialize, TypeHash, ZeroCopy, MAGIC, MAGIC_REV, VERSION};
+use core::{hash::Hasher, mem::MaybeUninit};
 use std::{io::BufReader, path::Path};
 
 mod des_impl;
@@ -388,6 +388,20 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     /// Pad the cursor to the correct alignment and check that the resulting
     /// pointer is aligned correctly.
     fn pad_align_and_check<T>(self) -> Result<Self>;
+
+    /// Read a zero-copy type from the backend.
+    fn read_zero_copy<T: ZeroCopy>(mut self) -> Result<(T, Self)> {
+        self = self.pad_align_and_check::<Self>()?;
+        unsafe {
+            let mut buf: T = MaybeUninit::uninit().assume_init();
+            let slice = core::slice::from_raw_parts_mut(
+                &mut buf as *mut T as *mut u8,
+                core::mem::size_of::<T>(),
+            );
+            self.read_exact(slice)?;
+            Ok((buf, self))
+        }
+    }
 }
 
 /// A wrapper for a [`ReadNoStd`] that implements [`ReadWithPos`]

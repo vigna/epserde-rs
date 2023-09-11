@@ -38,6 +38,26 @@ pub trait FieldWrite: WriteNoStd + Sized {
         value._serialize_inner(self)
     }
 
+    /// add a single zero_copy value to the serializer
+    fn add_zero_copy<V: ZeroCopy>(
+        mut self,
+        field_name: &str,
+        value: &V,
+    ) -> super::ser::Result<Self> {
+        // ensure alignment
+        self.add_padding_to_align(core::mem::align_of::<V>())?;
+        let buffer = unsafe {
+            #[allow(clippy::manual_slice_size_calculation)]
+            core::slice::from_raw_parts(value as *const V as *const u8, core::mem::size_of::<V>())
+        };
+        self.add_field_bytes(
+            field_name,
+            core::any::type_name::<V>().to_string(),
+            buffer,
+            core::mem::align_of::<V>(),
+        )
+    }
+
     #[inline(always)]
     /// Add raw bytes to the serialization, this is mostly used by the zero-copy
     /// implementations

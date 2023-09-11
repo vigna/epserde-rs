@@ -304,12 +304,15 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             mut backend: R,
                         ) -> core::result::Result<(Self, R), epserde::des::DeserializeError> {
                             use epserde::des::DeserializeInner;
-                            use core::mem::MaybeUninit;
-                            let mut buf: MaybeUninit<Self> = MaybeUninit::uninit();
                             backend = backend.pad_align_and_check::<Self>()?;
                             unsafe {
-                                backend.read_exact(buf.assume_init_mut().align_to_mut::<u8>().1)?;
-                                Ok((buf.assume_init(), backend))
+                                let mut buf Self;
+                                let slice = core::slice::from_raw_parts(
+                                    &mut buf as *mut Self as *mut u8,
+                                    core::mem::size_of::<Self>(),
+                                );
+                                backend.read_exact(slice)?;
+                                Ok((buf, backend))
                             };
                         }
 
