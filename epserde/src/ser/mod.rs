@@ -84,7 +84,7 @@ pub trait Serialize: SerializeInner {
         backend = backend.add_field("TYPE_REPR_HASH", &hasher.finish())?;
         backend = backend.add_field("TYPE_NAME", &core::any::type_name::<Self>().to_string())?;
 
-        backend = backend.add_field("ROOT", self)?;
+        backend = backend.add_field_align("ROOT", self)?;
         backend.flush()?;
         Ok(backend)
     }

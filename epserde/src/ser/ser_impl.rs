@@ -85,11 +85,11 @@ impl<T: SerializeInner> SerializeInner for Option<T> {
     fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
         match self {
             None => {
-                backend = backend.add_field("Tag", &0_u8)?;
+                backend = backend.add_field_align("Tag", &0_u8)?;
             }
             Some(val) => {
-                backend = backend.add_field("Tag", &1_u8)?;
-                backend = backend.add_field("Some", val)?;
+                backend = backend.add_field_align("Tag", &1_u8)?;
+                backend = backend.add_field_align("Some", val)?;
             }
         };
         Ok(backend)
@@ -119,7 +119,7 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(
 ) -> Result<F> {
     // TODO: check for IS_ZERO_COPY
     let len = data.len();
-    backend = backend.add_field("len", &len)?;
+    backend = backend.add_field_align("len", &len)?;
     if zero_copy {
         if !T::IS_ZERO_COPY {
             panic!(
@@ -137,7 +137,7 @@ fn serialize_slice<T: Serialize, F: FieldWrite>(
             eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<T>());
         }
         for item in data.iter() {
-            backend = backend.add_field("data", item)?;
+            backend = backend.add_field_align("data", item)?;
         }
         Ok(backend)
     }
@@ -172,7 +172,7 @@ impl<T: EpsCopy + SerializeInner, const N: usize> SerializeHelper<Eps> for [T; N
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
         for item in self.iter() {
-            backend = backend.add_field("data", item)?;
+            backend = backend.add_field_align("data", item)?;
         }
         Ok(backend)
     }

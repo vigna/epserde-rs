@@ -30,12 +30,17 @@ pub trait FieldWrite: WriteNoStd + Sized {
     #[inline(always)]
     /// Add a complex field to the serialization, this is mostly used by the
     /// full-copy implementations
-    fn add_field<V: SerializeInner>(
+    fn add_field_align<V: SerializeInner>(
         mut self,
-        _field_name: &str,
+        field_name: &str,
         value: &V,
     ) -> super::ser::Result<Self> {
         self.add_padding_to_align(core::mem::align_of::<V>())?;
+        self.add_field(field_name, value)
+    }
+
+    #[inline(always)]
+    fn add_field<V: SerializeInner>(self, _field_name: &str, value: &V) -> Result<Self> {
         value._serialize_inner(self)
     }
 

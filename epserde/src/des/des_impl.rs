@@ -227,8 +227,7 @@ mod private {
         type FullType = Self;
         type DeserType<'a> = &'a [T; N];
         #[inline(always)]
-        fn _deserialize_full_copy_inner_impl<R: ReadWithPos>(backend: R) -> Result<(Self, R)> {
-            let (_len, mut backend) = usize::_deserialize_full_copy_inner(backend)?;
+        fn _deserialize_full_copy_inner_impl<R: ReadWithPos>(mut backend: R) -> Result<(Self, R)> {
             backend = backend.pad_align_and_check::<T>()?;
             let mut res = MaybeUninit::<[T; N]>::uninit();
             // SAFETY: read_exact guarantees that the array will be filled with data.

@@ -331,7 +331,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                 eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<Self>());
                             }
                             #(
-                                backend= backend.add_field(stringify!(#fields_names), &self.#fields_names)?;
+                                backend= backend.add_field_align(stringify!(#fields_names), &self.#fields_names)?;
                             )*
                             Ok(backend)
                         }
