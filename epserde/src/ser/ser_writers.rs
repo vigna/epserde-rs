@@ -17,10 +17,13 @@ use super::*;
 /// could be implemented with [`FieldWrite::add_field_bytes`], but having this
 /// specialization allows us to automatically generate the schema.
 pub trait FieldWrite: WriteNoStd + Sized {
+    /// Get how many bytes we wrote since the start of the serialization.
+    fn pos(&self) -> usize;
+
     #[inline(always)]
     /// Add some zero padding so that `self.get_pos() % align == 0`
-    fn add_padding_to_align(&mut self, align: usize) -> Result<()> {
-        let padding = pad_align_to(self.get_pos(), align);
+    fn align<T>(&mut self) -> Result<()> {
+        let padding = pad_align_to(self.pos(), core::mem::align_of::<T>());
         for _ in 0..padding {
             self.write(&[0])?;
         }
@@ -35,7 +38,7 @@ pub trait FieldWrite: WriteNoStd + Sized {
         field_name: &str,
         value: &V,
     ) -> super::ser::Result<Self> {
-        self.add_padding_to_align(core::mem::align_of::<V>())?;
+        self.align::<V>()?;
         self.add_field(field_name, value)
     }
 
@@ -67,13 +70,10 @@ pub trait FieldWrite: WriteNoStd + Sized {
     /// Add raw bytes to the serialization, this is mostly used by the zero-copy
     /// implementations
     fn add_field_bytes<T>(mut self, _field_name: &str, value: &[u8]) -> Result<Self> {
-        self.add_padding_to_align(core::mem::align_of::<T>())?;
+        self.align::<T>()?;
         self.write(value)?;
         Ok(self)
     }
-
-    /// Get how many bytes we wrote from the start of the serialization
-    fn get_pos(&self) -> usize;
 
     fn serialize_slice<T: Serialize>(mut self, data: &[T], zero_copy: bool) -> Result<Self> {
         // TODO: check for IS_ZERO_COPY
@@ -217,8 +217,8 @@ impl<W: FieldWrite> SchemaWriter<W> {
 
 impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
     #[inline(always)]
-    fn add_padding_to_align(&mut self, align: usize) -> Result<()> {
-        let padding = pad_align_to(self.get_pos(), align);
+    fn align<V>(&mut self) -> Result<()> {
+        let padding = pad_align_to(self.pos(), core::mem::align_of::<V>());
         if padding == 0 {
             return Ok(());
         }
@@ -235,7 +235,7 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
         self.schema.0.push(SchemaRow {
             field: "PADDING".into(),
             ty: format!("[u8; {}]", padding),
-            offset: self.get_pos(),
+            offset: self.pos(),
             size: padding,
             align: 1,
         });
@@ -253,14 +253,14 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
         self.schema.0.push(SchemaRow {
             field: self.path.join("."),
             ty: core::any::type_name::<V>().to_string(),
-            offset: self.get_pos(),
+            offset: self.pos(),
             align: core::mem::align_of::<V>(),
             size: 0,
         });
         // serialize the value
         self = value._serialize_inner(self)?;
         // compute the serialized size and update the schema
-        let size = self.get_pos() - self.schema.0[struct_idx].offset;
+        let size = self.pos() - self.schema.0[struct_idx].offset;
         self.schema.0[struct_idx].size = size;
         self.path.pop();
         Ok(self)
@@ -270,13 +270,13 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
     fn add_field_bytes<V>(mut self, field_name: &str, value: &[u8]) -> Result<Self> {
         let align = core::mem::align_of::<V>();
         let type_name = core::any::type_name::<V>().to_string();
-        self.add_padding_to_align(align)?;
+        self.align::<V>()?;
         // prepare a row with the field name and the type
         self.path.push(field_name.into());
         self.schema.0.push(SchemaRow {
             field: self.path.join("."),
             ty: type_name,
-            offset: self.get_pos(),
+            offset: self.pos(),
             size: value.len(),
             align,
         });
@@ -286,8 +286,8 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
     }
 
     #[inline(always)]
-    fn get_pos(&self) -> usize {
-        self.writer.get_pos()
+    fn pos(&self) -> usize {
+        self.writer.pos()
     }
 }
 

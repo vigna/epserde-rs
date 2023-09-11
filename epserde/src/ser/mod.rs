@@ -54,7 +54,7 @@ pub trait Serialize: SerializeInner {
     fn serialize<F: WriteNoStd>(&self, backend: F) -> Result<usize> {
         Ok(self
             .serialize_on_field_write(WriteWithPos::new(backend))?
-            .get_pos())
+            .pos())
     }
 
     /// Serialize the type using the given backend and return the schema.
@@ -136,14 +136,6 @@ impl<T: EpsCopy + SerializeInner, const N: usize> SerializeHelper<Eps> for [T; N
     }
 }
 
-pub fn serialize_zero_copy<T: Serialize, F: FieldWrite>(data: &T, backend: F) -> Result<F> {
-    let buffer = unsafe {
-        #[allow(clippy::manual_slice_size_calculation)]
-        core::slice::from_raw_parts(data as *const T as *const u8, core::mem::size_of::<T>())
-    };
-    backend.add_field_bytes::<T>("data", buffer)
-}
-
 #[derive(Debug)]
 /// Errors that can happen during serialization
 pub enum SerializeError {
@@ -218,7 +210,7 @@ impl<F: WriteNoStd> WriteWithPos<F> {
 
 impl<F: WriteNoStd> FieldWrite for WriteWithPos<F> {
     #[inline(always)]
-    fn get_pos(&self) -> usize {
+    fn pos(&self) -> usize {
         self.pos
     }
 }
