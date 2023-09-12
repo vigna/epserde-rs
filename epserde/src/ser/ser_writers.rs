@@ -127,11 +127,15 @@ pub struct SchemaRow {
 pub struct Schema(pub Vec<SchemaRow>);
 
 impl Schema {
+    /// Sort the values of the schema by offset and then by type size.
+    pub fn sort(&mut self) {
+        self.0.sort_by_key(|row| (row.offset, -(row.size as isize)));
+    }
     /// Return in a String the csv representation of the schema
     /// also printing the bytes of the data used to decode each leaf field.
     ///
     /// The schema is not guaranteed to be sorted, so if you need it sorted use:
-    ///  `schema.0.sort_by_key(|row| row.offset);`
+    ///  `schema.sort();`
     ///
     /// WARNING: the size of the csv will be bigger than the size of the
     /// serialized file, so it's a bad idea calling this on big data structures.
@@ -177,7 +181,7 @@ impl Schema {
     /// Return in a String the csv representation of the schema.
     ///
     /// The schema is not guaranteed to be sorted, so if you need it sorted use:
-    ///  `schema.0.sort_by_key(|row| row.offset);`
+    ///  `schema.sort();`
     pub fn to_csv(&self) -> String {
         let mut result = "field,offset,align,size,ty\n".to_string();
         for row in &self.0 {
