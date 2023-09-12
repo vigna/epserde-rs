@@ -61,14 +61,14 @@ where
 impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Box<[T]> {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
-        backend.write_slice_align(self, true)
+        backend.write_slice_zero(self)
     }
 }
 
 impl<T: EpsCopy + SerializeInner> SerializeHelper<Eps> for Box<[T]> {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
-        backend.write_slice_align(self, false)
+        backend.write_slice(self)
     }
 }
 

@@ -283,7 +283,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         #[inline(always)]
                         fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
-                            backend.write_zero_align("data", self)
+                            backend.write_field_zero("data", self)
                         }
                     }
 
@@ -328,7 +328,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                 eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<Self>());
                             }
                             #(
-                                backend = backend.write_field_align(stringify!(#fields_names), &self.#fields_names)?;
+                                backend = backend.write_field(stringify!(#fields_names), &self.#fields_names)?;
                             )*
                             Ok(backend)
                         }

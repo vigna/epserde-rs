@@ -72,7 +72,7 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     /// Pad the cursor to the correct alignment.
     fn align<T>(self) -> des::Result<Self>;
 
-    /// Fully deserialize a zero-copy type from the backend.
+    /// Fully deserialize a zero-copy type from the backend after aligning it.
     fn deserialize_full_zero<T: ZeroCopy>(mut self) -> des::Result<(T, Self)> {
         self = self.align::<T>()?;
         unsafe {

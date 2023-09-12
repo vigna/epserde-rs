@@ -83,9 +83,9 @@ pub trait Serialize: SerializeInner {
 
         let type_name = core::any::type_name::<Self>().to_string();
         backend = backend.write_field("TYPE_NAME_LEN", &type_name.len())?;
-        backend = backend.write_field_bytes::<u8>("TYPE_NAME", type_name.as_bytes())?;
+        backend = backend.write_bytes::<u8>("TYPE_NAME", type_name.as_bytes())?;
 
-        backend = backend.write_field_align("ROOT", self)?;
+        backend = backend.write_field("ROOT", self)?;
         backend.flush()?;
         Ok(backend)
     }

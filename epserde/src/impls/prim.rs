@@ -252,7 +252,7 @@ impl<T: SerializeInner> SerializeInner for Option<T> {
             }
             Some(val) => {
                 backend = backend.write_field("Tag", &1_u8)?;
-                backend = backend.write_field_align("Some", val)?;
+                backend = backend.write_field("Some", val)?;
             }
         };
         Ok(backend)

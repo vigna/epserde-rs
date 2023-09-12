@@ -53,7 +53,7 @@ impl SerializeInner for String {
     const ZERO_COPY_MISMATCH: bool = false;
 
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
-        backend.write_slice_align(self.as_bytes(), true)
+        backend.write_slice_zero(self.as_bytes())
     }
 }
 
@@ -89,7 +89,7 @@ impl SerializeInner for Box<str> {
     const ZERO_COPY_MISMATCH: bool = false;
 
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
-        backend.write_slice_align(self.as_bytes(), true)
+        backend.write_slice_zero(self.as_bytes())
     }
 }
 
