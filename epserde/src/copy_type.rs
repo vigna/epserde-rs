@@ -18,10 +18,10 @@ pub struct Zero {}
 
 impl TypeHash for Zero {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        0xdeadbeefbadf00d_u64.hash(hasher);
+        0xdeadbeefdeadf00d_u64.hash(hasher);
     }
     fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        0xdeadbeefbadf00d_u64.hash(hasher);
+        0xabadcafefadc0c0a_u64.hash(hasher);
     }
 }
 
