@@ -118,7 +118,7 @@ fn check_header<R: ReadWithPos>(
     match magic {
         MAGIC => Ok(()),
         MAGIC_REV => Err(DeserializeError::EndiannessError),
-        magic => Err(DeserializeError::MagicNumberError(magic)),
+        magic => Err(DeserializeError::MagicCookieError(magic)),
     }?;
 
     let (major, backend) = u16::_deserialize_full_copy_inner(backend)?;
@@ -179,26 +179,25 @@ pub trait DeserializeHelper<T: CopySelector> {
 pub enum DeserializeError {
     /// [`Deserialize::load_full`] could not open the provided file.
     FileOpenError(std::io::Error),
-    /// The underlying reader returned an error
+    /// The underlying reader returned an error.
     ReadError,
     /// The file is reasonable but the endianess is wrong.
     EndiannessError,
-    /// Some field is not properly aligned. This can be either a serialization
-    /// bug or a collision in the type hash.
+    /// Some field is not properly aligned.
     AlignmentError,
-    /// The file was serialized with a version of epserde that is not compatible
+    /// The file was serialized with a version of ε-serde that is not compatible.
     MajorVersionMismatch(u16),
-    /// The file was serialized with a compatible, but too new version of epserde
+    /// The file was serialized with a compatible, but too new version of ε-serde
     /// so we might be missing features.
     MinorVersionMismatch(u16),
     /// The the `pointer_width` of the serialized file is different from the
     /// `pointer_width` of the current architecture.
-    /// E.g. the file was serialized on a 64-bit machine and we are trying to
+    /// For example, the file was serialized on a 64-bit machine and we are trying to
     /// deserialize it on a 32-bit machine.
-    /// We could check if the usizes are actually used, but currently we don't.
+    /// We could check if the usizes are actually used, but currently we do not.
     UsizeSizeMismatch(usize),
-    /// The magic number is wrong. The file is not an epserde file.
-    MagicNumberError(u64),
+    /// The magic coookie is wrong. The byte sequence is not an ε-serde serialization.
+    MagicCookieError(u64),
     /// A tag is wrong (e.g., for [`Option`]).
     InvalidTag(u8),
     /// The type hash is wrong. Probabliy the user is trying to deserialize a
@@ -243,30 +242,28 @@ impl core::fmt::Display for DeserializeError {
                     "little"
                 }
             ),
-            Self::MagicNumberError(magic) => write!(
+            Self::MagicCookieError(magic) => write!(
                 f,
-                "Wrong Magic Number Error. Got {:?} but the only two valids are {:?} and {:?}",
+                "Wrong magic cookie {:#018x}. The byte stream is not ε-serde serialization.",
                 magic,
-                crate::MAGIC.to_le(),
-                crate::MAGIC.to_be(),
             ),
             Self::MajorVersionMismatch(found_major) => write!(
                 f,
-                "Major Version Mismatch. Expected {} but got {}",
+                "Major Version Mismatch. Expected {} but got {}.",
                 VERSION.0, found_major,
             ),
             Self::MinorVersionMismatch(found_minor) => write!(
                 f,
-                "Minor Version Mismatch. Expected {} but got {}",
+                "Minor Version Mismatch. Expected {} but got {}.",
                 VERSION.1, found_minor,
             ),
             Self::UsizeSizeMismatch(usize_size) => write!(
                 f,
-                "The file was serialized on a machine where an usize is {} bytes, but on the current machine it is {}.",
+                "The file was serialized on a machine where an usize has size {}, but on the current machine it has size {}.",
                 usize_size,
                 core::mem::size_of::<usize>()
             ),
-            Self::AlignmentError => write!(f, "Alignment Error"),
+            Self::AlignmentError => write!(f, "Alignment error. Most likely you are deserializing from a memory region with insufficient alignment."),
             Self::InvalidTag(tag) => write!(f, "Invalid tag: 0x{:02x}", tag),
             Self::WrongTypeHash {
                 got_type_name,

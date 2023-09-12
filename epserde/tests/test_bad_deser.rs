@@ -46,19 +46,19 @@ fn test_wrong_endianess() {
         DeserializeError::EndiannessError
     ));
 
-    // set a wrong magic number
+    // set a wrong magic cookie
     let bad_magic: u64 = 0x8989898989898989;
     v[0..8].copy_from_slice(&bad_magic.to_ne_bytes());
 
     let err = <usize>::deserialize_full_copy(std::io::Cursor::new(&v));
-    if let Err(DeserializeError::MagicNumberError(bad_magic_read)) = err {
+    if let Err(DeserializeError::MagicCookieError(bad_magic_read)) = err {
         assert_eq!(bad_magic_read, bad_magic);
     } else {
         panic!("wrong error type: {:?}", err);
     }
 
     let err = <usize>::deserialize_eps_copy(&v);
-    if let Err(DeserializeError::MagicNumberError(bad_magic_read)) = err {
+    if let Err(DeserializeError::MagicCookieError(bad_magic_read)) = err {
         assert_eq!(bad_magic_read, bad_magic);
     } else {
         panic!("wrong error type: {:?}", err);
