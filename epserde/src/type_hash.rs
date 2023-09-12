@@ -9,6 +9,7 @@ use core::hash::Hash;
 /// Compute a stable hash for a type. This is used during deserialization to
 /// check that the type of the data matches the type of the value being
 /// deserialized into.
+
 pub trait TypeHash {
     /// Hash the type, this considers the name, order, and type of the fields
     /// and the type of the struct.  
@@ -31,65 +32,19 @@ pub trait TypeHash {
     }
 }
 
-// Blanket impls
-
-impl<T: TypeHash + ?Sized> TypeHash for &'_ T {
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::boxed::Box;
+#[cfg(feature = "alloc")]
+impl<T: TypeHash + ?Sized> TypeHash for Box<T> {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        '&'.hash(hasher);
+        "Box".hash(hasher);
         T::type_hash(hasher);
     }
     #[inline(always)]
     fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        T::type_repr_hash(hasher)
-    }
-}
-
-/*
-// Core types
-
-impl<S: TypeHash, E: TypeHash> TypeHash for Result<S, E> {
-    #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "Result".hash(hasher);
-        S::type_hash(hasher);
-        E::type_hash(hasher);
-    }
-    #[inline(always)]
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
         core::mem::align_of::<Self>().hash(hasher);
         core::mem::size_of::<Self>().hash(hasher);
-        S::type_repr_hash(hasher);
-        E::type_repr_hash(hasher);
+        T::type_repr_hash(hasher);
     }
 }
-
-// Primitive types
-
-
-#[cfg(feature = "mmap-rs")]
-impl TypeHash for mmap_rs::Mmap {
-    #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "Mmap".hash(hasher);
-    }
-    #[inline(always)]
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        core::mem::align_of::<Self>().hash(hasher);
-        core::mem::size_of::<Self>().hash(hasher);
-    }
-}
-
-#[cfg(feature = "mmap-rs")]
-impl TypeHash for mmap_rs::MmapMut {
-    #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "MmapMut".hash(hasher);
-    }
-    #[inline(always)]
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        core::mem::align_of::<Self>().hash(hasher);
-        core::mem::size_of::<Self>().hash(hasher);
-    }
-}
-*/

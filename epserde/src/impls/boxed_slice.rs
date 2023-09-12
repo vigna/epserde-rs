@@ -16,23 +16,6 @@ impl<T> CopyType for Box<[T]> {
     type Copy = Eps;
 }
 
-#[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::boxed::Box;
-#[cfg(feature = "alloc")]
-impl<T: TypeHash + ?Sized> TypeHash for Box<T> {
-    #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "Box".hash(hasher);
-        T::type_hash(hasher);
-    }
-    #[inline(always)]
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        core::mem::align_of::<Self>().hash(hasher);
-        core::mem::size_of::<Self>().hash(hasher);
-        T::type_repr_hash(hasher);
-    }
-}
-
 impl<T: TypeHash> TypeHash for [T] {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {

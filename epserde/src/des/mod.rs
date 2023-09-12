@@ -40,7 +40,7 @@ pub type Result<T> = core::result::Result<T, DeserializeError>;
 ///
 /// The user should not implement this trait directly, but rather derive it.
 pub trait DeserializeInner: TypeHash + Sized {
-    type DeserType<'a>: TypeHash;
+    type DeserType<'a>;
     fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)>;
 
     fn _deserialize_eps_copy_inner(
@@ -168,7 +168,7 @@ fn check_header<R: ReadWithPos>(
 pub trait DeserializeHelper<T: CopySelector> {
     // TODO: do we really need this?
     type FullType: TypeHash;
-    type DeserType<'a>: TypeHash;
+    type DeserType<'a>;
     fn _deserialize_full_copy_inner_impl<R: ReadWithPos>(backend: R)
         -> Result<(Self::FullType, R)>;
     fn _deserialize_eps_copy_inner_impl(
