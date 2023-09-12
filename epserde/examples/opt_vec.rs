@@ -19,7 +19,7 @@ fn main() {
     buf.set_position(0);
     let full = <Option<Vec<i32>>>::deserialize_full_copy(&mut buf).unwrap();
     println!(
-        "Full-deserialization type: {}",
+        "Full-copy deserialization type: {}",
         std::any::type_name::<Option<Vec<i32>>>(),
     );
     println!("Value: {:x?}", full);
@@ -28,7 +28,7 @@ fn main() {
     let buf = buf.into_inner();
     let eps = <Option<Vec<i32>>>::deserialize_eps_copy(&buf).unwrap();
     println!(
-        "ε-deserialization type: {}",
+        " ε-copy deserialization type: {}",
         std::any::type_name::<<Option<Vec<i32>> as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);
@@ -45,7 +45,7 @@ fn main() {
     buf.set_position(0);
     let full = <Option<Vec<i32>>>::deserialize_full_copy(&mut buf).unwrap();
     println!(
-        "Full-deserialization type: {}",
+        "Full-copy deserialization type: {}",
         std::any::type_name::<Option<Vec<i32>>>(),
     );
     println!("Value: {:x?}", full);
@@ -54,7 +54,7 @@ fn main() {
     let buf = buf.into_inner();
     let eps = <Option<Vec<i32>>>::deserialize_eps_copy(&buf).unwrap();
     println!(
-        "ε-deserialization type: {}",
+        " ε-copy deserialization type: {}",
         std::any::type_name::<<Option<Vec<i32>> as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);

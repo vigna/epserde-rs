@@ -31,7 +31,7 @@ fn main() {
     buf.set_position(0);
     let full = <USize>::deserialize_full_copy(&mut buf).unwrap();
     println!(
-        "Full-deserialization type: {}",
+        "Full-copy deserialization type: {}",
         std::any::type_name::<USize>(),
     );
     println!("Value: {:x?}", full);
@@ -43,7 +43,7 @@ fn main() {
     let buf = buf.into_inner();
     let eps = <USize>::deserialize_eps_copy(&buf).unwrap();
     println!(
-        "ε-deserialization type: {}",
+        " ε-copy deserialization type: {}",
         std::any::type_name::<<USize as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);

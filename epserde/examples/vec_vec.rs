@@ -28,7 +28,7 @@ fn main() {
     // Do a full-copy deserialization
     let full = <Data<Vec<Vec<i32>>>>::deserialize_full_copy(&mut buf).unwrap();
     println!(
-        "Full-deserialization type: {}",
+        "Full-copy deserialization type: {}",
         std::any::type_name::<Data<Vec<Vec<i32>>>>(),
     );
     println!("Value: {:x?}", full);
@@ -39,7 +39,7 @@ fn main() {
     let buf = buf.into_inner();
     let eps = <Data<Vec<Vec<i32>>>>::deserialize_eps_copy(&buf).unwrap();
     println!(
-        "ε-deserialization type: {}",
+        " ε-copy deserialization type: {}",
         std::any::type_name::<<Data<Vec<Vec<i32>>> as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);

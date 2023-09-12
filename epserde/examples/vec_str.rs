@@ -28,7 +28,7 @@ fn main() {
     buf.set_position(0);
     let full = StringData::deserialize_full_copy(&mut buf).unwrap();
     println!(
-        "Full-deserialization type: {}",
+        "Full-copy deserialization type: {}",
         std::any::type_name::<StringData>(),
     );
     println!("Value: {:x?}", full);
@@ -39,7 +39,7 @@ fn main() {
     let buf = buf.into_inner();
     let eps = StringData::deserialize_eps_copy(&buf).unwrap();
     println!(
-        "ε-deserialization type: {}",
+        " ε-copy deserialization type: {}",
         std::any::type_name::<<StringData as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);

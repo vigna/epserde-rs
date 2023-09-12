@@ -196,7 +196,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 fields_names.push(field_name);
             });
 
-            // Assign ε-deserialization or full deserialization to
+            // Assign  ε-copy deserialization or full deserialization to
             // fields depending whether they are generic or not.
             let mut methods: Vec<proc_macro2::TokenStream> = vec![];
 
