@@ -127,7 +127,7 @@ use std::{io::Read, mem::MaybeUninit, path::Path, ptr::addr_of_mut};
 /// Load a file into heap-allocated memory and deserialize a data structure from it,
 /// returning a [`MemCase`] containing the data structure and the
 /// memory. Excess bytes are zeroed out.
-pub fn load<'a, S: Deserialize>(
+pub fn load_mem<'a, S: Deserialize>(
     path: impl AsRef<Path>,
 ) -> Result<MemCase<<S as DeserializeInner>::DeserType<'a>>> {
     let file_len = path.as_ref().metadata()?.len() as usize;
@@ -143,7 +143,7 @@ pub fn load<'a, S: Deserialize>(
     // or with zeroes if the file is shorter than the vector.
     let mut bytes = unsafe {
         Vec::from_raw_parts(
-            std::alloc::alloc(std::alloc::Layout::from_size_align(len, 4096)?),
+            std::alloc::alloc(std::alloc::Layout::from_size_align(len, 16)?),
             len,
             len,
         )

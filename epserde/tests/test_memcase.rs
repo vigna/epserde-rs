@@ -42,7 +42,7 @@ fn test_mem_case() {
 
     drop(file);
 
-    let res = load::<Person>("test.bin").unwrap();
+    let res = load_mem::<Person>("test.bin").unwrap();
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
@@ -54,7 +54,7 @@ fn test_mem_case() {
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
-    let res = load::<Person>("test.bin").unwrap();
+    let res = load_mem::<Person>("test.bin").unwrap();
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
