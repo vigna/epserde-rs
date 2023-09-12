@@ -61,9 +61,19 @@ pub trait Serialize: SerializeInner {
     /// This method is mainly useful for debugging and cross-language
     /// interoperability.
     fn serialize_with_schema<F: WriteNoStd>(&self, backend: F) -> Result<Schema> {
-        Ok(self
+        let mut schema = self
             .serialize_on_field_write(SchemaWriter::new(WriteWithPos::new(backend)))?
-            .schema)
+            .schema;
+        // sort the schema before returning it because 99% of the times the user
+        // will want it sorted, and it won't take too much time.
+        // If the user doesn't want it sorted, they can just call
+        // ```rust
+        //  let mut schema = self
+        // .serialize_on_field_write(SchemaWriter::new(WriteWithPos::new(backend)))?
+        // .schema;
+        // ```
+        schema.sort();
+        Ok(schema)
     }
 
     /// Serialize the type using the given [`FieldWrite`].
