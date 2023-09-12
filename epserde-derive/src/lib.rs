@@ -387,7 +387,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(TypeHash)]
 pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let (_, is_zero_copy, _) = check_attrs(&input);
+
     let CommonDeriveInput {
         name,
         generics,
