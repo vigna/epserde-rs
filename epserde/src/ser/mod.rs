@@ -28,6 +28,9 @@ pub type Result<T> = core::result::Result<T, SerializeError>;
 /// Main serialization trait. It is separated from [`SerializeInner`] to
 /// avoid that the user modify its behavior, and hide internal serialization
 /// methods.
+///
+/// It provides a convenience method [`Serialize::store`] that serializes
+/// the type to a file.
 pub trait Serialize {
     /// Serialize the type using the given backend.
     fn serialize<F: WriteNoStd>(&self, backend: F) -> Result<usize> {
@@ -69,6 +72,9 @@ pub trait Serialize {
 
 /// Blanket implementation that prevents the user from overwriting the
 /// methods in [`Serialize`].
+///
+/// This implementation [writes a header](`write_header`) containing some hashes
+/// and debug information.
 impl<T: SerializeInner> Serialize for T {
     /// Serialize the type using the given [`FieldWrite`].
     fn serialize_on_field_write<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
@@ -104,17 +110,8 @@ pub trait SerializeInner: TypeHash + Sized {
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;
 }
 
-impl<T: TypeHash> TypeHash for &[T] {
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        <Vec<T>>::type_hash(hasher);
-    }
-
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        <Vec<T>>::type_repr_hash(hasher);
-    }
-}
-
 /// Common code for both full-copy and zero-copy deserialization.
+/// Must be kept in sync with [`crate::des::check_header`].
 pub fn write_header<F: FieldWrite, T: TypeHash>(mut backend: F) -> Result<F> {
     backend = backend.write_field("MAGIC", &MAGIC)?;
     backend = backend.write_field("VERSION_MAJOR", &VERSION.0)?;
@@ -131,14 +128,17 @@ pub fn write_header<F: FieldWrite, T: TypeHash>(mut backend: F) -> Result<F> {
     backend.write_field("TYPE_NAME", &core::any::type_name::<T>().to_string())
 }
 
+/// A helper trait that makes it possible to implement differently
+/// serialization for [`crate::ZeroCopy`] and [`crate::EpsCopy`] types.
+/// See [`crate::CopyType`] for more information.
 pub trait SerializeHelper<T: CopySelector> {
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;
 }
 
 #[derive(Debug)]
-/// Errors that can happen during serialization
+/// Errors that can happen during serialization.
 pub enum SerializeError {
-    /// The underlying writer returned an error
+    /// The underlying writer returned an error.
     WriteError,
     /// [`Serialize::store`] could not open the provided file.
     FileOpenError(std::io::Error),

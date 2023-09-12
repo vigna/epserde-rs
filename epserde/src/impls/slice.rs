@@ -21,6 +21,17 @@ assert_eq!(a, b);
 use crate::ser;
 use crate::ser::*;
 use crate::CopyType;
+use crate::TypeHash;
+
+impl<T: TypeHash> TypeHash for &[T] {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        <Vec<T>>::type_hash(hasher);
+    }
+
+    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
+        <Vec<T>>::type_repr_hash(hasher);
+    }
+}
 
 impl<T: SerializeInner + CopyType> Serialize for &[T]
 where

@@ -30,11 +30,15 @@ pub use slice_with_pos::*;
 
 pub type Result<T> = core::result::Result<T, DeserializeError>;
 
-/// Main serialization trait. It is separated from [`DeserializeInner`] to
+/// Main deserialization trait. It is separated from [`DeserializeInner`] to
 /// avoid that the user modify its behavior, and hide internal serialization
 /// methods.
+///
+/// It provides several convenience methods to load or map into memory
+/// structures that have been previously serialized. See, for example,
+/// [`Deserialize::load_full`], [`Deserialize::load_mem`], and [`Deserialize::mmap`].
 pub trait Deserialize: DeserializeInner {
-    /// Full-copy deserialize a structure of this type from the given backend.
+    /// Fully deserialize a structure of this type from the given backend.
     fn deserialize_full_copy(backend: impl ReadNoStd) -> Result<Self>;
     /// ε-copy deserialize a structure of this type from the given backend.
     fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
@@ -46,7 +50,7 @@ pub trait Deserialize: DeserializeInner {
         Self::deserialize_full_copy(&mut buf_reader)
     }
 
-    /// Load a file into heap-allocated memory and deserialize a data structure from it,
+    /// Load a file into heap-allocated memory and ε-deserialize a data structure from it,
     /// returning a [`MemCase`] containing the data structure and the
     /// memory. Excess bytes are zeroed out.
     fn load_mem<'a>(
@@ -92,7 +96,7 @@ pub trait Deserialize: DeserializeInner {
         Ok(unsafe { uninit.assume_init() })
     }
 
-    /// Load a file into `mmap()`-allocated memory and deserialize a data structure from it,
+    /// Load a file into `mmap()`-allocated memory and ε-deserialize a data structure from it,
     /// returning a [`MemCase`] containing the data structure and the
     /// memory. Excess bytes are zeroed out.
     ///
@@ -136,7 +140,7 @@ pub trait Deserialize: DeserializeInner {
         Ok(unsafe { uninit.assume_init() })
     }
 
-    /// Memory map a file and deserialize a data structure from it,
+    /// Memory map a file and ε-deserialize a data structure from it,
     /// returning a [`MemCase`] containing the data structure and the
     /// memory mapping.
     ///
@@ -178,23 +182,13 @@ pub trait Deserialize: DeserializeInner {
     }
 }
 
-/// Inner trait to implement deserialization of a type. This trait exists
-/// to separate the user-facing [`Deserialize`] trait from the low-level
-/// deserialization mechanisms of [`DeserializeInner::_deserialize_full_copy_inner`]
-/// and [`DeserializeInner::_deserialize_eps_copy_inner`]. Moreover,
-/// it makes it possible to behave slighly differently at the top
-/// of the recursion tree (e.g., to check the endianness marker), and to prevent
-/// the user from modifying the methods in [`Deserialize`].
+/// Blanket implementation that prevents the user from overwriting the
+/// methods in [`Deserialize`].
 ///
-/// The user should not implement this trait directly, but rather derive it.
-pub trait DeserializeInner: TypeHash + Sized {
-    type DeserType<'a>;
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)>;
-
-    fn _deserialize_eps_copy_inner(
-        backend: SliceWithPos,
-    ) -> Result<(Self::DeserType<'_>, SliceWithPos)>;
-}
+/// This implementation [checks the header](`check_header`) written
+/// by the blanked implementation of [`crate::Serialize`] and then calls
+/// [`DeserializeInner::_deserialize_full_copy_inner`] or
+/// [`DeserializeInner::_deserialize_eps_copy_inner`].
 
 impl<T: DeserializeInner> Deserialize for T {
     fn deserialize_full_copy(backend: impl ReadNoStd) -> Result<Self> {
@@ -238,8 +232,27 @@ impl<T: DeserializeInner> Deserialize for T {
     }
 }
 
+/// Inner trait to implement deserialization of a type. This trait exists
+/// to separate the user-facing [`Deserialize`] trait from the low-level
+/// deserialization mechanisms of [`DeserializeInner::_deserialize_full_copy_inner`]
+/// and [`DeserializeInner::_deserialize_eps_copy_inner`]. Moreover,
+/// it makes it possible to behave slighly differently at the top
+/// of the recursion tree (e.g., to check the endianness marker), and to prevent
+/// the user from modifying the methods in [`Deserialize`].
+///
+/// The user should not implement this trait directly, but rather derive it.
+pub trait DeserializeInner: TypeHash + Sized {
+    type DeserType<'a>;
+    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)>;
+
+    fn _deserialize_eps_copy_inner(
+        backend: SliceWithPos,
+    ) -> Result<(Self::DeserType<'_>, SliceWithPos)>;
+}
+
 /// Common code for both full-copy and zero-copy deserialization
-fn check_header<R: ReadWithPos>(
+/// Must be kept in sync with [`crate::ser::write_header`].
+pub fn check_header<R: ReadWithPos>(
     backend: R,
     self_hash: u64,
     self_repr_hash: u64,
@@ -292,8 +305,9 @@ fn check_header<R: ReadWithPos>(
     Ok(backend)
 }
 
-// Since impls with distinct parameters are considered disjoint
-// we can write multiple blanket impls for DeserializeHelper given different paremeters
+/// A helper trait that makes it possible to implement differently
+/// deserialization for [`crate::ZeroCopy`] and [`crate::EpsCopy`] types.
+/// See [`crate::CopyType`] for more information.
 pub trait DeserializeHelper<T: CopySelector> {
     // TODO: do we really need this?
     type FullType: TypeHash;
@@ -306,7 +320,7 @@ pub trait DeserializeHelper<T: CopySelector> {
 }
 
 #[derive(Debug)]
-/// Errors that can happen during deserialization
+/// Errors that can happen during deserialization.
 pub enum DeserializeError {
     /// [`Deserialize::load_full`] could not open the provided file.
     FileOpenError(std::io::Error),
