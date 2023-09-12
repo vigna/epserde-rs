@@ -11,17 +11,17 @@ Deserialization traits and types
 
 [`Deserialize`] is the main deserialization trait, providing methods
 [`Deserialize::deserialize_eps_copy`] and [`Deserialize::deserialize_full_copy`]
-which implement ε-copy and full-copy deserialization, respectively,
-starting from a slice of bytes. The implementation of this trait
-is based on [`DeserializeInner`], which is automatically derived
-with `#[derive(Deserialize)]`.
+which implement ε-copy and full-copy deserialization, respectively.
+The implementation of this trait is based on [`DeserializeInner`],
+which is automatically derived with `#[derive(Deserialize)]`.
 
 */
 
-use crate::{CopySelector, TypeHash, MAGIC, MAGIC_REV, VERSION};
-use core::hash::Hasher;
+use crate::{CopySelector, MemCase, TypeHash, MAGIC, MAGIC_REV, VERSION};
+use crate::{Flags, MemBackend};
+use core::ptr::addr_of_mut;
+use core::{hash::Hasher, mem::MaybeUninit};
 use std::{io::BufReader, path::Path};
-
 pub mod read_with_pos;
 pub use read_with_pos::*;
 
@@ -29,6 +29,154 @@ pub mod slice_with_pos;
 pub use slice_with_pos::*;
 
 pub type Result<T> = core::result::Result<T, DeserializeError>;
+
+/// Main serialization trait. It is separated from [`DeserializeInner`] to
+/// avoid that the user modify its behavior, and hide internal serialization
+/// methods.
+pub trait Deserialize: DeserializeInner {
+    /// Full-copy deserialize a structure of this type from the given backend.
+    fn deserialize_full_copy(backend: impl ReadNoStd) -> Result<Self>;
+    /// ε-copy deserialize a structure of this type from the given backend.
+    fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
+
+    /// Commodity method to fully deserialize from a file.
+    fn load_full(path: impl AsRef<Path>) -> Result<Self> {
+        let file = std::fs::File::open(path).map_err(DeserializeError::FileOpenError)?;
+        let mut buf_reader = BufReader::new(file);
+        Self::deserialize_full_copy(&mut buf_reader)
+    }
+
+    /// Load a file into heap-allocated memory and deserialize a data structure from it,
+    /// returning a [`MemCase`] containing the data structure and the
+    /// memory. Excess bytes are zeroed out.
+    fn load_mem<'a>(
+        path: impl AsRef<Path>,
+    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
+        let file_len = path.as_ref().metadata()?.len() as usize;
+        let mut file = std::fs::File::open(path)?;
+        // Round up to u128 size
+        let len = file_len + crate::pad_align_to(file_len, 16);
+
+        let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
+            MaybeUninit::uninit();
+        let ptr = uninit.as_mut_ptr();
+
+        // SAFETY: the entire vector will be filled with data read from the file,
+        // or with zeroes if the file is shorter than the vector.
+        let mut bytes = unsafe {
+            Vec::from_raw_parts(
+                std::alloc::alloc(std::alloc::Layout::from_size_align(len, 16)?),
+                len,
+                len,
+            )
+        };
+
+        file.read_exact(&mut bytes[..file_len])?;
+        // Fixes the last few bytes to guarantee zero-extension semantics
+        // for bit vectors and full-vector initialization.
+        bytes[file_len..].fill(0);
+        let backend = MemBackend::Memory(bytes);
+
+        // store the backend inside the MemCase
+        unsafe {
+            addr_of_mut!((*ptr).1).write(backend);
+        }
+        // deserialize the data structure
+        let mem = unsafe { (*ptr).1.as_ref().unwrap() };
+        let s = Self::deserialize_eps_copy(mem)?;
+        // write the deserialized struct in the memcase
+        unsafe {
+            addr_of_mut!((*ptr).0).write(s);
+        }
+        // finish init
+        Ok(unsafe { uninit.assume_init() })
+    }
+
+    /// Load a file into `mmap()`-allocated memory and deserialize a data structure from it,
+    /// returning a [`MemCase`] containing the data structure and the
+    /// memory. Excess bytes are zeroed out.
+    ///
+    /// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
+    /// just pass `Flags::empty()`.
+    #[allow(clippy::uninit_vec)]
+    fn load_mmap<'a>(
+        path: impl AsRef<Path>,
+        flags: Flags,
+    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
+        let file_len = path.as_ref().metadata()?.len() as usize;
+        let mut file = std::fs::File::open(path)?;
+        let capacity = (file_len + 7) / 8;
+
+        let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
+            MaybeUninit::uninit();
+        let ptr = uninit.as_mut_ptr();
+
+        let mut mmap = mmap_rs::MmapOptions::new(capacity * 8)?
+            .with_flags(flags.mmap_flags())
+            .map_mut()?;
+        file.read_exact(&mut mmap[..file_len])?;
+        // Fixes the last few bytes to guarantee zero-extension semantics
+        // for bit vectors.
+        mmap[file_len..].fill(0);
+
+        let backend = MemBackend::Mmap(mmap.make_read_only().map_err(|(_, err)| err).unwrap());
+
+        // store the backend inside the MemCase
+        unsafe {
+            addr_of_mut!((*ptr).1).write(backend);
+        }
+        // deserialize the data structure
+        let mem = unsafe { (*ptr).1.as_ref().unwrap() };
+        let s = Self::deserialize_eps_copy(mem)?;
+        // write the deserialized struct in the MemCase
+        unsafe {
+            addr_of_mut!((*ptr).0).write(s);
+        }
+        // finish init
+        Ok(unsafe { uninit.assume_init() })
+    }
+
+    /// Memory map a file and deserialize a data structure from it,
+    /// returning a [`MemCase`] containing the data structure and the
+    /// memory mapping.
+    ///
+    /// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
+    /// just pass `Flags::empty()`.
+    #[allow(clippy::uninit_vec)]
+    fn mmap<'a>(
+        path: impl AsRef<Path>,
+        flags: Flags,
+    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
+        let file_len = path.as_ref().metadata()?.len();
+        let file = std::fs::File::open(path)?;
+
+        let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
+            MaybeUninit::uninit();
+        let ptr = uninit.as_mut_ptr();
+
+        let mmap = unsafe {
+            mmap_rs::MmapOptions::new(file_len as _)?
+                .with_flags(flags.mmap_flags())
+                .with_file(file, 0)
+                .map()?
+        };
+
+        // store the backend inside the MemCase
+        unsafe {
+            addr_of_mut!((*ptr).1).write(MemBackend::Mmap(mmap));
+        }
+
+        let mmap = unsafe { (*ptr).1.as_ref().unwrap() };
+        // deserialize the data structure
+        let s = Self::deserialize_eps_copy(mmap)?;
+        // write the deserialized struct in the MemCase
+        unsafe {
+            addr_of_mut!((*ptr).0).write(s);
+        }
+        // finish init
+        Ok(unsafe { uninit.assume_init() })
+    }
+}
 
 /// Inner trait to implement deserialization of a type. This trait exists
 /// to separate the user-facing [`Deserialize`] trait from the low-level
@@ -46,23 +194,6 @@ pub trait DeserializeInner: TypeHash + Sized {
     fn _deserialize_eps_copy_inner(
         backend: SliceWithPos,
     ) -> Result<(Self::DeserType<'_>, SliceWithPos)>;
-}
-
-/// Main serialization trait. It is separated from [`DeserializeInner`] to
-/// avoid that the user modify its behavior, and hide internal serialization
-/// methods.
-pub trait Deserialize: DeserializeInner {
-    /// Full-copy deserialize a structure of this type from the given backend.
-    fn deserialize_full_copy(backend: impl ReadNoStd) -> Result<Self>;
-    /// ε-copy deserialize a structure of this type from the given backend.
-    fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
-
-    /// Commodity method to full deserialize from a file.
-    fn load_full(path: impl AsRef<Path>) -> Result<Self> {
-        let file = std::fs::File::open(path).map_err(DeserializeError::FileOpenError)?;
-        let mut buf_reader = BufReader::new(file);
-        Self::deserialize_full_copy(&mut buf_reader)
-    }
 }
 
 impl<T: DeserializeInner> Deserialize for T {
