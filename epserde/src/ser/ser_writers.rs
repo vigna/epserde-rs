@@ -70,7 +70,7 @@ pub trait FieldWrite: WriteNoStd + Sized {
             #[allow(clippy::manual_slice_size_calculation)]
             core::slice::from_raw_parts(value as *const V as *const u8, core::mem::size_of::<V>())
         };
-        self.do_write_bytes::<V>(field_name, buffer)
+        self.write_bytes::<V>(field_name, buffer)
     }
 
     /// Write a slice by encoding its length first, and then the contents properly aligned.
@@ -100,7 +100,7 @@ pub trait FieldWrite: WriteNoStd + Sized {
             #[allow(clippy::manual_slice_size_calculation)]
             core::slice::from_raw_parts(data.as_ptr() as *const u8, len * core::mem::size_of::<V>())
         };
-        self.do_write_bytes::<V>("items", buffer)
+        self.write_bytes::<V>("items", buffer)
     }
 }
 
@@ -228,15 +228,6 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
         let padding = pad_align_to(self.pos(), core::mem::align_of::<V>());
         if padding == 0 {
             return Ok(());
-        }
-
-        let off = self.schema.0.last_mut().unwrap().offset;
-
-        for row in self.schema.0.iter_mut().rev() {
-            if row.offset < off {
-                break;
-            }
-            row.offset += padding;
         }
 
         self.schema.0.push(SchemaRow {
