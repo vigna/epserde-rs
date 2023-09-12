@@ -34,6 +34,7 @@ pub trait TypeHash {
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::boxed::Box;
+
 #[cfg(feature = "alloc")]
 impl<T: TypeHash + ?Sized> TypeHash for Box<T> {
     #[inline(always)]

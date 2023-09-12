@@ -33,9 +33,6 @@ pub trait FieldWrite: WriteNoStd + Sized {
     /// by implementing types to simulate a call to the default implementation.
     #[inline(always)]
     fn do_write_field<V: SerializeInner>(self, _field_name: &str, value: &V) -> Result<Self> {
-        if V::ZERO_COPY_MISMATCH {
-            eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<V>());
-        }
         value._serialize_inner(self)
     }
 

@@ -17,76 +17,78 @@ use syn::{
     WhereClause, WherePredicate,
 };
 
+/// Pre-parsed information for the derive macros.
 struct CommonDeriveInput {
+    /// The identifier of the struct.
     name: syn::Ident,
+    /// The token stream to be used after `impl` in angle brackets. It contains
+    /// the generics, lifetimes, and consts, with their trait bounds.
     generics: proc_macro2::TokenStream,
+    /// A vector containing the identifiers of the generics.
+    generics_name_vec: Vec<proc_macro2::TokenStream>,
+    /// Same as `generics_name_vec`, but names are concatenated
+    /// and separated by commans.
     generics_names: proc_macro2::TokenStream,
-    generics_call_vec: Vec<proc_macro2::TokenStream>,
+    /// A vector containing the name of generics types, represented as strings.
     generics_names_raw: Vec<String>,
+    /// A vector containing the identifier of the constants, represented as strings.
+    /// Used to include the const values into the [`TypeHash`].
     consts_names_raw: Vec<String>,
+    /// The where clause.
     where_clause: proc_macro2::TokenStream,
 }
 
 impl CommonDeriveInput {
-    fn new(
-        input: DeriveInput,
-        traits_to_add: Vec<syn::Path>,
-        lifetimes_to_add: Vec<syn::Lifetime>,
-    ) -> Self {
+    /// Create a new `CommonDeriveInput` from a `DeriveInput`.
+    /// Additionally, one can specify traits and lifetimes to
+    /// be added to the generic types.
+    fn new(input: DeriveInput, traits_to_add: Vec<syn::Path>) -> Self {
         let name = input.ident;
         let mut generics = quote!();
         let mut generics_names_raw = vec![];
         let mut consts_names_raw = vec![];
-        let mut generics_call_vec = vec![];
+        let mut generics_name_vec = vec![];
         let mut generics_names = quote!();
         if !input.generics.params.is_empty() {
-            input.generics.params.iter().for_each(|x| {
+            input.generics.params.into_iter().for_each(|x| {
                 match x {
-                    syn::GenericParam::Type(t) => {
+                    syn::GenericParam::Type(mut t) => {
                         generics_names.extend(t.ident.to_token_stream());
                         generics_names_raw.push(t.ident.to_string());
+
+                        t.default = None;
+                        for trait_to_add in traits_to_add.iter() {
+                            t.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
+                                paren_token: None,
+                                modifier: syn::TraitBoundModifier::None,
+                                lifetimes: None,
+                                path: trait_to_add.clone(),
+                            }));
+                        }
+                        generics.extend(quote!(#t,));
+                        generics_name_vec.push(t.ident.to_token_stream());
                     }
                     syn::GenericParam::Lifetime(l) => {
                         generics_names.extend(l.lifetime.to_token_stream());
+
+                        generics.extend(quote!(#l,));
+                        generics_name_vec.push(l.lifetime.to_token_stream());
                     }
-                    syn::GenericParam::Const(c) => {
+                    syn::GenericParam::Const(mut c) => {
                         generics_names.extend(c.ident.to_token_stream());
                         consts_names_raw.push(c.ident.to_string());
+
+                        c.default = None; // remove the defaults from the const generics
+                                          // otherwise we can't use them in the impl generics
+                        generics.extend(quote!(#c,));
+                        generics_name_vec.push(c.ident.to_token_stream());
                     }
                 };
                 generics_names.extend(quote!(,))
             });
-            input.generics.params.into_iter().for_each(|x| match x {
-                syn::GenericParam::Type(mut t) => {
-                    t.default = None;
-                    for trait_to_add in traits_to_add.iter() {
-                        t.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
-                            paren_token: None,
-                            modifier: syn::TraitBoundModifier::None,
-                            lifetimes: None,
-                            path: trait_to_add.clone(),
-                        }));
-                    }
-                    for lifetime_to_add in lifetimes_to_add.iter() {
-                        t.bounds
-                            .push(syn::TypeParamBound::Lifetime(lifetime_to_add.clone()));
-                    }
-                    generics.extend(quote!(#t,));
-                    generics_call_vec.push(t.ident.to_token_stream());
-                }
-                syn::GenericParam::Const(mut c) => {
-                    c.default = None; // remove the defaults from the const generics
-                                      // otherwise we can't use them in the impl generics
-                    generics.extend(quote!(#c,));
-                    generics_call_vec.push(c.ident.to_token_stream());
-                }
-                syn::GenericParam::Lifetime(l) => {
-                    generics.extend(quote!(#l,));
-                    generics_call_vec.push(l.lifetime.to_token_stream());
-                }
-            });
         }
 
+        // We add a where keyword in case we need to add clauses
         let where_clause = input
             .generics
             .where_clause
@@ -100,11 +102,13 @@ impl CommonDeriveInput {
             where_clause,
             generics_names_raw,
             consts_names_raw,
-            generics_call_vec,
+            generics_name_vec,
         }
     }
 }
 
+/// Return whether the struct has attributes `repr(C)`, `zero_copy`, and `full_copy`.
+/// Performs coherence checks (e.g., to be `zero_copy` the struct must be `repr(C)`).
 fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     let is_repr_c = input.attrs.iter().any(|x| {
         x.meta.path().is_ident("repr") && x.meta.require_list().unwrap().tokens.to_string() == "C"
@@ -135,36 +139,38 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
 
 #[proc_macro_derive(Epserde, attributes(zero_copy, full_copy))]
 pub fn epserde_derive(input: TokenStream) -> TokenStream {
+    // Cloning input for type hash
     let input_for_typehash = input.clone();
     let derive_input = parse_macro_input!(input as DeriveInput);
     let (is_repr_c, is_zero_copy, is_full_copy) = check_attrs(&derive_input);
-    // values for serialize
+
+    // Common values between serialize and deserialize
     let CommonDeriveInput {
         name,
-        generics: generics_serialize,
         generics_names,
         generics_names_raw,
-        generics_call_vec,
+        generics_name_vec,
+        generics,
+        ..
+    } = CommonDeriveInput::new(derive_input.clone(), vec![]);
+
+    // Values for serialize (we add serialization bounds to generics)
+    let CommonDeriveInput {
+        generics: generics_serialize,
         ..
     } = CommonDeriveInput::new(
         derive_input.clone(),
         vec![syn::parse_quote!(epserde::ser::SerializeInner)],
-        vec![],
     );
-    // values for deserialize
+
+    // Values for deserialize (we add deserialization bounds to generics)
     let CommonDeriveInput {
         generics: generics_deserialize,
         ..
     } = CommonDeriveInput::new(
         derive_input.clone(),
         vec![syn::parse_quote!(epserde::des::DeserializeInner)],
-        vec![],
     );
-    // values for deserialize
-    let CommonDeriveInput { generics, .. } =
-        CommonDeriveInput::new(derive_input.clone(), vec![], vec![]);
-
-    // We have to play with this to get type parameters working
 
     let out = match derive_input.data {
         Data::Struct(s) => {
@@ -175,6 +181,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             let mut generic_fields = vec![];
             let mut generic_types = vec![];
 
+            // Scan the struct to find which fields are generics, and which are not.
             s.fields.iter().for_each(|field| {
                 let ty = &field.ty;
                 let field_name = field.ident.clone().unwrap();
@@ -189,6 +196,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 fields_names.push(field_name);
             });
 
+            // Assign ε-deserialization or full deserialization to
+            // fields depending whether they are generic or not.
             let mut methods: Vec<proc_macro2::TokenStream> = vec![];
 
             s.fields.iter().for_each(|field| {
@@ -200,7 +209,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 }
             });
 
-            let desser_type_generics = generics_call_vec
+            // Gather deserialization types of fields,
+            // which are necessary to derive the deserialization type.
+            let desser_type_generics = generics_name_vec
                 .iter()
                 .map(|ty| {
                     if generic_types
@@ -223,16 +234,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     predicates: Punctuated::new(),
                 });
 
-            let mut where_clause_des =
-                derive_input
-                    .generics
-                    .where_clause
-                    .clone()
-                    .unwrap_or_else(|| WhereClause {
-                        where_token: token::Where::default(),
-                        predicates: Punctuated::new(),
-                    });
+            let mut where_clause_des = where_clause.clone();
 
+            // We add to the deserialization where clause the bounds on the deserialization
+            // types of the fields derived from the bounds of the original types of the fields.
+            // TODO: we presently handle only inlined bounds, and not bounds in a where clause.
             derive_input.generics.params.iter().for_each(|param| {
                 if let GenericParam::Type(t) = param {
                     let ty = &t.ident;
@@ -273,15 +279,17 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     #[automatically_derived]
                     impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
+                        // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
                             && <#fields_types>::IS_ZERO_COPY
                         )*;
 
+                        // The type is declared as zero copy, so a fortiori there is no mismatch.
                         const ZERO_COPY_MISMATCH: bool = false;
 
                         #[inline(always)]
                         fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
-                            backend.write_field_zero("data", self)
+                            backend.write_field_zero("zero", self)
                         }
                     }
 
@@ -314,10 +322,13 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     #[automatically_derived]
                     impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
+                        // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
                             && <#fields_types>::IS_ZERO_COPY
                         )*;
 
+                        // Compute whether the type could be zero copy but it is not declared as such,
+                        // and the attribute `full_copy` is missing.
                         const ZERO_COPY_MISMATCH: bool = ! #is_full_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
 
                         #[inline(always)]
@@ -364,11 +375,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 }
             }
         }
-        _ => todo!(),
+        _ => todo!("Missing implementation for union, enum and tuple types"),
     };
 
-    // automatically derive type hash
     let mut out: TokenStream = out.into();
+    // automatically derive type hash
     out.extend(epserde_type_hash(input_for_typehash));
     out
 }
@@ -385,11 +396,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         generics_names_raw,
         consts_names_raw,
         ..
-    } = CommonDeriveInput::new(
-        input.clone(),
-        vec![syn::parse_quote!(epserde::TypeHash)],
-        vec![],
-    );
+    } = CommonDeriveInput::new(input.clone(), vec![syn::parse_quote!(epserde::TypeHash)]);
 
     let out = match input.data {
         Data::Struct(s) => {
@@ -405,6 +412,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                 .map(|field| field.ty.to_owned())
                 .collect::<Vec<_>>();
 
+            // Build type name
             let type_name: proc_macro2::TokenStream = if generics.is_empty() {
                 format!("\"{}\".into()", name)
             } else {
@@ -431,6 +439,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
 
             let name_literal = format!("\"{}\"", type_name);
 
+            // Add reprs
             let repr = input
                 .attrs
                 .iter()
@@ -460,7 +469,6 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                     #[inline(always)]
                     fn type_hash(hasher: &mut impl core::hash::Hasher) {
                         use core::hash::Hash;
-                        #is_zero_copy.hash(hasher);
                         #name_literal.hash(hasher);
                         #(
                             #fields_names.hash(hasher);
