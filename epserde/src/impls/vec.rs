@@ -5,6 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+/*!
+
+Implementations for vectors.
+
+*/
 use crate::des;
 use crate::des::*;
 use crate::ser;
