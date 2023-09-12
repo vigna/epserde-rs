@@ -161,10 +161,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
         vec![],
     );
     // values for deserialize
-    let CommonDeriveInput {
-        generics: generics_copytype,
-        ..
-    } = CommonDeriveInput::new(derive_input.clone(), vec![], vec![]);
+    let CommonDeriveInput { generics, .. } =
+        CommonDeriveInput::new(derive_input.clone(), vec![], vec![]);
 
     // We have to play with this to get type parameters working
 
@@ -269,7 +267,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics_copytype> CopyType for  #name<#generics_names> #where_clause {
+                    impl<#generics> CopyType for  #name<#generics_names> #where_clause {
                         type Copy = Zero;
                     }
 
@@ -310,7 +308,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics_copytype> CopyType for  #name<#generics_names> #where_clause {
+                    impl<#generics> CopyType for  #name<#generics_names> #where_clause {
                         type Copy = Eps;
                     }
 
@@ -449,6 +447,8 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         use core::hash::Hash;
                         core::mem::align_of::<Self>().hash(hasher);
                         core::mem::size_of::<Self>().hash(hasher);
+                        // add to the hash if the struct is zero copy or not
+                        <Self as epserde::CopyType>::Copy::type_hash(hasher);
                         #(
                             #repr.hash(hasher);
                         )*

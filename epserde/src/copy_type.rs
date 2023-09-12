@@ -5,20 +5,42 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::TypeHash;
+use core::hash::Hash;
+
 /// Internal trait used to select whether a type is zero copy or not.
 /// It has only two implementations, [`Eps`] and [`Zero`].
-pub trait CopySelector {
+pub trait CopySelector: TypeHash {
     const IS_ZERO_COPY: bool;
 }
 /// An implementation of a [`CopySelector`] specifying that a type is zero copy.
 pub struct Zero {}
+
+impl TypeHash for Zero {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        0xdeadbeefbadf00d_u64.hash(hasher);
+    }
+    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
+        0xdeadbeefbadf00d_u64.hash(hasher);
+    }
+}
 
 impl CopySelector for Zero {
     const IS_ZERO_COPY: bool = true;
 }
 
 /// An implementation of a [`CopySelector`] specifying that a type is not zero copy.
+#[derive(Hash)]
 pub struct Eps {}
+
+impl TypeHash for Eps {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        0xc0ffec0ffe_u64.hash(hasher);
+    }
+    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
+        0xc0ffec0ffe_u64.hash(hasher);
+    }
+}
 
 impl CopySelector for Eps {
     const IS_ZERO_COPY: bool = false;
