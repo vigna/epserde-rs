@@ -10,11 +10,11 @@
 Serialize-only implementation for slices that deserializes to vectors.
 ```rust
 use epserde::*;
-let a = &[1, 2, 3, 4];
+let a = vec![1, 2, 3, 4];
 let mut cursor = new_aligned_cursor();
-a.serialize(&mut cursor)?;
+a.serialize(&mut cursor).unwrap();
 cursor.set_position(0);
-let b = <Vec<i32>>::deserialize_full_copy(&mut cursor)?;
+let b = <Vec<i32>>::deserialize_full_copy(&mut cursor).unwrap();
 assert_eq!(a, b);
 ```
 */
