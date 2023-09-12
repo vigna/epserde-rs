@@ -24,7 +24,7 @@ pub trait FieldWrite: WriteNoStd + Sized {
     fn align<V>(&mut self) -> Result<()> {
         let padding = pad_align_to(self.pos(), core::mem::align_of::<V>());
         for _ in 0..padding {
-            self.write(&[0])?;
+            self.write_all(&[0])?;
         }
         Ok(())
     }
@@ -45,7 +45,7 @@ pub trait FieldWrite: WriteNoStd + Sized {
     #[inline(always)]
     fn do_write_bytes<V>(mut self, _field_name: &str, value: &[u8]) -> Result<Self> {
         self.align::<V>()?;
-        self.write(value)?;
+        self.write_all(value)?;
         Ok(self)
     }
 
@@ -239,7 +239,7 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
         });
 
         for _ in 0..padding {
-            self.write(&[0])?;
+            self.write_all(&[0])?;
         }
         Ok(())
     }
@@ -284,8 +284,8 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
 
 impl<W: FieldWrite> WriteNoStd for SchemaWriter<W> {
     #[inline(always)]
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        self.writer.write(buf)
+    fn write_all(&mut self, buf: &[u8]) -> Result<()> {
+        self.writer.write_all(buf)
     }
 
     #[inline(always)]

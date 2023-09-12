@@ -166,8 +166,8 @@ impl core::fmt::Display for SerializeError {
 /// [`std::io::Write`]. In particular, in such a context you can use [`std::io::Cursor`]
 /// for in-memory serialization.
 pub trait WriteNoStd {
-    /// Write some bytes and return the number of bytes written.
-    fn write(&mut self, buf: &[u8]) -> Result<usize>;
+    /// Write some bytes.
+    fn write_all(&mut self, buf: &[u8]) -> Result<()>;
 
     /// Flush all changes to the underlying storage if applicable.
     fn flush(&mut self) -> Result<()>;
@@ -178,8 +178,8 @@ use std::io::Write;
 #[cfg(feature = "std")]
 impl<W: Write> WriteNoStd for W {
     #[inline(always)]
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        Write::write(self, buf).map_err(|_| SerializeError::WriteError)
+    fn write_all(&mut self, buf: &[u8]) -> Result<()> {
+        Write::write_all(self, buf).map_err(|_| SerializeError::WriteError)
     }
     #[inline(always)]
     fn flush(&mut self) -> Result<()> {
@@ -216,10 +216,10 @@ impl<F: WriteNoStd> FieldWrite for WriteWithPos<F> {
 
 impl<F: WriteNoStd> WriteNoStd for WriteWithPos<F> {
     #[inline(always)]
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        let res = self.backend.write(buf)?;
-        self.pos += res;
-        Ok(res)
+    fn write_all(&mut self, buf: &[u8]) -> Result<()> {
+        self.backend.write_all(buf)?;
+        self.pos += buf.len();
+        Ok(())
     }
 
     #[inline(always)]

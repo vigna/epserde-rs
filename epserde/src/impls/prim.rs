@@ -49,7 +49,7 @@ macro_rules! impl_prim_ser_des {
 
             #[inline(always)]
             fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> ser::Result<F> {
-                backend.write(&self.to_ne_bytes())?;
+                backend.write_all(&self.to_ne_bytes())?;
                 Ok(backend)
             }
         }
@@ -112,7 +112,7 @@ impl SerializeInner for bool {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> ser::Result<F> {
         let val = if *self { 1 } else { 0 };
-        backend.write(&[val])?;
+        backend.write_all(&[val])?;
         Ok(backend)
     }
 }

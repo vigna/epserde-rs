@@ -73,7 +73,7 @@ impl<'a> SliceWithPos<'a> {
 }
 
 impl<'a> ReadNoStd for SliceWithPos<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> des::Result<usize> {
+    fn read_exact(&mut self, buf: &mut [u8]) -> des::Result<()> {
         let len = buf.len();
         if len > self.data.len() {
             return Err(DeserializeError::ReadError);
@@ -81,11 +81,7 @@ impl<'a> ReadNoStd for SliceWithPos<'a> {
         buf.copy_from_slice(&self.data[..len]);
         self.data = &self.data[len..];
         self.pos += len;
-        Ok(len)
-    }
-
-    fn read_exact(&mut self, buf: &mut [u8]) -> des::Result<()> {
-        self.read(buf).map(|_| ())
+        Ok(())
     }
 }
 

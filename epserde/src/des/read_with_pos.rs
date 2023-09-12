@@ -18,9 +18,7 @@ use core::mem::MaybeUninit;
 /// [`std::io::Read`]. In particular, in such a context you can use [`std::io::Cursor`]
 /// for in-memory deserialization.
 pub trait ReadNoStd {
-    /// Read some bytes and return the number of bytes read
-    fn read(&mut self, buf: &mut [u8]) -> des::Result<usize>;
-
+    /// Read some bytes
     fn read_exact(&mut self, buf: &mut [u8]) -> des::Result<()>;
 }
 
@@ -28,11 +26,6 @@ pub trait ReadNoStd {
 use std::io::Read;
 #[cfg(feature = "std")]
 impl<W: Read> ReadNoStd for W {
-    #[inline(always)]
-    fn read(&mut self, buf: &mut [u8]) -> des::Result<usize> {
-        Read::read(self, buf).map_err(|_| DeserializeError::ReadError)
-    }
-
     #[inline(always)]
     fn read_exact(&mut self, buf: &mut [u8]) -> des::Result<()> {
         Read::read_exact(self, buf).map_err(|_| DeserializeError::ReadError)
@@ -119,13 +112,6 @@ impl<F: ReadNoStd> ReaderWithPos<F> {
 }
 
 impl<F: ReadNoStd> ReadNoStd for ReaderWithPos<F> {
-    #[inline(always)]
-    fn read(&mut self, buf: &mut [u8]) -> des::Result<usize> {
-        let res = self.backend.read(buf)?;
-        self.pos += res;
-        Ok(res)
-    }
-
     fn read_exact(&mut self, buf: &mut [u8]) -> des::Result<()> {
         self.backend.read_exact(buf)?;
         self.pos += buf.len();
