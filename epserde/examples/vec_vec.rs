@@ -26,6 +26,7 @@ fn main() {
     println!("{}", schema.debug(&buf.clone().into_inner()));
 
     // Do a full-copy deserialization
+    buf.set_position(0);
     let full = <Data<Vec<Vec<i32>>>>::deserialize_full_copy(&mut buf).unwrap();
     println!(
         "Full-copy deserialization type: {}",
