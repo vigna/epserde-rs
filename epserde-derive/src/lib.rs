@@ -317,7 +317,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 quote! {
                     #[automatically_derived]
                     impl<#generics> CopyType for  #name<#generics_names> #where_clause {
-                        type Copy = Eps;
+                        type Copy = Full;
                     }
 
                     #[automatically_derived]

@@ -6,7 +6,7 @@
  */
 
 use crate::{des, DeserializeError, DeserializeInner, ReadNoStd, ReadWithPos};
-use crate::{EpsCopy, ZeroCopy};
+use crate::{FullCopy, ZeroCopy};
 
 /// [`std::io::Cursor`]-like trait for deserialization that does not
 /// depend on [`std`].
@@ -58,7 +58,7 @@ impl<'a> SliceWithPos<'a> {
     }
 
     /// Return a fully deserialized vector of elements
-    pub fn deserialize_vec_eps_eps<T: EpsCopy + DeserializeInner>(
+    pub fn deserialize_vec_eps_eps<T: FullCopy + DeserializeInner>(
         self,
     ) -> des::Result<(Vec<<T as DeserializeInner>::DeserType<'a>>, Self)> {
         let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;

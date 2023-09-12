@@ -16,7 +16,7 @@ use crate::des::{self, DeserializeHelper};
 use crate::ser;
 use crate::ser::SerializeHelper;
 use crate::{
-    CopyType, DeserializeInner, Eps, EpsCopy, FieldWrite, ReadWithPos, SerializeInner,
+    CopyType, DeserializeInner, FieldWrite, Full, FullCopy, ReadWithPos, SerializeInner,
     SliceWithPos, TypeHash, Zero, ZeroCopy,
 };
 use core::hash::Hash;
@@ -58,7 +58,7 @@ impl<T: ZeroCopy + SerializeInner, const N: usize> SerializeHelper<Zero> for [T;
     }
 }
 
-impl<T: EpsCopy + SerializeInner, const N: usize> SerializeHelper<Eps> for [T; N] {
+impl<T: FullCopy + SerializeInner, const N: usize> SerializeHelper<Full> for [T; N] {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> ser::Result<F> {
         for item in self.iter() {
@@ -120,7 +120,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper
     }
 }
 
-impl<T: EpsCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<Eps> for [T; N] {
+impl<T: FullCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<Full> for [T; N] {
     type FullType = Self;
     type DeserType<'a> = [<T as DeserializeInner>::DeserType<'a>; N];
     #[inline(always)]

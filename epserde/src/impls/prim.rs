@@ -224,10 +224,10 @@ impl<T: DeserializeInner> DeserializeInner for PhantomData<T> {
     }
 }
 
-// Options are ε-copy types serialized as a one-byte tag (0 for None, 1 for Some) followed, in case, by the value.
+// Options are full-copy types serialized as a one-byte tag (0 for None, 1 for Some) followed, in case, by the value.
 
 impl<T> CopyType for Option<T> {
-    type Copy = Eps;
+    type Copy = Full;
 }
 
 impl<T: TypeHash> TypeHash for Option<T> {

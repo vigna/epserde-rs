@@ -26,7 +26,7 @@ fn main() {
 
     println!("\n");
 
-    // Do a ε-copy deserialization (which will be a zero-copy deserialization)
+    // Do an ε-copy deserialization (which will be a zero-copy deserialization)
     let buf = buf.into_inner();
     let eps = <[usize; 100]>::deserialize_eps_copy(&buf).unwrap();
     println!(

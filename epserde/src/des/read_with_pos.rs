@@ -6,7 +6,7 @@
  */
 
 use crate::{des, DeserializeError, DeserializeInner};
-use crate::{EpsCopy, ZeroCopy};
+use crate::{FullCopy, ZeroCopy};
 use core::mem::MaybeUninit;
 
 /// [`std::io::Read`]-like trait for serialization that does not
@@ -79,8 +79,8 @@ pub trait ReadWithPos: ReadNoStd + Sized {
         Ok((res, res_self))
     }
 
-    /// Deserializes fully a vector of [`EpsCopy`] types.
-    fn deserialize_vec_full_eps<T: DeserializeInner + EpsCopy>(
+    /// Deserializes fully a vector of [`FullCopy`] types.
+    fn deserialize_vec_full_eps<T: DeserializeInner + FullCopy>(
         self,
     ) -> des::Result<(Vec<T>, Self)> {
         let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;

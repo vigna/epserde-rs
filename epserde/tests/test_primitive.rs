@@ -18,8 +18,8 @@ macro_rules! impl_test {
         let full_copy = <$ty>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
         assert_eq!($data, full_copy);
 
-        let epscopy = <$ty>::deserialize_eps_copy(&v).unwrap();
-        assert_eq!($data, epscopy);
+        let full_copy = <$ty>::deserialize_eps_copy(&v).unwrap();
+        assert_eq!($data, full_copy);
     }
     {
         let mut v = vec![];
@@ -29,8 +29,8 @@ macro_rules! impl_test {
         let full_copy = <$ty>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
         assert_eq!($data, full_copy);
 
-        let epscopy = <$ty>::deserialize_eps_copy(&v).unwrap();
-        assert_eq!($data, epscopy);
+        let full_copy = <$ty>::deserialize_eps_copy(&v).unwrap();
+        assert_eq!($data, full_copy);
     }};
 }
 
@@ -96,8 +96,8 @@ fn test_string() {
             let full_copy = <String>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
             assert_eq!(s, full_copy);
 
-            let epscopy = <String>::deserialize_eps_copy(&v).unwrap();
-            assert_eq!(s.as_str(), epscopy);
+            let full_copy = <String>::deserialize_eps_copy(&v).unwrap();
+            assert_eq!(s.as_str(), full_copy);
 
             let _ = schema.to_csv();
             let _ = schema.debug(&v);
@@ -111,8 +111,8 @@ fn test_string() {
             let full_copy = <String>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
             assert_eq!(s, full_copy);
 
-            let epscopy = <String>::deserialize_eps_copy(&v).unwrap();
-            assert_eq!(s.as_str(), epscopy);
+            let full_copy = <String>::deserialize_eps_copy(&v).unwrap();
+            assert_eq!(s.as_str(), full_copy);
         }
     }
 }
@@ -132,8 +132,8 @@ fn test_box_str() {
             let full_copy = <Box<str>>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
             assert_eq!(s, full_copy);
 
-            let epscopy = <Box<str>>::deserialize_eps_copy(&v).unwrap();
-            assert_eq!(s.as_ref(), epscopy);
+            let full_copy = <Box<str>>::deserialize_eps_copy(&v).unwrap();
+            assert_eq!(s.as_ref(), full_copy);
         }
         {
             let mut v = vec![];
@@ -144,8 +144,8 @@ fn test_box_str() {
             let full_copy = <Box<str>>::deserialize_full_copy(std::io::Cursor::new(&v)).unwrap();
             assert_eq!(s, full_copy);
 
-            let epscopy = <Box<str>>::deserialize_eps_copy(&v).unwrap();
-            assert_eq!(s.as_ref(), epscopy);
+            let full_copy = <Box<str>>::deserialize_eps_copy(&v).unwrap();
+            assert_eq!(s.as_ref(), full_copy);
         }
     }
 }

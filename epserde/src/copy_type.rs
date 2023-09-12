@@ -31,9 +31,9 @@ impl CopySelector for Zero {
 
 /// An implementation of a [`CopySelector`] specifying that a type is not zero copy.
 #[derive(Hash)]
-pub struct Eps {}
+pub struct Full {}
 
-impl TypeHash for Eps {
+impl TypeHash for Full {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         0xc0ffec0ffe_u64.hash(hasher);
     }
@@ -42,7 +42,7 @@ impl TypeHash for Eps {
     }
 }
 
-impl CopySelector for Eps {
+impl CopySelector for Full {
     const IS_ZERO_COPY: bool = false;
 }
 
@@ -52,7 +52,7 @@ Marker trait for data specifying whether it can be zero-copy deserialized.
 
 The trait comes in two flavors: `CopySelector<Type=Zero>` and
 `CopySelector<Type=Eps>`. To each of these flavors corresponds two
-dependent traits, [`ZeroCopy`] and [`EpsCopy`], which are automatically
+dependent traits, [`ZeroCopy`] and [`FullCopy`], which are automatically
 implemented:
 ```rust
 use epserde::*;
@@ -65,7 +65,7 @@ impl CopyType for MyType {
 // Now MyType implements ZeroCopy
 ```
 
-We use this trait to implement a different behavior for [`ZeroCopy`] and [`EpsCopy`] types
+We use this trait to implement a different behavior for [`ZeroCopy`] and [`FullCopy`] types
 on arrays, vectors, and boxed slices,
 [working around the bug that prevents the compiler from understanding that implementations
 for the two flavors of `CopySelector` are mutually
@@ -107,5 +107,5 @@ impl<T: CopyType<Copy = Zero>> ZeroCopy for T {}
 
 /// Marker trait for non zero-copy types. You should never implement
 /// this trait manually, but rather implement [`CopyType`] with `Copy=Eps`.
-pub trait EpsCopy: CopyType<Copy = Eps> {}
-impl<T: CopyType<Copy = Eps>> EpsCopy for T {}
+pub trait FullCopy: CopyType<Copy = Full> {}
+impl<T: CopyType<Copy = Full>> FullCopy for T {}

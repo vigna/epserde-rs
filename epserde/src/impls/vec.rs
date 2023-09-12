@@ -14,11 +14,11 @@ use crate::des;
 use crate::des::*;
 use crate::ser;
 use crate::ser::*;
-use crate::{CopyType, Eps, EpsCopy, TypeHash, Zero, ZeroCopy};
+use crate::{CopyType, Full, FullCopy, TypeHash, Zero, ZeroCopy};
 use core::hash::Hash;
 
 impl<T> CopyType for Vec<T> {
-    type Copy = Eps;
+    type Copy = Full;
 }
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
@@ -56,7 +56,7 @@ impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Vec<T> {
     }
 }
 
-impl<T: EpsCopy + SerializeInner> SerializeHelper<Eps> for Vec<T> {
+impl<T: FullCopy + SerializeInner> SerializeHelper<Full> for Vec<T> {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
         backend.write_slice(self.as_slice())
@@ -104,7 +104,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T
     }
 }
 
-impl<T: EpsCopy + DeserializeInner + 'static> DeserializeHelper<Eps> for Vec<T> {
+impl<T: FullCopy + DeserializeInner + 'static> DeserializeHelper<Full> for Vec<T> {
     type FullType = Self;
     type DeserType<'a> = Vec<<T as DeserializeInner>::DeserType<'a>>;
     #[inline(always)]

@@ -16,7 +16,7 @@ use crate::*;
 use core::hash::Hash;
 
 impl CopyType for String {
-    type Copy = Eps;
+    type Copy = Full;
 }
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
@@ -80,7 +80,7 @@ impl DeserializeInner for String {
 }
 
 impl CopyType for Box<str> {
-    type Copy = Eps;
+    type Copy = Full;
 }
 
 impl SerializeInner for Box<str> {

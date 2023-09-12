@@ -306,7 +306,7 @@ pub fn check_header<R: ReadWithPos>(
 }
 
 /// A helper trait that makes it possible to implement differently
-/// deserialization for [`crate::ZeroCopy`] and [`crate::EpsCopy`] types.
+/// deserialization for [`crate::ZeroCopy`] and [`crate::FullCopy`] types.
 /// See [`crate::CopyType`] for more information.
 pub trait DeserializeHelper<T: CopySelector> {
     // TODO: do we really need this?
