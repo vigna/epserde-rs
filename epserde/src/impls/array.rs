@@ -120,7 +120,6 @@ impl<T: EpsCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<
     type DeserType<'a> = [<T as DeserializeInner>::DeserType<'a>; N];
     #[inline(always)]
     fn _deserialize_full_copy_inner_impl<R: ReadWithPos>(mut backend: R) -> des::Result<(Self, R)> {
-        backend = backend.align::<T>()?;
         let mut res = MaybeUninit::<[T; N]>::uninit();
         unsafe {
             for item in &mut res.assume_init_mut().iter_mut() {
@@ -135,7 +134,6 @@ impl<T: EpsCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<
     fn _deserialize_eps_copy_inner_impl(
         mut backend: SliceWithPos,
     ) -> des::Result<(<Self as DeserializeInner>::DeserType<'_>, SliceWithPos)> {
-        backend = backend.align::<T>()?;
         let mut res = MaybeUninit::<<Self as DeserializeInner>::DeserType<'_>>::uninit();
         unsafe {
             for item in &mut res.assume_init_mut().iter_mut() {
