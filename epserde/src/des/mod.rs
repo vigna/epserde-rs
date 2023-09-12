@@ -345,7 +345,7 @@ pub enum DeserializeError {
     MagicCookieError(u64),
     /// A tag is wrong (e.g., for [`Option`]).
     InvalidTag(u8),
-    /// The type hash is wrong. Probabliy the user is trying to deserialize a
+    /// The type hash is wrong. Probably the user is trying to deserialize a
     /// file with the wrong type.
     WrongTypeHash {
         got_type_name: String,
@@ -354,8 +354,8 @@ pub enum DeserializeError {
         got: u64,
     },
     /// The type representation hash is wrong. Probabliy the user is trying to
-    /// deserialize a file with the right type but this type has different in
-    /// memory representations on the serializzation arch and the current one.
+    /// deserialize a file with the right type but this type has different
+    /// in-memory representations on the serialization arch and on the current one.
     WrongTypeReprHash {
         got_type_name: String,
         expected_type_name: String,
@@ -394,12 +394,12 @@ impl core::fmt::Display for DeserializeError {
             ),
             Self::MajorVersionMismatch(found_major) => write!(
                 f,
-                "Major Version Mismatch. Expected {} but got {}.",
+                "Major version mismatch. Expected {} but got {}.",
                 VERSION.0, found_major,
             ),
             Self::MinorVersionMismatch(found_minor) => write!(
                 f,
-                "Minor Version Mismatch. Expected {} but got {}.",
+                "Minor version mismatch. Expected {} but got {}.",
                 VERSION.1, found_minor,
             ),
             Self::UsizeSizeMismatch(usize_size) => write!(
@@ -419,8 +419,8 @@ impl core::fmt::Display for DeserializeError {
                 write!(
                     f,
                     concat!(
-                        "Wrong type hash. Expected=0x{:016x}, Got=0x{:016x}.\n",
-                        "The serialized type is '{}' but the deserialized type is '{}'",
+                        "Wrong type hash. Expected: 0x{:#018x} Actual: {:#018x}.\n",
+                        "The serialized type is '{}' and the deserialized type is '{}'.",
                     ),
                     expected, got, expected_type_name, got_type_name,
                 )
@@ -434,9 +434,11 @@ impl core::fmt::Display for DeserializeError {
                 write!(
                     f,
                     concat!(
-                        "Wrong type repr hash your arch is probably not compatible with the serialization one. ",
-                        "Expected=0x{:016x}, Got=0x{:016x}.\n",
-                        "The serialized type is '{}' and the deserialized type is '{}'",
+                        "Wrong type repr hash. Expected: 0x{:#018x} Actual: {:#018x}.\n",
+                        "You might be trying to deserialize a file that was serialized on ",
+                        "an architecture with different alignment requirements, or some ",
+                        "of the fields of the type have changed their copy type (zero or not).\n",
+                        "The serialized type is '{}' and the deserialized type is '{}'.",
                     ),
                     expected, got, expected_type_name, got_type_name,
                 )
