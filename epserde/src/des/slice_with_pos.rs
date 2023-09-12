@@ -63,30 +63,30 @@ impl<'a> SliceWithPos<'a> {
 
     /// Return a reference, backed by the `data` field,
     /// to a slice whose elements are of zero-copy type.
-    pub fn deserialize_slice_zero<T: ZeroCopy>(mut self) -> des::Result<(&'a [T], Self)> {
-        let len = self.read_usize()?;
+    pub fn deserialize_slice_zero<T: ZeroCopy>(self) -> des::Result<(&'a [T], Self)> {
+        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
         let bytes = len * core::mem::size_of::<T>();
         // a slice can only be deserialized with zero copy
         // outerwise you need a vec, TODO!: how do we enforce this at compile time?
-        self = self.align::<T>()?;
-        let (pre, data, after) = unsafe { self.data[..bytes].align_to::<T>() };
+        res_self = res_self.align::<T>()?;
+        let (pre, data, after) = unsafe { res_self.data[..bytes].align_to::<T>() };
         debug_assert!(pre.is_empty());
         debug_assert!(after.is_empty());
-        Ok((data, self.skip(bytes)))
+        Ok((data, res_self.skip(bytes)))
     }
 
     /// Return a fully deserialized vector of elements
     pub fn deserialize_vec_eps_eps<T: EpsCopy + DeserializeInner>(
-        mut self,
+        self,
     ) -> des::Result<(Vec<<T as DeserializeInner>::DeserType<'a>>, Self)> {
-        let len = self.read_usize()?;
+        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
         let mut res = Vec::with_capacity(len);
         for _ in 0..len {
-            let (elem, new_self) = T::_deserialize_eps_copy_inner(self)?;
+            let (elem, temp_self) = T::_deserialize_eps_copy_inner(res_self)?;
             res.push(elem);
-            self = new_self;
+            res_self = temp_self;
         }
-        Ok((res, self))
+        Ok((res, res_self))
     }
 }
 

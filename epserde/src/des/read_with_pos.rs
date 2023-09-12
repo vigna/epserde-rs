@@ -9,16 +9,6 @@ use crate::{des, DeserializeError, DeserializeInner};
 use crate::{EpsCopy, ZeroCopy};
 use core::mem::MaybeUninit;
 
-macro_rules! read_prim {
-    ($name:ident, $ty:ty) => {
-        fn $name(&mut self) -> des::Result<$ty> {
-            let mut buf = [0; core::mem::size_of::<$ty>()];
-            self.read_exact(&mut buf)?;
-            Ok(<$ty>::from_ne_bytes(buf))
-        }
-    };
-}
-
 /// [`std::io::Read`]-like trait for serialization that does not
 /// depend on [`std`].
 ///
@@ -32,18 +22,6 @@ pub trait ReadNoStd {
     fn read(&mut self, buf: &mut [u8]) -> des::Result<usize>;
 
     fn read_exact(&mut self, buf: &mut [u8]) -> des::Result<()>;
-
-    // Support for reading primitive types in native endianness.
-    //
-    // This methods are used internally when checking the header
-    // or reading the length of a slice, as they are the only
-    // cases in which we need to read primitive types without
-    // caring about alignment.
-    read_prim!(read_u8, u8);
-    read_prim!(read_u16, u16);
-    read_prim!(read_u32, u32);
-    read_prim!(read_u64, u64);
-    read_prim!(read_usize, usize);
 }
 
 #[cfg(feature = "std")]
@@ -92,34 +70,34 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     /// Note that this method uses a single [`ReadNoStd::read_exact`]
     /// call to read the entire vector.
     fn deserialize_vec_full_zero<T: DeserializeInner + ZeroCopy>(
-        mut self,
+        self,
     ) -> des::Result<(Vec<T>, Self)> {
-        let len = self.read_usize()?;
-        self = self.align::<T>()?;
+        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
+        res_self = res_self.align::<T>()?;
         let mut res = Vec::with_capacity(len);
         // SAFETY: we just allocated this vector so it is safe to set the length.
         // read_exact guarantees that the vector will be filled with data.
         #[allow(clippy::uninit_vec)]
         unsafe {
             res.set_len(len);
-            self.read_exact(res.align_to_mut::<u8>().1)?;
+            res_self.read_exact(res.align_to_mut::<u8>().1)?;
         }
 
-        Ok((res, self))
+        Ok((res, res_self))
     }
 
     /// Deserializes fully a vector of [`EpsCopy`] types.
     fn deserialize_vec_full_eps<T: DeserializeInner + EpsCopy>(
-        mut self,
+        self,
     ) -> des::Result<(Vec<T>, Self)> {
-        let len = self.read_usize()?;
+        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
         let mut res = Vec::with_capacity(len);
         for _ in 0..len {
-            let (elem, temp_self) = T::_deserialize_full_copy_inner(self)?;
+            let (elem, temp_self) = T::_deserialize_full_copy_inner(res_self)?;
             res.push(elem);
-            self = temp_self;
+            res_self = temp_self;
         }
-        Ok((res, self))
+        Ok((res, res_self))
     }
 }
 

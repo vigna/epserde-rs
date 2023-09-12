@@ -71,7 +71,7 @@ pub trait Serialize: SerializeInner {
         backend = backend.write_field("MAGIC", &MAGIC)?;
         backend = backend.write_field("VERSION_MAJOR", &VERSION.0)?;
         backend = backend.write_field("VERSION_MINOR", &VERSION.1)?;
-        backend = backend.write_field("USIZE_SIZE", &(core::mem::size_of::<usize>() as u16))?;
+        backend = backend.write_field("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8))?;
 
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
         Self::type_hash(&mut hasher);
@@ -80,10 +80,7 @@ pub trait Serialize: SerializeInner {
         let mut hasher = xxhash_rust::xxh3::Xxh3::new();
         Self::type_repr_hash(&mut hasher);
         backend = backend.write_field("TYPE_REPR_HASH", &hasher.finish())?;
-
-        let type_name = core::any::type_name::<Self>().to_string();
-        backend = backend.write_field("TYPE_NAME_LEN", &type_name.len())?;
-        backend = backend.write_bytes::<u8>("TYPE_NAME", type_name.as_bytes())?;
+        backend = backend.write_field("TYPE_NAME", &core::any::type_name::<Self>().to_string())?;
 
         backend = backend.write_field("ROOT", self)?;
         backend.flush()?;

@@ -47,18 +47,19 @@ pub trait FieldWrite: WriteNoStd + Sized {
     /// by implementing types to simulate a call to the default implementation.
     #[inline(always)]
     fn do_write_bytes<V>(mut self, _field_name: &str, value: &[u8]) -> Result<Self> {
+        self.align::<V>()?;
         self.write(value)?;
         Ok(self)
     }
 
-    /// Write raw bytes.
+    /// Write raw bytes aligned to the `align_to::<V>()`.
     fn write_bytes<V>(self, field_name: &str, value: &[u8]) -> Result<Self> {
         self.do_write_bytes::<V>(field_name, value)
     }
 
     /// Writes a single aligned zero-copy value.
     fn write_field_zero<V: ZeroCopy + SerializeInner>(
-        mut self,
+        self,
         field_name: &str,
         value: &V,
     ) -> super::ser::Result<Self> {
@@ -72,7 +73,6 @@ pub trait FieldWrite: WriteNoStd + Sized {
             #[allow(clippy::manual_slice_size_calculation)]
             core::slice::from_raw_parts(value as *const V as *const u8, core::mem::size_of::<V>())
         };
-        self.align::<V>()?;
         self.do_write_bytes::<V>(field_name, buffer)
     }
 
@@ -103,7 +103,6 @@ pub trait FieldWrite: WriteNoStd + Sized {
             #[allow(clippy::manual_slice_size_calculation)]
             core::slice::from_raw_parts(data.as_ptr() as *const u8, len * core::mem::size_of::<V>())
         };
-        self.align::<V>()?;
         self.do_write_bytes::<V>("items", buffer)
     }
 }
@@ -257,20 +256,19 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
     fn write_field<V: SerializeInner>(mut self, field_name: &str, value: &V) -> Result<Self> {
         // prepare a row with the field name and the type
         self.path.push(field_name.into());
-        let struct_idx = self.schema.0.len();
+        let pos = self.pos();
+        self = <Self as FieldWrite>::do_write_field::<V>(self, field_name, value)?;
+
+        // compute the serialized size and update the schema
         self.schema.0.push(SchemaRow {
             field: self.path.join("."),
             ty: core::any::type_name::<V>().to_string(),
-            offset: self.pos(),
+            offset: pos,
             align: core::mem::align_of::<V>(),
-            size: 0,
+            size: self.pos() - pos,
         });
-        // compute the serialized size and update the schema
-        let size = self.pos() - self.schema.0[struct_idx].offset;
-        self.schema.0[struct_idx].size = size;
         self.path.pop();
-
-        <Self as FieldWrite>::do_write_field::<V>(self, field_name, value)
+        Ok(self)
     }
 
     #[inline(always)]

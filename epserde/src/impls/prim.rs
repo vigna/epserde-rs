@@ -51,7 +51,6 @@ macro_rules! impl_prim_ser_des {
 		impl DeserializeInner for $ty {
             #[inline(always)]
             fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> des::Result<(Self, R)> {
-                backend = backend.align::<$ty>()?;
                 let mut buf = [0; core::mem::size_of::<$ty>()];
                 backend.read_exact(&mut buf)?;
                 Ok((
@@ -62,9 +61,8 @@ macro_rules! impl_prim_ser_des {
             type DeserType<'a> = $ty;
             #[inline(always)]
             fn _deserialize_eps_copy_inner(
-                mut backend: SliceWithPos,
+                backend: SliceWithPos,
             ) -> des::Result<(Self::DeserType<'_>, SliceWithPos)> {
-                backend = backend.align::<$ty>()?;
                 Ok((
                     <$ty>::from_ne_bytes(
                         backend.data[..core::mem::size_of::<$ty>()]
@@ -261,8 +259,8 @@ impl<T: SerializeInner> SerializeInner for Option<T> {
 
 impl<T: DeserializeInner> DeserializeInner for Option<T> {
     #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> des::Result<(Self, R)> {
-        let tag = backend.read_u8()?;
+    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> des::Result<(Self, R)> {
+        let (tag, backend) = u8::_deserialize_full_copy_inner(backend)?;
         match tag {
             0 => Ok((None, backend)),
             1 => {
@@ -275,9 +273,9 @@ impl<T: DeserializeInner> DeserializeInner for Option<T> {
     type DeserType<'a> = Option<<T as DeserializeInner>::DeserType<'a>>;
     #[inline(always)]
     fn _deserialize_eps_copy_inner(
-        mut backend: SliceWithPos,
+        backend: SliceWithPos,
     ) -> des::Result<(Self::DeserType<'_>, SliceWithPos)> {
-        let tag = backend.read_u8()?;
+        let (tag, backend) = u8::_deserialize_full_copy_inner(backend)?;
         match tag {
             0 => Ok((None, backend)),
             1 => {

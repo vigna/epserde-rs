@@ -109,39 +109,37 @@ impl<T: DeserializeInner> Deserialize for T {
 
 /// Common code for both full-copy and zero-copy deserialization
 fn check_header<R: ReadWithPos>(
-    mut backend: R,
+    backend: R,
     self_hash: u64,
     self_repr_hash: u64,
     self_name: String,
 ) -> Result<R> {
-    let magic = backend.read_u64()?;
+    let (magic, backend) = u64::_deserialize_full_copy_inner(backend)?;
     match magic {
         MAGIC => Ok(()),
         MAGIC_REV => Err(DeserializeError::EndiannessError),
         magic => Err(DeserializeError::MagicNumberError(magic)),
     }?;
 
-    let major = backend.read_u16()?;
+    let (major, backend) = u16::_deserialize_full_copy_inner(backend)?;
     if major != VERSION.0 {
         return Err(DeserializeError::MajorVersionMismatch(major));
     }
-    let minor = backend.read_u16()?;
+    let (minor, backend) = u16::_deserialize_full_copy_inner(backend)?;
     if minor > VERSION.1 {
         return Err(DeserializeError::MinorVersionMismatch(minor));
     };
 
-    let usize_size = backend.read_u16()? as usize;
+    let (usize_size, backend) = u8::_deserialize_full_copy_inner(backend)?;
+    let usize_size = usize_size as usize;
     let native_usize_size = core::mem::size_of::<usize>();
     if usize_size != native_usize_size {
         return Err(DeserializeError::UsizeSizeMismatch(usize_size));
     };
 
-    let type_hash = backend.read_u64()?;
-    let type_repr_hash = backend.read_u64()?;
-    let str_len = backend.read_usize()?;
-    let mut buf = vec![0; str_len];
-    backend.read_exact(&mut buf).unwrap();
-    let type_name = String::from_utf8(buf).unwrap();
+    let (type_hash, backend) = u64::_deserialize_full_copy_inner(backend)?;
+    let (type_repr_hash, backend) = u64::_deserialize_full_copy_inner(backend)?;
+    let (type_name, backend) = String::_deserialize_full_copy_inner(backend)?;
 
     if type_hash != self_hash {
         return Err(DeserializeError::WrongTypeHash {

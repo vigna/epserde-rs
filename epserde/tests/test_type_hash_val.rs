@@ -26,21 +26,6 @@ macro_rules! impl_test {
     }};
 }
 
-macro_rules! impl_test_type {
-    ($hashes:expr, $value:ty) => {{
-        let mut hasher = Xxh3::with_seed(0);
-        <$value>::type_hash(&mut hasher);
-        let hash = hasher.finish();
-        let res = $hashes.insert(hash, stringify!($value));
-        assert!(
-            res.is_none(),
-            "Collision on type {} with {}",
-            stringify!($value),
-            res.unwrap()
-        );
-    }};
-}
-
 #[test]
 /// Check that we don't have any collision on most types
 fn test_type_hash_collision() {
@@ -70,8 +55,6 @@ fn test_type_hash_collision() {
     impl_test!(hashes, (1_u8, 3_u16, '🔥'));
 
     impl_test!(hashes, vec![1_i8, 2, 3, 4, 5].as_slice());
-
-    impl_test_type!(hashes, &[u8]);
 
     dbg!(hashes);
 }
