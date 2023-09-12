@@ -23,27 +23,13 @@ struct USize {
 fn main() {
     // Create a new value to serialize
     let x = USize { value: 0 };
-
-    // Create an aligned vector to serialize into so we can do a zero-copy
-    // deserialization safely
-    let len = 100;
-    let mut v = unsafe {
-        Vec::from_raw_parts(
-            std::alloc::alloc_zeroed(std::alloc::Layout::from_size_align(len, 4096).unwrap()),
-            len,
-            len,
-        )
-    };
-    assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
-    // Wrap the vector in a cursor so we can serialize into it
-    let mut buf = std::io::Cursor::new(&mut v);
-
+    let mut buf = new_aligned_cursor();
     // Serialize
     let _bytes_written = x.serialize(&mut buf).unwrap();
 
     // Do a full-copy deserialization
     buf.set_position(0);
-    let full = <USize>::deserialize_full_copy(buf).unwrap();
+    let full = <USize>::deserialize_full_copy(&mut buf).unwrap();
     println!(
         "Full-deserialization type: {}",
         std::any::type_name::<USize>(),
@@ -54,7 +40,8 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = <USize>::deserialize_eps_copy(&v).unwrap();
+    let buf = buf.into_inner();
+    let eps = <USize>::deserialize_eps_copy(&buf).unwrap();
     println!(
         "ε-deserialization type: {}",
         std::any::type_name::<<USize as DeserializeInner>::DeserType<'_>>(),

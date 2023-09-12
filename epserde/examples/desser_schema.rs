@@ -8,7 +8,7 @@
 use epserde::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
-struct PersonVec<A, B> {
+struct StructParam<A, B> {
     a: A,
     b: B,
     test: isize,
@@ -22,11 +22,11 @@ struct Data<A> {
     b: Vec<i32>,
 }
 
-type Person = PersonVec<Vec<usize>, Data<Vec<u16>>>;
+type Struct = StructParam<Vec<usize>, Data<Vec<u16>>>;
 
 fn main() {
     // create a new value to serialize
-    let person = Person {
+    let person = Struct {
         a: vec![0x89; 6],
         b: Data {
             a: vec![0x42; 7],
@@ -34,33 +34,18 @@ fn main() {
         },
         test: -0xbadf00d,
     };
-    // Create an aligned vector to serialize into so we can do a zero-copy
-    // deserialization safely
-    let len = 100;
-    let mut v = unsafe {
-        Vec::from_raw_parts(
-            std::alloc::alloc_zeroed(std::alloc::Layout::from_size_align(len, 4096).unwrap()),
-            len,
-            len,
-        )
-    };
-    assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
-    // Wrap the vector in a cursor so we can serialize into it
-    let mut buf = std::io::Cursor::new(&mut v);
-
+    let mut buf = new_aligned_cursor();
     // Serialize
-    let mut schema = person.serialize_with_schema(&mut buf).unwrap();
-    // Sort the schema by offset so we can print it in order
-    schema.0.sort_by_key(|a| a.offset);
-    let buf = buf.into_inner();
-    println!("{}", schema.debug(buf));
+    let schema = person.serialize_with_schema(&mut buf).unwrap();
+
+    println!("{}", schema.debug(&buf.clone().into_inner()));
 
     // Do a full-copy deserialization
-    let buf = std::io::Cursor::new(&mut v);
-    let full = Person::deserialize_full_copy(buf).unwrap();
+    buf.set_position(0);
+    let full = Struct::deserialize_full_copy(&mut buf).unwrap();
     println!(
         "Full-deserialization type: {}",
-        std::any::type_name::<Person>(),
+        std::any::type_name::<Struct>(),
     );
     println!("Value: {:x?}", full);
     assert_eq!(person, full);
@@ -68,10 +53,11 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = Person::deserialize_eps_copy(&v).unwrap();
+    let buf = buf.into_inner();
+    let eps = Struct::deserialize_eps_copy(&buf).unwrap();
     println!(
         "ε-deserialization type: {}",
-        std::any::type_name::<<Person as DeserializeInner>::DeserType<'_>>(),
+        std::any::type_name::<<Struct as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);
     assert_eq!(person.a, eps.a);

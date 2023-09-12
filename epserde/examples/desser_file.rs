@@ -8,7 +8,7 @@
 use epserde::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
-struct PersonVec<A, B> {
+struct StructParam<A, B> {
     a: A,
     b: B,
     test: isize,
@@ -22,11 +22,11 @@ struct Data<A> {
     b: Vec<i32>,
 }
 
-type Person = PersonVec<Vec<usize>, Data<Vec<u16>>>;
+type Struct = StructParam<Vec<usize>, Data<Vec<u16>>>;
 
 fn main() {
     // Create a new value to serialize
-    let person = Person {
+    let s = Struct {
         a: vec![0x89; 6],
         b: Data {
             a: vec![0x42; 7],
@@ -38,7 +38,7 @@ fn main() {
     // deserialization safely
     let mut file = std::fs::File::create("test.bin").unwrap();
     // Serialize
-    let _bytes_written = person.serialize(&mut file).unwrap();
+    let _bytes_written = s.serialize(&mut file).unwrap();
 
     drop(file);
 
@@ -46,26 +46,26 @@ fn main() {
 
     // Do a full-copy deserialization
 
-    let full = Person::deserialize_full_copy(&file).unwrap();
+    let full = Struct::deserialize_full_copy(&file).unwrap();
     println!(
         "Full-deserialization type: {}",
-        std::any::type_name::<Person>(),
+        std::any::type_name::<Struct>(),
     );
     println!("Value: {:x?}", full);
-    assert_eq!(person, full);
+    assert_eq!(s, full);
 
     println!();
 
     // Do an ε-copy deserialization
     let file = std::fs::read("test.bin").unwrap();
-    let eps = Person::deserialize_eps_copy(&file).unwrap();
+    let eps = Struct::deserialize_eps_copy(&file).unwrap();
     println!(
         "ε-deserialization type: {}",
-        std::any::type_name::<<Person as DeserializeInner>::DeserType<'_>>(),
+        std::any::type_name::<<Struct as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);
-    assert_eq!(person.a, eps.a);
-    assert_eq!(person.b.a, eps.b.a);
-    assert_eq!(person.b.b, eps.b.b);
-    assert_eq!(person.test, eps.test);
+    assert_eq!(s.a, eps.a);
+    assert_eq!(s.b.a, eps.b.a);
+    assert_eq!(s.b.b, eps.b.b);
+    assert_eq!(s.test, eps.test);
 }

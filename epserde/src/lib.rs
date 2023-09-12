@@ -58,6 +58,9 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
 }
 
 /// Return a new cursor initialized with 1024 bytes of memory aligned to 128 bits.
+///
+/// Note that serialization to a memory-based cursor is mainly
+/// useful for debugging purposes and for examples.
 pub fn new_aligned_cursor() -> Cursor<Vec<u8>> {
     const INITIAL_SIZE: usize = 1024;
     Cursor::new(unsafe {

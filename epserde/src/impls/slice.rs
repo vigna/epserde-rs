@@ -7,31 +7,30 @@
 
 /*!
 
-Serialize-only implementation for slices that deserializes to vectors.
+Serialize-only (slightly cheaty) implementation for slices that deserializes to vectors.
+
+This implementation of [`Serialize`] for slices is slightly cheaty, as it actually
+serializes a vector using the slice as a backing array, so it must be deserialized
+using a vector as type.
+
+Note that if you ε-copy deserialize the vector, you will
+get back the same slice.
 ```rust
 use epserde::*;
 let a = vec![1, 2, 3, 4];
 let mut cursor = new_aligned_cursor();
 a.serialize(&mut cursor).unwrap();
 cursor.set_position(0);
-let b = <Vec<i32>>::deserialize_full_copy(&mut cursor).unwrap();
+let b: Vec<i32> = <Vec<i32>>::deserialize_full_copy(&mut cursor).unwrap();
 assert_eq!(a, b);
+let buf = cursor.into_inner();
+let b: &[i32] = <Vec<i32>>::deserialize_eps_copy(&buf).unwrap();
+assert_eq!(a, *b);
 ```
 */
 use crate::ser;
 use crate::ser::*;
 use crate::CopyType;
-use crate::TypeHash;
-
-impl<T: TypeHash> TypeHash for &[T] {
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        <Vec<T>>::type_hash(hasher);
-    }
-
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        <Vec<T>>::type_repr_hash(hasher);
-    }
-}
 
 impl<T: SerializeInner + CopyType> Serialize for &[T]
 where
