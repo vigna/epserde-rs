@@ -18,6 +18,8 @@ extern crate alloc;
 // would need to disable default features and then explicitly re-enable std.
 #[cfg(feature = "derive")]
 extern crate epserde_derive;
+use std::io::Cursor;
+
 #[cfg(feature = "derive")]
 pub use epserde_derive::{Epserde, TypeHash};
 
@@ -53,6 +55,20 @@ pub mod impls;
 /// number such that `((value + pad_align_to(value, align_to) & (align_to - 1) == 0`.
 pub fn pad_align_to(value: usize, align_to: usize) -> usize {
     value.wrapping_neg() & (align_to - 1)
+}
+
+/// Return a new cursor initialized with 1024 bytes of memory aligned to 128 bits.
+pub fn new_aligned_cursor() -> Cursor<Vec<u8>> {
+    const INITIAL_SIZE: usize = 1024;
+    Cursor::new(unsafe {
+        Vec::from_raw_parts(
+            std::alloc::alloc_zeroed(
+                std::alloc::Layout::from_size_align(INITIAL_SIZE, 128).unwrap(),
+            ),
+            0,
+            INITIAL_SIZE,
+        )
+    })
 }
 
 #[test]

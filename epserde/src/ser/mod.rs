@@ -49,7 +49,7 @@ pub trait SerializeInner: TypeHash + Sized {
 /// Main serialization trait. It is separated from [`SerializeInner`] to
 /// avoid that the user modify its behavior, and hide internal serialization
 /// methods.
-pub trait Serialize: SerializeInner {
+pub trait Serialize {
     /// Serialize the type using the given backend.
     fn serialize<F: WriteNoStd>(&self, backend: F) -> Result<usize> {
         Ok(self
@@ -77,25 +77,7 @@ pub trait Serialize: SerializeInner {
     }
 
     /// Serialize the type using the given [`FieldWrite`].
-    fn serialize_on_field_write<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
-        backend = backend.write_field("MAGIC", &MAGIC)?;
-        backend = backend.write_field("VERSION_MAJOR", &VERSION.0)?;
-        backend = backend.write_field("VERSION_MINOR", &VERSION.1)?;
-        backend = backend.write_field("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8))?;
-
-        let mut hasher = xxhash_rust::xxh3::Xxh3::new();
-        Self::type_hash(&mut hasher);
-        backend = backend.write_field("TYPE_HASH", &hasher.finish())?;
-
-        let mut hasher = xxhash_rust::xxh3::Xxh3::new();
-        Self::type_repr_hash(&mut hasher);
-        backend = backend.write_field("TYPE_REPR_HASH", &hasher.finish())?;
-        backend = backend.write_field("TYPE_NAME", &core::any::type_name::<Self>().to_string())?;
-
-        backend = backend.write_field("ROOT", self)?;
-        backend.flush()?;
-        Ok(backend)
-    }
+    fn serialize_on_field_write<F: FieldWrite>(&self, backend: F) -> Result<F>;
 
     /// Commodity method to serialize to a file.
     fn store(&self, path: impl AsRef<Path>) -> Result<()> {
@@ -106,9 +88,44 @@ pub trait Serialize: SerializeInner {
     }
 }
 
+impl<T: TypeHash> TypeHash for &[T] {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        <Vec<T>>::type_hash(hasher);
+    }
+
+    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
+        <Vec<T>>::type_repr_hash(hasher);
+    }
+}
+
+/// Common code for both full-copy and zero-copy deserialization
+pub fn write_header<F: FieldWrite, T: TypeHash>(mut backend: F) -> Result<F> {
+    backend = backend.write_field("MAGIC", &MAGIC)?;
+    backend = backend.write_field("VERSION_MAJOR", &VERSION.0)?;
+    backend = backend.write_field("VERSION_MINOR", &VERSION.1)?;
+    backend = backend.write_field("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8))?;
+
+    let mut hasher = xxhash_rust::xxh3::Xxh3::new();
+    T::type_hash(&mut hasher);
+    backend = backend.write_field("TYPE_HASH", &hasher.finish())?;
+
+    let mut hasher = xxhash_rust::xxh3::Xxh3::new();
+    T::type_repr_hash(&mut hasher);
+    backend = backend.write_field("TYPE_REPR_HASH", &hasher.finish())?;
+    backend.write_field("TYPE_NAME", &core::any::type_name::<T>().to_string())
+}
+
 /// Blanket implementation that prevents the user from overwriting the
 /// methods in [`Serialize`].
-impl<T: SerializeInner> Serialize for T {}
+impl<T: SerializeInner> Serialize for T {
+    /// Serialize the type using the given [`FieldWrite`].
+    fn serialize_on_field_write<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
+        backend = write_header::<F, Self>(backend)?;
+        backend = backend.write_field("ROOT", self)?;
+        backend.flush()?;
+        Ok(backend)
+    }
+}
 
 pub trait SerializeHelper<T: CopySelector> {
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;

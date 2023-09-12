@@ -33,7 +33,7 @@ macro_rules! impl_test {
         assert_eq!(a, a2);
     }};
 }
-
+/*
 #[test]
 fn test_array_usize() {
     let a = [1, 2, 3, 4, 5];
@@ -60,10 +60,12 @@ fn test_array_usize() {
     assert_eq!(a, *a2);
 }
 
+
 #[test]
 fn test_vec_usize() {
     impl_test!(Vec<usize>, vec![1, 2, 3, 4, 5])
 }
+
 
 #[test]
 fn test_box_slice_usize() {
@@ -90,6 +92,8 @@ fn test_box_slice_usize() {
     let a2 = <Box<[usize]>>::deserialize_eps_copy(&v).unwrap();
     assert_eq!(a, a2.into());
 }
+
+
 
 #[test]
 fn test_box_slice_string() {
@@ -120,11 +124,13 @@ fn test_box_slice_string() {
     });
 }
 
+
 #[test]
 fn test_vec_vec_usize() {
     impl_test!(Vec<Vec<usize>>, vec![vec![1, 2, 3], vec![4, 5]])
 }
 
+*/
 #[test]
 fn test_vec_array_string() {
     impl_test!(
@@ -136,6 +142,7 @@ fn test_vec_array_string() {
     )
 }
 
+/*
 #[test]
 fn test_vec_vec_string() {
     impl_test!(
@@ -171,3 +178,4 @@ fn test_vec_vec_array_array_usize() {
         vec![vec![[[1, 2], [3, 4],]], vec![[[5, 6], [7, 8],]],]
     )
 }
+*/

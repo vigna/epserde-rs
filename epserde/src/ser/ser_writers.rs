@@ -74,7 +74,7 @@ pub trait FieldWrite: WriteNoStd + Sized {
     }
 
     /// Write a slice by encoding its length first, and then the contents properly aligned.
-    fn write_slice<V: Serialize>(mut self, data: &[V]) -> Result<Self> {
+    fn write_slice<V: SerializeInner>(mut self, data: &[V]) -> Result<Self> {
         let len = data.len();
         self = self.write_field("len", &len)?;
         if V::ZERO_COPY_MISMATCH {
@@ -87,7 +87,7 @@ pub trait FieldWrite: WriteNoStd + Sized {
     }
 
     /// Write an aligned slice by encoding its length first, and then the contents properly aligned.
-    fn write_slice_zero<V: Serialize>(mut self, data: &[V]) -> Result<Self> {
+    fn write_slice_zero<V: SerializeInner>(mut self, data: &[V]) -> Result<Self> {
         let len = data.len();
         self = self.write_field("len", &len)?;
         if !V::IS_ZERO_COPY {
