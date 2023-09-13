@@ -296,7 +296,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     #[automatically_derived]
                     impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_des
                     {
-                        fn _deserialize_full_copy_inner<R: ReadWithPos>(
+                        fn _deserialize_full_copy_inner<R: epserde::des::ReadWithPos>(
                             mut backend: R,
                         ) -> core::result::Result<(Self, R), epserde::des::DeserializeError> {
                             use epserde::des::DeserializeInner;
@@ -345,7 +345,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     #[automatically_derived]
                     impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_des {
-                        fn _deserialize_full_copy_inner<R: ReadWithPos>(
+                        fn _deserialize_full_copy_inner<R: epserde::des::ReadWithPos>(
                             backend: R,
                         ) -> core::result::Result<(Self, R), epserde::des::DeserializeError> {
                             use epserde::des::DeserializeInner;
