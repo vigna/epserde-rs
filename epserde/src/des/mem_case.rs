@@ -44,13 +44,13 @@ impl Flags {
 /// the data structure is deserialized from a `mmap()`-based region.
 pub enum MemBackend {
     /// No backend. The data structure is a standard Rust data structure.
-    /// This variant is returned by [`encase`].
+    /// This variant is returned by [`MemCase::encase`].
     None,
     /// The backend is a heap-allocated in a memory region aligned to 4096 bytes.
-    /// This variant is returned by [`crate::Deserialize::load_mem`].
+    /// This variant is returned by [`crate::des::Deserialize::load_mem`].
     Memory(Vec<u8>),
     /// The backend is the result to a call to `mmap()`.
-    /// This variant is returned by [`crate::Deserialize::load_mmap`] and [`crate::Deserialize::mmap`].
+    /// This variant is returned by [`crate::des::Deserialize::load_mmap`] and [`crate::des::Deserialize::mmap`].
     Mmap(mmap_rs::Mmap),
 }
 
@@ -74,7 +74,7 @@ impl MemBackend {
 /// [`MemCase`] can also be used with data structures deserialized from
 /// memory, although in that case it is not strictly necessary;
 /// nonetheless, reading a single block of memory with [`std::io::Read::read_exact`] can be
-/// very fast, and using [`crate::Deserialize::load_mem`] to create a [`MemCase`]
+/// very fast, and using [`Deserialize::load_mem`](`crate::des::Deserialize::load_mem`) to create a [`MemCase`]
 /// is a way to prevent cloning of the immutable
 /// structure.
 ///
@@ -86,10 +86,17 @@ impl MemBackend {
 /// to use [`MemCase`] as the type of the field.
 /// [`MemCase`] implements [`From`] for the
 /// wrapped type, using the no-op [`None`](`MemBackend#variant.None`) variant
-/// of [`MemBackend`], so a data structure can be [encased](encase)
+/// of [`MemBackend`], so a data structure can be [encased](MemCase::encase)
 /// almost transparently.
 
 pub struct MemCase<S>(pub(crate) S, pub(crate) MemBackend);
+
+impl<S> MemCase<S> {
+    /// Encases a data structure in a [`MemCase`] with no backend.
+    pub fn encase(s: S) -> MemCase<S> {
+        MemCase(s, MemBackend::None)
+    }
+}
 
 unsafe impl<S: Send> Send for MemCase<S> {}
 unsafe impl<S: Sync> Sync for MemCase<S> {}
@@ -109,13 +116,8 @@ impl<S> AsRef<S> for MemCase<S> {
     }
 }
 
-/// Encases a data structure in a [`MemCase`] with no backend.
-pub fn encase<S>(s: S) -> MemCase<S> {
-    MemCase(s, MemBackend::None)
-}
-
 impl<S: Send + Sync> From<S> for MemCase<S> {
     fn from(s: S) -> Self {
-        encase(s)
+        MemCase::encase(s)
     }
 }

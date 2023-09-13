@@ -188,7 +188,7 @@ pub trait Deserialize: DeserializeInner {
 /// methods in [`Deserialize`].
 ///
 /// This implementation [checks the header](`check_header`) written
-/// by the blanked implementation of [`crate::Serialize`] and then calls
+/// by the blanket implementation of [`crate::ser::Serialize`] and then calls
 /// [`DeserializeInner::_deserialize_full_copy_inner`] or
 /// [`DeserializeInner::_deserialize_eps_copy_inner`].
 

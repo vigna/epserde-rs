@@ -51,7 +51,8 @@ These are the main limitations you should be aware of before choosing to use ε-
 - While we provide procedural macros that implement serialization and deserialization, 
 they require that your type is written and used in a specific way; in particular, 
 the fields you want to ε-copy must be type parameters implementing
-[`DeserializeInner`], to which a [deserialized type](`DeserializeInner::DeserType`) is associated.
+()`DeserializeInner`)[`des::DeserializeInner`], to which a 
+[deserialized type](`des::DeserializeInner::DeserType`) is associated.
 For example, we provide implementations for
 `Vec<T>`/`Box<[T]>`, where `T` [is zero-copy](`traits::ZeroCopy`), or `String`/`Box<str>`, which have 
 associated deserialized type `&[T]` or `&str`, respectively. Vectors and boxed slices of
@@ -168,7 +169,7 @@ to a slice; the same would happen when serializing a boxed slice.
 The reference points inside `b`, so there is very little
 copy performed (in fact, just a field containing the length of the slice).
 All this is due to the fact that `usize` is a zero-copy type.
-Note also that we use the convenience method [`Deserialize::load_full`].
+Note also that we use the convenience method [`Deserialize::load_full`]()`des::Deserialize::load_full`).
 
 If your code must work both with the original and the deserialized
 version, however, it must be written for a trait that is implemented

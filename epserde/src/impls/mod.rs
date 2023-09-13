@@ -7,7 +7,8 @@
 
 /*!
 
-Implementations of [`crate::SerializeInner`] and [`crate::DeserializeInner`] for standard Rust types.
+Implementations of [`SerializeInner`](crate::ser::SerializeInner)
+and [`DeserializeInner`](crate::des::DeserializeInner) for standard Rust types.
 
 */
 
