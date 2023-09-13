@@ -40,7 +40,8 @@ and a [`MemCase`](`des::MemCase`) structure that couples a deserialized structur
 Tommaso Fontana, while working at INRIA under the supervision of Stefano Zacchiroli, 
 came up with the basic idea for ε-serde, that is, 
 replacing structures with equivalent references. The code was developed jointly
-with Sebastiano Vigna, who came up with the [`MemCase`](`des::MemCase`) logic.
+with Sebastiano Vigna, who came up with the [`MemCase`](`des::MemCase`) and the 
+[`ZeroCopy`](`traits::ZeroCopy`)/[`FullCopy`](`traits::FullCopy`) logic.
 
 ## Cons
 
