@@ -131,8 +131,8 @@ pub fn write_header<F: FieldWrite, T: TypeHash>(mut backend: F) -> Result<F> {
 }
 
 /// A helper trait that makes it possible to implement differently
-/// serialization for [`crate::ZeroCopy`] and [`crate::FullCopy`] types.
-/// See [`crate::CopyType`] for more information.
+/// serialization for [`crate::traits::ZeroCopy`] and [`crate::traits::FullCopy`] types.
+/// See [`crate::traits::CopyType`] for more information.
 pub trait SerializeHelper<T: CopySelector> {
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;
 }

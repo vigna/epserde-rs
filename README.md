@@ -32,7 +32,7 @@ time.
 We provide procedural macros implementing serialization and deserialization methods,
 basic (de)serialization for primitive types, vectors, etc.,
 convenience memory-mapping methods based on [mmap_rs](https://crates.io/crates/mmap-rs), 
-and a [`MemCase`] structure that couples a deserialized structure with its backend 
+and a [`MemCase`](`des::MemCase`) structure that couples a deserialized structure with its backend 
 (e.g., a slice of memory or a memory-mapped region).
 
 ## Who
@@ -40,7 +40,7 @@ and a [`MemCase`] structure that couples a deserialized structure with its backe
 Tommaso Fontana, while working at INRIA under the supervision of Stefano Zacchiroli, 
 came up with the basic idea for ε-serde, that is, 
 replacing structures with equivalent references. The code was developed jointly
-with Sebastiano Vigna, who came up with the [`MemCase`] logic.
+with Sebastiano Vigna, who came up with the [`MemCase`](`des::MemCase`) logic.
 
 ## Cons
 
@@ -53,7 +53,7 @@ they require that your type is written and used in a specific way; in particular
 the fields you want to ε-copy must be type parameters implementing
 [`DeserializeInner`], to which a [deserialized type](`DeserializeInner::DeserType`) is associated.
 For example, we provide implementations for
-`Vec<T>`/`Box<[T]>`, where `T` [is zero-copy](`ZeroCopy`), or `String`/`Box<str>`, which have 
+`Vec<T>`/`Box<[T]>`, where `T` [is zero-copy](`traits::ZeroCopy`), or `String`/`Box<str>`, which have 
 associated deserialized type `&[T]` or `&str`, respectively. Vectors and boxed slices of
 types that are not zero copy will be fully deserialized in memory instead.
 
@@ -62,7 +62,7 @@ will usually reference the underlying
 serialized support (e.g., a memory-mapped region). If you need to store
 the deserialized structure of type `T` in a field of a new structure 
 you will need to couple permanently the deserialized structure with its serialized
-support, which is obtained by putting it in a [`MemCase`]. A [`MemCase`] will
+support, which is obtained by putting it in a [`MemCase`](`des::MemCase`). A [`MemCase`](`des::MemCase`) will
 deref to `T`, so it can be used transparently as long as fields and methods are 
 concerned, but the field of the new structure will have to be of type `MemCase<T>`,
 not `T`.
@@ -123,8 +123,8 @@ Note how we serialize an array, but we deserialize a reference.
 The reference points inside `b`, so there is 
 no copy performed. The second call creates a new array instead.
 The third call maps the data structure into memory and returns
-a [`MemCase`] that can be used transparently as a reference to the array;
-moreover, the [`MemCase`] can be passed to other functions or stored
+a [`MemCase`](`des::MemCase`) that can be used transparently as a reference to the array;
+moreover, the [`MemCase`](`des::MemCase`) can be passed to other functions or stored
 in a structure field, as it contains both the structure and the
 memory-mapped region that supports it.
 
@@ -320,19 +320,19 @@ but that in practice often condition one another:
 
 - the type has an *associated deserialization type* which is the type you obtain
 upon deserialization;
-- the type can be either [`ZeroCopy`] or [`FullCopy`]; it can also be neither.
+- the type can be either [`ZeroCopy`](`traits::ZeroCopy`) or [`FullCopy`](`traits::FullCopy`); it can also be neither.
 
 There is no constraint on the associated deserialization type: it can be literally
 anything. In general, however, one tries to have a deserialization type that is somewhat
 compatible with the original type: for example, ε-serde deserializes vectors as 
 references to slices, so all mutation method that do not change the length work on both.
 
-Being [`ZeroCopy`] or [`FullCopy`] decides instead how the type will be treated 
+Being [`ZeroCopy`](`traits::ZeroCopy`) or [`FullCopy`](`traits::FullCopy`) decides instead how the type will be treated 
 when serializing and deserializing sequences, such as slices, boxed slices, and vectors. 
 Sequences of zero-copy types are deserialized using a reference, whereas sequences
 of full-copy types are fully deserialized in allocated memory. It is important to remark
 that *you cannot serialize a vector whose elements are of a type that is neither*
-(see the [`CopyType`] documentation for a deeper explanation).
+(see the [`CopyType`](`traits::CopyType`) documentation for a deeper explanation).
 
 Logically, zero-copy types should be deserialized to references, and this indeed happens
 in most cases, and certainly in the derived code: however, *primitive types are always

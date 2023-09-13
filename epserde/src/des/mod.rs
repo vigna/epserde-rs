@@ -308,8 +308,8 @@ pub fn check_header<R: ReadWithPos>(
 }
 
 /// A helper trait that makes it possible to implement differently
-/// deserialization for [`crate::ZeroCopy`] and [`crate::FullCopy`] types.
-/// See [`crate::CopyType`] for more information.
+/// deserialization for [`crate::traits::ZeroCopy`] and [`crate::traits::FullCopy`] types.
+/// See [`crate::traits::CopyType`] for more information.
 pub trait DeserializeHelper<T: CopySelector> {
     // TODO: do we really need this?
     type FullType: TypeHash;

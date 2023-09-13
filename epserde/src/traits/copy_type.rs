@@ -9,7 +9,7 @@ use crate::traits::TypeHash;
 use core::hash::Hash;
 
 /// Internal trait used to select whether a type is zero copy or not.
-/// It has only two implementations, [`Eps`] and [`Zero`].
+/// It has only two implementations, [`Full`] and [`Zero`].
 pub trait CopySelector: TypeHash {
     const IS_ZERO_COPY: bool;
 }
