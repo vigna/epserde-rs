@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::TypeHash;
+use crate::traits::TypeHash;
 use core::hash::Hash;
 
 /// Internal trait used to select whether a type is zero copy or not.
@@ -55,7 +55,7 @@ The trait comes in two flavors: `CopySelector<Type=Zero>` and
 dependent traits, [`ZeroCopy`] and [`FullCopy`], which are automatically
 implemented:
 ```rust
-use epserde::*;
+use epserde::traits::*;
 
 struct MyType {}
 

@@ -7,7 +7,7 @@
 #![cfg(test)]
 
 use core::hash::Hasher;
-use epserde::*;
+use epserde::traits::*;
 use std::collections::HashMap;
 use xxhash_rust::xxh3::Xxh3;
 

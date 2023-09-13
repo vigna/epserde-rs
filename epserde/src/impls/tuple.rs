@@ -14,6 +14,7 @@ are [`ZeroCopy`]. For tuples of more than 10 elements, or tuples with elements
 that are not [`ZeroCopy`], you must use [`epserde_derive::Epserde`] on a newtype.
 
 */
+use crate::traits::*;
 use crate::*;
 use core::hash::Hash;
 

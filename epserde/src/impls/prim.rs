@@ -15,6 +15,7 @@ use core::marker::PhantomData;
 
 use crate::des;
 use crate::ser;
+use crate::traits::*;
 use crate::*;
 use core::hash::Hash;
 

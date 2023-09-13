@@ -15,10 +15,8 @@ use core::mem::MaybeUninit;
 use crate::des::{self, DeserializeHelper};
 use crate::ser;
 use crate::ser::SerializeHelper;
-use crate::{
-    CopyType, DeserializeInner, FieldWrite, Full, FullCopy, ReadWithPos, SerializeInner,
-    SliceWithPos, TypeHash, Zero, ZeroCopy,
-};
+use crate::traits::*;
+use crate::*;
 use core::hash::Hash;
 
 impl<T: CopyType, const N: usize> CopyType for [T; N] {

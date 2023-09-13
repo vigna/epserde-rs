@@ -12,6 +12,7 @@ Implementations for strings.
 */
 
 use crate::des::*;
+use crate::traits::*;
 use crate::*;
 use core::hash::Hash;
 

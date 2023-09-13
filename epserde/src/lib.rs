@@ -40,16 +40,11 @@ pub const MAGIC: u64 = u64::from_ne_bytes(*b"epserde ");
 /// What we will read if the endianness is mismatched.
 pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
 
-mod type_hash;
-pub use type_hash::*;
-
 mod mem_case;
 pub use mem_case::*;
 
-mod copy_type;
-pub use copy_type::*;
-
 pub mod impls;
+pub mod traits;
 
 /// Compute the padding needed for alignment, that is, the smallest
 /// number such that `((value + pad_align_to(value, align_to) & (align_to - 1) == 0`.

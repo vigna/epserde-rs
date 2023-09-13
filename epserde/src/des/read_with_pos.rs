@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::traits::{FullCopy, ZeroCopy};
 use crate::{des, DeserializeError, DeserializeInner};
-use crate::{FullCopy, ZeroCopy};
 use core::mem::MaybeUninit;
 
 /// [`std::io::Read`]-like trait for serialization that does not

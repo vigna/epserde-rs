@@ -16,7 +16,9 @@ with `#[derive(Serialize)]`.
 
 */
 
+use crate::traits::*;
 use crate::*;
+
 use core::hash::Hasher;
 use std::{io::BufWriter, path::Path};
 

@@ -14,7 +14,7 @@ use crate::des;
 use crate::des::*;
 use crate::ser;
 use crate::ser::*;
-use crate::{CopyType, Full, FullCopy, TypeHash, Zero, ZeroCopy};
+use crate::traits::*;
 use core::hash::Hash;
 
 impl<T> CopyType for Vec<T> {

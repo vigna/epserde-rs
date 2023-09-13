@@ -30,7 +30,7 @@ assert_eq!(a, *b);
 */
 use crate::ser;
 use crate::ser::*;
-use crate::CopyType;
+use crate::traits::CopyType;
 
 impl<T: SerializeInner + CopyType> Serialize for &[T]
 where

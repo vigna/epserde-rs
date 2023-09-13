@@ -7,6 +7,7 @@
 #![cfg(test)]
 
 use core::hash::Hasher;
+use epserde::traits::*;
 use epserde::*;
 use xxhash_rust::xxh3::Xxh3;
 

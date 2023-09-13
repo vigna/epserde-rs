@@ -17,7 +17,7 @@ which is automatically derived with `#[derive(Deserialize)]`.
 
 */
 
-use crate::{CopySelector, MemCase, TypeHash, MAGIC, MAGIC_REV, VERSION};
+use crate::{traits::CopySelector, traits::TypeHash, MemCase, MAGIC, MAGIC_REV, VERSION};
 use crate::{Flags, MemBackend};
 use core::ptr::addr_of_mut;
 use core::{hash::Hasher, mem::MaybeUninit};
