@@ -52,7 +52,7 @@ These are the main limitations you should be aware of before choosing to use ε-
 - While we provide procedural macros that implement serialization and deserialization, 
 they require that your type is written and used in a specific way; in particular, 
 the fields you want to ε-copy must be type parameters implementing
-()`DeserializeInner`)[`des::DeserializeInner`], to which a 
+[`DeserializeInner`](`des::DeserializeInner`), to which a 
 [deserialized type](`des::DeserializeInner::DeserType`) is associated.
 For example, we provide implementations for
 `Vec<T>`/`Box<[T]>`, where `T` [is zero-copy](`traits::ZeroCopy`), or `String`/`Box<str>`, which have 
