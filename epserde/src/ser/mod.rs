@@ -20,8 +20,8 @@ use crate::*;
 use core::hash::Hasher;
 use std::{io::BufWriter, path::Path};
 
-pub mod ser_writers;
-pub use ser_writers::*;
+pub mod writers;
+pub use writers::*;
 
 pub type Result<T> = core::result::Result<T, SerializeError>;
 
