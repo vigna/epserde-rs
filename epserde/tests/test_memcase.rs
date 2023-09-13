@@ -6,6 +6,7 @@
 
 #![cfg(test)]
 
+use epserde::des::*;
 use epserde::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]

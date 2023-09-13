@@ -40,9 +40,6 @@ pub const MAGIC: u64 = u64::from_ne_bytes(*b"epserde ");
 /// What we will read if the endianness is mismatched.
 pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
 
-mod mem_case;
-pub use mem_case::*;
-
 pub mod impls;
 pub mod traits;
 

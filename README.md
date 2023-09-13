@@ -92,7 +92,7 @@ Let us start with the simplest case: data that can be zero copied. In this case,
 we serialize an array of a thousand zeros, and get back a reference to such 
 an array:
 ```rust
-use epserde::*;
+use epserde::{*,des::*};
 
 let s = [0_usize; 1000];
 
@@ -136,7 +136,7 @@ This time, let us serialize a `Vec` containing a
 a thousand zeros: ε-serde will deserialize its associated
 deserialization type, which is a reference to a slice.
 ```rust
-use epserde::*;
+use epserde::{*,des::*};
 
 let s = vec![0; 1000];
 
@@ -181,7 +181,7 @@ work like `usize` in the previous examples. This requires the structure
 to be made of zero-copy fields, and to be annotated with `#[zero_copy]` 
 and `#[repr(C)]`:
 ```rust
-use epserde::*;
+use epserde::{*,des::*};
 use epserde_derive::*;
 
 #[derive(Epserde, Debug, PartialEq, Copy, Clone)]
@@ -230,7 +230,7 @@ the associated deserialized type.
 Let us design a structure that will contain an integer,
 which will be copied, and a vector of integers that we want to ε-copy:
 ```rust
-use epserde::*;
+use epserde::{*,des::*};
 use epserde_derive::*;
 
 #[derive(Epserde, Debug, PartialEq)]
@@ -275,7 +275,7 @@ We can write methods for our structure that will work for the ε-copied version:
 to take care that they are defined in a way that will work both on the original type parameter and on
 its associated deserialized type; we can also use `type` to reduce the clutter:
 ```rust
-use epserde::*;
+use epserde::{*,des::*};
 use epserde_derive::*;
 
 #[derive(Epserde, Debug, PartialEq)]
