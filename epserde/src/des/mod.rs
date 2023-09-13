@@ -391,7 +391,7 @@ impl core::fmt::Display for DeserializeError {
             ),
             Self::MagicCookieError(magic) => write!(
                 f,
-                "Wrong magic cookie {:#018x}. The byte stream is not ε-serde serialization.",
+                "Wrong magic cookie 0x{:016x}. The byte stream is not ε-serde serialization.",
                 magic,
             ),
             Self::MajorVersionMismatch(found_major) => write!(
@@ -421,7 +421,7 @@ impl core::fmt::Display for DeserializeError {
                 write!(
                     f,
                     concat!(
-                        "Wrong type hash. Expected: 0x{:#018x} Actual: {:#018x}.\n",
+                        "Wrong type hash. Expected: 0x{:016x} Actual: 0x{:016x}.\n",
                         "The serialized type is '{}' and the deserialized type is '{}'.",
                     ),
                     expected, got, expected_type_name, got_type_name,
@@ -436,7 +436,7 @@ impl core::fmt::Display for DeserializeError {
                 write!(
                     f,
                     concat!(
-                        "Wrong type repr hash. Expected: 0x{:#018x} Actual: {:#018x}.\n",
+                        "Wrong type repr hash. Expected: 0x{:016x} Actual: 0x{:016x}.\n",
                         "You might be trying to deserialize a file that was serialized on ",
                         "an architecture with different alignment requirements, or some ",
                         "of the fields of the type have changed their copy type (zero or not).\n",
