@@ -7,7 +7,7 @@
 #![cfg(test)]
 
 use anyhow::Result;
-use epserde::*;
+use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data<A: PartialEq = usize, const Q: usize = 3> {
@@ -18,7 +18,7 @@ struct Data<A: PartialEq = usize, const Q: usize = 3> {
 #[test]
 fn test_box_slice_usize() -> Result<()> {
     let a = vec![1, 2, 3, 4];
-    let mut cursor = new_aligned_cursor();
+    let mut cursor = epserde::new_aligned_cursor();
     a.serialize(&mut cursor)?;
     cursor.set_position(0);
     let b = <Vec<i32>>::deserialize_full_copy(&mut cursor)?;

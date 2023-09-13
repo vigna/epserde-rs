@@ -26,11 +26,25 @@ pub use epserde_derive::{Epserde, TypeHash};
 pub mod des;
 pub mod ser;
 
-pub use des::{
-    Deserialize, DeserializeError, DeserializeInner, ReadNoStd, ReadWithPos, ReaderWithPos,
-    SliceWithPos,
-};
-pub use ser::{FieldWrite, Serialize, SerializeError, SerializeInner, WriteNoStd, WriteWithPos};
+pub mod prelude {
+    pub use crate::des;
+    pub use crate::des::Deserialize;
+    pub use crate::des::DeserializeError;
+    pub use crate::des::DeserializeHelper;
+    pub use crate::des::DeserializeInner;
+    pub use crate::des::Flags;
+    pub use crate::des::MemCase;
+    pub use crate::des::ReadWithPos;
+    pub use crate::des::SliceWithPos;
+    pub use crate::ser;
+    pub use crate::ser::Serialize;
+    pub use crate::ser::SerializeError;
+    pub use crate::ser::SerializeHelper;
+    pub use crate::ser::SerializeInner;
+    pub use crate::traits::*;
+    #[cfg(feature = "derive")]
+    pub use epserde_derive::{Epserde, TypeHash};
+}
 
 /// (Major, Minor) version of the file format, this follows semantic versioning
 pub const VERSION: (u16, u16) = (0, 0);

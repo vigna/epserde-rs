@@ -6,9 +6,8 @@
 
 #![cfg(test)]
 
+use epserde::prelude::*;
 use std::marker::PhantomData;
-
-use epserde::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data<A: PartialEq = usize, const Q: usize = 3> {

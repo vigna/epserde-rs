@@ -10,12 +10,10 @@
 Implementations for boxed slices.
 
 */
-use crate::des;
-use crate::des::*;
-use crate::ser;
-use crate::ser::*;
-use crate::traits::{CopyType, Full, FullCopy, TypeHash, Zero, ZeroCopy};
+use crate::prelude::*;
 use core::hash::Hash;
+use des::*;
+use ser::*;
 
 impl<T> CopyType for Box<[T]> {
     type Copy = Full;

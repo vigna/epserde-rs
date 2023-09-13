@@ -11,10 +11,10 @@ Implementations for strings.
 
 */
 
-use crate::des::*;
-use crate::traits::*;
-use crate::*;
+use crate::prelude::*;
 use core::hash::Hash;
+use des::*;
+use ser::*;
 
 impl CopyType for String {
     type Copy = Full;

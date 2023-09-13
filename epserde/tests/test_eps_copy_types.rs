@@ -6,7 +6,7 @@
 
 #![cfg(test)]
 
-use epserde::*;
+use epserde::prelude::*;
 
 macro_rules! impl_test {
     ($ty:ty, $val:expr) => {{

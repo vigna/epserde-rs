@@ -11,7 +11,7 @@
  * if we derive code for a zero-copy newtype containing just a `usize`,
  * the associated deserialization type is a reference.
  */
-use epserde::*;
+use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 #[repr(C)]
@@ -23,7 +23,7 @@ struct USize {
 fn main() {
     // Create a new value to serialize
     let x = USize { value: 0 };
-    let mut buf = new_aligned_cursor();
+    let mut buf = epserde::new_aligned_cursor();
     // Serialize
     let _bytes_written = x.serialize(&mut buf).unwrap();
 

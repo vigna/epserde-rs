@@ -6,8 +6,7 @@
 
 #![cfg(test)]
 
-use epserde::des::*;
-use epserde::*;
+use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct PersonVec<A, B> {

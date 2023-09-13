@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use epserde::*;
+use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Object<A> {
@@ -29,7 +29,7 @@ fn main() {
         a: vec![Point { x: 2, y: 1 }; 6],
         test: -0xbadf00d,
     };
-    let mut buf = new_aligned_cursor();
+    let mut buf = epserde::new_aligned_cursor();
     // Serialize
     let _bytes_written = point.serialize(&mut buf).unwrap();
 

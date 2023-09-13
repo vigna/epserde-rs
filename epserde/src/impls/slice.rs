@@ -16,9 +16,9 @@ using a vector as type.
 Note that if you ε-copy deserialize the vector, you will
 get back the same slice.
 ```rust
-use epserde::*;
+use epserde::prelude::*;
 let a = vec![1, 2, 3, 4];
-let mut cursor = new_aligned_cursor();
+let mut cursor = epserde::new_aligned_cursor();
 a.serialize(&mut cursor).unwrap();
 cursor.set_position(0);
 let b: Vec<i32> = <Vec<i32>>::deserialize_full_copy(&mut cursor).unwrap();
@@ -28,9 +28,8 @@ let b: &[i32] = <Vec<i32>>::deserialize_eps_copy(&buf).unwrap();
 assert_eq!(a, *b);
 ```
 */
-use crate::ser;
-use crate::ser::*;
-use crate::traits::CopyType;
+use crate::prelude::*;
+use ser::*;
 
 impl<T: SerializeInner + CopyType> Serialize for &[T]
 where

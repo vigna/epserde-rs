@@ -11,13 +11,11 @@ Implementations for primitive types, `()`, [`PhantomData`] and [`Option`].
 
 */
 
-use core::marker::PhantomData;
-
-use crate::des;
-use crate::ser;
-use crate::traits::*;
-use crate::*;
+use crate::prelude::*;
 use core::hash::Hash;
+use core::marker::PhantomData;
+use des::*;
+use ser::*;
 
 macro_rules! impl_prim_type_hash {
     ($($ty:ty),*) => {$(

@@ -10,14 +10,11 @@
 Implementations for arrays.
 
 */
-use core::mem::MaybeUninit;
-
-use crate::des::{self, DeserializeHelper};
-use crate::ser;
-use crate::ser::SerializeHelper;
-use crate::traits::*;
-use crate::*;
+use crate::prelude::*;
 use core::hash::Hash;
+use core::mem::MaybeUninit;
+use des::*;
+use ser::*;
 
 impl<T: CopyType, const N: usize> CopyType for [T; N] {
     type Copy = T::Copy;

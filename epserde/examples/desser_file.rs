@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use epserde::*;
+use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct StructParam<A, B> {
