@@ -22,8 +22,8 @@ use crate::{MAGIC, MAGIC_REV, VERSION};
 use core::ptr::addr_of_mut;
 use core::{hash::Hasher, mem::MaybeUninit};
 use std::{io::BufReader, path::Path};
-pub mod read_with_pos;
-pub use read_with_pos::*;
+pub mod reader_with_pos;
+pub use reader_with_pos::*;
 
 pub mod mem_case;
 pub use mem_case::*;

@@ -19,13 +19,13 @@ pub trait TypeHash {
     /// type of the data matches the type of the value being deserialized into.
     fn type_repr_hash(hasher: &mut impl core::hash::Hasher);
 
-    /// Call type_hash on a value
+    /// Call [`TypeHash::type_hash`] on a value.
     #[inline(always)]
     fn type_hash_val(&self, hasher: &mut impl core::hash::Hasher) {
         Self::type_hash(hasher)
     }
 
-    /// Call type_repr_hash on a value
+    /// Call [`TypeHash::type_repr_hash`] on a value.
     #[inline(always)]
     fn type_repr_hash_val(&self, hasher: &mut impl core::hash::Hasher) {
         Self::type_repr_hash(hasher)
