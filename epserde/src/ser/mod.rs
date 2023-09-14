@@ -7,7 +7,8 @@
 
 /*!
 
-Serialization traits and types
+Serialization traits and types.
+
 [`Serialize`] is the main serialization trait, providing a
 [`Serialize::serialize`] method that serializes the type into a
 generic [`WriteNoStd`] backend. The implementation of this trait
