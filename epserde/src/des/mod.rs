@@ -243,7 +243,7 @@ impl<T: DeserializeInner> Deserialize for T {
 /// the user from modifying the methods in [`Deserialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait DeserializeInner: TypeHash + Sized {
+pub trait DeserializeInner: CopyType + TypeHash + Sized {
     type DeserType<'a>;
     fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)>;
 

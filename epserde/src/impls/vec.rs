@@ -32,8 +32,8 @@ impl<T: TypeHash> TypeHash for Vec<T> {
     }
     #[inline(always)]
     fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        core::mem::align_of::<Self>().hash(hasher);
-        core::mem::size_of::<Self>().hash(hasher);
+        // We align to the size of T.
+        core::mem::size_of::<T>().hash(hasher);
         T::type_repr_hash(hasher);
     }
 }

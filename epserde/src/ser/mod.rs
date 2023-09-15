@@ -96,7 +96,7 @@ impl<T: SerializeInner> Serialize for T {
 /// the user from modifying the methods in [`Serialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait SerializeInner: TypeHash + Sized {
+pub trait SerializeInner: CopyType + TypeHash + Sized {
     /// Inner constant used to keep track recursively if we can optimize the
     /// serialization of the type; i.e., if we can serialize the type without
     /// recursively calling the serialization of the inner types.

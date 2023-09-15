@@ -30,9 +30,8 @@ impl TypeHash for String {
         "String".hash(hasher);
     }
     #[inline(always)]
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        core::mem::align_of::<Self>().hash(hasher);
-        core::mem::size_of::<Self>().hash(hasher);
+    fn type_repr_hash(_hasher: &mut impl core::hash::Hasher) {
+        // We save a slice of bytes. No alignment.
     }
 }
 
@@ -42,9 +41,8 @@ impl TypeHash for str {
         "str".hash(hasher);
     }
     #[inline(always)]
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        core::mem::align_of::<char>().hash(hasher);
-        core::mem::size_of::<char>().hash(hasher);
+    fn type_repr_hash(_hasher: &mut impl core::hash::Hasher) {
+        // We save a slice of bytes. No alignment.
     }
 }
 

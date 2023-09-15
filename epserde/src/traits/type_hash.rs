@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use core::hash::Hash;
-
 /// Compute a stable hash for a type. This is used during deserialization to
 /// check that the type of the data matches the type of the value being
 /// deserialized into.
@@ -29,23 +27,5 @@ pub trait TypeHash {
     #[inline(always)]
     fn type_repr_hash_val(&self, hasher: &mut impl core::hash::Hasher) {
         Self::type_repr_hash(hasher)
-    }
-}
-
-#[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::boxed::Box;
-
-#[cfg(feature = "alloc")]
-impl<T: TypeHash + ?Sized> TypeHash for Box<T> {
-    #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "Box".hash(hasher);
-        T::type_hash(hasher);
-    }
-    #[inline(always)]
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        core::mem::align_of::<Self>().hash(hasher);
-        core::mem::size_of::<Self>().hash(hasher);
-        T::type_repr_hash(hasher);
     }
 }

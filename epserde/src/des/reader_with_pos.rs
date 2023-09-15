@@ -41,7 +41,7 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     fn pos(&self) -> usize;
 
     /// Pad the cursor to the correct alignment.
-    fn align<T>(self) -> des::Result<Self>;
+    fn align<T: CopyType>(self) -> des::Result<Self>;
 
     /// Fully deserialize a zero-copy type from the backend after aligning it.
     fn deserialize_full_zero<T: ZeroCopy>(mut self) -> des::Result<(T, Self)> {
@@ -124,9 +124,9 @@ impl<F: ReadNoStd> ReadWithPos for ReaderWithPos<F> {
         self.pos
     }
 
-    fn align<T>(mut self) -> des::Result<Self> {
+    fn align<T: CopyType>(mut self) -> des::Result<Self> {
         // Skip bytes as needed
-        let padding = crate::pad_align_to(self.pos, core::mem::align_of::<T>());
+        let padding = crate::pad_align_to(self.pos, T::align_of());
         self.read_exact(&mut vec![0; padding])?;
         // No alignment check, we are fully deserializing
         Ok(self)

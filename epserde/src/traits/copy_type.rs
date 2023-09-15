@@ -96,8 +96,19 @@ and ε-serde will do the rest.
 
 */
 
-pub trait CopyType {
+pub trait CopyType: Sized {
     type Copy: CopySelector;
+    /// Return the alignment type at serialization.
+    ///
+    /// This is [`core::mem::align_of`] by default, but it is
+    /// overridden for primitive types to [`core::mem::size_of`]
+    /// to increase architectural interoperability. Since primitive
+    /// types are always fully deserialized, the only
+    /// effect is that the padding before sequences of primitive
+    /// types might be slightly larger.
+    fn align_of() -> usize {
+        core::mem::align_of::<Self>()
+    }
 }
 
 /// Marker trait for zero-copy types. You should never implement

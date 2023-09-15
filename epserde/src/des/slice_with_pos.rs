@@ -94,12 +94,12 @@ impl<'a> ReadWithPos for SliceWithPos<'a> {
     ///
     /// Note that this method also checks that
     /// the absolute memory position is properly aligned.
-    fn align<T>(mut self) -> des::Result<Self> {
+    fn align<T: CopyType>(mut self) -> des::Result<Self> {
         // Skip bytes as needed
-        let padding = crate::pad_align_to(self.pos, core::mem::align_of::<T>());
+        let padding = crate::pad_align_to(self.pos, T::align_of());
         self = self.skip(padding);
         // Check that the ptr is indeed aligned
-        if self.data.as_ptr() as usize % std::mem::align_of::<T>() != 0 {
+        if self.data.as_ptr() as usize % T::align_of() != 0 {
             Err(DeserializeError::AlignmentError)
         } else {
             Ok(self)

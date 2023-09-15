@@ -457,7 +457,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                     #[inline(always)]
                     fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
                         use core::hash::Hash;
-                        core::mem::align_of::<Self>().hash(hasher);
+                        Self::align_of().hash(hasher);
                         core::mem::size_of::<Self>().hash(hasher);
                         // add to the hash if the struct is zero copy or not
                         <Self as epserde::traits::CopyType>::Copy::type_hash(hasher);

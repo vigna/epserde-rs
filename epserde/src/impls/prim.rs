@@ -21,6 +21,11 @@ macro_rules! impl_prim_type_hash {
     ($($ty:ty),*) => {$(
         impl CopyType for $ty {
             type Copy = Zero;
+            fn align_of() -> usize {
+                // Primitive types are aligned to their size
+                // to increase architectural interoperability.
+                core::mem::size_of::<Self>()
+            }
         }
 
         impl TypeHash for $ty {
@@ -30,7 +35,8 @@ macro_rules! impl_prim_type_hash {
             }
             #[inline(always)]
             fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-                core::mem::align_of::<Self>().hash(hasher);
+                // We do not hash the alignment of primitive types
+                // because they are always fully deserialized.
                 core::mem::size_of::<Self>().hash(hasher);
             }
         }
@@ -229,7 +235,7 @@ impl<T> CopyType for Option<T> {
     type Copy = Full;
 }
 
-impl<T: TypeHash> TypeHash for Option<T> {
+impl<T: CopyType + TypeHash> TypeHash for Option<T> {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "Option".hash(hasher);
@@ -237,7 +243,7 @@ impl<T: TypeHash> TypeHash for Option<T> {
     }
     #[inline(always)]
     fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        core::mem::align_of::<Self>().hash(hasher);
+        T::align_of().hash(hasher);
         core::mem::size_of::<Self>().hash(hasher);
         T::type_repr_hash(hasher);
     }
