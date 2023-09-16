@@ -36,21 +36,21 @@ where
 {
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
-    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
+    fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> ser::Result<()> {
         SerializeHelper::_serialize_inner(self, backend)
     }
 }
 
 impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Box<[T]> {
     #[inline(always)]
-    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
+    fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> ser::Result<()> {
         backend.write_slice_zero(self)
     }
 }
 
 impl<T: DeepCopy + SerializeInner> SerializeHelper<Deep> for Box<[T]> {
     #[inline(always)]
-    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
+    fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> ser::Result<()> {
         backend.write_slice(self)
     }
 }

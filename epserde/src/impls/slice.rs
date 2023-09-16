@@ -35,14 +35,13 @@ impl<T: SerializeInner + CopyType> Serialize for &[T]
 where
     Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
 {
-    fn serialize_on_field_write<F: FieldWrite>(&self, mut backend: F) -> ser::Result<F> {
-        backend = write_header::<F, Vec<T>>(backend)?;
+    fn serialize_on_field_write<F: FieldWrite>(&self, backend: &mut F) -> ser::Result<()> {
+        write_header::<F, Vec<T>>(backend)?;
         // SAFETY: the fake vector we create is never used, and we forget it immediately
         // after writing it to the backend.
         let fake = unsafe { Vec::from_raw_parts(self.as_ptr() as *mut T, self.len(), self.len()) };
-        backend = backend.write_field("ROOT", &fake)?;
+        backend.write_field("ROOT", &fake)?;
         core::mem::forget(fake);
-        backend.flush()?;
-        Ok(backend)
+        backend.flush()
     }
 }

@@ -37,18 +37,18 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub trait Serialize {
     /// Serialize the type using the given backend.
     fn serialize<F: WriteNoStd>(&self, backend: F) -> Result<usize> {
-        Ok(self
-            .serialize_on_field_write(WriteWithPos::new(backend))?
-            .pos())
+        let mut write_with_pos = WriteWithPos::new(backend);
+        self.serialize_on_field_write(&mut write_with_pos)?;
+        Ok(write_with_pos.pos())
     }
 
     /// Serialize the type using the given backend and return the schema.
     /// This method is mainly useful for debugging and cross-language
     /// interoperability.
     fn serialize_with_schema<F: WriteNoStd>(&self, backend: F) -> Result<Schema> {
-        let mut schema = self
-            .serialize_on_field_write(SchemaWriter::new(WriteWithPos::new(backend)))?
-            .schema;
+        let mut schema_writer = SchemaWriter::new(WriteWithPos::new(backend));
+        self.serialize_on_field_write(&mut schema_writer)?;
+        let mut schema = schema_writer.schema;
         // sort the schema before returning it because 99% of the times the user
         // will want it sorted, and it won't take too much time.
         // If the user doesn't want it sorted, they can just call
@@ -62,10 +62,10 @@ pub trait Serialize {
     }
 
     /// Serialize the type using the given [`FieldWrite`].
-    fn serialize_on_field_write<F: FieldWrite>(&self, backend: F) -> Result<F>;
+    fn serialize_on_field_write<F: FieldWrite>(&self, backend: &mut F) -> Result<()>;
 
     /// Commodity method to serialize to a file.
-    fn store(&self, path: impl AsRef<Path>) -> Result<()> {
+    fn store(&mut self, path: impl AsRef<Path>) -> Result<()> {
         let file = std::fs::File::create(path).map_err(Error::FileOpenError)?;
         let mut buf_writer = BufWriter::new(file);
         self.serialize(&mut buf_writer)?;
@@ -80,11 +80,10 @@ pub trait Serialize {
 /// and debug information.
 impl<T: SerializeInner> Serialize for T {
     /// Serialize the type using the given [`FieldWrite`].
-    fn serialize_on_field_write<F: FieldWrite>(&self, mut backend: F) -> Result<F> {
-        backend = write_header::<F, Self>(backend)?;
-        backend = backend.write_field("ROOT", self)?;
-        backend.flush()?;
-        Ok(backend)
+    fn serialize_on_field_write<F: FieldWrite>(&self, backend: &mut F) -> Result<()> {
+        write_header::<F, Self>(backend)?;
+        backend.write_field("ROOT", self)?;
+        backend.flush()
     }
 }
 
@@ -110,24 +109,24 @@ pub trait SerializeInner: CopyType + TypeHash + Sized {
     const ZERO_COPY_MISMATCH: bool;
 
     /// Serialize this structure using the given backend.
-    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;
+    fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> Result<()>;
 }
 
 /// Common code for both full-copy and zero-copy deserialization.
 /// Must be kept in sync with [`crate::des::check_header`].
-pub fn write_header<F: FieldWrite, T: TypeHash>(mut backend: F) -> Result<F> {
-    backend = backend.write_field("MAGIC", &MAGIC)?;
-    backend = backend.write_field("VERSION_MAJOR", &VERSION.0)?;
-    backend = backend.write_field("VERSION_MINOR", &VERSION.1)?;
-    backend = backend.write_field("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8))?;
+pub fn write_header<F: FieldWrite, T: TypeHash>(backend: &mut F) -> Result<()> {
+    backend.write_field("MAGIC", &MAGIC)?;
+    backend.write_field("VERSION_MAJOR", &VERSION.0)?;
+    backend.write_field("VERSION_MINOR", &VERSION.1)?;
+    backend.write_field("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8))?;
 
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
     let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
     let mut offset_of = 0;
 
     T::type_hash(&mut type_hasher, &mut repr_hasher, &mut offset_of);
-    backend = backend.write_field("TYPE_HASH", &type_hasher.finish())?;
-    backend = backend.write_field("TYPE_REPR_HASH", &repr_hasher.finish())?;
+    backend.write_field("TYPE_HASH", &type_hasher.finish())?;
+    backend.write_field("TYPE_REPR_HASH", &repr_hasher.finish())?;
     backend.write_field("TYPE_NAME", &core::any::type_name::<T>().to_string())
 }
 
@@ -135,7 +134,7 @@ pub fn write_header<F: FieldWrite, T: TypeHash>(mut backend: F) -> Result<F> {
 /// serialization for [`crate::traits::ZeroCopy`] and [`crate::traits::DeepCopy`] types.
 /// See [`crate::traits::CopyType`] for more information.
 pub trait SerializeHelper<T: CopySelector> {
-    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;
+    fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> Result<()>;
 }
 
 #[derive(Debug)]

@@ -288,7 +288,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         const ZERO_COPY_MISMATCH: bool = false;
 
                         #[inline(always)]
-                        fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
+                        fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, backend: &mut F) -> epserde::ser::Result<()> {
                             backend.write_field_zero("zero", self)
                         }
                     }
@@ -332,14 +332,14 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
 
                         #[inline(always)]
-                        fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
+                        fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, backend: &mut F) -> epserde::ser::Result<()> {
                             if Self::ZERO_COPY_MISMATCH {
                                 eprintln!("Type {} is zero copy, but it has not declared as such; use the #deep_copy attribute to silence this warning", core::any::type_name::<Self>());
                             }
                             #(
-                                backend = backend.write_field(stringify!(#fields_names), &self.#fields_names)?;
+                                backend.write_field(stringify!(#fields_names), &self.#fields_names)?;
                             )*
-                            Ok(backend)
+                            Ok(())
                         }
                     }
 

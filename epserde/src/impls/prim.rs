@@ -52,9 +52,8 @@ macro_rules! impl_prim_ser_des {
             const ZERO_COPY_MISMATCH: bool = false;
 
             #[inline(always)]
-            fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> ser::Result<F> {
-                backend.write_all(&self.to_ne_bytes())?;
-                Ok(backend)
+            fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> ser::Result<()> {
+                backend.write_all(&self.to_ne_bytes())
             }
         }
 
@@ -114,10 +113,9 @@ impl SerializeInner for bool {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> ser::Result<F> {
+    fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> ser::Result<()> {
         let val = if *self { 1 } else { 0 };
-        backend.write_all(&[val])?;
-        Ok(backend)
+        backend.write_all(&[val])
     }
 }
 
@@ -142,7 +140,7 @@ impl SerializeInner for char {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
+    fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> ser::Result<()> {
         (*self as u32)._serialize_inner(backend)
     }
 }
@@ -168,8 +166,8 @@ impl SerializeInner for () {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
-        Ok(backend)
+    fn _serialize_inner<F: FieldWrite>(&self, _backend: &mut F) -> ser::Result<()> {
+        Ok(())
     }
 }
 
@@ -208,8 +206,8 @@ impl<T: SerializeInner> SerializeInner for PhantomData<T> {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
-        Ok(backend)
+    fn _serialize_inner<F: FieldWrite>(&self, _backend: &mut F) -> ser::Result<()> {
+        Ok(())
     }
 }
 
@@ -253,17 +251,14 @@ impl<T: SerializeInner> SerializeInner for Option<T> {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> ser::Result<F> {
+    fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> ser::Result<()> {
         match self {
-            None => {
-                backend = backend.write_field("Tag", &0_u8)?;
-            }
+            None => backend.write_field("Tag", &0_u8),
             Some(val) => {
-                backend = backend.write_field("Tag", &1_u8)?;
-                backend = backend.write_field("Some", val)?;
+                backend.write_field("Tag", &1_u8)?;
+                backend.write_field("Some", val)
             }
-        };
-        Ok(backend)
+        }
     }
 }
 

@@ -60,7 +60,7 @@ macro_rules! impl_tuples {
             const ZERO_COPY_MISMATCH: bool = false;
 
             #[inline(always)]
-            fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
+            fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> ser::Result<()> {
                 backend.write_field_zero("tuple", self)
             }
         }

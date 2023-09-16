@@ -32,34 +32,33 @@ pub trait FieldWrite: WriteNoStd + Sized {
     /// This is the actual implementation of [`FieldWrite::write_field`]. It can be used
     /// by implementing types to simulate a call to the default implementation.
     #[inline(always)]
-    fn do_write_field<V: SerializeInner>(self, _field_name: &str, value: &V) -> Result<Self> {
+    fn do_write_field<V: SerializeInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
         value._serialize_inner(self)
     }
 
-    fn write_field<V: SerializeInner>(self, field_name: &str, value: &V) -> Result<Self> {
+    fn write_field<V: SerializeInner>(&mut self, field_name: &str, value: &V) -> Result<()> {
         self.do_write_field::<V>(field_name, value)
     }
 
     /// This is the actual implementation of [`FieldWrite::write_bytes`]. It can be used
     /// by implementing types to simulate a call to the default implementation.
     #[inline(always)]
-    fn do_write_bytes<V: ZeroCopy>(mut self, _field_name: &str, value: &[u8]) -> Result<Self> {
+    fn do_write_bytes<V: ZeroCopy>(&mut self, _field_name: &str, value: &[u8]) -> Result<()> {
         self.align::<V>()?;
-        self.write_all(value)?;
-        Ok(self)
+        self.write_all(value)
     }
 
     /// Write raw bytes aligned to the `align_to::<V>()`.
-    fn write_bytes<V: ZeroCopy>(self, field_name: &str, value: &[u8]) -> Result<Self> {
+    fn write_bytes<V: ZeroCopy>(&mut self, field_name: &str, value: &[u8]) -> Result<()> {
         self.do_write_bytes::<V>(field_name, value)
     }
 
     /// Writes a single aligned zero-copy value.
     fn write_field_zero<V: ZeroCopy + SerializeInner>(
-        self,
+        &mut self,
         field_name: &str,
         value: &V,
-    ) -> super::ser::Result<Self> {
+    ) -> super::ser::Result<()> {
         if !V::IS_ZERO_COPY {
             panic!(
                 "Cannot serialize deep-copy type {} declared as zero copy",
@@ -74,22 +73,22 @@ pub trait FieldWrite: WriteNoStd + Sized {
     }
 
     /// Write a slice by encoding its length first, and then the contents properly aligned.
-    fn write_slice<V: SerializeInner>(mut self, data: &[V]) -> Result<Self> {
+    fn write_slice<V: SerializeInner>(&mut self, data: &[V]) -> Result<()> {
         let len = data.len();
-        self = self.write_field("len", &len)?;
+        self.write_field("len", &len)?;
         if V::ZERO_COPY_MISMATCH {
             eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<V>());
         }
         for item in data.iter() {
-            self = self.write_field("item", item)?;
+            self.write_field("item", item)?;
         }
-        Ok(self)
+        Ok(())
     }
 
     /// Write an aligned slice by encoding its length first, and then the contents properly aligned.
-    fn write_slice_zero<V: SerializeInner + ZeroCopy>(mut self, data: &[V]) -> Result<Self> {
+    fn write_slice_zero<V: SerializeInner + ZeroCopy>(&mut self, data: &[V]) -> Result<()> {
         let len = data.len();
-        self = self.write_field("len", &len)?;
+        self.write_field("len", &len)?;
         if !V::IS_ZERO_COPY {
             panic!(
                 "Cannot serialize non zero-copy type {} declared as zero copy",
@@ -245,11 +244,11 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
     }
 
     #[inline(always)]
-    fn write_field<V: SerializeInner>(mut self, field_name: &str, value: &V) -> Result<Self> {
+    fn write_field<V: SerializeInner>(&mut self, field_name: &str, value: &V) -> Result<()> {
         // prepare a row with the field name and the type
         self.path.push(field_name.into());
         let pos = self.pos();
-        self = <Self as FieldWrite>::do_write_field::<V>(self, field_name, value)?;
+        <Self as FieldWrite>::do_write_field::<V>(self, field_name, value)?;
 
         // compute the serialized size and update the schema
         self.schema.0.push(SchemaRow {
@@ -260,11 +259,11 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
             size: self.pos() - pos,
         });
         self.path.pop();
-        Ok(self)
+        Ok(())
     }
 
     #[inline(always)]
-    fn write_bytes<V: ZeroCopy>(mut self, field_name: &str, value: &[u8]) -> Result<Self> {
+    fn write_bytes<V: ZeroCopy>(&mut self, field_name: &str, value: &[u8]) -> Result<()> {
         let align = core::mem::align_of::<V>();
         let type_name = core::any::type_name::<V>().to_string();
         // prepare a row with the field name and the type
