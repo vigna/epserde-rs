@@ -95,24 +95,27 @@ impl<T: SerializeInner> Serialize for T {
 /// the user from modifying the methods in [`Serialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait SerializeInner: CopyType + TypeHash + Sized {
-    /// Inner constant used to keep track recursively if we can optimize the
-    /// serialization of the type; i.e., if we can serialize the type without
-    /// recursively calling the serialization of the inner types.
-    ///
-    /// This is used to optimize the serialization of arrays, tuples, etc.
+pub trait SerializeInner: TypeHash + Sized {
+    /// Inner constant used to keep track recursively if the type
+    /// satisfies the condition for being zero-copy. It is checked
+    /// at runtime against the trait implemented by the type, and
+    /// if a [`ZeroCopy`] type has this constant set to `false`
+    /// serialization will panic.
     const IS_ZERO_COPY: bool;
 
     /// Inner constant that keeps track of whether a type has been not declared
-    /// full copy, has not been declared zero copy, but nonetheless all its
-    /// fields are zero copy.
+    /// deep-copy, has not been declared zero-copy, but nonetheless all its
+    /// fields are zero-copy. It is checked
+    /// at runtime against the trait implemented by the type, and
+    /// if a type which is neither [`ZeroCopy`] nor [`DeepCopy`]
+    /// has this constant set to `true` a warning will be issued.
     const ZERO_COPY_MISMATCH: bool;
 
     /// Serialize this structure using the given backend.
     fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> Result<()>;
 }
 
-/// Common code for both full-copy and zero-copy deserialization.
+/// Common code for both ε-copy and full-copy deserialization.
 /// Must be kept in sync with [`crate::des::check_header`].
 pub fn write_header<T: TypeHash>(backend: &mut impl FieldWrite) -> Result<()> {
     backend.write_field("MAGIC", &MAGIC)?;

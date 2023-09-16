@@ -5,21 +5,34 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+/*!
+
+Traits to mark types as zero-copy or deep-copy.
+
+*/
+
 use crate::prelude::MaxSizeOf;
 
-/// Internal trait used to select whether a type is zero copy or not.
+/// Internal trait used to select whether a type is zero-copy
+/// or deep-copy.
+///
 /// It has only two implementations, [`Zero`] and [`Deep`].
+///
+/// In the first case, the type can be serialized
+/// from memory and deserialized to memory as a sequence of bytes;
+/// in the second case, one has to deserialize the type field
+/// by field.
 pub trait CopySelector {
     const IS_ZERO_COPY: bool;
 }
-/// An implementation of a [`CopySelector`] specifying that a type is zero copy.
+/// An implementation of a [`CopySelector`] specifying that a type is zero-copy.
 pub struct Zero {}
 
 impl CopySelector for Zero {
     const IS_ZERO_COPY: bool = true;
 }
 
-/// An implementation of a [`CopySelector`] specifying that a type is not zero copy.
+/// An implementation of a [`CopySelector`] specifying that a type is deep-copy.
 #[derive(Hash)]
 pub struct Deep {}
 
@@ -29,7 +42,7 @@ impl CopySelector for Deep {
 
 /**
 
-Marker trait for data specifying whether it can be zero-copy deserialized or not.
+Marker trait for data specifying whether it is zero-copy or deep-copy.
 
 The trait comes in two flavors: `CopySelector<Type=Zero>` and
 `CopySelector<Type=Deep>`. To each of these flavors corresponds two
@@ -64,12 +77,13 @@ contain references and has a fixed memory layout; for structures, this requires
 runtime: in case of failure, serialization will panic.
 
 Since we cannot use negative trait bounds, every type that is used as a parameter of
-an array, vector or boxed slice must implement either `CopySelector<Type=Zero>` or `CopySelector<Type=Eps>`. In the latter
+an array, vector or boxed slice must implement either `CopySelector<Type=Zero>`
+or `CopySelector<Type=Deep>`. In the latter
 case, slices will be deserialized element by element, and the result will be a fully
 deserialized vector or boxed
 slice. If you do not implement either of these traits, the type will not be serializable inside
 vectors or boxed slices but error messages will be very unhelpful due to the
-contrived way we implement mutually exclusive types.
+contrived way we have to implement mutually exclusive types.
 
 If you use the provided derive macros all this logic will be hidden from you. You'll
 just have to add `#[zero_copy]` to your structures (if you want them to be zero-copy)
