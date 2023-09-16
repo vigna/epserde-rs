@@ -101,7 +101,7 @@ let s = [0_usize; 1000];
 // Serialize it
 let mut file = std::env::temp_dir();
 file.push("serialized0");
-s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
+s.serialize(&mut std::fs::File::create(&file).unwrap()).unwrap();
 // Load the serialized form in a buffer
 let b = std::fs::read(&file).unwrap();
 
@@ -147,7 +147,7 @@ let s = vec![0; 1000];
 // Serialize it
 let mut file = std::env::temp_dir();
 file.push("serialized1");
-s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
+s.serialize(&mut std::fs::File::create(&file).unwrap()).unwrap();
 // Load the serialized form in a buffer
 let b = std::fs::read(&file).unwrap();
 
@@ -201,7 +201,7 @@ let s = vec![Data { foo: 0, bar: 0 }; 1000];
 // Serialize it
 let mut file = std::env::temp_dir();
 file.push("serialized2");
-s.serialize(std::fs::File::create(&file).unwrap()).unwrap();
+s.serialize(&mut std::fs::File::create(&file).unwrap()).unwrap();
 // Load the serialized form in a buffer
 let b = std::fs::read(&file).unwrap();
 

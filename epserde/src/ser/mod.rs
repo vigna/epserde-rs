@@ -36,7 +36,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 /// the type to a file.
 pub trait Serialize {
     /// Serialize the type using the given backend.
-    fn serialize<F: WriteNoStd>(&self, backend: F) -> Result<usize> {
+    fn serialize(&self, backend: &mut impl WriteNoStd) -> Result<usize> {
         let mut write_with_pos = WriteWithPos::new(backend);
         self.serialize_on_field_write(&mut write_with_pos)?;
         Ok(write_with_pos.pos())
@@ -45,7 +45,7 @@ pub trait Serialize {
     /// Serialize the type using the given backend and return the schema.
     /// This method is mainly useful for debugging and cross-language
     /// interoperability.
-    fn serialize_with_schema<F: WriteNoStd>(&self, backend: F) -> Result<Schema> {
+    fn serialize_with_schema(&self, backend: &mut impl WriteNoStd) -> Result<Schema> {
         let mut schema_writer = SchemaWriter::new(WriteWithPos::new(backend));
         self.serialize_on_field_write(&mut schema_writer)?;
         let mut schema = schema_writer.schema;
@@ -194,29 +194,29 @@ impl<W: Write> WriteNoStd for W {
 ///
 /// This is needed because the [`Write`] trait doesn't have a `seek` method and
 /// [`std::io::Seek`] would be a requirement much stronger than needed.
-pub struct WriteWithPos<F: WriteNoStd> {
+pub struct WriteWithPos<'a, F: WriteNoStd> {
     /// What we actually write on
-    backend: F,
+    backend: &'a mut F,
     /// How many bytes we have written from the start
     pos: usize,
 }
 
-impl<F: WriteNoStd> WriteWithPos<F> {
+impl<'a, F: WriteNoStd> WriteWithPos<'a, F> {
     #[inline(always)]
     /// Create a new [`WriteWithPos`] on top of a generic writer `F`
-    pub fn new(backend: F) -> Self {
+    pub fn new(backend: &'a mut F) -> Self {
         Self { backend, pos: 0 }
     }
 }
 
-impl<F: WriteNoStd> FieldWrite for WriteWithPos<F> {
+impl<'a, F: WriteNoStd> FieldWrite for WriteWithPos<'a, F> {
     #[inline(always)]
     fn pos(&self) -> usize {
         self.pos
     }
 }
 
-impl<F: WriteNoStd> WriteNoStd for WriteWithPos<F> {
+impl<'a, F: WriteNoStd> WriteNoStd for WriteWithPos<'a, F> {
     #[inline(always)]
     fn write_all(&mut self, buf: &[u8]) -> Result<()> {
         self.backend.write_all(buf)?;
