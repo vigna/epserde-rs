@@ -28,6 +28,7 @@ impl TypeHash for String {
     fn type_hash(
         type_hasher: &mut impl core::hash::Hasher,
         _repr_hasher: &mut impl core::hash::Hasher,
+        _offset_of: &mut usize,
     ) {
         "String".hash(type_hasher);
     }
@@ -37,6 +38,7 @@ impl TypeHash for str {
     fn type_hash(
         type_hasher: &mut impl core::hash::Hasher,
         _repr_hasher: &mut impl core::hash::Hasher,
+        _offset_of: &mut usize,
     ) {
         "str".hash(type_hasher);
     }

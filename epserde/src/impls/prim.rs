@@ -14,6 +14,7 @@ Implementations for primitive types, `()`, [`PhantomData`] and [`Option`].
 use crate::prelude::*;
 use core::hash::Hash;
 use core::marker::PhantomData;
+use core::mem::size_of;
 use des::*;
 use ser::*;
 
@@ -26,14 +27,16 @@ macro_rules! impl_prim_type_hash {
         impl TypeHash for $ty {
             fn type_hash(
                 _type_hasher: &mut impl core::hash::Hasher,
-                _repr_hasher: &mut impl core::hash::Hasher
+                _repr_hasher: &mut impl core::hash::Hasher,
+                _offset_of: &mut usize,
+
             ) {
             }
         }
 
-        impl PaddingOf for $ty {
-            fn padding_of() -> usize {
-                core::mem::size_of::<Self>()
+        impl MaxSizeOf for $ty {
+            fn max_size_of() -> usize {
+                size_of::<$ty>()
             }
         }
     )*};
@@ -58,7 +61,7 @@ macro_rules! impl_prim_ser_des {
 		impl DeserializeInner for $ty {
             #[inline(always)]
             fn _deserialize_full_copy_inner<R: ReadWithPos>(mut backend: R) -> des::Result<(Self, R)> {
-                let mut buf = [0; core::mem::size_of::<$ty>()];
+                let mut buf = [0; size_of::<$ty>()];
                 backend.read_exact(&mut buf)?;
                 Ok((
                     <$ty>::from_ne_bytes(buf),
@@ -72,11 +75,11 @@ macro_rules! impl_prim_ser_des {
             ) -> des::Result<(Self::DeserType<'_>, SliceWithPos)> {
                 Ok((
                     <$ty>::from_ne_bytes(
-                        backend.data[..core::mem::size_of::<$ty>()]
+                        backend.data[..size_of::<$ty>()]
                             .try_into()
                             .unwrap(),
                     ),
-                    backend.skip(core::mem::size_of::<$ty>()),
+                    backend.skip(size_of::<$ty>()),
                 ))
             }
         }
@@ -194,7 +197,9 @@ impl<T: TypeHash> TypeHash for PhantomData<T> {
     fn type_hash(
         _type_hasher: &mut impl core::hash::Hasher,
         _repr_hasher: &mut impl core::hash::Hasher,
+        offset_of: &mut usize,
     ) {
+        *offset_of += size_of::<Self>();
     }
 }
 
@@ -236,9 +241,10 @@ impl<T: TypeHash> TypeHash for Option<T> {
     fn type_hash(
         type_hasher: &mut impl core::hash::Hasher,
         repr_hasher: &mut impl core::hash::Hasher,
+        _offset_of: &mut usize,
     ) {
         "Option".hash(type_hasher);
-        T::type_hash(type_hasher, repr_hasher);
+        T::type_hash(type_hasher, repr_hasher, _offset_of);
     }
 }
 

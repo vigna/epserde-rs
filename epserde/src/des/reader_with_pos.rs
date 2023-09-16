@@ -40,12 +40,12 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     /// Return the current position.
     fn pos(&self) -> usize;
 
-    /// Pad the cursor to the correct alignment.
-    fn align<T: PaddingOf>(self) -> des::Result<Self>;
+    /// Pad the cursor to the provided `align_of` value.
+    fn align<T: MaxSizeOf>(&mut self) -> des::Result<()>;
 
     /// Fully deserialize a zero-copy type from the backend after aligning it.
-    fn deserialize_full_zero<T: ZeroCopy + PaddingOf>(mut self) -> des::Result<(T, Self)> {
-        self = self.align::<T>()?;
+    fn deserialize_full_zero<T: ZeroCopy>(mut self) -> des::Result<(T, Self)> {
+        self.align::<T>()?;
         unsafe {
             #[allow(clippy::uninit_assumed_init)]
             let mut buf: T = MaybeUninit::uninit().assume_init();
@@ -62,11 +62,11 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     ///
     /// Note that this method uses a single [`ReadNoStd::read_exact`]
     /// call to read the entire vector.
-    fn deserialize_vec_full_zero<T: DeserializeInner + ZeroCopy + PaddingOf>(
+    fn deserialize_vec_full_zero<T: DeserializeInner + ZeroCopy>(
         self,
     ) -> des::Result<(Vec<T>, Self)> {
         let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
-        res_self = res_self.align::<T>()?;
+        res_self.align::<T>()?;
         let mut res = Vec::with_capacity(len);
         // SAFETY: we just allocated this vector so it is safe to set the length.
         // read_exact guarantees that the vector will be filled with data.
@@ -124,11 +124,11 @@ impl<F: ReadNoStd> ReadWithPos for ReaderWithPos<F> {
         self.pos
     }
 
-    fn align<T: PaddingOf>(mut self) -> des::Result<Self> {
+    fn align<T: MaxSizeOf>(&mut self) -> des::Result<()> {
         // Skip bytes as needed
-        let padding = crate::pad_align_to(self.pos, T::padding_of());
+        let padding = crate::pad_align_to(self.pos, T::max_size_of());
         self.read_exact(&mut vec![0; padding])?;
         // No alignment check, we are fully deserializing
-        Ok(self)
+        Ok(())
     }
 }

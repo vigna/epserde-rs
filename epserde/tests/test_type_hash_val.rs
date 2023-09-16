@@ -14,7 +14,8 @@ macro_rules! impl_test {
     ($hashes:expr, $value:expr) => {{
         let mut type_hasher = Xxh3::with_seed(0);
         let mut repr_hasher = Xxh3::with_seed(0);
-        ($value).type_hash_val(&mut type_hasher, &mut repr_hasher);
+        let mut offset_of = 0;
+        ($value).type_hash_val(&mut type_hasher, &mut repr_hasher, &mut offset_of);
         let type_hash = type_hasher.finish();
         let res = $hashes.insert(type_hash, stringify!($value));
         assert!(

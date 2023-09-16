@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::prelude::MaxSizeOf;
+
 /// Internal trait used to select whether a type is zero copy or not.
 /// It has only two implementations, [`Zero`] and [`Deep`].
 pub trait CopySelector {
@@ -81,8 +83,8 @@ pub trait CopyType: Sized {
 
 /// Marker trait for zero-copy types. You should never implement
 /// this trait manually, but rather implement [`CopyType`] with `Copy=Zero`.
-pub trait ZeroCopy: CopyType<Copy = Zero> {}
-impl<T: CopyType<Copy = Zero>> ZeroCopy for T {}
+pub trait ZeroCopy: CopyType<Copy = Zero> + MaxSizeOf {}
+impl<T: CopyType<Copy = Zero> + MaxSizeOf> ZeroCopy for T {}
 
 /// Marker trait for deep-copy types. You should never implement
 /// this trait manually, but rather implement [`CopyType`] with `Copy=Deep`.

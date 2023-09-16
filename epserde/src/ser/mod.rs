@@ -123,7 +123,9 @@ pub fn write_header<F: FieldWrite, T: TypeHash>(mut backend: F) -> Result<F> {
 
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
     let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
-    T::type_hash(&mut type_hasher, &mut repr_hasher);
+    let mut offset_of = 0;
+
+    T::type_hash(&mut type_hasher, &mut repr_hasher, &mut offset_of);
     backend = backend.write_field("TYPE_HASH", &type_hasher.finish())?;
     backend = backend.write_field("TYPE_REPR_HASH", &repr_hasher.finish())?;
     backend.write_field("TYPE_NAME", &core::any::type_name::<T>().to_string())

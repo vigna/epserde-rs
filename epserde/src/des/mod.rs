@@ -198,7 +198,8 @@ impl<T: DeserializeInner> Deserialize for T {
 
         let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
         let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
-        Self::type_hash(&mut type_hasher, &mut repr_hasher);
+        let mut offset_of = 0;
+        Self::type_hash(&mut type_hasher, &mut repr_hasher, &mut offset_of);
         let self_type_hash = type_hasher.finish();
         let self_repr_hash = repr_hasher.finish();
 
@@ -217,7 +218,8 @@ impl<T: DeserializeInner> Deserialize for T {
 
         let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
         let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
-        Self::type_hash(&mut type_hasher, &mut repr_hasher);
+        let mut offset_of = 0;
+        Self::type_hash(&mut type_hasher, &mut repr_hasher, &mut offset_of);
         let self_type_hash = type_hasher.finish();
         let self_repr_hash = repr_hasher.finish();
 

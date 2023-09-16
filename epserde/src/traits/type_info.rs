@@ -13,6 +13,7 @@ pub trait TypeHash {
     fn type_hash(
         type_hasher: &mut impl core::hash::Hasher,
         repr_hasher: &mut impl core::hash::Hasher,
+        offset_of: &mut usize,
     );
 
     /// Call [`TypeHash::type_hash`] on a value.
@@ -20,8 +21,9 @@ pub trait TypeHash {
         &self,
         type_hasher: &mut impl core::hash::Hasher,
         repr_hasher: &mut impl core::hash::Hasher,
+        offset_of: &mut usize,
     ) {
-        Self::type_hash(type_hasher, repr_hasher);
+        Self::type_hash(type_hasher, repr_hasher, offset_of);
     }
 }
 
@@ -37,8 +39,6 @@ pub trait TypeHash {
 /// In this way we increase interoperability between architectures
 /// with different alignment requirements for the same types (e.g.,
 /// 4 or 8 bytes for `u64`).
-pub trait PaddingOf: Sized {
-    fn padding_of() -> usize {
-        core::mem::align_of::<Self>()
-    }
+pub trait MaxSizeOf: Sized {
+    fn max_size_of() -> usize;
 }

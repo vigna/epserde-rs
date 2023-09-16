@@ -11,6 +11,7 @@ Implementations for boxed slices.
 
 */
 use crate::prelude::*;
+use core::hash::Hash;
 use des::*;
 use ser::*;
 
@@ -22,8 +23,10 @@ impl<T: TypeHash> TypeHash for Box<[T]> {
     fn type_hash(
         type_hasher: &mut impl core::hash::Hasher,
         repr_hasher: &mut impl core::hash::Hasher,
+        offset_of: &mut usize,
     ) {
-        T::type_hash(type_hasher, repr_hasher);
+        "Box[]".hash(type_hasher);
+        T::type_hash(type_hasher, repr_hasher, offset_of);
     }
 }
 
@@ -38,7 +41,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + SerializeInner + PaddingOf> SerializeHelper<Zero> for Box<[T]> {
+impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Box<[T]> {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
         backend.write_slice_zero(self)
@@ -78,7 +81,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + DeserializeInner + PaddingOf + 'static> DeserializeHelper<Zero> for Box<[T]> {
+impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Box<[T]> {
     type FullType = Self;
     type DeserType<'a> = &'a [T];
     #[inline(always)]

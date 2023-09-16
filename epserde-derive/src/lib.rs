@@ -454,19 +454,16 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::PaddingOf for #name<#generics_names> #where_clause{}
-
                     impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause{
 
                         fn type_hash(
                             type_hasher: &mut impl core::hash::Hasher,
                             repr_hasher: &mut impl core::hash::Hasher,
+                            offset_of: &mut usize,
                         ) {
                             use core::hash::Hash;
-                            use epserde::traits::type_info::PaddingOf;
                             // Hash in size and padding.
                             core::mem::size_of::<Self>().hash(repr_hasher);
-                            Self::padding_of().hash(repr_hasher);
                             // Hash in ZeroCopy
                             "ZeroCopy".hash(repr_hasher);
                             // Hash in representation data.
@@ -478,31 +475,40 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             #(
                                 #fields_names.hash(type_hasher);
                             )*
-                            // Hash in aligments of all fields.
-                            /*#(
-                               core::mem::align_of::<#fields_types>::hash(repr_hasher);
-                            )*/
                             // Recurse on all fields.
                             #(
                                 <#fields_types as epserde::traits::TypeHash>::type_hash(
                                     type_hasher,
                                     repr_hasher,
+                                    offset_of,
                                 );
                             )*
+                        }
+                    }
+
+                    impl<#generics> epserde::traits::MaxSizeOf for #name<#generics_names> #where_clause{
+                        fn max_size_of() -> usize {
+                            let mut max_size_of = 0;
+                            // Recurse on all fields.
+                            #(
+                                if max_size_of < <#fields_types as epserde::traits::MaxSizeOf>::max_size_of() {
+                                    max_size_of = <#fields_types as epserde::traits::MaxSizeOf>::max_size_of();
+                                }
+                            )*
+                            max_size_of
                         }
                     }
                 }
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::PaddingOf for #name<#generics_names> #where_clause{}
-
                     impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause{
 
                         #[inline(always)]
                         fn type_hash(
                             type_hasher: &mut impl core::hash::Hasher,
                             repr_hasher: &mut impl core::hash::Hasher,
+                            offset_of: &mut usize,
                         ) {
                             use core::hash::Hash;
                             // No alignment, so we do not hash in anything.
@@ -518,6 +524,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                                 <#fields_types as epserde::traits::TypeHash>::type_hash(
                                     type_hasher,
                                     repr_hasher,
+                                    offset_of,
                                 );
                             )*
                         }

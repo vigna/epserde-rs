@@ -32,11 +32,11 @@ impl<'a> SliceWithPos<'a> {
     }
 
     /// Return a reference, backed by the `data` field, to a zero-copy type.
-    pub fn deserialize_eps_zero<T: ZeroCopy + PaddingOf>(mut self) -> des::Result<(&'a T, Self)> {
+    pub fn deserialize_eps_zero<T: ZeroCopy>(mut self) -> des::Result<(&'a T, Self)> {
         let bytes = core::mem::size_of::<T>();
-        // a slice can only be deserialized with zero copy
+        // a slice can onlgity be deserialized with zero copy
         // outerwise you need a vec, TODO!: how do we enforce this at compile time?
-        self = self.align::<T>()?;
+        self.align::<T>()?;
         let (pre, data, after) = unsafe { self.data[..bytes].align_to::<T>() };
         debug_assert!(pre.is_empty());
         debug_assert!(after.is_empty());
@@ -45,12 +45,12 @@ impl<'a> SliceWithPos<'a> {
 
     /// Return a reference, backed by the `data` field,
     /// to a slice whose elements are of zero-copy type.
-    pub fn deserialize_slice_zero<T: ZeroCopy + PaddingOf>(self) -> des::Result<(&'a [T], Self)> {
+    pub fn deserialize_slice_zero<T: ZeroCopy>(self) -> des::Result<(&'a [T], Self)> {
         let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
         let bytes = len * core::mem::size_of::<T>();
         // a slice can only be deserialized with zero copy
         // outerwise you need a vec, TODO!: how do we enforce this at compile time?
-        res_self = res_self.align::<T>()?;
+        res_self.align::<T>()?;
         let (pre, data, after) = unsafe { res_self.data[..bytes].align_to::<T>() };
         debug_assert!(pre.is_empty());
         debug_assert!(after.is_empty());
@@ -94,15 +94,15 @@ impl<'a> ReadWithPos for SliceWithPos<'a> {
     ///
     /// Note that this method also checks that
     /// the absolute memory position is properly aligned.
-    fn align<T: PaddingOf>(mut self) -> des::Result<Self> {
+    fn align<T: MaxSizeOf>(&mut self) -> des::Result<()> {
         // Skip bytes as needed
-        let padding = crate::pad_align_to(self.pos, T::padding_of());
-        self = self.skip(padding);
+        let padding = crate::pad_align_to(self.pos, T::max_size_of());
+        self.skip(padding);
         // Check that the ptr is indeed aligned
-        if self.data.as_ptr() as usize % T::padding_of() != 0 {
+        if self.data.as_ptr() as usize % T::max_size_of() != 0 {
             Err(Error::AlignmentError)
         } else {
-            Ok(self)
+            Ok(())
         }
     }
 }

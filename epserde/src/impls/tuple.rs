@@ -27,28 +27,35 @@ macro_rules! impl_tuples {
             type Copy = Zero;
 		}
 
-		impl<$($t: TypeHash + PaddingOf,)*> TypeHash for ($($t,)*)
+		impl<$($t: TypeHash,)*> TypeHash for ($($t,)*)
         {
             #[inline(always)]
             fn type_hash(
                 type_hasher: &mut impl core::hash::Hasher,
                 repr_hasher: &mut impl core::hash::Hasher,
+                offset_of: &mut usize,
             ) {
                 "()".hash(type_hasher);
-                Self::padding_of().hash(type_hasher);
+                core::mem::align_of::<Self>().hash(type_hasher);
                 $(
-                    <$t>::type_hash(type_hasher, repr_hasher);
+                    <$t>::type_hash(type_hasher, repr_hasher, offset_of);
                 )*
             }
         }
 
-        impl<$($t: PaddingOf,)*> PaddingOf for ($($t,)*)  {
-            fn padding_of() -> usize {
-                core::mem::align_of::<Self>()
+        impl<$($t: MaxSizeOf,)*> MaxSizeOf for ($($t,)*)
+        {
+            #[inline(always)]
+            fn max_size_of() -> usize {
+                let mut max_size_of = 0;
+                $(if max_size_of < std::cmp::max(max_size_of, <$t>::max_size_of()) {
+                    max_size_of = <$t>::max_size_of();
+                })*
+                max_size_of
             }
-		}
+        }
 
-		impl<$($t: ZeroCopy + TypeHash + PaddingOf,)*> SerializeInner for ($($t,)*) {
+		impl<$($t: ZeroCopy + TypeHash,)*> SerializeInner for ($($t,)*) {
             const IS_ZERO_COPY: bool = true;
             const ZERO_COPY_MISMATCH: bool = false;
 
@@ -58,7 +65,7 @@ macro_rules! impl_tuples {
             }
         }
 
-		impl<$($t: ZeroCopy + TypeHash  + PaddingOf + 'static,)*> DeserializeInner for ($($t,)*) {
+		impl<$($t: ZeroCopy + TypeHash + 'static,)*> DeserializeInner for ($($t,)*) {
             type DeserType<'a> = &'a ($($t,)*);
             fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> des::Result<(Self, R)> {
                 backend.deserialize_full_zero::<($($t,)*)>()

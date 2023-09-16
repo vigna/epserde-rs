@@ -28,9 +28,10 @@ impl<T: TypeHash> TypeHash for Vec<T> {
     fn type_hash(
         type_hasher: &mut impl core::hash::Hasher,
         repr_hasher: &mut impl core::hash::Hasher,
+        _offset_of: &mut usize,
     ) {
         "Vec".hash(type_hasher);
-        T::type_hash(type_hasher, repr_hasher);
+        T::type_hash(type_hasher, repr_hasher, _offset_of);
     }
 }
 
@@ -45,7 +46,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + SerializeInner + PaddingOf> SerializeHelper<Zero> for Vec<T> {
+impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Vec<T> {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
         backend.write_slice_zero(self.as_slice())
@@ -85,7 +86,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + DeserializeInner + PaddingOf + 'static> DeserializeHelper<Zero> for Vec<T> {
+impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T> {
     type FullType = Self;
     type DeserType<'a> = &'a [T];
     #[inline(always)]
