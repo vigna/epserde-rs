@@ -113,7 +113,9 @@ assert_eq!(s, *t);
 
 // This is a traditional deserialization instead
 let t: [usize; 1000] = 
-    <[usize; 1000]>::deserialize_full_copy(std::fs::File::open(&file).unwrap()).unwrap();
+    <[usize; 1000]>::deserialize_full_copy(
+        &mut std::fs::File::open(&file).unwrap()
+    ).unwrap();
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory

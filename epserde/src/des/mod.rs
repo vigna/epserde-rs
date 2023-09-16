@@ -41,7 +41,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 /// [`Deserialize::load_full`], [`Deserialize::load_mem`], and [`Deserialize::mmap`].
 pub trait Deserialize: DeserializeInner {
     /// Fully deserialize a structure of this type from the given backend.
-    fn deserialize_full_copy(backend: impl ReadNoStd) -> Result<Self>;
+    fn deserialize_full_copy(backend: &mut impl ReadNoStd) -> Result<Self>;
     /// ε-copy deserialize a structure of this type from the given backend.
     fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
 
@@ -193,7 +193,7 @@ pub trait Deserialize: DeserializeInner {
 /// [`DeserializeInner::_deserialize_eps_copy_inner`].
 
 impl<T: DeserializeInner> Deserialize for T {
-    fn deserialize_full_copy(backend: impl ReadNoStd) -> Result<Self> {
+    fn deserialize_full_copy(backend: &mut impl ReadNoStd) -> Result<Self> {
         let mut backend = ReaderWithPos::new(backend);
 
         let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();

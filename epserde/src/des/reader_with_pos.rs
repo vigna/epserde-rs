@@ -90,22 +90,22 @@ pub trait ReadWithPos: ReadNoStd + Sized {
 
 /// A wrapper for a [`ReadNoStd`] that implements [`ReadWithPos`]
 /// by keeping track of the current position.
-pub struct ReaderWithPos<F: ReadNoStd> {
+pub struct ReaderWithPos<'a, F: ReadNoStd> {
     /// What we actually readfrom
-    backend: F,
+    backend: &'a mut F,
     /// How many bytes we have read from the start
     pos: usize,
 }
 
-impl<F: ReadNoStd> ReaderWithPos<F> {
+impl<'a, F: ReadNoStd> ReaderWithPos<'a, F> {
     #[inline(always)]
     /// Create a new [`ReadWithPos`] on top of a generic [`ReadNoStd`].
-    pub fn new(backend: F) -> Self {
+    pub fn new(backend: &'a mut F) -> Self {
         Self { backend, pos: 0 }
     }
 }
 
-impl<F: ReadNoStd> ReadNoStd for ReaderWithPos<F> {
+impl<'a, F: ReadNoStd> ReadNoStd for ReaderWithPos<'a, F> {
     fn read_exact(&mut self, buf: &mut [u8]) -> des::Result<()> {
         self.backend.read_exact(buf)?;
         self.pos += buf.len();
@@ -113,7 +113,7 @@ impl<F: ReadNoStd> ReadNoStd for ReaderWithPos<F> {
     }
 }
 
-impl<F: ReadNoStd> ReadWithPos for ReaderWithPos<F> {
+impl<'a, F: ReadNoStd> ReadWithPos for ReaderWithPos<'a, F> {
     fn pos(&self) -> usize {
         self.pos
     }

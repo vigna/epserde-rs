@@ -42,11 +42,11 @@ fn main() {
 
     drop(file);
 
-    let file = std::fs::File::open("test.bin").unwrap();
+    let mut file = std::fs::File::open("test.bin").unwrap();
 
     // Do a full-copy deserialization
 
-    let full = Struct::deserialize_full_copy(&file).unwrap();
+    let full = Struct::deserialize_full_copy(&mut file).unwrap();
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Struct>(),

@@ -33,7 +33,7 @@ fn test_wrong_endianess() {
     // set the reversed endianess
     v[0..8].copy_from_slice(&MAGIC_REV.to_ne_bytes());
 
-    let err = <usize>::deserialize_full_copy(std::io::Cursor::new(&v));
+    let err = <usize>::deserialize_full_copy(&mut std::io::Cursor::new(&v));
     assert!(err.is_err());
     assert!(matches!(err.unwrap_err(), des::Error::EndiannessError));
 
@@ -45,7 +45,7 @@ fn test_wrong_endianess() {
     let bad_magic: u64 = 0x8989898989898989;
     v[0..8].copy_from_slice(&bad_magic.to_ne_bytes());
 
-    let err = <usize>::deserialize_full_copy(std::io::Cursor::new(&v));
+    let err = <usize>::deserialize_full_copy(&mut std::io::Cursor::new(&v));
     if let Err(des::Error::MagicCookieError(bad_magic_read)) = err {
         assert_eq!(bad_magic_read, bad_magic);
     } else {
@@ -63,7 +63,7 @@ fn test_wrong_endianess() {
     let bad_version: u16 = 0xffff;
     v[8..10].copy_from_slice(&bad_version.to_ne_bytes());
 
-    let err = <usize>::deserialize_full_copy(std::io::Cursor::new(&v));
+    let err = <usize>::deserialize_full_copy(&mut std::io::Cursor::new(&v));
     if let Err(des::Error::MajorVersionMismatch(bad_version_read)) = err {
         assert_eq!(bad_version_read, bad_version);
     } else {
@@ -82,7 +82,7 @@ fn test_wrong_endianess() {
     let bad_version: u16 = 0xffff;
     v[10..12].copy_from_slice(&bad_version.to_ne_bytes());
 
-    let err = <usize>::deserialize_full_copy(std::io::Cursor::new(&v));
+    let err = <usize>::deserialize_full_copy(&mut std::io::Cursor::new(&v));
     if let Err(des::Error::MinorVersionMismatch(bad_version_read)) = err {
         assert_eq!(bad_version_read, bad_version);
     } else {
@@ -111,7 +111,7 @@ fn test_wrong_endianess() {
     <i8>::type_hash(&mut type_hasher, &mut repr_hasher, &mut offset_of);
     let i8_hash = type_hasher.finish();
 
-    let err = <i8>::deserialize_full_copy(std::io::Cursor::new(&v));
+    let err = <i8>::deserialize_full_copy(&mut std::io::Cursor::new(&v));
     if let Err(des::Error::WrongTypeHash {
         got_type_name,
         got,
