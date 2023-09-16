@@ -62,7 +62,7 @@ pub trait Serialize {
     }
 
     /// Serialize the type using the given [`FieldWrite`].
-    fn serialize_on_field_write<F: FieldWrite>(&self, backend: &mut F) -> Result<()>;
+    fn serialize_on_field_write(&self, backend: &mut impl FieldWrite) -> Result<()>;
 
     /// Commodity method to serialize to a file.
     fn store(&mut self, path: impl AsRef<Path>) -> Result<()> {
@@ -80,8 +80,8 @@ pub trait Serialize {
 /// and debug information.
 impl<T: SerializeInner> Serialize for T {
     /// Serialize the type using the given [`FieldWrite`].
-    fn serialize_on_field_write<F: FieldWrite>(&self, backend: &mut F) -> Result<()> {
-        write_header::<F, Self>(backend)?;
+    fn serialize_on_field_write(&self, backend: &mut impl FieldWrite) -> Result<()> {
+        write_header::<Self>(backend)?;
         backend.write_field("ROOT", self)?;
         backend.flush()
     }
@@ -109,12 +109,12 @@ pub trait SerializeInner: CopyType + TypeHash + Sized {
     const ZERO_COPY_MISMATCH: bool;
 
     /// Serialize this structure using the given backend.
-    fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> Result<()>;
+    fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> Result<()>;
 }
 
 /// Common code for both full-copy and zero-copy deserialization.
 /// Must be kept in sync with [`crate::des::check_header`].
-pub fn write_header<F: FieldWrite, T: TypeHash>(backend: &mut F) -> Result<()> {
+pub fn write_header<T: TypeHash>(backend: &mut impl FieldWrite) -> Result<()> {
     backend.write_field("MAGIC", &MAGIC)?;
     backend.write_field("VERSION_MAJOR", &VERSION.0)?;
     backend.write_field("VERSION_MINOR", &VERSION.1)?;
@@ -134,7 +134,7 @@ pub fn write_header<F: FieldWrite, T: TypeHash>(backend: &mut F) -> Result<()> {
 /// serialization for [`crate::traits::ZeroCopy`] and [`crate::traits::DeepCopy`] types.
 /// See [`crate::traits::CopyType`] for more information.
 pub trait SerializeHelper<T: CopySelector> {
-    fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> Result<()>;
+    fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> Result<()>;
 }
 
 #[derive(Debug)]

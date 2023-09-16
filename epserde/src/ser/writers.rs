@@ -21,8 +21,8 @@ pub trait FieldWrite: WriteNoStd + Sized {
 
     #[inline(always)]
     /// Add some zero padding so that `self.get_pos() % align_of::<V>() == 0.`
-    fn align<T: MaxSizeOf>(&mut self) -> Result<()> {
-        let padding = pad_align_to(self.pos(), T::max_size_of());
+    fn align<V: MaxSizeOf>(&mut self) -> Result<()> {
+        let padding = pad_align_to(self.pos(), V::max_size_of());
         for _ in 0..padding {
             self.write_all(&[0])?;
         }
@@ -32,12 +32,12 @@ pub trait FieldWrite: WriteNoStd + Sized {
     /// This is the actual implementation of [`FieldWrite::write_field`]. It can be used
     /// by implementing types to simulate a call to the default implementation.
     #[inline(always)]
-    fn do_write_field<V: SerializeInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
+    fn do_write_field(&mut self, _field_name: &str, value: &impl SerializeInner) -> Result<()> {
         value._serialize_inner(self)
     }
 
     fn write_field<V: SerializeInner>(&mut self, field_name: &str, value: &V) -> Result<()> {
-        self.do_write_field::<V>(field_name, value)
+        self.do_write_field(field_name, value)
     }
 
     /// This is the actual implementation of [`FieldWrite::write_bytes`]. It can be used
@@ -248,7 +248,7 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
         // prepare a row with the field name and the type
         self.path.push(field_name.into());
         let pos = self.pos();
-        <Self as FieldWrite>::do_write_field::<V>(self, field_name, value)?;
+        <Self as FieldWrite>::do_write_field(self, field_name, value)?;
 
         // compute the serialized size and update the schema
         self.schema.0.push(SchemaRow {

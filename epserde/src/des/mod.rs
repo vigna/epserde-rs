@@ -203,14 +203,13 @@ impl<T: DeserializeInner> Deserialize for T {
         let self_type_hash = type_hasher.finish();
         let self_repr_hash = repr_hasher.finish();
 
-        backend = check_header(
-            backend,
+        check_header(
+            &mut backend,
             self_type_hash,
             self_repr_hash,
             core::any::type_name::<Self>().to_string(),
         )?;
-        let (res, _) = Self::_deserialize_full_copy_inner(backend)?;
-        Ok(res)
+        Self::_deserialize_full_copy_inner(&mut backend)
     }
 
     fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
@@ -223,14 +222,13 @@ impl<T: DeserializeInner> Deserialize for T {
         let self_type_hash = type_hasher.finish();
         let self_repr_hash = repr_hasher.finish();
 
-        backend = check_header(
-            backend,
+        check_header(
+            &mut backend,
             self_type_hash,
             self_repr_hash,
             core::any::type_name::<Self>().to_string(),
         )?;
-        let (res, _) = Self::_deserialize_eps_copy_inner(backend)?;
-        Ok(res)
+        Self::_deserialize_eps_copy_inner(&mut backend)
     }
 }
 
@@ -245,66 +243,66 @@ impl<T: DeserializeInner> Deserialize for T {
 /// The user should not implement this trait directly, but rather derive it.
 pub trait DeserializeInner: TypeHash + Sized {
     type DeserType<'a>;
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)>;
+    fn _deserialize_full_copy_inner(backend: &mut impl ReadWithPos) -> Result<Self>;
 
-    fn _deserialize_eps_copy_inner(
-        backend: SliceWithPos,
-    ) -> Result<(Self::DeserType<'_>, SliceWithPos)>;
+    fn _deserialize_eps_copy_inner<'a>(
+        backend: &mut SliceWithPos<'a>,
+    ) -> Result<Self::DeserType<'a>>;
 }
 
 /// Common code for both full-copy and zero-copy deserialization
 /// Must be kept in sync with [`crate::ser::write_header`].
-pub fn check_header<R: ReadWithPos>(
-    backend: R,
-    self_hash: u64,
+pub fn check_header(
+    backend: &mut impl ReadWithPos,
+    self_type_hash: u64,
     self_repr_hash: u64,
     self_name: String,
-) -> Result<R> {
-    let (magic, backend) = u64::_deserialize_full_copy_inner(backend)?;
+) -> Result<()> {
+    let magic = u64::_deserialize_full_copy_inner(backend)?;
     match magic {
         MAGIC => Ok(()),
         MAGIC_REV => Err(Error::EndiannessError),
         magic => Err(Error::MagicCookieError(magic)),
     }?;
 
-    let (major, backend) = u16::_deserialize_full_copy_inner(backend)?;
+    let major = u16::_deserialize_full_copy_inner(backend)?;
     if major != VERSION.0 {
         return Err(Error::MajorVersionMismatch(major));
     }
-    let (minor, backend) = u16::_deserialize_full_copy_inner(backend)?;
+    let minor = u16::_deserialize_full_copy_inner(backend)?;
     if minor > VERSION.1 {
         return Err(Error::MinorVersionMismatch(minor));
     };
 
-    let (usize_size, backend) = u8::_deserialize_full_copy_inner(backend)?;
+    let usize_size = u8::_deserialize_full_copy_inner(backend)?;
     let usize_size = usize_size as usize;
     let native_usize_size = core::mem::size_of::<usize>();
     if usize_size != native_usize_size {
         return Err(Error::UsizeSizeMismatch(usize_size));
     };
 
-    let (type_hash, backend) = u64::_deserialize_full_copy_inner(backend)?;
-    let (type_repr_hash, backend) = u64::_deserialize_full_copy_inner(backend)?;
-    let (type_name, backend) = String::_deserialize_full_copy_inner(backend)?;
+    let type_hash = u64::_deserialize_full_copy_inner(backend)?;
+    let repr_hash = u64::_deserialize_full_copy_inner(backend)?;
+    let type_name = String::_deserialize_full_copy_inner(backend)?;
 
-    if type_hash != self_hash {
+    if type_hash != self_type_hash {
         return Err(Error::WrongTypeHash {
             got_type_name: self_name,
-            got: self_hash,
+            got: self_type_hash,
             expected_type_name: type_name,
             expected: type_hash,
         });
     }
-    if type_repr_hash != self_repr_hash {
+    if repr_hash != self_repr_hash {
         return Err(Error::WrongTypeReprHash {
             got_type_name: self_name,
             got: self_repr_hash,
             expected_type_name: type_name,
-            expected: type_repr_hash,
+            expected: repr_hash,
         });
     }
 
-    Ok(backend)
+    Ok(())
 }
 
 /// A helper trait that makes it possible to implement differently
@@ -314,11 +312,10 @@ pub trait DeserializeHelper<T: CopySelector> {
     // TODO: do we really need this?
     type FullType: TypeHash;
     type DeserType<'a>;
-    fn _deserialize_full_copy_inner_impl<R: ReadWithPos>(backend: R)
-        -> Result<(Self::FullType, R)>;
-    fn _deserialize_eps_copy_inner_impl(
-        backend: SliceWithPos,
-    ) -> Result<(Self::DeserType<'_>, SliceWithPos)>;
+    fn _deserialize_full_copy_inner_impl(backend: &mut impl ReadWithPos) -> Result<Self::FullType>;
+    fn _deserialize_eps_copy_inner_impl<'a>(
+        backend: &mut SliceWithPos<'a>,
+    ) -> Result<Self::DeserType<'a>>;
 }
 
 #[derive(Debug)]

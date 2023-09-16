@@ -60,20 +60,20 @@ macro_rules! impl_tuples {
             const ZERO_COPY_MISMATCH: bool = false;
 
             #[inline(always)]
-            fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> ser::Result<()> {
+            fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> ser::Result<()> {
                 backend.write_field_zero("tuple", self)
             }
         }
 
 		impl<$($t: ZeroCopy + TypeHash + 'static,)*> DeserializeInner for ($($t,)*) {
             type DeserType<'a> = &'a ($($t,)*);
-            fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> des::Result<(Self, R)> {
+            fn _deserialize_full_copy_inner(backend: &mut impl ReadWithPos) -> des::Result<Self> {
                 backend.deserialize_full_zero::<($($t,)*)>()
             }
 
-            fn _deserialize_eps_copy_inner(
-                backend: SliceWithPos,
-                ) -> des::Result<(Self::DeserType<'_>, SliceWithPos)> {
+            fn _deserialize_eps_copy_inner<'a>(
+                backend: &mut SliceWithPos<'a>,
+                ) -> des::Result<Self::DeserType<'a>> {
                 backend.deserialize_eps_zero::<($($t,)*)>()
             }
         }

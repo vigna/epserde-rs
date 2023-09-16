@@ -24,15 +24,13 @@ impl<'a> SliceWithPos<'a> {
         }
     }
 
-    pub fn skip(&self, bytes: usize) -> Self {
-        Self {
-            data: &self.data[bytes..],
-            pos: self.pos + bytes,
-        }
+    pub fn skip(&mut self, bytes: usize) {
+        self.data = &self.data[bytes..];
+        self.pos += bytes;
     }
 
     /// Return a reference, backed by the `data` field, to a zero-copy type.
-    pub fn deserialize_eps_zero<T: ZeroCopy>(mut self) -> des::Result<(&'a T, Self)> {
+    pub fn deserialize_eps_zero<T: ZeroCopy>(&mut self) -> des::Result<&'a T> {
         let bytes = core::mem::size_of::<T>();
         // a slice can onlgity be deserialized with zero copy
         // outerwise you need a vec, TODO!: how do we enforce this at compile time?
@@ -40,35 +38,36 @@ impl<'a> SliceWithPos<'a> {
         let (pre, data, after) = unsafe { self.data[..bytes].align_to::<T>() };
         debug_assert!(pre.is_empty());
         debug_assert!(after.is_empty());
-        Ok((&data[0], self.skip(bytes)))
+        let res = &data[0];
+        self.skip(bytes);
+        Ok(res)
     }
 
     /// Return a reference, backed by the `data` field,
     /// to a slice whose elements are of zero-copy type.
-    pub fn deserialize_slice_zero<T: ZeroCopy>(self) -> des::Result<(&'a [T], Self)> {
-        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
+    pub fn deserialize_slice_zero<T: ZeroCopy>(&mut self) -> des::Result<&'a [T]> {
+        let len = usize::_deserialize_full_copy_inner(self)?;
         let bytes = len * core::mem::size_of::<T>();
         // a slice can only be deserialized with zero copy
         // outerwise you need a vec, TODO!: how do we enforce this at compile time?
-        res_self.align::<T>()?;
-        let (pre, data, after) = unsafe { res_self.data[..bytes].align_to::<T>() };
+        self.align::<T>()?;
+        let (pre, data, after) = unsafe { self.data[..bytes].align_to::<T>() };
         debug_assert!(pre.is_empty());
         debug_assert!(after.is_empty());
-        Ok((data, res_self.skip(bytes)))
+        self.skip(bytes);
+        Ok(data)
     }
 
     /// Return a fully deserialized vector of elements
     pub fn deserialize_vec_eps_eps<T: DeepCopy + DeserializeInner>(
-        self,
-    ) -> des::Result<(Vec<<T as DeserializeInner>::DeserType<'a>>, Self)> {
-        let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
+        &mut self,
+    ) -> des::Result<Vec<<T as DeserializeInner>::DeserType<'a>>> {
+        let len = usize::_deserialize_full_copy_inner(self)?;
         let mut res = Vec::with_capacity(len);
         for _ in 0..len {
-            let (elem, temp_self) = T::_deserialize_eps_copy_inner(res_self)?;
-            res.push(elem);
-            res_self = temp_self;
+            res.push(T::_deserialize_eps_copy_inner(self)?);
         }
-        Ok((res, res_self))
+        Ok(res)
     }
 }
 

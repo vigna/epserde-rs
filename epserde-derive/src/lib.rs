@@ -288,7 +288,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         const ZERO_COPY_MISMATCH: bool = false;
 
                         #[inline(always)]
-                        fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, backend: &mut F) -> epserde::ser::Result<()> {
+                        fn _serialize_inner(&self, backend: &mut impl epserde::ser::FieldWrite) -> epserde::ser::Result<()> {
                             backend.write_field_zero("zero", self)
                         }
                     }
@@ -296,18 +296,18 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     #[automatically_derived]
                     impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_des
                     {
-                        fn _deserialize_full_copy_inner<R: epserde::des::ReadWithPos>(
-                            mut backend: R,
-                        ) -> core::result::Result<(Self, R), epserde::des::Error> {
+                        fn _deserialize_full_copy_inner(
+                            backend: &mut impl epserde::des::ReadWithPos,
+                        ) -> core::result::Result<Self, epserde::des::Error> {
                             use epserde::des::DeserializeInner;
                             backend.deserialize_full_zero::<Self>()
                         }
 
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#(#desser_type_generics,)*>;
 
-                        fn _deserialize_eps_copy_inner(
-                            backend: epserde::des::SliceWithPos,
-                        ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::SliceWithPos), epserde::des::Error>
+                        fn _deserialize_eps_copy_inner<'a>(
+                            backend: &mut epserde::des::SliceWithPos<'a>,
+                        ) -> core::result::Result<Self::DeserType<'a>, epserde::des::Error>
                         {
                             backend.deserialize_eps_zero::<Self>()
                         }
@@ -332,7 +332,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
 
                         #[inline(always)]
-                        fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, backend: &mut F) -> epserde::ser::Result<()> {
+                        fn _serialize_inner(&self, backend: &mut impl epserde::ser::FieldWrite) -> epserde::ser::Result<()> {
                             if Self::ZERO_COPY_MISMATCH {
                                 eprintln!("Type {} is zero copy, but it has not declared as such; use the #deep_copy attribute to silence this warning", core::any::type_name::<Self>());
                             }
@@ -345,31 +345,31 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     #[automatically_derived]
                     impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_des {
-                        fn _deserialize_full_copy_inner<R: epserde::des::ReadWithPos>(
-                            backend: R,
-                        ) -> core::result::Result<(Self, R), epserde::des::Error> {
+                        fn _deserialize_full_copy_inner(
+                            backend: &mut impl epserde::des::ReadWithPos,
+                        ) -> core::result::Result<Self, epserde::des::Error> {
                             use epserde::des::DeserializeInner;
                             #(
-                                let (#fields_names, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;
+                                let #fields_names = <#fields_types>::_deserialize_full_copy_inner(backend)?;
                             )*
-                            Ok((#name{
+                            Ok(#name{
                                 #(#fields_names),*
-                            }, backend))
+                            })
                         }
 
                         type DeserType<'epserde_desertype> = #name<#(#desser_type_generics,)*>;
 
-                        fn _deserialize_eps_copy_inner(
-                            backend: epserde::des::SliceWithPos,
-                        ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::SliceWithPos), epserde::des::Error>
+                        fn _deserialize_eps_copy_inner<'a>(
+                            backend: &mut epserde::des::SliceWithPos<'a>,
+                        ) -> core::result::Result<Self::DeserType<'a>, epserde::des::Error>
                         {
                             use epserde::des::DeserializeInner;
                             #(
-                                let (#fields_names, backend) = <#fields_types>::#methods(backend)?;
+                                let #fields_names = <#fields_types>::#methods(backend)?;
                             )*
-                            Ok((#name{
+                            Ok(#name{
                                 #(#fields_names),*
-                            }, backend))
+                            })
                         }
                     }
                 }

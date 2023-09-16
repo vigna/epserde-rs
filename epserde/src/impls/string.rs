@@ -49,30 +49,26 @@ impl SerializeInner for String {
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
-    fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> ser::Result<()> {
+    fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> ser::Result<()> {
         backend.write_slice_zero(self.as_bytes())
     }
 }
 
 impl DeserializeInner for String {
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> des::Result<(Self, R)> {
-        let (slice, backend) = backend.deserialize_vec_full_zero()?;
-        let res = String::from_utf8(slice).unwrap();
-        Ok((res, backend))
+    fn _deserialize_full_copy_inner(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+        let slice = backend.deserialize_vec_full_zero()?;
+        Ok(String::from_utf8(slice).unwrap())
     }
     type DeserType<'a> = &'a str;
     #[inline(always)]
-    fn _deserialize_eps_copy_inner(
-        backend: SliceWithPos,
-    ) -> des::Result<(Self::DeserType<'_>, SliceWithPos)> {
-        let (slice, backend) = backend.deserialize_slice_zero()?;
-        Ok((
-            unsafe {
-                #[allow(clippy::transmute_bytes_to_str)]
-                core::mem::transmute::<&'_ [u8], &'_ str>(slice)
-            },
-            backend,
-        ))
+    fn _deserialize_eps_copy_inner<'a>(
+        backend: &mut SliceWithPos<'a>,
+    ) -> des::Result<Self::DeserType<'a>> {
+        let slice = backend.deserialize_slice_zero()?;
+        Ok(unsafe {
+            #[allow(clippy::transmute_bytes_to_str)]
+            core::mem::transmute::<&'_ [u8], &'_ str>(slice)
+        })
     }
 }
 
@@ -85,21 +81,21 @@ impl SerializeInner for Box<str> {
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
-    fn _serialize_inner<F: FieldWrite>(&self, backend: &mut F) -> ser::Result<()> {
+    fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> ser::Result<()> {
         backend.write_slice_zero(self.as_bytes())
     }
 }
 
 impl DeserializeInner for Box<str> {
     #[inline(always)]
-    fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> des::Result<(Self, R)> {
-        String::_deserialize_full_copy_inner(backend).map(|(d, a)| (d.into_boxed_str(), a))
+    fn _deserialize_full_copy_inner(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+        Ok(String::_deserialize_full_copy_inner(backend)?.into_boxed_str())
     }
     type DeserType<'a> = &'a str;
     #[inline(always)]
-    fn _deserialize_eps_copy_inner(
-        backend: SliceWithPos,
-    ) -> des::Result<(Self::DeserType<'_>, SliceWithPos)> {
-        String::_deserialize_eps_copy_inner(backend).map(|(d, a)| (d, a))
+    fn _deserialize_eps_copy_inner<'a>(
+        backend: &mut SliceWithPos<'a>,
+    ) -> des::Result<Self::DeserType<'a>> {
+        String::_deserialize_eps_copy_inner(backend)
     }
 }
