@@ -462,7 +462,8 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             offset_of: &mut usize,
                         ) {
                             use core::hash::Hash;
-                            // Hash in size and padding.
+                            // Hash in size, as padding is given by MaxSizeOf.
+                            // and it is independent of the architecture.
                             core::mem::size_of::<Self>().hash(repr_hasher);
                             // Hash in ZeroCopy
                             "ZeroCopy".hash(repr_hasher);
@@ -477,6 +478,10 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             )*
                             // Recurse on all fields.
                             #(
+                                epserde::pad_align_to(
+                                    *offset_of,
+                                    core::mem::align_of::<#fields_types>(),
+                                ).hash(repr_hasher);
                                 <#fields_types as epserde::traits::TypeHash>::type_hash(
                                     type_hasher,
                                     repr_hasher,

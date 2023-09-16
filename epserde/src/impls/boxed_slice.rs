@@ -19,7 +19,7 @@ impl<T> CopyType for Box<[T]> {
     type Copy = Deep;
 }
 
-impl<T: TypeHash> TypeHash for Box<[T]> {
+impl<T: TypeHash> TypeHash for [T] {
     fn type_hash(
         type_hasher: &mut impl core::hash::Hasher,
         repr_hasher: &mut impl core::hash::Hasher,

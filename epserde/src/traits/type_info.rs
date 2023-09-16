@@ -27,15 +27,12 @@ pub trait TypeHash {
     }
 }
 
-/// A trait describing the padding used to store a zero-copy type. Note that this
+/// A trait giving the maximum size of a primitive field in a type,
+/// which is the padding used to store a zero-copy type. Note that this
 /// is different from the padding used to align the same type inside
 /// a struct, which is not under our control and is
 /// given by [`core::mem::align_of`].
 ///
-/// [PaddingOf::padding_of] returns [`core::mem::align_of`], except
-/// for (arrays of) primitive types, for which it returns [`core::mem::size_of`],
-/// which is guaranteed by the language definition to be a multiple
-/// of the former.
 /// In this way we increase interoperability between architectures
 /// with different alignment requirements for the same types (e.g.,
 /// 4 or 8 bytes for `u64`).
