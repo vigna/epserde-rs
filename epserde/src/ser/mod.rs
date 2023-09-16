@@ -65,7 +65,7 @@ pub trait Serialize {
     fn serialize_on_field_write(&self, backend: &mut impl FieldWrite) -> Result<()>;
 
     /// Commodity method to serialize to a file.
-    fn store(&mut self, path: impl AsRef<Path>) -> Result<()> {
+    fn store(&self, path: impl AsRef<Path>) -> Result<()> {
         let file = std::fs::File::create(path).map_err(Error::FileOpenError)?;
         let mut buf_writer = BufWriter::new(file);
         self.serialize(&mut buf_writer)?;

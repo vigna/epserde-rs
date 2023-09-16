@@ -101,6 +101,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper
     #[inline(always)]
     fn _deserialize_full_copy_inner_impl(backend: &mut impl ReadWithPos) -> des::Result<Self> {
         let mut res = MaybeUninit::<[T; N]>::uninit();
+        backend.align::<T>()?;
         // SAFETY: read_exact guarantees that the array will be filled with data.
         unsafe {
             backend.read_exact(res.assume_init_mut().align_to_mut::<u8>().1)?;
@@ -112,12 +113,14 @@ impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper
     fn _deserialize_eps_copy_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> des::Result<<Self as DeserializeInner>::DeserType<'a>> {
+        backend.align::<T>()?;
         let bytes = std::mem::size_of::<[T; N]>();
         let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<[T; N]>() };
         debug_assert!(pre.is_empty());
         debug_assert!(after.is_empty());
+        let res = &data[0];
         backend.skip(bytes);
-        Ok(&data[0])
+        Ok(res)
     }
 }
 

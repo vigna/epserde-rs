@@ -26,11 +26,12 @@ macro_rules! impl_prim_type_hash {
 
         impl TypeHash for $ty {
             fn type_hash(
-                _type_hasher: &mut impl core::hash::Hasher,
+                type_hasher: &mut impl core::hash::Hasher,
                 _repr_hasher: &mut impl core::hash::Hasher,
                 _offset_of: &mut usize,
 
             ) {
+                stringify!($ty).hash(type_hasher);
             }
         }
 
@@ -69,14 +70,13 @@ macro_rules! impl_prim_ser_des {
             fn _deserialize_eps_copy_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
             ) -> des::Result<Self::DeserType<'a>> {
-                backend.skip(size_of::<$ty>());
-                Ok(
-                    <$ty>::from_ne_bytes(
+                let res = <$ty>::from_ne_bytes(
                         backend.data[..size_of::<$ty>()]
                             .try_into()
-                            .unwrap(),
-                    )
-                )
+                            .unwrap());
+
+                backend.skip(size_of::<$ty>());
+                Ok(res)
             }
         }
     )*};
@@ -126,8 +126,9 @@ impl DeserializeInner for bool {
     fn _deserialize_eps_copy_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> des::Result<Self::DeserType<'a>> {
+        let res = backend.data[0] != 0;
         backend.skip(1);
-        Ok(backend.data[0] != 0)
+        Ok(res)
     }
 }
 
