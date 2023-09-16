@@ -11,29 +11,23 @@ Implementations for boxed slices.
 
 */
 use crate::prelude::*;
-use core::hash::Hash;
 use des::*;
 use ser::*;
 
 impl<T> CopyType for Box<[T]> {
-    type Copy = Full;
+    type Copy = Deep;
 }
 
-impl<T: TypeHash> TypeHash for [T] {
-    #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "[]".hash(hasher);
-        T::type_hash(hasher);
-    }
-    #[inline(always)]
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        // We align to the size of T.
-        core::mem::size_of::<T>().hash(hasher);
-        T::type_repr_hash(hasher);
+impl<T: TypeHash> TypeHash for Box<[T]> {
+    fn type_hash(
+        type_hasher: &mut impl core::hash::Hasher,
+        repr_hasher: &mut impl core::hash::Hasher,
+    ) {
+        T::type_hash(type_hasher, repr_hasher);
     }
 }
 
-impl<T: CopyType + SerializeInner + TypeHash> SerializeInner for Box<[T]>
+impl<T: CopyType + TypeHash + SerializeInner> SerializeInner for Box<[T]>
 where
     Box<[T]>: SerializeHelper<<T as CopyType>::Copy>,
 {
@@ -44,14 +38,14 @@ where
     }
 }
 
-impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Box<[T]> {
+impl<T: ZeroCopy + SerializeInner + PaddingOf> SerializeHelper<Zero> for Box<[T]> {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
         backend.write_slice_zero(self)
     }
 }
 
-impl<T: FullCopy + SerializeInner> SerializeHelper<Full> for Box<[T]> {
+impl<T: DeepCopy + SerializeInner> SerializeHelper<Deep> for Box<[T]> {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
         backend.write_slice(self)
@@ -59,7 +53,7 @@ impl<T: FullCopy + SerializeInner> SerializeHelper<Full> for Box<[T]> {
 }
 
 // This delegates to a private helper trait which we can specialize on in stable rust
-impl<T: CopyType + DeserializeInner + 'static> DeserializeInner for Box<[T]>
+impl<T: DeserializeInner + CopyType + TypeHash + 'static> DeserializeInner for Box<[T]>
 where
     Box<[T]>: DeserializeHelper<<T as CopyType>::Copy, FullType = Box<[T]>>,
 {
@@ -84,7 +78,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Box<[T]> {
+impl<T: ZeroCopy + DeserializeInner + PaddingOf + 'static> DeserializeHelper<Zero> for Box<[T]> {
     type FullType = Self;
     type DeserType<'a> = &'a [T];
     #[inline(always)]
@@ -101,7 +95,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Box<[
     }
 }
 
-impl<T: FullCopy + DeserializeInner + 'static> DeserializeHelper<Full> for Box<[T]> {
+impl<T: DeepCopy + DeserializeInner + 'static> DeserializeHelper<Deep> for Box<[T]> {
     type FullType = Self;
     type DeserType<'a> = Box<[<T as DeserializeInner>::DeserType<'a>]>;
     #[inline(always)]

@@ -30,7 +30,7 @@ pub use mem_case::*;
 pub mod slice_with_pos;
 pub use slice_with_pos::*;
 
-pub type Result<T> = core::result::Result<T, DeserializeError>;
+pub type Result<T> = core::result::Result<T, Error>;
 
 /// Main deserialization trait. It is separated from [`DeserializeInner`] to
 /// avoid that the user modify its behavior, and hide internal serialization
@@ -47,7 +47,7 @@ pub trait Deserialize: DeserializeInner {
 
     /// Commodity method to fully deserialize from a file.
     fn load_full(path: impl AsRef<Path>) -> Result<Self> {
-        let file = std::fs::File::open(path).map_err(DeserializeError::FileOpenError)?;
+        let file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
         let mut buf_reader = BufReader::new(file);
         Self::deserialize_full_copy(&mut buf_reader)
     }
@@ -196,16 +196,15 @@ impl<T: DeserializeInner> Deserialize for T {
     fn deserialize_full_copy(backend: impl ReadNoStd) -> Result<Self> {
         let mut backend = ReaderWithPos::new(backend);
 
-        let mut hasher = xxhash_rust::xxh3::Xxh3::new();
-        Self::type_hash(&mut hasher);
-        let self_hash = hasher.finish();
-        let mut hasher = xxhash_rust::xxh3::Xxh3::new();
-        Self::type_repr_hash(&mut hasher);
-        let self_repr_hash = hasher.finish();
+        let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
+        let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
+        Self::type_hash(&mut type_hasher, &mut repr_hasher);
+        let self_type_hash = type_hasher.finish();
+        let self_repr_hash = repr_hasher.finish();
 
         backend = check_header(
             backend,
-            self_hash,
+            self_type_hash,
             self_repr_hash,
             core::any::type_name::<Self>().to_string(),
         )?;
@@ -216,16 +215,15 @@ impl<T: DeserializeInner> Deserialize for T {
     fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
         let mut backend = SliceWithPos::new(backend);
 
-        let mut hasher = xxhash_rust::xxh3::Xxh3::new();
-        Self::type_hash(&mut hasher);
-        let self_hash = hasher.finish();
-        let mut hasher = xxhash_rust::xxh3::Xxh3::new();
-        Self::type_repr_hash(&mut hasher);
-        let self_repr_hash = hasher.finish();
+        let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
+        let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
+        Self::type_hash(&mut type_hasher, &mut repr_hasher);
+        let self_type_hash = type_hasher.finish();
+        let self_repr_hash = repr_hasher.finish();
 
         backend = check_header(
             backend,
-            self_hash,
+            self_type_hash,
             self_repr_hash,
             core::any::type_name::<Self>().to_string(),
         )?;
@@ -243,7 +241,7 @@ impl<T: DeserializeInner> Deserialize for T {
 /// the user from modifying the methods in [`Deserialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait DeserializeInner: CopyType + TypeHash + Sized {
+pub trait DeserializeInner: TypeHash + Sized {
     type DeserType<'a>;
     fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> Result<(Self, R)>;
 
@@ -263,24 +261,24 @@ pub fn check_header<R: ReadWithPos>(
     let (magic, backend) = u64::_deserialize_full_copy_inner(backend)?;
     match magic {
         MAGIC => Ok(()),
-        MAGIC_REV => Err(DeserializeError::EndiannessError),
-        magic => Err(DeserializeError::MagicCookieError(magic)),
+        MAGIC_REV => Err(Error::EndiannessError),
+        magic => Err(Error::MagicCookieError(magic)),
     }?;
 
     let (major, backend) = u16::_deserialize_full_copy_inner(backend)?;
     if major != VERSION.0 {
-        return Err(DeserializeError::MajorVersionMismatch(major));
+        return Err(Error::MajorVersionMismatch(major));
     }
     let (minor, backend) = u16::_deserialize_full_copy_inner(backend)?;
     if minor > VERSION.1 {
-        return Err(DeserializeError::MinorVersionMismatch(minor));
+        return Err(Error::MinorVersionMismatch(minor));
     };
 
     let (usize_size, backend) = u8::_deserialize_full_copy_inner(backend)?;
     let usize_size = usize_size as usize;
     let native_usize_size = core::mem::size_of::<usize>();
     if usize_size != native_usize_size {
-        return Err(DeserializeError::UsizeSizeMismatch(usize_size));
+        return Err(Error::UsizeSizeMismatch(usize_size));
     };
 
     let (type_hash, backend) = u64::_deserialize_full_copy_inner(backend)?;
@@ -288,7 +286,7 @@ pub fn check_header<R: ReadWithPos>(
     let (type_name, backend) = String::_deserialize_full_copy_inner(backend)?;
 
     if type_hash != self_hash {
-        return Err(DeserializeError::WrongTypeHash {
+        return Err(Error::WrongTypeHash {
             got_type_name: self_name,
             got: self_hash,
             expected_type_name: type_name,
@@ -296,7 +294,7 @@ pub fn check_header<R: ReadWithPos>(
         });
     }
     if type_repr_hash != self_repr_hash {
-        return Err(DeserializeError::WrongTypeReprHash {
+        return Err(Error::WrongTypeReprHash {
             got_type_name: self_name,
             got: self_repr_hash,
             expected_type_name: type_name,
@@ -308,7 +306,7 @@ pub fn check_header<R: ReadWithPos>(
 }
 
 /// A helper trait that makes it possible to implement differently
-/// deserialization for [`crate::traits::ZeroCopy`] and [`crate::traits::FullCopy`] types.
+/// deserialization for [`crate::traits::ZeroCopy`] and [`crate::traits::DeepCopy`] types.
 /// See [`crate::traits::CopyType`] for more information.
 pub trait DeserializeHelper<T: CopySelector> {
     // TODO: do we really need this?
@@ -323,7 +321,7 @@ pub trait DeserializeHelper<T: CopySelector> {
 
 #[derive(Debug)]
 /// Errors that can happen during deserialization.
-pub enum DeserializeError {
+pub enum Error {
     /// [`Deserialize::load_full`] could not open the provided file.
     FileOpenError(std::io::Error),
     /// The underlying reader returned an error.
@@ -366,9 +364,9 @@ pub enum DeserializeError {
     },
 }
 
-impl std::error::Error for DeserializeError {}
+impl std::error::Error for Error {}
 
-impl core::fmt::Display for DeserializeError {
+impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
             Self::ReadError => write!(f, "Read error during ε-serde serialization"),

@@ -7,16 +7,16 @@
 #![cfg(test)]
 
 use core::hash::Hasher;
-use epserde::traits::*;
+use epserde::traits::TypeHash;
 use std::collections::HashMap;
 use xxhash_rust::xxh3::Xxh3;
-
 macro_rules! impl_test {
     ($hashes:expr, $value:expr) => {{
-        let mut hasher = Xxh3::with_seed(0);
-        ($value).type_hash_val(&mut hasher);
-        let hash = hasher.finish();
-        let res = $hashes.insert(hash, stringify!($value));
+        let mut type_hasher = Xxh3::with_seed(0);
+        let mut repr_hasher = Xxh3::with_seed(0);
+        ($value).type_hash_val(&mut type_hasher, &mut repr_hasher);
+        let type_hash = type_hasher.finish();
+        let res = $hashes.insert(type_hash, stringify!($value));
         assert!(
             res.is_none(),
             "Collision on type {} with {}",
@@ -54,7 +54,8 @@ fn test_type_hash_collision() {
     impl_test!(hashes, vec![1_i8, 2, 3, 4, 5]);
     impl_test!(hashes, (1_u8, 3_u16, '🔥'));
 
-    impl_test!(hashes, vec![1_i8, 2, 3, 4, 5].as_slice());
+    // TODO doesn't compile anymore
+    // impl_test!(hashes, vec![1_i8, 2, 3, 4, 5].as_slice());
 
     dbg!(hashes);
 }

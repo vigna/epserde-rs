@@ -31,7 +31,7 @@ assert_eq!(a, *b);
 use crate::prelude::*;
 use ser::*;
 
-impl<T: SerializeInner> Serialize for &[T]
+impl<T: SerializeInner + CopyType> Serialize for &[T]
 where
     Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
 {

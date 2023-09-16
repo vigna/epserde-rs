@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-mod type_hash;
-pub use type_hash::*;
+pub mod type_info;
+pub use type_info::*;
 
-mod copy_type;
+pub mod copy_type;
 pub use copy_type::*;

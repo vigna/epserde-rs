@@ -5,25 +5,13 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::traits::TypeHash;
-use core::hash::Hash;
-
 /// Internal trait used to select whether a type is zero copy or not.
-/// It has only two implementations, [`Full`] and [`Zero`].
-pub trait CopySelector: TypeHash {
+/// It has only two implementations, [`Zero`] and [`Deep`].
+pub trait CopySelector {
     const IS_ZERO_COPY: bool;
 }
 /// An implementation of a [`CopySelector`] specifying that a type is zero copy.
 pub struct Zero {}
-
-impl TypeHash for Zero {
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        0xdeadbeefdeadf00d_u64.hash(hasher);
-    }
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        0xabadcafefadc0c0a_u64.hash(hasher);
-    }
-}
 
 impl CopySelector for Zero {
     const IS_ZERO_COPY: bool = true;
@@ -31,28 +19,19 @@ impl CopySelector for Zero {
 
 /// An implementation of a [`CopySelector`] specifying that a type is not zero copy.
 #[derive(Hash)]
-pub struct Full {}
+pub struct Deep {}
 
-impl TypeHash for Full {
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        0xc0ffec0ffe_u64.hash(hasher);
-    }
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        0xc0ffec0ffe_u64.hash(hasher);
-    }
-}
-
-impl CopySelector for Full {
+impl CopySelector for Deep {
     const IS_ZERO_COPY: bool = false;
 }
 
 /**
 
-Marker trait for data specifying whether it can be zero-copy deserialized.
+Marker trait for data specifying whether it can be zero-copy deserialized or not.
 
 The trait comes in two flavors: `CopySelector<Type=Zero>` and
-`CopySelector<Type=Eps>`. To each of these flavors corresponds two
-dependent traits, [`ZeroCopy`] and [`FullCopy`], which are automatically
+`CopySelector<Type=Deep>`. To each of these flavors corresponds two
+dependent traits, [`ZeroCopy`] and [`DeepCopy`], which are automatically
 implemented:
 ```rust
 use epserde::traits::*;
@@ -65,8 +44,8 @@ impl CopyType for MyType {
 // Now MyType implements ZeroCopy
 ```
 
-We use this trait to implement a different behavior for [`ZeroCopy`] and [`FullCopy`] types
-on arrays, vectors, and boxed slices,
+We use this trait to implement a different behavior for [`ZeroCopy`] and [`DeepCopy`] types,
+in particular on arrays, vectors, and boxed slices,
 [working around the bug that prevents the compiler from understanding that implementations
 for the two flavors of `CopySelector` are mutually
 exclusive](https://github.com/rust-lang/rfcs/pull/1672#issuecomment-1405377983).
@@ -98,17 +77,6 @@ and ε-serde will do the rest.
 
 pub trait CopyType: Sized {
     type Copy: CopySelector;
-    /// Return the alignment type at serialization.
-    ///
-    /// This is [`core::mem::align_of`] by default, but it is
-    /// overridden for primitive types to [`core::mem::size_of`]
-    /// to increase architectural interoperability. Since primitive
-    /// types are always fully deserialized, the only
-    /// effect is that the padding before sequences of primitive
-    /// types might be slightly larger.
-    fn align_of() -> usize {
-        core::mem::align_of::<Self>()
-    }
 }
 
 /// Marker trait for zero-copy types. You should never implement
@@ -116,7 +84,7 @@ pub trait CopyType: Sized {
 pub trait ZeroCopy: CopyType<Copy = Zero> {}
 impl<T: CopyType<Copy = Zero>> ZeroCopy for T {}
 
-/// Marker trait for non zero-copy types. You should never implement
-/// this trait manually, but rather implement [`CopyType`] with `Copy=Eps`.
-pub trait FullCopy: CopyType<Copy = Full> {}
-impl<T: CopyType<Copy = Full>> FullCopy for T {}
+/// Marker trait for deep-copy types. You should never implement
+/// this trait manually, but rather implement [`CopyType`] with `Copy=Deep`.
+pub trait DeepCopy: CopyType<Copy = Deep> {}
+impl<T: CopyType<Copy = Deep>> DeepCopy for T {}

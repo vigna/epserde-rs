@@ -107,7 +107,7 @@ impl CommonDeriveInput {
     }
 }
 
-/// Return whether the struct has attributes `repr(C)`, `zero_copy`, and `full_copy`.
+/// Return whether the struct has attributes `repr(C)`, `zero_copy`, and `deep_copy`.
 /// Performs coherence checks (e.g., to be `zero_copy` the struct must be `repr(C)`).
 fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     let is_repr_c = input.attrs.iter().any(|x| {
@@ -117,32 +117,32 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
         .attrs
         .iter()
         .any(|x| x.meta.path().is_ident("zero_copy"));
-    let is_full_copy = input
+    let is_deep_copy = input
         .attrs
         .iter()
-        .any(|x| x.meta.path().is_ident("full_copy"));
+        .any(|x| x.meta.path().is_ident("deep_copy"));
     if is_zero_copy && !is_repr_c {
         panic!(
             "Type {} is declared as zero copy, but it is not repr(C)",
             input.ident
         );
     }
-    if is_zero_copy && is_full_copy {
+    if is_zero_copy && is_deep_copy {
         panic!(
-            "Type {} is declared as both zero copy and full copy",
+            "Type {} is declared as both zero copy and deep copy",
             input.ident
         );
     }
 
-    (is_repr_c, is_zero_copy, is_full_copy)
+    (is_repr_c, is_zero_copy, is_deep_copy)
 }
 
-#[proc_macro_derive(Epserde, attributes(zero_copy, full_copy))]
+#[proc_macro_derive(Epserde, attributes(zero_copy, deep_copy))]
 pub fn epserde_derive(input: TokenStream) -> TokenStream {
     // Cloning input for type hash
     let input_for_typehash = input.clone();
     let derive_input = parse_macro_input!(input as DeriveInput);
-    let (is_repr_c, is_zero_copy, is_full_copy) = check_attrs(&derive_input);
+    let (is_repr_c, is_zero_copy, is_deep_copy) = check_attrs(&derive_input);
 
     // Common values between serialize and deserialize
     let CommonDeriveInput {
@@ -298,7 +298,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     {
                         fn _deserialize_full_copy_inner<R: epserde::des::ReadWithPos>(
                             mut backend: R,
-                        ) -> core::result::Result<(Self, R), epserde::des::DeserializeError> {
+                        ) -> core::result::Result<(Self, R), epserde::des::Error> {
                             use epserde::des::DeserializeInner;
                             backend.deserialize_full_zero::<Self>()
                         }
@@ -307,7 +307,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         fn _deserialize_eps_copy_inner(
                             backend: epserde::des::SliceWithPos,
-                        ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::SliceWithPos), epserde::des::DeserializeError>
+                        ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::SliceWithPos), epserde::des::Error>
                         {
                             backend.deserialize_eps_zero::<Self>()
                         }
@@ -317,7 +317,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 quote! {
                     #[automatically_derived]
                     impl<#generics> epserde::traits::CopyType for  #name<#generics_names> #where_clause {
-                        type Copy = epserde::traits::Full;
+                        type Copy = epserde::traits::Deep;
                     }
 
                     #[automatically_derived]
@@ -328,13 +328,13 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         )*;
 
                         // Compute whether the type could be zero copy but it is not declared as such,
-                        // and the attribute `full_copy` is missing.
-                        const ZERO_COPY_MISMATCH: bool = ! #is_full_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
+                        // and the attribute `deep_copy` is missing.
+                        const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
 
                         #[inline(always)]
                         fn _serialize_inner<F: epserde::ser::FieldWrite>(&self, mut backend: F) -> epserde::ser::Result<F> {
                             if Self::ZERO_COPY_MISMATCH {
-                                eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<Self>());
+                                eprintln!("Type {} is zero copy, but it has not declared as such; use the #deep_copy attribute to silence this warning", core::any::type_name::<Self>());
                             }
                             #(
                                 backend = backend.write_field(stringify!(#fields_names), &self.#fields_names)?;
@@ -347,7 +347,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_des {
                         fn _deserialize_full_copy_inner<R: epserde::des::ReadWithPos>(
                             backend: R,
-                        ) -> core::result::Result<(Self, R), epserde::des::DeserializeError> {
+                        ) -> core::result::Result<(Self, R), epserde::des::Error> {
                             use epserde::des::DeserializeInner;
                             #(
                                 let (#fields_names, backend) = <#fields_types>::_deserialize_full_copy_inner(backend)?;
@@ -361,7 +361,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         fn _deserialize_eps_copy_inner(
                             backend: epserde::des::SliceWithPos,
-                        ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::SliceWithPos), epserde::des::DeserializeError>
+                        ) -> core::result::Result<(Self::DeserType<'_>, epserde::des::SliceWithPos), epserde::des::Error>
                         {
                             use epserde::des::DeserializeInner;
                             #(
@@ -387,6 +387,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(TypeHash)]
 pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
+    let (_, is_zero_copy, _) = check_attrs(&input);
 
     let CommonDeriveInput {
         name,
@@ -450,35 +451,76 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                 .map(|x| x.meta.require_list().unwrap().tokens.to_string())
                 .collect::<Vec<_>>();
 
-            quote! {
-                #[automatically_derived]
-                impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause{
+            if is_zero_copy {
+                quote! {
+                    #[automatically_derived]
+                    impl<#generics> epserde::traits::PaddingOf for #name<#generics_names> #where_clause{}
 
-                    #[inline(always)]
-                    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-                        use core::hash::Hash;
-                        Self::align_of().hash(hasher);
-                        core::mem::size_of::<Self>().hash(hasher);
-                        // add to the hash if the struct is zero copy or not
-                        <Self as epserde::traits::CopyType>::Copy::type_hash(hasher);
-                        #(
-                            #repr.hash(hasher);
-                        )*
-                        #(
-                            <#fields_types as epserde::traits::TypeHash>::type_repr_hash(hasher);
-                        )*
+                    impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause{
+
+                        fn type_hash(
+                            type_hasher: &mut impl core::hash::Hasher,
+                            repr_hasher: &mut impl core::hash::Hasher,
+                        ) {
+                            use core::hash::Hash;
+                            use epserde::traits::type_info::PaddingOf;
+                            // Hash in size and padding.
+                            core::mem::size_of::<Self>().hash(repr_hasher);
+                            Self::padding_of().hash(repr_hasher);
+                            // Hash in ZeroCopy
+                            "ZeroCopy".hash(repr_hasher);
+                            // Hash in representation data.
+                            #(
+                                #repr.hash(repr_hasher);
+                            )*
+                            // Hash in struct and field names.
+                            #name_literal.hash(type_hasher);
+                            #(
+                                #fields_names.hash(type_hasher);
+                            )*
+                            // Hash in aligments of all fields.
+                            /*#(
+                               core::mem::align_of::<#fields_types>::hash(repr_hasher);
+                            )*/
+                            // Recurse on all fields.
+                            #(
+                                <#fields_types as epserde::traits::TypeHash>::type_hash(
+                                    type_hasher,
+                                    repr_hasher,
+                                );
+                            )*
+                        }
                     }
+                }
+            } else {
+                quote! {
+                    #[automatically_derived]
+                    impl<#generics> epserde::traits::PaddingOf for #name<#generics_names> #where_clause{}
 
-                    #[inline(always)]
-                    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-                        use core::hash::Hash;
-                        #name_literal.hash(hasher);
-                        #(
-                            #fields_names.hash(hasher);
-                        )*
-                        #(
-                            <#fields_types as epserde::traits::TypeHash>::type_hash(hasher);
-                        )*
+                    impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause{
+
+                        #[inline(always)]
+                        fn type_hash(
+                            type_hasher: &mut impl core::hash::Hasher,
+                            repr_hasher: &mut impl core::hash::Hasher,
+                        ) {
+                            use core::hash::Hash;
+                            // No alignment, so we do not hash in anything.
+                            // Hash in DeepCopy
+                            "DeepCopy".hash(repr_hasher);
+                            // Hash in struct and field names.
+                            #name_literal.hash(type_hasher);
+                            #(
+                                #fields_names.hash(type_hasher);
+                            )*
+                            // Recurse on all fields.
+                            #(
+                                <#fields_types as epserde::traits::TypeHash>::type_hash(
+                                    type_hasher,
+                                    repr_hasher,
+                                );
+                            )*
+                        }
                     }
                 }
             }

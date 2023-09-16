@@ -21,17 +21,21 @@ impl<T: CopyType, const N: usize> CopyType for [T; N] {
 }
 
 impl<T: TypeHash, const N: usize> TypeHash for [T; N] {
-    #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "[;]".hash(hasher);
-        T::type_hash(hasher);
-        N.hash(hasher);
+    fn type_hash(
+        type_hasher: &mut impl core::hash::Hasher,
+        repr_hasher: &mut impl core::hash::Hasher,
+    ) {
+        // We don't hash in padding because we will pad
+        // as T::padding_of(), and that will be hashed in recursively.
+        "[]".hash(type_hasher);
+        type_hasher.write_usize(N);
+        T::type_hash(type_hasher, repr_hasher);
     }
-    #[inline(always)]
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        // We align to the size of T.
-        core::mem::size_of::<T>().hash(hasher);
-        T::type_repr_hash(hasher);
+}
+
+impl<T, const N: usize> PaddingOf for [T; N] {
+    fn padding_of() -> usize {
+        core::mem::size_of::<Self>()
     }
 }
 
@@ -53,7 +57,7 @@ impl<T: ZeroCopy + SerializeInner, const N: usize> SerializeHelper<Zero> for [T;
     }
 }
 
-impl<T: FullCopy + SerializeInner, const N: usize> SerializeHelper<Full> for [T; N] {
+impl<T: DeepCopy + SerializeInner, const N: usize> SerializeHelper<Deep> for [T; N] {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, mut backend: F) -> ser::Result<F> {
         for item in self.iter() {
@@ -88,7 +92,9 @@ where
     }
 }
 
-impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<Zero> for [T; N] {
+impl<T: ZeroCopy + DeserializeInner + PaddingOf + 'static, const N: usize> DeserializeHelper<Zero>
+    for [T; N]
+{
     type FullType = Self;
     type DeserType<'a> = &'a [T; N];
     #[inline(always)]
@@ -115,7 +121,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper
     }
 }
 
-impl<T: FullCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<Full> for [T; N] {
+impl<T: DeepCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<Deep> for [T; N] {
     type FullType = Self;
     type DeserType<'a> = [<T as DeserializeInner>::DeserType<'a>; N];
     #[inline(always)]

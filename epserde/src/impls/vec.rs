@@ -18,23 +18,19 @@ use crate::traits::*;
 use core::hash::Hash;
 
 impl<T> CopyType for Vec<T> {
-    type Copy = Full;
+    type Copy = Deep;
 }
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::vec::Vec;
 #[cfg(feature = "alloc")]
 impl<T: TypeHash> TypeHash for Vec<T> {
-    #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "Vec".hash(hasher);
-        T::type_hash(hasher);
-    }
-    #[inline(always)]
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        // We align to the size of T.
-        core::mem::size_of::<T>().hash(hasher);
-        T::type_repr_hash(hasher);
+    fn type_hash(
+        type_hasher: &mut impl core::hash::Hasher,
+        repr_hasher: &mut impl core::hash::Hasher,
+    ) {
+        "Vec".hash(type_hasher);
+        T::type_hash(type_hasher, repr_hasher);
     }
 }
 
@@ -49,14 +45,14 @@ where
     }
 }
 
-impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Vec<T> {
+impl<T: ZeroCopy + SerializeInner + PaddingOf> SerializeHelper<Zero> for Vec<T> {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
         backend.write_slice_zero(self.as_slice())
     }
 }
 
-impl<T: FullCopy + SerializeInner> SerializeHelper<Full> for Vec<T> {
+impl<T: DeepCopy + SerializeInner> SerializeHelper<Deep> for Vec<T> {
     #[inline(always)]
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> ser::Result<F> {
         backend.write_slice(self.as_slice())
@@ -89,7 +85,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T> {
+impl<T: ZeroCopy + DeserializeInner + PaddingOf + 'static> DeserializeHelper<Zero> for Vec<T> {
     type FullType = Self;
     type DeserType<'a> = &'a [T];
     #[inline(always)]
@@ -104,7 +100,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T
     }
 }
 
-impl<T: FullCopy + DeserializeInner + 'static> DeserializeHelper<Full> for Vec<T> {
+impl<T: DeepCopy + DeserializeInner + 'static> DeserializeHelper<Deep> for Vec<T> {
     type FullType = Self;
     type DeserType<'a> = Vec<<T as DeserializeInner>::DeserType<'a>>;
     #[inline(always)]

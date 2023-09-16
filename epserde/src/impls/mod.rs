@@ -25,17 +25,19 @@ use core::hash::Hash;
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::boxed::Box;
 
-use crate::prelude::TypeHash;
+use crate::prelude::{CopyType, Deep, TypeHash};
+
+impl<T> CopyType for Box<T> {
+    type Copy = Deep;
+}
 
 #[cfg(feature = "alloc")]
 impl<T: TypeHash + ?Sized> TypeHash for Box<T> {
-    #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "Box".hash(hasher);
-        T::type_hash(hasher);
-    }
-    #[inline(always)]
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        T::type_repr_hash(hasher);
+    fn type_hash(
+        type_hasher: &mut impl core::hash::Hasher,
+        repr_hasher: &mut impl core::hash::Hasher,
+    ) {
+        "Box".hash(type_hasher);
+        T::type_hash(type_hasher, repr_hasher);
     }
 }

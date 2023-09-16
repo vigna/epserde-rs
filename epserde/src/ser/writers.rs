@@ -21,8 +21,8 @@ pub trait FieldWrite: WriteNoStd + Sized {
 
     #[inline(always)]
     /// Add some zero padding so that `self.get_pos() % align_of::<V>() == 0.`
-    fn align<V: CopyType>(&mut self) -> Result<()> {
-        let padding = pad_align_to(self.pos(), V::align_of());
+    fn align<V: PaddingOf>(&mut self) -> Result<()> {
+        let padding = pad_align_to(self.pos(), V::padding_of());
         for _ in 0..padding {
             self.write_all(&[0])?;
         }
@@ -43,26 +43,30 @@ pub trait FieldWrite: WriteNoStd + Sized {
     /// This is the actual implementation of [`FieldWrite::write_bytes`]. It can be used
     /// by implementing types to simulate a call to the default implementation.
     #[inline(always)]
-    fn do_write_bytes<V: CopyType>(mut self, _field_name: &str, value: &[u8]) -> Result<Self> {
+    fn do_write_bytes<V: CopyType + PaddingOf>(
+        mut self,
+        _field_name: &str,
+        value: &[u8],
+    ) -> Result<Self> {
         self.align::<V>()?;
         self.write_all(value)?;
         Ok(self)
     }
 
     /// Write raw bytes aligned to the `align_to::<V>()`.
-    fn write_bytes<V: CopyType>(self, field_name: &str, value: &[u8]) -> Result<Self> {
+    fn write_bytes<V: CopyType + PaddingOf>(self, field_name: &str, value: &[u8]) -> Result<Self> {
         self.do_write_bytes::<V>(field_name, value)
     }
 
     /// Writes a single aligned zero-copy value.
-    fn write_field_zero<V: ZeroCopy + SerializeInner>(
+    fn write_field_zero<V: ZeroCopy + PaddingOf + SerializeInner>(
         self,
         field_name: &str,
         value: &V,
     ) -> super::ser::Result<Self> {
         if !V::IS_ZERO_COPY {
             panic!(
-                "Cannot serialize non zero-copy type {} declared as zero copy",
+                "Cannot serialize deep-copy type {} declared as zero copy",
                 core::any::type_name::<Self>()
             );
         }
@@ -87,7 +91,7 @@ pub trait FieldWrite: WriteNoStd + Sized {
     }
 
     /// Write an aligned slice by encoding its length first, and then the contents properly aligned.
-    fn write_slice_zero<V: SerializeInner>(mut self, data: &[V]) -> Result<Self> {
+    fn write_slice_zero<V: SerializeInner + PaddingOf>(mut self, data: &[V]) -> Result<Self> {
         let len = data.len();
         self = self.write_field("len", &len)?;
         if !V::IS_ZERO_COPY {
@@ -256,7 +260,7 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
             field: self.path.join("."),
             ty: core::any::type_name::<V>().to_string(),
             offset: pos,
-            align: V::align_of(),
+            align: 0, // TODO V::align_of(),
             size: self.pos() - pos,
         });
         self.path.pop();
@@ -264,7 +268,11 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
     }
 
     #[inline(always)]
-    fn write_bytes<V: CopyType>(mut self, field_name: &str, value: &[u8]) -> Result<Self> {
+    fn write_bytes<V: CopyType + PaddingOf>(
+        mut self,
+        field_name: &str,
+        value: &[u8],
+    ) -> Result<Self> {
         let align = core::mem::align_of::<V>();
         let type_name = core::any::type_name::<V>().to_string();
         // prepare a row with the field name and the type

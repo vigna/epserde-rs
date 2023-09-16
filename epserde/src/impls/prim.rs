@@ -21,23 +21,19 @@ macro_rules! impl_prim_type_hash {
     ($($ty:ty),*) => {$(
         impl CopyType for $ty {
             type Copy = Zero;
-            fn align_of() -> usize {
-                // Primitive types are aligned to their size
-                // to increase architectural interoperability.
-                core::mem::size_of::<Self>()
-            }
         }
 
         impl TypeHash for $ty {
-            #[inline(always)]
-            fn type_hash(hasher: &mut impl core::hash::Hasher) {
-                stringify!($ty).hash(hasher);
+            fn type_hash(
+                _type_hasher: &mut impl core::hash::Hasher,
+                _repr_hasher: &mut impl core::hash::Hasher
+            ) {
             }
-            #[inline(always)]
-            fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-                // We do not hash the alignment of primitive types
-                // because they are always fully deserialized.
-                core::mem::size_of::<Self>().hash(hasher);
+        }
+
+        impl PaddingOf for $ty {
+            fn padding_of() -> usize {
+                core::mem::size_of::<Self>()
             }
         }
     )*};
@@ -46,9 +42,9 @@ macro_rules! impl_prim_type_hash {
 macro_rules! impl_prim_ser_des {
     ($($ty:ty),*) => {$(
 		impl SerializeInner for $ty {
-            // here we are lying :)
-            // primitive types are zero copy, but we won't return
-            // a reference to them
+            // Note that primitive types are declared zero copy to be able to
+            // be part of zero-copy types, but we actually deserialize
+            // them in isolation as values.
             const IS_ZERO_COPY: bool = true;
             const ZERO_COPY_MISMATCH: bool = false;
 
@@ -195,11 +191,11 @@ impl<T> CopyType for PhantomData<T> {
 }
 
 impl<T: TypeHash> TypeHash for PhantomData<T> {
-    #[inline(always)]
-    fn type_hash(_hasher: &mut impl core::hash::Hasher) {}
-
-    #[inline(always)]
-    fn type_repr_hash(_hasher: &mut impl core::hash::Hasher) {}
+    fn type_hash(
+        _type_hasher: &mut impl core::hash::Hasher,
+        _repr_hasher: &mut impl core::hash::Hasher,
+    ) {
+    }
 }
 
 impl<T: SerializeInner> SerializeInner for PhantomData<T> {
@@ -232,20 +228,17 @@ impl<T: DeserializeInner> DeserializeInner for PhantomData<T> {
 // Options are full-copy types serialized as a one-byte tag (0 for None, 1 for Some) followed, in case, by the value.
 
 impl<T> CopyType for Option<T> {
-    type Copy = Full;
+    type Copy = Deep;
 }
 
-impl<T: CopyType + TypeHash> TypeHash for Option<T> {
+impl<T: TypeHash> TypeHash for Option<T> {
     #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "Option".hash(hasher);
-        T::type_hash(hasher);
-    }
-    #[inline(always)]
-    fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-        T::align_of().hash(hasher);
-        core::mem::size_of::<Self>().hash(hasher);
-        T::type_repr_hash(hasher);
+    fn type_hash(
+        type_hasher: &mut impl core::hash::Hasher,
+        repr_hasher: &mut impl core::hash::Hasher,
+    ) {
+        "Option".hash(type_hasher);
+        T::type_hash(type_hasher, repr_hasher);
     }
 }
 
@@ -278,7 +271,7 @@ impl<T: DeserializeInner> DeserializeInner for Option<T> {
                 let (elem, backend) = T::_deserialize_full_copy_inner(backend)?;
                 Ok((Some(elem), backend))
             }
-            _ => Err(DeserializeError::InvalidTag(tag)),
+            _ => Err(des::Error::InvalidTag(tag)),
         }
     }
     type DeserType<'a> = Option<<T as DeserializeInner>::DeserType<'a>>;
@@ -293,7 +286,7 @@ impl<T: DeserializeInner> DeserializeInner for Option<T> {
                 let (value, backend) = T::_deserialize_eps_copy_inner(backend)?;
                 Ok((Some(value), backend))
             }
-            _ => Err(DeserializeError::InvalidTag(backend.data[0])),
+            _ => Err(des::Error::InvalidTag(backend.data[0])),
         }
     }
 }

@@ -16,39 +16,39 @@ that are not [`ZeroCopy`], you must use [`epserde_derive::Epserde`] on a newtype
 */
 use crate::des::DeserializeInner;
 use crate::prelude::*;
+use crate::traits::TypeHash;
 use core::hash::Hash;
 use des::*;
 use ser::*;
 
 macro_rules! impl_tuples {
     ($($t:ident),*) => {
-		impl<$($t: TypeHash,)*> TypeHash for ($($t,)*)
-        {
-            #[inline(always)]
-            fn type_hash(hasher: &mut impl core::hash::Hasher) {
-                "()".hash(hasher);
-                let mut len = 0;
-                $(
-                    <$t>::type_hash(hasher);
-                    len += 1;
-                )*
-                len.hash(hasher);
-            }
-            #[inline(always)]
-            fn type_repr_hash(hasher: &mut impl core::hash::Hasher) {
-                core::mem::align_of::<Self>().hash(hasher);
-                core::mem::size_of::<Self>().hash(hasher);
-                $(
-                    <$t>::type_repr_hash(hasher);
-                )*
-            }
-        }
-
         impl<$($t: ZeroCopy,)*> CopyType for ($($t,)*)  {
             type Copy = Zero;
 		}
 
-		impl<$($t: ZeroCopy + TypeHash,)*> SerializeInner for ($($t,)*) {
+		impl<$($t: TypeHash + PaddingOf,)*> TypeHash for ($($t,)*)
+        {
+            #[inline(always)]
+            fn type_hash(
+                type_hasher: &mut impl core::hash::Hasher,
+                repr_hasher: &mut impl core::hash::Hasher,
+            ) {
+                "()".hash(type_hasher);
+                Self::padding_of().hash(type_hasher);
+                $(
+                    <$t>::type_hash(type_hasher, repr_hasher);
+                )*
+            }
+        }
+
+        impl<$($t: PaddingOf,)*> PaddingOf for ($($t,)*)  {
+            fn padding_of() -> usize {
+                core::mem::align_of::<Self>()
+            }
+		}
+
+		impl<$($t: ZeroCopy + TypeHash + PaddingOf,)*> SerializeInner for ($($t,)*) {
             const IS_ZERO_COPY: bool = true;
             const ZERO_COPY_MISMATCH: bool = false;
 
@@ -58,7 +58,7 @@ macro_rules! impl_tuples {
             }
         }
 
-		impl<$($t: ZeroCopy + TypeHash +  'static,)*> DeserializeInner for ($($t,)*) {
+		impl<$($t: ZeroCopy + TypeHash  + PaddingOf + 'static,)*> DeserializeInner for ($($t,)*) {
             type DeserType<'a> = &'a ($($t,)*);
             fn _deserialize_full_copy_inner<R: ReadWithPos>(backend: R) -> des::Result<(Self, R)> {
                 backend.deserialize_full_zero::<($($t,)*)>()

@@ -28,7 +28,7 @@ use std::io::Read;
 impl<W: Read> ReadNoStd for W {
     #[inline(always)]
     fn read_exact(&mut self, buf: &mut [u8]) -> des::Result<()> {
-        Read::read_exact(self, buf).map_err(|_| DeserializeError::ReadError)
+        Read::read_exact(self, buf).map_err(|_| des::Error::ReadError)
     }
 }
 
@@ -41,10 +41,10 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     fn pos(&self) -> usize;
 
     /// Pad the cursor to the correct alignment.
-    fn align<T: CopyType>(self) -> des::Result<Self>;
+    fn align<T: PaddingOf>(self) -> des::Result<Self>;
 
     /// Fully deserialize a zero-copy type from the backend after aligning it.
-    fn deserialize_full_zero<T: ZeroCopy>(mut self) -> des::Result<(T, Self)> {
+    fn deserialize_full_zero<T: ZeroCopy + PaddingOf>(mut self) -> des::Result<(T, Self)> {
         self = self.align::<T>()?;
         unsafe {
             #[allow(clippy::uninit_assumed_init)]
@@ -62,7 +62,7 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     ///
     /// Note that this method uses a single [`ReadNoStd::read_exact`]
     /// call to read the entire vector.
-    fn deserialize_vec_full_zero<T: DeserializeInner + ZeroCopy>(
+    fn deserialize_vec_full_zero<T: DeserializeInner + ZeroCopy + PaddingOf>(
         self,
     ) -> des::Result<(Vec<T>, Self)> {
         let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
@@ -79,8 +79,8 @@ pub trait ReadWithPos: ReadNoStd + Sized {
         Ok((res, res_self))
     }
 
-    /// Deserializes fully a vector of [`FullCopy`] types.
-    fn deserialize_vec_full_eps<T: DeserializeInner + FullCopy>(
+    /// Deserializes fully a vector of [`DeepCopy`] types.
+    fn deserialize_vec_full_eps<T: DeserializeInner + DeepCopy>(
         self,
     ) -> des::Result<(Vec<T>, Self)> {
         let (len, mut res_self) = usize::_deserialize_full_copy_inner(self)?;
@@ -124,9 +124,9 @@ impl<F: ReadNoStd> ReadWithPos for ReaderWithPos<F> {
         self.pos
     }
 
-    fn align<T: CopyType>(mut self) -> des::Result<Self> {
+    fn align<T: PaddingOf>(mut self) -> des::Result<Self> {
         // Skip bytes as needed
-        let padding = crate::pad_align_to(self.pos, T::align_of());
+        let padding = crate::pad_align_to(self.pos, T::padding_of());
         self.read_exact(&mut vec![0; padding])?;
         // No alignment check, we are fully deserializing
         Ok(self)

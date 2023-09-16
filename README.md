@@ -41,7 +41,7 @@ Tommaso Fontana, while working at INRIA under the supervision of Stefano Zacchir
 came up with the basic idea for ε-serde, that is, 
 replacing structures with equivalent references. The code was developed jointly
 with Sebastiano Vigna, who came up with the [`MemCase`](`des::MemCase`) and the 
-[`ZeroCopy`](`traits::ZeroCopy`)/[`FullCopy`](`traits::FullCopy`) logic.
+[`ZeroCopy`](`traits::ZeroCopy`)/[`DeepCopy`](`traits::DeepCopy`) logic.
 
 ## Cons
 
@@ -322,17 +322,17 @@ but that in practice often condition one another:
 
 - the type has an *associated deserialization type* which is the type you obtain
 upon deserialization;
-- the type can be either [`ZeroCopy`](`traits::ZeroCopy`) or [`FullCopy`](`traits::FullCopy`); it can also be neither.
+- the type can be either [`ZeroCopy`](`traits::ZeroCopy`) or [`DeepCopy`](`traits::DeepCopy`); it can also be neither.
 
 There is no constraint on the associated deserialization type: it can be literally
 anything. In general, however, one tries to have a deserialization type that is somewhat
 compatible with the original type: for example, ε-serde deserializes vectors as 
 references to slices, so all mutation method that do not change the length work on both.
 
-Being [`ZeroCopy`](`traits::ZeroCopy`) or [`FullCopy`](`traits::FullCopy`) decides instead how the type will be treated 
+Being [`ZeroCopy`](`traits::ZeroCopy`) or [`DeepCopy`](`traits::DeepCopy`) decides instead how the type will be treated 
 when serializing and deserializing sequences, such as slices, boxed slices, and vectors. 
 Sequences of zero-copy types are deserialized using a reference, whereas sequences
-of full-copy types are fully deserialized in allocated memory. It is important to remark
+of deep-copy types are recursively deserialized in allocated memory. It is important to remark
 that *you cannot serialize a vector whose elements are of a type that is neither*
 (see the [`CopyType`](`traits::CopyType`) documentation for a deeper explanation).
 

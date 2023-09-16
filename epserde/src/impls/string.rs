@@ -17,7 +17,7 @@ use des::*;
 use ser::*;
 
 impl CopyType for String {
-    type Copy = Full;
+    type Copy = Deep;
 }
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
@@ -25,24 +25,20 @@ use alloc::string::String;
 
 #[cfg(feature = "alloc")]
 impl TypeHash for String {
-    #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "String".hash(hasher);
-    }
-    #[inline(always)]
-    fn type_repr_hash(_hasher: &mut impl core::hash::Hasher) {
-        // We save a slice of bytes. No alignment.
+    fn type_hash(
+        type_hasher: &mut impl core::hash::Hasher,
+        _repr_hasher: &mut impl core::hash::Hasher,
+    ) {
+        "String".hash(type_hasher);
     }
 }
 
 impl TypeHash for str {
-    #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "str".hash(hasher);
-    }
-    #[inline(always)]
-    fn type_repr_hash(_hasher: &mut impl core::hash::Hasher) {
-        // We save a slice of bytes. No alignment.
+    fn type_hash(
+        type_hasher: &mut impl core::hash::Hasher,
+        _repr_hasher: &mut impl core::hash::Hasher,
+    ) {
+        "str".hash(type_hasher);
     }
 }
 
@@ -79,7 +75,7 @@ impl DeserializeInner for String {
 }
 
 impl CopyType for Box<str> {
-    type Copy = Full;
+    type Copy = Deep;
 }
 
 impl SerializeInner for Box<str> {

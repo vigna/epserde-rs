@@ -24,12 +24,13 @@ use std::io::Cursor;
 pub use epserde_derive::{Epserde, TypeHash};
 
 pub mod des;
+pub mod impls;
 pub mod ser;
+pub mod traits;
 
 pub mod prelude {
     pub use crate::des;
     pub use crate::des::Deserialize;
-    pub use crate::des::DeserializeError;
     pub use crate::des::DeserializeHelper;
     pub use crate::des::DeserializeInner;
     pub use crate::des::Flags;
@@ -38,7 +39,6 @@ pub mod prelude {
     pub use crate::des::SliceWithPos;
     pub use crate::ser;
     pub use crate::ser::Serialize;
-    pub use crate::ser::SerializeError;
     pub use crate::ser::SerializeHelper;
     pub use crate::ser::SerializeInner;
     pub use crate::traits::*;
@@ -53,9 +53,6 @@ pub const VERSION: (u16, u16) = (0, 0);
 pub const MAGIC: u64 = u64::from_ne_bytes(*b"epserde ");
 /// What we will read if the endianness is mismatched.
 pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
-
-pub mod impls;
-pub mod traits;
 
 /// Compute the padding needed for alignment, that is, the smallest
 /// number such that `((value + pad_align_to(value, align_to) & (align_to - 1) == 0`.

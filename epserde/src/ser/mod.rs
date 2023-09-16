@@ -26,7 +26,7 @@ use std::{io::BufWriter, path::Path};
 pub mod writers;
 pub use writers::*;
 
-pub type Result<T> = core::result::Result<T, SerializeError>;
+pub type Result<T> = core::result::Result<T, Error>;
 
 /// Main serialization trait. It is separated from [`SerializeInner`] to
 /// avoid that the user modify its behavior, and hide internal serialization
@@ -66,7 +66,7 @@ pub trait Serialize {
 
     /// Commodity method to serialize to a file.
     fn store(&self, path: impl AsRef<Path>) -> Result<()> {
-        let file = std::fs::File::create(path).map_err(SerializeError::FileOpenError)?;
+        let file = std::fs::File::create(path).map_err(Error::FileOpenError)?;
         let mut buf_writer = BufWriter::new(file);
         self.serialize(&mut buf_writer)?;
         Ok(())
@@ -121,18 +121,16 @@ pub fn write_header<F: FieldWrite, T: TypeHash>(mut backend: F) -> Result<F> {
     backend = backend.write_field("VERSION_MINOR", &VERSION.1)?;
     backend = backend.write_field("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8))?;
 
-    let mut hasher = xxhash_rust::xxh3::Xxh3::new();
-    T::type_hash(&mut hasher);
-    backend = backend.write_field("TYPE_HASH", &hasher.finish())?;
-
-    let mut hasher = xxhash_rust::xxh3::Xxh3::new();
-    T::type_repr_hash(&mut hasher);
-    backend = backend.write_field("TYPE_REPR_HASH", &hasher.finish())?;
+    let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
+    let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
+    T::type_hash(&mut type_hasher, &mut repr_hasher);
+    backend = backend.write_field("TYPE_HASH", &type_hasher.finish())?;
+    backend = backend.write_field("TYPE_REPR_HASH", &repr_hasher.finish())?;
     backend.write_field("TYPE_NAME", &core::any::type_name::<T>().to_string())
 }
 
 /// A helper trait that makes it possible to implement differently
-/// serialization for [`crate::traits::ZeroCopy`] and [`crate::traits::FullCopy`] types.
+/// serialization for [`crate::traits::ZeroCopy`] and [`crate::traits::DeepCopy`] types.
 /// See [`crate::traits::CopyType`] for more information.
 pub trait SerializeHelper<T: CopySelector> {
     fn _serialize_inner<F: FieldWrite>(&self, backend: F) -> Result<F>;
@@ -140,16 +138,16 @@ pub trait SerializeHelper<T: CopySelector> {
 
 #[derive(Debug)]
 /// Errors that can happen during serialization.
-pub enum SerializeError {
+pub enum Error {
     /// The underlying writer returned an error.
     WriteError,
     /// [`Serialize::store`] could not open the provided file.
     FileOpenError(std::io::Error),
 }
 
-impl std::error::Error for SerializeError {}
+impl std::error::Error for Error {}
 
-impl core::fmt::Display for SerializeError {
+impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
             Self::WriteError => write!(f, "Write error during ε-serde serialization"),
@@ -182,11 +180,11 @@ use std::io::Write;
 impl<W: Write> WriteNoStd for W {
     #[inline(always)]
     fn write_all(&mut self, buf: &[u8]) -> Result<()> {
-        Write::write_all(self, buf).map_err(|_| SerializeError::WriteError)
+        Write::write_all(self, buf).map_err(|_| Error::WriteError)
     }
     #[inline(always)]
     fn flush(&mut self) -> Result<()> {
-        Write::flush(self).map_err(|_| SerializeError::WriteError)
+        Write::flush(self).map_err(|_| Error::WriteError)
     }
 }
 
