@@ -11,9 +11,7 @@ No-std support for reading while keeping track of the current position.
 
  */
 
-use super::DeserializeInner;
 use crate::prelude::*;
-use core::mem::MaybeUninit;
 
 /// [`std::io::Read`]-like trait for serialization that does not
 /// depend on [`std`].
@@ -48,52 +46,4 @@ pub trait ReadWithPos: ReadNoStd + Sized {
 
     /// Pad the cursor to the next multiple of [`MaxSizeOf::max_size_of`] 'T'.
     fn align<T: MaxSizeOf>(&mut self) -> deser::Result<()>;
-
-    /// Fully deserialize a zero-copy type from the backend after aligning it.
-    fn deserialize_full_zero<T: ZeroCopy>(&mut self) -> deser::Result<T> {
-        self.align::<T>()?;
-        unsafe {
-            #[allow(clippy::uninit_assumed_init)]
-            let mut buf: T = MaybeUninit::uninit().assume_init();
-            let slice = core::slice::from_raw_parts_mut(
-                &mut buf as *mut T as *mut u8,
-                core::mem::size_of::<T>(),
-            );
-            self.read_exact(slice)?;
-            Ok(buf)
-        }
-    }
-
-    /// Fully deserialize a vector of [`ZeroCopy`] types.
-    ///
-    /// Note that this method uses a single [`ReadNoStd::read_exact`]
-    /// call to read the entire vector.
-    fn deserialize_full_vec_zero<T: DeserializeInner + ZeroCopy>(
-        &mut self,
-    ) -> deser::Result<Vec<T>> {
-        let len = usize::_deserialize_full_inner(self)?;
-        self.align::<T>()?;
-        let mut res = Vec::with_capacity(len);
-        // SAFETY: we just allocated this vector so it is safe to set the length.
-        // read_exact guarantees that the vector will be filled with data.
-        #[allow(clippy::uninit_vec)]
-        unsafe {
-            res.set_len(len);
-            self.read_exact(res.align_to_mut::<u8>().1)?;
-        }
-
-        Ok(res)
-    }
-
-    /// Fully deserialize a vector of [`DeepCopy`] types.
-    fn deserialize_full_vec_deep<T: DeserializeInner + DeepCopy>(
-        &mut self,
-    ) -> deser::Result<Vec<T>> {
-        let len = usize::_deserialize_full_inner(self)?;
-        let mut res = Vec::with_capacity(len);
-        for _ in 0..len {
-            res.push(T::_deserialize_full_inner(self)?);
-        }
-        Ok(res)
-    }
 }

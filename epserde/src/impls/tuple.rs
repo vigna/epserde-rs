@@ -34,7 +34,6 @@ macro_rules! impl_tuples {
                 hasher: &mut impl core::hash::Hasher,
             ) {
                 "()".hash(hasher);
-                core::mem::align_of::<Self>().hash(hasher);
                 $(
                     <$t>::type_hash(hasher);
                 )*

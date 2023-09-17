@@ -54,7 +54,7 @@ where
 impl<T: ZeroCopy + SerializeInner, const N: usize> SerializeHelper<Zero> for [T; N] {
     #[inline(always)]
     fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> ser::Result<()> {
-        backend.write_field_zero("items", self)
+        backend.write_field_zero("array", self)
     }
 }
 
