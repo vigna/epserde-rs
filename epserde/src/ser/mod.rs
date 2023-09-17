@@ -116,7 +116,7 @@ pub trait SerializeInner: TypeHash + ReprHash + Sized {
 }
 
 /// Common code for both ε-copy and full-copy serialization.
-/// Must be kept in sync with [`crate::des::check_header`].
+/// Must be kept in sync with [`crate::deser::check_header`].
 pub fn write_header<T: TypeHash + ReprHash>(backend: &mut impl FieldWrite) -> Result<()> {
     backend.write_field("MAGIC", &MAGIC)?;
     backend.write_field("VERSION_MAJOR", &VERSION.0)?;

@@ -32,7 +32,7 @@ Rust structure, as references are resolved at deserialization time.
 We provide procedural macros implementing serialization and deserialization methods,
 basic (de)serialization for primitive types, vectors, etc.,
 convenience memory-mapping methods based on [mmap_rs](https://crates.io/crates/mmap-rs), 
-and a [`MemCase`](`des::MemCase`) structure that couples a deserialized structure with its backend 
+and a [`MemCase`](`deser::MemCase`) structure that couples a deserialized structure with its backend 
 (e.g., a slice of memory or a memory-mapped region).
 
 ## Who
@@ -40,7 +40,7 @@ and a [`MemCase`](`des::MemCase`) structure that couples a deserialized structur
 Tommaso Fontana, while working at INRIA under the supervision of Stefano Zacchiroli, 
 came up with the basic idea for ε-serde, that is, 
 replacing structures with equivalent references. The code was developed jointly
-with Sebastiano Vigna, who came up with the [`MemCase`](`des::MemCase`) and the 
+with Sebastiano Vigna, who came up with the [`MemCase`](`deser::MemCase`) and the 
 [`ZeroCopy`](traits::ZeroCopy)/[`DeepCopy`](traits::DeepCopy) logic.
 
 ## Cons
@@ -52,8 +52,8 @@ These are the main limitations you should be aware of before choosing to use ε-
 - While we provide procedural macros that implement serialization and deserialization, 
 they require that your type is written and used in a specific way; in particular, 
 the fields you want to ε-copy must be type parameters implementing
-[`DeserializeInner`](`des::DeserializeInner`), to which a 
-[deserialized type](`des::DeserializeInner::DeserType`) is associated.
+[`DeserializeInner`](`deser::DeserializeInner`), to which a 
+[deserialized type](`deser::DeserializeInner::DeserType`) is associated.
 For example, we provide implementations for
 `Vec<T>`/`Box<[T]>`, where `T` [is zero-copy](traits::ZeroCopy), or `String`/`Box<str>`, which have 
 associated deserialized type `&[T]` or `&str`, respectively. Vectors and boxed slices of
@@ -64,7 +64,7 @@ will usually reference the underlying
 serialized support (e.g., a memory-mapped region). If you need to store
 the deserialized structure of type `T` in a field of a new structure 
 you will need to couple permanently the deserialized structure with its serialized
-support, which is obtained by putting it in a [`MemCase`](`des::MemCase`). A [`MemCase`](`des::MemCase`) will
+support, which is obtained by putting it in a [`MemCase`](`deser::MemCase`). A [`MemCase`](`deser::MemCase`) will
 deref to `T`, so it can be used transparently as long as fields and methods are 
 concerned, but the field of the new structure will have to be of type `MemCase<T>`,
 not `T`.
@@ -127,8 +127,8 @@ Note how we serialize an array, but we deserialize a reference.
 The reference points inside `b`, so there is 
 no copy performed. The second call creates a new array instead.
 The third call maps the data structure into memory and returns
-a [`MemCase`](`des::MemCase`) that can be used transparently as a reference to the array;
-moreover, the [`MemCase`](`des::MemCase`) can be passed to other functions or stored
+a [`MemCase`](`deser::MemCase`) that can be used transparently as a reference to the array;
+moreover, the [`MemCase`](`deser::MemCase`) can be passed to other functions or stored
 in a structure field, as it contains both the structure and the
 memory-mapped region that supports it.
 
@@ -172,7 +172,7 @@ to a slice; the same would happen when serializing a boxed slice.
 The reference points inside `b`, so there is very little
 copy performed (in fact, just a field containing the length of the slice).
 All this is due to the fact that `usize` is a zero-copy type.
-Note also that we use the convenience method [`Deserialize::load_full`]()`des::Deserialize::load_full`).
+Note also that we use the convenience method [`Deserialize::load_full`]()`deser::Deserialize::load_full`).
 
 If your code must work both with the original and the deserialized
 version, however, it must be written for a trait that is implemented
@@ -378,6 +378,6 @@ on your structure will make it fully functional with ε-serde. The attribute
 [a few prerequisites](traits::CopyType).
 
 You can also implement manually
-the traits [`CopyType`](traits::CopyType), [`MaxSizeOf`](traits::TypeHash), [`ReprHash`](traits::ReprHash), 
-[`SerializeInner`](`ser::SerializeInner`), and [`Deserialize`](`des::DeserializeInner`), but
+the traits [`CopyType`](traits::CopyType), [`MaxSizeOf`](traits::MaxSizeOf), [`TypeHash`](traits::TypeHash), [`ReprHash`](traits::ReprHash), 
+[`SerializeInner`](`ser::SerializeInner`), and [`DeserializeInner`](`deser::DeserializeInner`), but
 the process is error-prone.

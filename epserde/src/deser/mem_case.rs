@@ -47,10 +47,10 @@ pub enum MemBackend {
     /// This variant is returned by [`MemCase::encase`].
     None,
     /// The backend is a heap-allocated in a memory region aligned to 4096 bytes.
-    /// This variant is returned by [`crate::des::Deserialize::load_mem`].
+    /// This variant is returned by [`crate::deser::Deserialize::load_mem`].
     Memory(Vec<u8>),
     /// The backend is the result to a call to `mmap()`.
-    /// This variant is returned by [`crate::des::Deserialize::load_mmap`] and [`crate::des::Deserialize::mmap`].
+    /// This variant is returned by [`crate::deser::Deserialize::load_mmap`] and [`crate::deser::Deserialize::mmap`].
     Mmap(mmap_rs::Mmap),
 }
 
@@ -74,7 +74,7 @@ impl MemBackend {
 /// [`MemCase`] can also be used with data structures deserialized from
 /// memory, although in that case it is not strictly necessary;
 /// nonetheless, reading a single block of memory with [`std::io::Read::read_exact`] can be
-/// very fast, and using [`Deserialize::load_mem`](`crate::des::Deserialize::load_mem`) to create a [`MemCase`]
+/// very fast, and using [`Deserialize::load_mem`](`crate::deser::Deserialize::load_mem`) to create a [`MemCase`]
 /// is a way to prevent cloning of the immutable
 /// structure.
 ///

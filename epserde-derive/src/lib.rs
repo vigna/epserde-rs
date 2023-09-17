@@ -139,6 +139,10 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
 
 /// Generate an ε-serde implementation for custom types.
 ///
+/// It generates implementations for the traits `CopyType`,
+/// `MaxSizeOf`, `TypeHash`, `ReprHash`, `SerializeInner`,
+/// and `DeserializeInner`.
+///
 /// Presently we only support
 /// standard structures (and not tuple structures).
 ///

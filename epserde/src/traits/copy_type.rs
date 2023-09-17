@@ -46,18 +46,20 @@ Marker trait for data specifying whether it is zero-copy or deep-copy.
 
 The trait comes in two flavors: `CopySelector<Type=Zero>` and
 `CopySelector<Type=Deep>`. To each of these flavors corresponds two
-dependent traits, [`ZeroCopy`] and [`DeepCopy`], which are automatically
-implemented:
+dependent traits, [`ZeroCopy`] (which requires implementing [`MaxSizeOf`])
+and [`DeepCopy`], which are automatically
+implemented.
 ```rust
 use epserde::traits::*;
 
 struct MyType {}
 
 impl CopyType for MyType {
-    type Copy = Zero;
+    type Copy = Deep;
 }
-// Now MyType implements ZeroCopy
+// Now MyType implements DeepCopy
 ```
+You should not implement this trait manually, but rather use the provided [derive macro](epserde_derive::Epserde).
 
 We use this trait to implement a different behavior for [`ZeroCopy`] and [`DeepCopy`] types,
 in particular on arrays, vectors, and boxed slices,
