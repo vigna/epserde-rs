@@ -35,25 +35,25 @@ fn test_wrong_endianess() {
 
     let err = <usize>::deserialize_full(&mut std::io::Cursor::new(&v));
     assert!(err.is_err());
-    assert!(matches!(err.unwrap_err(), des::Error::EndiannessError));
+    assert!(matches!(err.unwrap_err(), deser::Error::EndiannessError));
 
     let err = <usize>::deserialize_eps(&v);
     assert!(err.is_err());
-    assert!(matches!(err.unwrap_err(), des::Error::EndiannessError));
+    assert!(matches!(err.unwrap_err(), deser::Error::EndiannessError));
 
     // set a wrong magic cookie
     let bad_magic: u64 = 0x8989898989898989;
     v[0..8].copy_from_slice(&bad_magic.to_ne_bytes());
 
     let err = <usize>::deserialize_full(&mut std::io::Cursor::new(&v));
-    if let Err(des::Error::MagicCookieError(bad_magic_read)) = err {
+    if let Err(deser::Error::MagicCookieError(bad_magic_read)) = err {
         assert_eq!(bad_magic_read, bad_magic);
     } else {
         panic!("wrong error type: {:?}", err);
     }
 
     let err = <usize>::deserialize_eps(&v);
-    if let Err(des::Error::MagicCookieError(bad_magic_read)) = err {
+    if let Err(deser::Error::MagicCookieError(bad_magic_read)) = err {
         assert_eq!(bad_magic_read, bad_magic);
     } else {
         panic!("wrong error type: {:?}", err);
@@ -64,14 +64,14 @@ fn test_wrong_endianess() {
     v[8..10].copy_from_slice(&bad_version.to_ne_bytes());
 
     let err = <usize>::deserialize_full(&mut std::io::Cursor::new(&v));
-    if let Err(des::Error::MajorVersionMismatch(bad_version_read)) = err {
+    if let Err(deser::Error::MajorVersionMismatch(bad_version_read)) = err {
         assert_eq!(bad_version_read, bad_version);
     } else {
         panic!("wrong error type: {:?}", err);
     }
 
     let err = <usize>::deserialize_eps(&v);
-    if let Err(des::Error::MajorVersionMismatch(bad_version_read)) = err {
+    if let Err(deser::Error::MajorVersionMismatch(bad_version_read)) = err {
         assert_eq!(bad_version_read, bad_version);
     } else {
         panic!("wrong error type: {:?}", err);
@@ -83,14 +83,14 @@ fn test_wrong_endianess() {
     v[10..12].copy_from_slice(&bad_version.to_ne_bytes());
 
     let err = <usize>::deserialize_full(&mut std::io::Cursor::new(&v));
-    if let Err(des::Error::MinorVersionMismatch(bad_version_read)) = err {
+    if let Err(deser::Error::MinorVersionMismatch(bad_version_read)) = err {
         assert_eq!(bad_version_read, bad_version);
     } else {
         panic!("wrong error type {:?}", err);
     }
 
     let err = <usize>::deserialize_eps(&v);
-    if let Err(des::Error::MinorVersionMismatch(bad_version_read)) = err {
+    if let Err(deser::Error::MinorVersionMismatch(bad_version_read)) = err {
         assert_eq!(bad_version_read, bad_version);
     } else {
         panic!("wrong error type {:?}", err);
@@ -108,7 +108,7 @@ fn test_wrong_endianess() {
     let i8_hash = type_hasher.finish();
 
     let err = <i8>::deserialize_full(&mut std::io::Cursor::new(&v));
-    if let Err(des::Error::WrongTypeHash {
+    if let Err(deser::Error::WrongTypeHash {
         got_type_name,
         got,
         expected,
@@ -123,7 +123,7 @@ fn test_wrong_endianess() {
         panic!("wrong error type: {:?}", err);
     }
     let err = <i8>::deserialize_eps(&v);
-    if let Err(des::Error::WrongTypeHash {
+    if let Err(deser::Error::WrongTypeHash {
         got_type_name,
         got,
         expected,

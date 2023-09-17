@@ -30,7 +30,7 @@ impl<'a> SliceWithPos<'a> {
     }
 
     /// Return a reference, backed by the `data` field, to a zero-copy type.
-    pub fn deserialize_eps_zero<T: ZeroCopy>(&mut self) -> des::Result<&'a T> {
+    pub fn deserialize_eps_zero<T: ZeroCopy>(&mut self) -> deser::Result<&'a T> {
         let bytes = core::mem::size_of::<T>();
         // a slice can onlgity be deserialized with zero copy
         // outerwise you need a vec, TODO!: how do we enforce this at compile time?
@@ -45,7 +45,7 @@ impl<'a> SliceWithPos<'a> {
 
     /// Return a reference, backed by the `data` field,
     /// to a slice whose elements are of zero-copy type.
-    pub fn deserialize_slice_zero<T: ZeroCopy>(&mut self) -> des::Result<&'a [T]> {
+    pub fn deserialize_slice_zero<T: ZeroCopy>(&mut self) -> deser::Result<&'a [T]> {
         let len = usize::_deserialize_full_inner(self)?;
         let bytes = len * core::mem::size_of::<T>();
         // a slice can only be deserialized with zero copy
@@ -61,7 +61,7 @@ impl<'a> SliceWithPos<'a> {
     /// Return a fully deserialized vector of elements
     pub fn deserialize_vec_eps_eps<T: DeepCopy + DeserializeInner>(
         &mut self,
-    ) -> des::Result<Vec<<T as DeserializeInner>::DeserType<'a>>> {
+    ) -> deser::Result<Vec<<T as DeserializeInner>::DeserType<'a>>> {
         let len = usize::_deserialize_full_inner(self)?;
         let mut res = Vec::with_capacity(len);
         for _ in 0..len {
@@ -72,7 +72,7 @@ impl<'a> SliceWithPos<'a> {
 }
 
 impl<'a> ReadNoStd for SliceWithPos<'a> {
-    fn read_exact(&mut self, buf: &mut [u8]) -> des::Result<()> {
+    fn read_exact(&mut self, buf: &mut [u8]) -> deser::Result<()> {
         let len = buf.len();
         if len > self.data.len() {
             return Err(Error::ReadError);
@@ -93,7 +93,7 @@ impl<'a> ReadWithPos for SliceWithPos<'a> {
     ///
     /// Note that this method also checks that
     /// the absolute memory position is properly aligned.
-    fn align<T: MaxSizeOf>(&mut self) -> des::Result<()> {
+    fn align<T: MaxSizeOf>(&mut self) -> deser::Result<()> {
         // Skip bytes as needed
         let padding = crate::pad_align_to(self.pos, T::max_size_of());
         self.skip(padding);

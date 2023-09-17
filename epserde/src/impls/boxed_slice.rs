@@ -12,7 +12,7 @@ Implementations for boxed slices.
 */
 use crate::prelude::*;
 use core::hash::Hash;
-use des::*;
+use deser::*;
 use ser::*;
 
 impl<T> CopyType for Box<[T]> {
@@ -58,7 +58,7 @@ where
 {
     type DeserType<'a> = <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
     #[inline(always)]
-    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_inner_impl(
             backend,
         )
@@ -67,7 +67,7 @@ where
     #[inline(always)]
     fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
-    ) -> des::Result<<Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>> {
+    ) -> deser::Result<<Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>> {
         <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_eps_inner_impl(backend)
     }
 }
@@ -76,13 +76,13 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Box<[
     type FullType = Self;
     type DeserType<'a> = &'a [T];
     #[inline(always)]
-    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(backend.deserialize_vec_full_zero()?.into_boxed_slice())
     }
     #[inline(always)]
     fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
-    ) -> des::Result<<Self as DeserializeInner>::DeserType<'a>> {
+    ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
         backend.deserialize_slice_zero()
     }
 }
@@ -91,13 +91,13 @@ impl<T: DeepCopy + DeserializeInner + 'static> DeserializeHelper<Deep> for Box<[
     type FullType = Self;
     type DeserType<'a> = Box<[<T as DeserializeInner>::DeserType<'a>]>;
     #[inline(always)]
-    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(backend.deserialize_vec_full_eps()?.into_boxed_slice())
     }
     #[inline(always)]
     fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
-    ) -> des::Result<<Self as DeserializeInner>::DeserType<'a>> {
+    ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
         Ok(backend.deserialize_vec_eps_eps::<T>()?.into_boxed_slice())
     }
 }

@@ -13,7 +13,7 @@ Implementations for strings.
 
 use crate::prelude::*;
 use core::hash::Hash;
-use des::*;
+use deser::*;
 use ser::*;
 
 impl CopyType for String {
@@ -51,7 +51,7 @@ impl SerializeInner for String {
 }
 
 impl DeserializeInner for String {
-    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let slice = backend.deserialize_vec_full_zero()?;
         Ok(String::from_utf8(slice).unwrap())
     }
@@ -59,7 +59,7 @@ impl DeserializeInner for String {
     #[inline(always)]
     fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
-    ) -> des::Result<Self::DeserType<'a>> {
+    ) -> deser::Result<Self::DeserType<'a>> {
         let slice = backend.deserialize_slice_zero()?;
         Ok(unsafe {
             #[allow(clippy::transmute_bytes_to_str)]
@@ -84,14 +84,14 @@ impl SerializeInner for Box<str> {
 
 impl DeserializeInner for Box<str> {
     #[inline(always)]
-    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(String::_deserialize_full_inner(backend)?.into_boxed_str())
     }
     type DeserType<'a> = &'a str;
     #[inline(always)]
     fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
-    ) -> des::Result<Self::DeserType<'a>> {
+    ) -> deser::Result<Self::DeserType<'a>> {
         String::_deserialize_eps_inner(backend)
     }
 }

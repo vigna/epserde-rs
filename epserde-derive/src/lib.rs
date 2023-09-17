@@ -182,7 +182,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
         ..
     } = CommonDeriveInput::new(
         derive_input.clone(),
-        vec![syn::parse_quote!(epserde::des::DeserializeInner)],
+        vec![syn::parse_quote!(epserde::deser::DeserializeInner)],
     );
 
     let out = match derive_input.data {
@@ -231,7 +231,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .iter()
                         .any(|x| x.to_token_stream().to_string() == ty.to_string())
                     {
-                        quote!(<#ty as epserde::des::DeserializeInner>::DeserType<'epserde_desertype>)
+                        quote!(<#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
                     } else {
                         ty.clone()
                     }
@@ -275,7 +275,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                 gt_token: token::Gt::default(),
                             }),
                             bounded_ty: syn::parse_quote!(
-                                <#ty as epserde::des::DeserializeInner>::DeserType<'epserde_desertype>
+                                <#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
                             ),
                             colon_token: token::Colon::default(),
                             bounds: t.bounds.clone(),
@@ -307,20 +307,20 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_des
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#generics_names> #where_clause_des
                     {
                         fn _deserialize_full_inner(
-                            backend: &mut impl epserde::des::ReadWithPos,
-                        ) -> core::result::Result<Self, epserde::des::Error> {
-                            use epserde::des::DeserializeInner;
+                            backend: &mut impl epserde::deser::ReadWithPos,
+                        ) -> core::result::Result<Self, epserde::deser::Error> {
+                            use epserde::deser::DeserializeInner;
                             backend.deserialize_full_zero::<Self>()
                         }
 
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#(#desser_type_generics,)*>;
 
                         fn _deserialize_eps_inner<'a>(
-                            backend: &mut epserde::des::SliceWithPos<'a>,
-                        ) -> core::result::Result<Self::DeserType<'a>, epserde::des::Error>
+                            backend: &mut epserde::deser::SliceWithPos<'a>,
+                        ) -> core::result::Result<Self::DeserType<'a>, epserde::deser::Error>
                         {
                             backend.deserialize_eps_zero::<Self>()
                         }
@@ -357,11 +357,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::des::DeserializeInner for #name<#generics_names> #where_clause_des {
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#generics_names> #where_clause_des {
                         fn _deserialize_full_inner(
-                            backend: &mut impl epserde::des::ReadWithPos,
-                        ) -> core::result::Result<Self, epserde::des::Error> {
-                            use epserde::des::DeserializeInner;
+                            backend: &mut impl epserde::deser::ReadWithPos,
+                        ) -> core::result::Result<Self, epserde::deser::Error> {
+                            use epserde::deser::DeserializeInner;
                             #(
                                 let #fields_names = <#fields_types>::_deserialize_full_inner(backend)?;
                             )*
@@ -373,10 +373,10 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         type DeserType<'epserde_desertype> = #name<#(#desser_type_generics,)*>;
 
                         fn _deserialize_eps_inner<'a>(
-                            backend: &mut epserde::des::SliceWithPos<'a>,
-                        ) -> core::result::Result<Self::DeserType<'a>, epserde::des::Error>
+                            backend: &mut epserde::deser::SliceWithPos<'a>,
+                        ) -> core::result::Result<Self::DeserType<'a>, epserde::deser::Error>
                         {
-                            use epserde::des::DeserializeInner;
+                            use epserde::deser::DeserializeInner;
                             #(
                                 let #fields_names = <#fields_types>::#methods(backend)?;
                             )*

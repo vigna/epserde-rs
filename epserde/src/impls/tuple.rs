@@ -14,11 +14,11 @@ are [`ZeroCopy`]. For tuples of more than 10 elements, or tuples with elements
 that are not [`ZeroCopy`], you must use [`epserde_derive::Epserde`] on a newtype.
 
 */
-use crate::des::DeserializeInner;
+use crate::deser::DeserializeInner;
 use crate::prelude::*;
 use crate::traits::TypeHash;
 use core::hash::Hash;
-use des::*;
+use deser::*;
 use ser::*;
 
 macro_rules! impl_tuples {
@@ -78,13 +78,13 @@ macro_rules! impl_tuples {
 
 		impl<$($t: ZeroCopy + TypeHash + ReprHash + 'static,)*> DeserializeInner for ($($t,)*) {
             type DeserType<'a> = &'a ($($t,)*);
-            fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+            fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
                 backend.deserialize_full_zero::<($($t,)*)>()
             }
 
             fn _deserialize_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
-                ) -> des::Result<Self::DeserType<'a>> {
+                ) -> deser::Result<Self::DeserType<'a>> {
                 backend.deserialize_eps_zero::<($($t,)*)>()
             }
         }

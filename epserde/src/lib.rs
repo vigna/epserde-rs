@@ -23,20 +23,20 @@ use std::io::Cursor;
 #[cfg(feature = "derive")]
 pub use epserde_derive::{Epserde, TypeHash};
 
-pub mod des;
+pub mod deser;
 pub mod impls;
 pub mod ser;
 pub mod traits;
 
 pub mod prelude {
-    pub use crate::des;
-    pub use crate::des::Deserialize;
-    pub use crate::des::DeserializeHelper;
-    pub use crate::des::DeserializeInner;
-    pub use crate::des::Flags;
-    pub use crate::des::MemCase;
-    pub use crate::des::ReadWithPos;
-    pub use crate::des::SliceWithPos;
+    pub use crate::deser;
+    pub use crate::deser::Deserialize;
+    pub use crate::deser::DeserializeHelper;
+    pub use crate::deser::DeserializeInner;
+    pub use crate::deser::Flags;
+    pub use crate::deser::MemCase;
+    pub use crate::deser::ReadWithPos;
+    pub use crate::deser::SliceWithPos;
     pub use crate::ser;
     pub use crate::ser::Serialize;
     pub use crate::ser::SerializeHelper;

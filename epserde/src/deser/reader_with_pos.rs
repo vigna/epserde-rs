@@ -19,7 +19,7 @@ use core::mem::MaybeUninit;
 /// for in-memory deserialization.
 pub trait ReadNoStd {
     /// Read some bytes
-    fn read_exact(&mut self, buf: &mut [u8]) -> des::Result<()>;
+    fn read_exact(&mut self, buf: &mut [u8]) -> deser::Result<()>;
 }
 
 #[cfg(feature = "std")]
@@ -27,8 +27,8 @@ use std::io::Read;
 #[cfg(feature = "std")]
 impl<W: Read> ReadNoStd for W {
     #[inline(always)]
-    fn read_exact(&mut self, buf: &mut [u8]) -> des::Result<()> {
-        Read::read_exact(self, buf).map_err(|_| des::Error::ReadError)
+    fn read_exact(&mut self, buf: &mut [u8]) -> deser::Result<()> {
+        Read::read_exact(self, buf).map_err(|_| deser::Error::ReadError)
     }
 }
 
@@ -41,10 +41,10 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     fn pos(&self) -> usize;
 
     /// Pad the cursor to the provided `align_of` value.
-    fn align<T: MaxSizeOf>(&mut self) -> des::Result<()>;
+    fn align<T: MaxSizeOf>(&mut self) -> deser::Result<()>;
 
     /// Fully deserialize a zero-copy type from the backend after aligning it.
-    fn deserialize_full_zero<T: ZeroCopy>(&mut self) -> des::Result<T> {
+    fn deserialize_full_zero<T: ZeroCopy>(&mut self) -> deser::Result<T> {
         self.align::<T>()?;
         unsafe {
             #[allow(clippy::uninit_assumed_init)]
@@ -62,7 +62,9 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     ///
     /// Note that this method uses a single [`ReadNoStd::read_exact`]
     /// call to read the entire vector.
-    fn deserialize_vec_full_zero<T: DeserializeInner + ZeroCopy>(&mut self) -> des::Result<Vec<T>> {
+    fn deserialize_vec_full_zero<T: DeserializeInner + ZeroCopy>(
+        &mut self,
+    ) -> deser::Result<Vec<T>> {
         let len = usize::_deserialize_full_inner(self)?;
         self.align::<T>()?;
         let mut res = Vec::with_capacity(len);
@@ -78,7 +80,9 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     }
 
     /// Deserializes fully a vector of [`DeepCopy`] types.
-    fn deserialize_vec_full_eps<T: DeserializeInner + DeepCopy>(&mut self) -> des::Result<Vec<T>> {
+    fn deserialize_vec_full_eps<T: DeserializeInner + DeepCopy>(
+        &mut self,
+    ) -> deser::Result<Vec<T>> {
         let len = usize::_deserialize_full_inner(self)?;
         let mut res = Vec::with_capacity(len);
         for _ in 0..len {
@@ -106,7 +110,7 @@ impl<'a, F: ReadNoStd> ReaderWithPos<'a, F> {
 }
 
 impl<'a, F: ReadNoStd> ReadNoStd for ReaderWithPos<'a, F> {
-    fn read_exact(&mut self, buf: &mut [u8]) -> des::Result<()> {
+    fn read_exact(&mut self, buf: &mut [u8]) -> deser::Result<()> {
         self.backend.read_exact(buf)?;
         self.pos += buf.len();
         Ok(())
@@ -118,7 +122,7 @@ impl<'a, F: ReadNoStd> ReadWithPos for ReaderWithPos<'a, F> {
         self.pos
     }
 
-    fn align<T: MaxSizeOf>(&mut self) -> des::Result<()> {
+    fn align<T: MaxSizeOf>(&mut self) -> deser::Result<()> {
         // Skip bytes as needed
         let padding = crate::pad_align_to(self.pos, T::max_size_of());
         self.read_exact(&mut vec![0; padding])?;
