@@ -46,7 +46,7 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     /// Return the current position.
     fn pos(&self) -> usize;
 
-    /// Pad the cursor to the provided `align_of` value.
+    /// Pad the cursor to the next multiple of [`MaxSizeOf::max_size_of`] 'T'.
     fn align<T: MaxSizeOf>(&mut self) -> deser::Result<()>;
 
     /// Fully deserialize a zero-copy type from the backend after aligning it.
@@ -68,7 +68,7 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     ///
     /// Note that this method uses a single [`ReadNoStd::read_exact`]
     /// call to read the entire vector.
-    fn deserialize_vec_full_zero<T: DeserializeInner + ZeroCopy>(
+    fn deserialize_full_vec_zero<T: DeserializeInner + ZeroCopy>(
         &mut self,
     ) -> deser::Result<Vec<T>> {
         let len = usize::_deserialize_full_inner(self)?;
@@ -85,8 +85,8 @@ pub trait ReadWithPos: ReadNoStd + Sized {
         Ok(res)
     }
 
-    /// Deserializes fully a vector of [`DeepCopy`] types.
-    fn deserialize_vec_full_eps<T: DeserializeInner + DeepCopy>(
+    /// Fully deserialize a vector of [`DeepCopy`] types.
+    fn deserialize_full_vec_deep<T: DeserializeInner + DeepCopy>(
         &mut self,
     ) -> deser::Result<Vec<T>> {
         let len = usize::_deserialize_full_inner(self)?;

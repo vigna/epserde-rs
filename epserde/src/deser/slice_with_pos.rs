@@ -45,7 +45,7 @@ impl<'a> SliceWithPos<'a> {
 
     /// Return a reference, backed by the `data` field,
     /// to a slice whose elements are of zero-copy type.
-    pub fn deserialize_slice_zero<T: ZeroCopy>(&mut self) -> deser::Result<&'a [T]> {
+    pub fn deserialize_eps_slice_zero<T: ZeroCopy>(&mut self) -> deser::Result<&'a [T]> {
         let len = usize::_deserialize_full_inner(self)?;
         let bytes = len * core::mem::size_of::<T>();
         // a slice can only be deserialized with zero copy
@@ -59,7 +59,7 @@ impl<'a> SliceWithPos<'a> {
     }
 
     /// Return a fully deserialized vector of elements
-    pub fn deserialize_vec_eps_eps<T: DeepCopy + DeserializeInner>(
+    pub fn deserialize_eps_vec_deep<T: DeepCopy + DeserializeInner>(
         &mut self,
     ) -> deser::Result<Vec<<T as DeserializeInner>::DeserType<'a>>> {
         let len = usize::_deserialize_full_inner(self)?;

@@ -87,13 +87,13 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T
     type DeserType<'a> = &'a [T];
     #[inline(always)]
     fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        backend.deserialize_vec_full_zero()
+        backend.deserialize_full_vec_zero()
     }
     #[inline(always)]
     fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
-        backend.deserialize_slice_zero()
+        backend.deserialize_eps_slice_zero()
     }
 }
 
@@ -102,12 +102,12 @@ impl<T: DeepCopy + DeserializeInner + 'static> DeserializeHelper<Deep> for Vec<T
     type DeserType<'a> = Vec<<T as DeserializeInner>::DeserType<'a>>;
     #[inline(always)]
     fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        backend.deserialize_vec_full_eps()
+        backend.deserialize_full_vec_deep()
     }
     #[inline(always)]
     fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
-        backend.deserialize_vec_eps_eps::<T>()
+        backend.deserialize_eps_vec_deep::<T>()
     }
 }

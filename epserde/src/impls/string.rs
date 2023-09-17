@@ -56,7 +56,7 @@ impl SerializeInner for String {
 
 impl DeserializeInner for String {
     fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        let slice = backend.deserialize_vec_full_zero()?;
+        let slice = backend.deserialize_full_vec_zero()?;
         Ok(String::from_utf8(slice).unwrap())
     }
     type DeserType<'a> = &'a str;
@@ -64,7 +64,7 @@ impl DeserializeInner for String {
     fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let slice = backend.deserialize_slice_zero()?;
+        let slice = backend.deserialize_eps_slice_zero()?;
         Ok(unsafe {
             #[allow(clippy::transmute_bytes_to_str)]
             core::mem::transmute::<&'_ [u8], &'_ str>(slice)
