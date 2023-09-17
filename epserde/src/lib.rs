@@ -21,7 +21,7 @@ extern crate epserde_derive;
 use std::io::Cursor;
 
 #[cfg(feature = "derive")]
-pub use epserde_derive::{Epserde, TypeHash};
+pub use epserde_derive::Epserde;
 
 pub mod deser;
 pub mod impls;
@@ -43,7 +43,7 @@ pub mod prelude {
     pub use crate::ser::SerializeInner;
     pub use crate::traits::*;
     #[cfg(feature = "derive")]
-    pub use epserde_derive::{Epserde, TypeHash};
+    pub use epserde_derive::Epserde;
 }
 
 /// (Major, Minor) version of the file format, this follows semantic versioning

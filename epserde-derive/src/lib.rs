@@ -32,7 +32,7 @@ struct CommonDeriveInput {
     /// A vector containing the name of generics types, represented as strings.
     generics_names_raw: Vec<String>,
     /// A vector containing the identifier of the constants, represented as strings.
-    /// Used to include the const values into the [`TypeHash`].
+    /// Used to include the const values into the type hash.
     consts_names_raw: Vec<String>,
     /// The where clause.
     where_clause: proc_macro2::TokenStream,
@@ -401,7 +401,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
     out
 }
 
-#[proc_macro_derive(TypeHash)]
+#[proc_macro_derive(TypeInfo)]
 pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let (_, is_zero_copy, _) = check_attrs(&input);
@@ -416,7 +416,10 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         ..
     } = CommonDeriveInput::new(
         input.clone(),
-        vec![syn::parse_quote!(epserde::traits::TypeHash)],
+        vec![
+            syn::parse_quote!(epserde::traits::TypeHash),
+            syn::parse_quote!(epserde::traits::ReprHash),
+        ],
     );
 
     let out = match input.data {
@@ -552,7 +555,20 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
 
-                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause{}
+                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause{
+                        fn repr_hash(
+                            repr_hasher: &mut impl core::hash::Hasher,
+                            offset_of: &mut usize,
+                        ) {
+                            // Recurse on all fields after resetting offset_of. We might meet
+                            // zero-copy types, but we must add their representation in isolation
+                            // as they will be aligned.
+                            #(
+                                *offset_of = 0;
+                                <#fields_types as epserde::traits::ReprHash>::repr_hash(repr_hasher, offset_of);
+                            )*
+                        }
+                    }
                 }
             }
         }

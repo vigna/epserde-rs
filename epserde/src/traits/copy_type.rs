@@ -73,8 +73,8 @@ deserializable, `T` must implement `CopySelector<Type=Zero>`. The conditions for
 If this happen vectors of `T` or boxed slices of `T` can be ε-copy deserialized
 using a reference to a slice of `T`.
 
-You can implement `CopySelector<Type=Zero>` for your copy types, but you must ensure that the type does not
-contain references and has a fixed memory layout; for structures, this requires
+You can make zero-copy your own types, but you must ensure that they do not
+contain references and that they have a fixed memory layout; for structures, this requires
 `repr(C)`. ε-serde will track these conditions at compile time and check them at
 runtime: in case of failure, serialization will panic.
 
