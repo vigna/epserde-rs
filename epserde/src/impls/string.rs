@@ -30,15 +30,19 @@ impl TypeHash for String {
     }
 }
 
-impl ReprHash for String {}
+impl ReprHash for String {
+    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+}
 
-impl TypeHash for str {
+impl TypeHash for Box<str> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "str".hash(hasher);
     }
 }
 
-impl ReprHash for str {}
+impl ReprHash for Box<str> {
+    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+}
 
 impl SerializeInner for String {
     // Vec<$ty> can, but Vec<Vec<$ty>> cannot!

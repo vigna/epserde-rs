@@ -19,14 +19,21 @@ impl<T> CopyType for Box<[T]> {
     type Copy = Deep;
 }
 
-impl<T: TypeHash> TypeHash for [T] {
+impl<T: TypeHash> TypeHash for Box<[T]> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "Box[]".hash(hasher);
+        "[]".hash(hasher);
         T::type_hash(hasher);
     }
 }
 
-impl<T: CopyType + TypeHash + SerializeInner> SerializeInner for Box<[T]>
+impl<T: ReprHash> ReprHash for Box<[T]> {
+    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+        *offset_of = 0;
+        T::repr_hash(hasher, offset_of);
+    }
+}
+
+impl<T: CopyType + TypeHash + ReprHash + SerializeInner> SerializeInner for Box<[T]>
 where
     Box<[T]>: SerializeHelper<<T as CopyType>::Copy>,
 {

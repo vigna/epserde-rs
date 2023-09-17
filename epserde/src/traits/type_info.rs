@@ -7,7 +7,7 @@
 
 /*!
 
-Traits computing structural information about a type.
+Traits computing information about a type.
 
 */
 
@@ -45,17 +45,11 @@ pub trait TypeHash {
 /// [`core::mem::align_of`] the type, hashes in the type size, and
 /// finally increases `offset_of` by [`core::mem::size_of`] the type.
 ///
-/// The default implementation of [`ReprHash::repr_hash`] is used by
-/// deep-copy types and simply sets `offset_of` to zero, preparing
-/// the hasher for the next zero-copy type. If you override the
-/// default implementation for a deep-copy type you must maintain
-/// this invariant.
+/// The no-op default implementation of [`ReprHash::repr_hash`] is used by
+/// some basic deep-copy types.
 pub trait ReprHash {
-    /// Default implementation used by deep-copy types; simply sets `offset_of` to zero.
-    fn repr_hash(_hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        // The default impl
-        *offset_of = 0;
-    }
+    /// Default no-op implementation.
+    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize);
 
     /// Call [`ReprHash::repr_hash`] on a value.
     fn repr_hash_val(&self, hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
@@ -64,7 +58,7 @@ pub trait ReprHash {
 }
 
 /// A function providing a reasonable default
-/// implementation of [`ReprHash::repr_hash`] for basic types.
+/// implementation of [`ReprHash::repr_hash`] for basic sized types.
 pub(crate) fn std_repr_hash<T>(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
     let padding = pad_align_to(*offset_of, core::mem::align_of::<T>());
     padding.hash(hasher);

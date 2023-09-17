@@ -31,7 +31,12 @@ impl<T: TypeHash> TypeHash for Vec<T> {
     }
 }
 
-impl<T> ReprHash for Vec<T> {}
+impl<T: ReprHash> ReprHash for Vec<T> {
+    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+        *offset_of = 0;
+        T::repr_hash(hasher, offset_of);
+    }
+}
 
 impl<T: CopyType + SerializeInner + TypeHash> SerializeInner for Vec<T>
 where

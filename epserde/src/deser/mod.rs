@@ -22,11 +22,13 @@ use crate::{MAGIC, MAGIC_REV, VERSION};
 use core::ptr::addr_of_mut;
 use core::{hash::Hasher, mem::MaybeUninit};
 use std::{io::BufReader, path::Path};
-pub mod reader_with_pos;
-pub use reader_with_pos::*;
 
 pub mod mem_case;
 pub use mem_case::*;
+pub mod read;
+pub use read::*;
+pub mod reader_with_pos;
+pub use reader_with_pos::*;
 pub mod slice_with_pos;
 pub use slice_with_pos::*;
 
@@ -190,8 +192,8 @@ pub trait Deserialize: DeserializeInner {
 /// This implementation [checks the header](`check_header`) written
 /// by the blanket implementation of [`crate::ser::Serialize`] and then calls
 /// [`DeserializeInner::_deserialize_full_inner`] or
-/// [`DeserializeInner::_deserialize_eps_inner`].
 
+/// [`DeserializeInner::_deserialize_eps_inner`].
 impl<T: DeserializeInner> Deserialize for T {
     fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self> {
         let mut backend = ReaderWithPos::new(backend);

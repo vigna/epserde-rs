@@ -197,7 +197,9 @@ impl<T: TypeHash> TypeHash for PhantomData<T> {
     fn type_hash(_hasher: &mut impl core::hash::Hasher) {}
 }
 
-impl<T> ReprHash for PhantomData<T> {}
+impl<T: ReprHash> ReprHash for PhantomData<T> {
+    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+}
 
 impl<T: SerializeInner> SerializeInner for PhantomData<T> {
     const IS_ZERO_COPY: bool = false;
@@ -237,7 +239,12 @@ impl<T: TypeHash> TypeHash for Option<T> {
     }
 }
 
-impl<T> ReprHash for Option<T> {}
+impl<T: ReprHash> ReprHash for Option<T> {
+    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+        *offset_of = 0;
+        T::repr_hash(hasher, offset_of);
+    }
+}
 
 impl<T: SerializeInner> SerializeInner for Option<T> {
     const IS_ZERO_COPY: bool = false;
