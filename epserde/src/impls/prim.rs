@@ -49,7 +49,7 @@ macro_rules! impl_prim_type_hash {
 macro_rules! impl_prim_ser_des {
     ($($ty:ty),*) => {$(
 		impl SerializeInner for $ty {
-            // Note that primitive types are declared zero copy to be able to
+            // Note that primitive types are declared zero-copy to be able to
             // be part of zero-copy types, but we actually deserialize
             // them in isolation as values.
             const IS_ZERO_COPY: bool = true;

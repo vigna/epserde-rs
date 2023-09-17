@@ -45,21 +45,21 @@ impl<W: Write> WriteNoStd for W {
     }
 }
 
-/// A little wrapper around a writer that keeps track of the current position
+/// A wrapper around a writer that keeps track of the current position
 /// so we can align the data.
 ///
 /// This is needed because the [`Write`] trait doesn't have a `seek` method and
 /// [`std::io::Seek`] would be a requirement much stronger than needed.
 pub struct WriteWithPos<'a, F: WriteNoStd> {
-    /// What we actually write on
+    /// What we actually write on.
     backend: &'a mut F,
-    /// How many bytes we have written from the start
+    /// How many bytes we have written from the start.
     pos: usize,
 }
 
 impl<'a, F: WriteNoStd> WriteWithPos<'a, F> {
     #[inline(always)]
-    /// Create a new [`WriteWithPos`] on top of a generic writer `F`
+    /// Create a new [`WriteWithPos`] on top of a generic [`WriteNoStd`] `F`.
     pub fn new(backend: &'a mut F) -> Self {
         Self { backend, pos: 0 }
     }

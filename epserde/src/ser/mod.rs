@@ -11,7 +11,9 @@ Serialization traits and types.
 
 [`Serialize`] is the main serialization trait, providing a
 [`Serialize::serialize`] method that serializes the type into a
-generic [`WriteNoStd`] backend. The implementation of this trait
+generic [`WriteNoStd`] backend, and a [`Serialize::serialize_with_schema`] method
+that additionally returns a [`Schema`] describing the data that has been written.
+The implementation of this trait
 is based on [`SerializeInner`], which is automatically derived
 with `#[derive(Serialize)]`.
 
@@ -86,19 +88,19 @@ pub trait Serialize {
 ///
 /// The user should not implement this trait directly, but rather derive it.
 pub trait SerializeInner: TypeHash + ReprHash + Sized {
-    /// Inner constant used to keep track recursively if the type
-    /// satisfies the condition for being zero-copy. It is checked
+    /// Inner constant used by the derive macros to keep
+    /// track recursively of whether the type
+    /// satisfies the conditions for being zero-copy. It is checked
     /// at runtime against the trait implemented by the type, and
     /// if a [`ZeroCopy`] type has this constant set to `false`
     /// serialization will panic.
     const IS_ZERO_COPY: bool;
 
-    /// Inner constant that keeps track of whether a type has been not declared
-    /// deep-copy, has not been declared zero-copy, but nonetheless all its
-    /// fields are zero-copy. It is checked
-    /// at runtime against the trait implemented by the type, and
-    /// if a type which is neither [`ZeroCopy`] nor [`DeepCopy`]
-    /// has this constant set to `true` a warning will be issued.
+    /// Inner constant used by the derive macros to keep
+    /// track of whether all fields of a type are zero-copy
+    /// but neither the attribute `#[zero_copy]` nor the attribute `#[deep_copy]`
+    /// was specified. It is checked at runtime, and if it is true
+    /// attribute a warning will be issued, as the type could be zero-copy.
     const ZERO_COPY_MISMATCH: bool;
 
     /// Serialize this structure using the given backend.
@@ -129,6 +131,7 @@ pub fn write_header<T: TypeHash + ReprHash>(backend: &mut impl FieldWrite) -> Re
 
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
     T::type_hash(&mut type_hasher);
+
     let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
     let mut offset_of = 0;
     T::repr_hash(&mut repr_hasher, &mut offset_of);

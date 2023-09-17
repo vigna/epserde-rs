@@ -19,8 +19,7 @@ pub trait FieldWrite: WriteNoStd + Sized {
     /// Get how many bytes we wrote since the start of the serialization.
     fn pos(&self) -> usize;
 
-    #[inline(always)]
-    /// Add some zero padding so that `self.get_pos() % align_of::<V>() == 0.`
+    /// Add some zero padding so that `self.pos() % V:max_size_of() == 0.`
     fn align<V: MaxSizeOf>(&mut self) -> Result<()> {
         let padding = pad_align_to(self.pos(), V::max_size_of());
         for _ in 0..padding {
@@ -29,13 +28,19 @@ pub trait FieldWrite: WriteNoStd + Sized {
         Ok(())
     }
 
-    /// This is the actual implementation of [`FieldWrite::write_field`]. It can be used
+    /// This is the actual implementation of [`FieldWrite::write_field`], which
+    /// delegates to [`SerializeInner::_serialize_inner`].
+    ///
+    /// It can be used
     /// by implementing types to simulate a call to the default implementation.
     #[inline(always)]
     fn do_write_field(&mut self, _field_name: &str, value: &impl SerializeInner) -> Result<()> {
         value._serialize_inner(self)
     }
 
+    /// Writes a field to the given backend.
+    ///
+    /// This method is used for full-copy types and ancillary data such as slice lengths.
     fn write_field<V: SerializeInner>(&mut self, field_name: &str, value: &V) -> Result<()> {
         self.do_write_field(field_name, value)
     }
@@ -48,12 +53,17 @@ pub trait FieldWrite: WriteNoStd + Sized {
         self.write_all(value)
     }
 
-    /// Write raw bytes aligned to the `align_to::<V>()`.
+    /// Write raw bytes [aligned](FieldWrite::align) using `V`.
+    ///
+    /// This method is used by [`FieldWrite::write_field_zero`] and
+    /// [`FieldWrite::write_slice_zero`] to write zero-copy types.
     fn write_bytes<V: ZeroCopy>(&mut self, field_name: &str, value: &[u8]) -> Result<()> {
         self.do_write_bytes::<V>(field_name, value)
     }
 
-    /// Writes a single aligned zero-copy value.
+    /// Writes an [aligned](FieldWrite::align) zero-copy value.
+    ///
+    /// Here we check [that the type is actually zero-copy](SerializeInner::IS_ZERO_COPY).
     fn write_field_zero<V: ZeroCopy + SerializeInner>(
         &mut self,
         field_name: &str,
@@ -61,7 +71,7 @@ pub trait FieldWrite: WriteNoStd + Sized {
     ) -> super::ser::Result<()> {
         if !V::IS_ZERO_COPY {
             panic!(
-                "Cannot serialize deep-copy type {} declared as zero copy",
+                "Cannot serialize deep-copy type {} declared as zero-copy",
                 core::any::type_name::<Self>()
             );
         }
@@ -72,12 +82,12 @@ pub trait FieldWrite: WriteNoStd + Sized {
         self.write_bytes::<V>(field_name, buffer)
     }
 
-    /// Write a slice by encoding its length first, and then the contents properly aligned.
+    /// Write a slice by encoding its length first, and then the contents.
     fn write_slice<V: SerializeInner>(&mut self, data: &[V]) -> Result<()> {
         let len = data.len();
         self.write_field("len", &len)?;
         if V::ZERO_COPY_MISMATCH {
-            eprintln!("Type {} is zero copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<V>());
+            eprintln!("Type {} is zero-copy, but it has not declared as such; use the #full_copy attribute to silence this warning", core::any::type_name::<V>());
         }
         for item in data.iter() {
             self.write_field("item", item)?;
@@ -85,13 +95,16 @@ pub trait FieldWrite: WriteNoStd + Sized {
         Ok(())
     }
 
-    /// Write an aligned slice by encoding its length first, and then the contents properly aligned.
+    /// Write a slice of zero-copy structures by encoding
+    /// its length first, and then the contents properly [aligned](FieldWrite::align) .
+    ///
+    /// Here we check [that the type is actually zero-copy](SerializeInner::IS_ZERO_COPY).
     fn write_slice_zero<V: SerializeInner + ZeroCopy>(&mut self, data: &[V]) -> Result<()> {
         let len = data.len();
         self.write_field("len", &len)?;
         if !V::IS_ZERO_COPY {
             panic!(
-                "Cannot serialize non zero-copy type {} declared as zero copy",
+                "Cannot serialize non zero-copy type {} declared as zero-copy",
                 core::any::type_name::<V>()
             );
         }
