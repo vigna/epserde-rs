@@ -21,10 +21,10 @@ fn test_box_slice_usize() -> Result<()> {
     let mut cursor = epserde::new_aligned_cursor();
     a.serialize(&mut cursor)?;
     cursor.set_position(0);
-    let b = <Vec<i32>>::deserialize_full_copy(&mut cursor)?;
+    let b = <Vec<i32>>::deserialize_full(&mut cursor)?;
     assert_eq!(a, b.as_slice());
     let backend = cursor.into_inner();
-    let b = <Vec<i32>>::deserialize_eps_copy(&backend)?;
+    let b = <Vec<i32>>::deserialize_eps(&backend)?;
     assert_eq!(a, b);
     Ok(())
 }

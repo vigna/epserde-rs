@@ -10,7 +10,7 @@
 Deserialization traits and types
 
 [`Deserialize`] is the main deserialization trait, providing methods
-[`Deserialize::deserialize_eps_copy`] and [`Deserialize::deserialize_full_copy`]
+[`Deserialize::deserialize_eps`] and [`Deserialize::deserialize_full`]
 which implement ε-copy and full-copy deserialization, respectively.
 The implementation of this trait is based on [`DeserializeInner`],
 which is automatically derived with `#[derive(Deserialize)]`.
@@ -41,15 +41,15 @@ pub type Result<T> = core::result::Result<T, Error>;
 /// [`Deserialize::load_full`], [`Deserialize::load_mem`], and [`Deserialize::mmap`].
 pub trait Deserialize: DeserializeInner {
     /// Fully deserialize a structure of this type from the given backend.
-    fn deserialize_full_copy(backend: &mut impl ReadNoStd) -> Result<Self>;
+    fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self>;
     /// ε-copy deserialize a structure of this type from the given backend.
-    fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
+    fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
 
     /// Commodity method to fully deserialize from a file.
     fn load_full(path: impl AsRef<Path>) -> Result<Self> {
         let file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
         let mut buf_reader = BufReader::new(file);
-        Self::deserialize_full_copy(&mut buf_reader)
+        Self::deserialize_full(&mut buf_reader)
     }
 
     /// Load a file into heap-allocated memory and ε-deserialize a data structure from it,
@@ -89,7 +89,7 @@ pub trait Deserialize: DeserializeInner {
         }
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_ref().unwrap() };
-        let s = Self::deserialize_eps_copy(mem)?;
+        let s = Self::deserialize_eps(mem)?;
         // write the deserialized struct in the memcase
         unsafe {
             addr_of_mut!((*ptr).0).write(s);
@@ -133,7 +133,7 @@ pub trait Deserialize: DeserializeInner {
         }
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_ref().unwrap() };
-        let s = Self::deserialize_eps_copy(mem)?;
+        let s = Self::deserialize_eps(mem)?;
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(s);
@@ -174,7 +174,7 @@ pub trait Deserialize: DeserializeInner {
 
         let mmap = unsafe { (*ptr).1.as_ref().unwrap() };
         // deserialize the data structure
-        let s = Self::deserialize_eps_copy(mmap)?;
+        let s = Self::deserialize_eps(mmap)?;
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(s);
@@ -189,11 +189,11 @@ pub trait Deserialize: DeserializeInner {
 ///
 /// This implementation [checks the header](`check_header`) written
 /// by the blanket implementation of [`crate::ser::Serialize`] and then calls
-/// [`DeserializeInner::_deserialize_full_copy_inner`] or
-/// [`DeserializeInner::_deserialize_eps_copy_inner`].
+/// [`DeserializeInner::_deserialize_full_inner`] or
+/// [`DeserializeInner::_deserialize_eps_inner`].
 
 impl<T: DeserializeInner> Deserialize for T {
-    fn deserialize_full_copy(backend: &mut impl ReadNoStd) -> Result<Self> {
+    fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self> {
         let mut backend = ReaderWithPos::new(backend);
 
         let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
@@ -210,10 +210,10 @@ impl<T: DeserializeInner> Deserialize for T {
             self_repr_hash,
             core::any::type_name::<Self>().to_string(),
         )?;
-        Self::_deserialize_full_copy_inner(&mut backend)
+        Self::_deserialize_full_inner(&mut backend)
     }
 
-    fn deserialize_eps_copy(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
+    fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
         let mut backend = SliceWithPos::new(backend);
 
         let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
@@ -230,14 +230,14 @@ impl<T: DeserializeInner> Deserialize for T {
             self_repr_hash,
             core::any::type_name::<Self>().to_string(),
         )?;
-        Self::_deserialize_eps_copy_inner(&mut backend)
+        Self::_deserialize_eps_inner(&mut backend)
     }
 }
 
 /// Inner trait to implement deserialization of a type. This trait exists
 /// to separate the user-facing [`Deserialize`] trait from the low-level
-/// deserialization mechanisms of [`DeserializeInner::_deserialize_full_copy_inner`]
-/// and [`DeserializeInner::_deserialize_eps_copy_inner`]. Moreover,
+/// deserialization mechanisms of [`DeserializeInner::_deserialize_full_inner`]
+/// and [`DeserializeInner::_deserialize_eps_inner`]. Moreover,
 /// it makes it possible to behave slighly differently at the top
 /// of the recursion tree (e.g., to check the endianness marker), and to prevent
 /// the user from modifying the methods in [`Deserialize`].
@@ -245,11 +245,9 @@ impl<T: DeserializeInner> Deserialize for T {
 /// The user should not implement this trait directly, but rather derive it.
 pub trait DeserializeInner: TypeHash + ReprHash + Sized {
     type DeserType<'a>;
-    fn _deserialize_full_copy_inner(backend: &mut impl ReadWithPos) -> Result<Self>;
+    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> Result<Self>;
 
-    fn _deserialize_eps_copy_inner<'a>(
-        backend: &mut SliceWithPos<'a>,
-    ) -> Result<Self::DeserType<'a>>;
+    fn _deserialize_eps_inner<'a>(backend: &mut SliceWithPos<'a>) -> Result<Self::DeserType<'a>>;
 }
 
 /// Common code for both full-copy and zero-copy deserialization
@@ -260,32 +258,32 @@ pub fn check_header(
     self_repr_hash: u64,
     self_name: String,
 ) -> Result<()> {
-    let magic = u64::_deserialize_full_copy_inner(backend)?;
+    let magic = u64::_deserialize_full_inner(backend)?;
     match magic {
         MAGIC => Ok(()),
         MAGIC_REV => Err(Error::EndiannessError),
         magic => Err(Error::MagicCookieError(magic)),
     }?;
 
-    let major = u16::_deserialize_full_copy_inner(backend)?;
+    let major = u16::_deserialize_full_inner(backend)?;
     if major != VERSION.0 {
         return Err(Error::MajorVersionMismatch(major));
     }
-    let minor = u16::_deserialize_full_copy_inner(backend)?;
+    let minor = u16::_deserialize_full_inner(backend)?;
     if minor > VERSION.1 {
         return Err(Error::MinorVersionMismatch(minor));
     };
 
-    let usize_size = u8::_deserialize_full_copy_inner(backend)?;
+    let usize_size = u8::_deserialize_full_inner(backend)?;
     let usize_size = usize_size as usize;
     let native_usize_size = core::mem::size_of::<usize>();
     if usize_size != native_usize_size {
         return Err(Error::UsizeSizeMismatch(usize_size));
     };
 
-    let type_hash = u64::_deserialize_full_copy_inner(backend)?;
-    let repr_hash = u64::_deserialize_full_copy_inner(backend)?;
-    let type_name = String::_deserialize_full_copy_inner(backend)?;
+    let type_hash = u64::_deserialize_full_inner(backend)?;
+    let repr_hash = u64::_deserialize_full_inner(backend)?;
+    let type_name = String::_deserialize_full_inner(backend)?;
 
     if type_hash != self_type_hash {
         return Err(Error::WrongTypeHash {
@@ -314,8 +312,8 @@ pub trait DeserializeHelper<T: CopySelector> {
     // TODO: do we really need this?
     type FullType: TypeHash;
     type DeserType<'a>;
-    fn _deserialize_full_copy_inner_impl(backend: &mut impl ReadWithPos) -> Result<Self::FullType>;
-    fn _deserialize_eps_copy_inner_impl<'a>(
+    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> Result<Self::FullType>;
+    fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> Result<Self::DeserType<'a>>;
 }

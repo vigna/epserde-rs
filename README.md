@@ -107,13 +107,13 @@ let b = std::fs::read(&file).unwrap();
 
 // The type of t will be inferred--it is shown here only for clarity
 let t: &[usize; 1000] =
-    <[usize; 1000]>::deserialize_eps_copy(b.as_ref()).unwrap();
+    <[usize; 1000]>::deserialize_eps(b.as_ref()).unwrap();
 
 assert_eq!(s, *t);
 
 // This is a traditional deserialization instead
 let t: [usize; 1000] = 
-    <[usize; 1000]>::deserialize_full_copy(
+    <[usize; 1000]>::deserialize_full(
         &mut std::fs::File::open(&file).unwrap()
     ).unwrap();
 assert_eq!(s, t);
@@ -153,7 +153,7 @@ let b = std::fs::read(&file).unwrap();
 
 // The type of t will be inferred--it is shown here only for clarity
 let t: &[usize] =
-    <Vec<usize>>::deserialize_eps_copy(b.as_ref()).unwrap();
+    <Vec<usize>>::deserialize_eps(b.as_ref()).unwrap();
 
 assert_eq!(s, *t);
 
@@ -207,7 +207,7 @@ let b = std::fs::read(&file).unwrap();
 
 // The type of t will be inferred--it is shown here only for clarity
 let t: &[Data] =
-    <Vec<Data>>::deserialize_eps_copy(b.as_ref()).unwrap();
+    <Vec<Data>>::deserialize_eps(b.as_ref()).unwrap();
 
 assert_eq!(s, *t);
 
@@ -254,7 +254,7 @@ let b = std::fs::read(&file).unwrap();
 
 // The type of t will be inferred--it is shown here only for clarity
 let t: MyStruct<&[isize]> = 
-    <MyStruct<Vec<isize>>>::deserialize_eps_copy(b.as_ref()).unwrap();
+    <MyStruct<Vec<isize>>>::deserialize_eps(b.as_ref()).unwrap();
 
 assert_eq!(s.id, t.id);
 assert_eq!(s.data, Vec::from(t.data));
@@ -305,7 +305,7 @@ file.push("serialized4");
 s.store(&file);
 // Load the serialized form in a buffer
 let b = std::fs::read(&file).unwrap();
-let t = MyStruct::deserialize_eps_copy(b.as_ref()).unwrap();
+let t = MyStruct::deserialize_eps(b.as_ref()).unwrap();
 // We can call the method on both structures
 assert_eq!(s.sum(), t.sum());
 

@@ -74,19 +74,15 @@ where
 {
     type DeserType<'a> = <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
     #[inline(always)]
-    fn _deserialize_full_copy_inner(backend: &mut impl ReadWithPos) -> des::Result<Self> {
-        <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_copy_inner_impl(
-            backend,
-        )
+    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+        <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_inner_impl(backend)
     }
 
     #[inline(always)]
-    fn _deserialize_eps_copy_inner<'a>(
+    fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> des::Result<<[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>> {
-        <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_eps_copy_inner_impl(
-            backend,
-        )
+        <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_eps_inner_impl(backend)
     }
 }
 
@@ -94,7 +90,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper
     type FullType = Self;
     type DeserType<'a> = &'a [T; N];
     #[inline(always)]
-    fn _deserialize_full_copy_inner_impl(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> des::Result<Self> {
         let mut res = MaybeUninit::<[T; N]>::uninit();
         backend.align::<T>()?;
         // SAFETY: read_exact guarantees that the array will be filled with data.
@@ -105,7 +101,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper
     }
     #[inline(always)]
 
-    fn _deserialize_eps_copy_inner_impl<'a>(
+    fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> des::Result<<Self as DeserializeInner>::DeserType<'a>> {
         backend.align::<T>()?;
@@ -123,23 +119,23 @@ impl<T: DeepCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper
     type FullType = Self;
     type DeserType<'a> = [<T as DeserializeInner>::DeserType<'a>; N];
     #[inline(always)]
-    fn _deserialize_full_copy_inner_impl(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> des::Result<Self> {
         let mut res = MaybeUninit::<[T; N]>::uninit();
         unsafe {
             for item in &mut res.assume_init_mut().iter_mut() {
-                std::ptr::write(item, T::_deserialize_full_copy_inner(backend)?);
+                std::ptr::write(item, T::_deserialize_full_inner(backend)?);
             }
             Ok(res.assume_init())
         }
     }
     #[inline(always)]
-    fn _deserialize_eps_copy_inner_impl<'a>(
+    fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> des::Result<<Self as DeserializeInner>::DeserType<'a>> {
         let mut res = MaybeUninit::<<Self as DeserializeInner>::DeserType<'_>>::uninit();
         unsafe {
             for item in &mut res.assume_init_mut().iter_mut() {
-                std::ptr::write(item, T::_deserialize_eps_copy_inner(backend)?);
+                std::ptr::write(item, T::_deserialize_eps_inner(backend)?);
             }
             Ok(res.assume_init())
         }

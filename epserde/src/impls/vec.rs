@@ -65,19 +65,15 @@ where
 {
     type DeserType<'a> = <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
     #[inline(always)]
-    fn _deserialize_full_copy_inner(backend: &mut impl ReadWithPos) -> des::Result<Self> {
-        <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_copy_inner_impl(
-            backend,
-        )
+    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+        <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_inner_impl(backend)
     }
 
     #[inline(always)]
-    fn _deserialize_eps_copy_inner<'a>(
+    fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> des::Result<<Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>> {
-        <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_eps_copy_inner_impl(
-            backend,
-        )
+        <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_eps_inner_impl(backend)
     }
 }
 
@@ -85,11 +81,11 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T
     type FullType = Self;
     type DeserType<'a> = &'a [T];
     #[inline(always)]
-    fn _deserialize_full_copy_inner_impl(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> des::Result<Self> {
         backend.deserialize_vec_full_zero()
     }
     #[inline(always)]
-    fn _deserialize_eps_copy_inner_impl<'a>(
+    fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> des::Result<<Self as DeserializeInner>::DeserType<'a>> {
         backend.deserialize_slice_zero()
@@ -100,11 +96,11 @@ impl<T: DeepCopy + DeserializeInner + 'static> DeserializeHelper<Deep> for Vec<T
     type FullType = Self;
     type DeserType<'a> = Vec<<T as DeserializeInner>::DeserType<'a>>;
     #[inline(always)]
-    fn _deserialize_full_copy_inner_impl(backend: &mut impl ReadWithPos) -> des::Result<Self> {
+    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> des::Result<Self> {
         backend.deserialize_vec_full_eps()
     }
     #[inline(always)]
-    fn _deserialize_eps_copy_inner_impl<'a>(
+    fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> des::Result<<Self as DeserializeInner>::DeserType<'a>> {
         backend.deserialize_vec_eps_eps::<T>()

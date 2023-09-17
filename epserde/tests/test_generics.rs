@@ -40,13 +40,13 @@ fn test_inner_param_full() {
     let _bytes_written = person.serialize(&mut buf).unwrap();
 
     // Do a full-copy deserialization
-    let full = <Data<Vec<usize>, 2>>::deserialize_full_copy(&mut std::io::Cursor::new(&v)).unwrap();
+    let full = <Data<Vec<usize>, 2>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
     assert_eq!(person, full);
 
     println!();
 
     // Do an ε-copy deserialization
-    let eps = <Data<Vec<usize>, 2>>::deserialize_eps_copy(&v).unwrap();
+    let eps = <Data<Vec<usize>, 2>>::deserialize_eps(&v).unwrap();
     assert_eq!(person.a, eps.a);
     assert_eq!(person.b, eps.b);
 }
@@ -82,10 +82,9 @@ fn test_inner_param_eps() {
     let _bytes_written = data.serialize(&mut buf).unwrap();
 
     // Do a full-copy deserialization
-    let full =
-        <Data2<usize, Vec<usize>>>::deserialize_full_copy(&mut std::io::Cursor::new(&v)).unwrap();
+    let full = <Data2<usize, Vec<usize>>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
     assert_eq!(data, full);
     // Do an ε-copy deserialization
-    let eps = <Data2<usize, Vec<usize>>>::deserialize_eps_copy(&v).unwrap();
+    let eps = <Data2<usize, Vec<usize>>>::deserialize_eps(&v).unwrap();
     assert_eq!(data.a, eps.a);
 }

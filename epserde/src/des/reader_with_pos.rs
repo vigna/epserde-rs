@@ -63,7 +63,7 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     /// Note that this method uses a single [`ReadNoStd::read_exact`]
     /// call to read the entire vector.
     fn deserialize_vec_full_zero<T: DeserializeInner + ZeroCopy>(&mut self) -> des::Result<Vec<T>> {
-        let len = usize::_deserialize_full_copy_inner(self)?;
+        let len = usize::_deserialize_full_inner(self)?;
         self.align::<T>()?;
         let mut res = Vec::with_capacity(len);
         // SAFETY: we just allocated this vector so it is safe to set the length.
@@ -79,10 +79,10 @@ pub trait ReadWithPos: ReadNoStd + Sized {
 
     /// Deserializes fully a vector of [`DeepCopy`] types.
     fn deserialize_vec_full_eps<T: DeserializeInner + DeepCopy>(&mut self) -> des::Result<Vec<T>> {
-        let len = usize::_deserialize_full_copy_inner(self)?;
+        let len = usize::_deserialize_full_inner(self)?;
         let mut res = Vec::with_capacity(len);
         for _ in 0..len {
-            res.push(T::_deserialize_full_copy_inner(self)?);
+            res.push(T::_deserialize_full_inner(self)?);
         }
         Ok(res)
     }

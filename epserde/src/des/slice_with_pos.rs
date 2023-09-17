@@ -46,7 +46,7 @@ impl<'a> SliceWithPos<'a> {
     /// Return a reference, backed by the `data` field,
     /// to a slice whose elements are of zero-copy type.
     pub fn deserialize_slice_zero<T: ZeroCopy>(&mut self) -> des::Result<&'a [T]> {
-        let len = usize::_deserialize_full_copy_inner(self)?;
+        let len = usize::_deserialize_full_inner(self)?;
         let bytes = len * core::mem::size_of::<T>();
         // a slice can only be deserialized with zero copy
         // outerwise you need a vec, TODO!: how do we enforce this at compile time?
@@ -62,10 +62,10 @@ impl<'a> SliceWithPos<'a> {
     pub fn deserialize_vec_eps_eps<T: DeepCopy + DeserializeInner>(
         &mut self,
     ) -> des::Result<Vec<<T as DeserializeInner>::DeserType<'a>>> {
-        let len = usize::_deserialize_full_copy_inner(self)?;
+        let len = usize::_deserialize_full_inner(self)?;
         let mut res = Vec::with_capacity(len);
         for _ in 0..len {
-            res.push(T::_deserialize_eps_copy_inner(self)?);
+            res.push(T::_deserialize_eps_inner(self)?);
         }
         Ok(res)
     }

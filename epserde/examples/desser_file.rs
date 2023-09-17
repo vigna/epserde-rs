@@ -46,7 +46,7 @@ fn main() {
 
     // Do a full-copy deserialization
 
-    let full = Struct::deserialize_full_copy(&mut file).unwrap();
+    let full = Struct::deserialize_full(&mut file).unwrap();
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Struct>(),
@@ -58,7 +58,7 @@ fn main() {
 
     // Do an ε-copy deserialization
     let file = std::fs::read("test.bin").unwrap();
-    let eps = Struct::deserialize_eps_copy(&file).unwrap();
+    let eps = Struct::deserialize_eps(&file).unwrap();
     println!(
         " ε-copy deserialization type: {}",
         std::any::type_name::<<Struct as DeserializeInner>::DeserType<'_>>(),

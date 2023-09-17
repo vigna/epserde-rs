@@ -21,10 +21,10 @@ let a = vec![1, 2, 3, 4];
 let mut cursor = epserde::new_aligned_cursor();
 a.serialize(&mut cursor).unwrap();
 cursor.set_position(0);
-let b: Vec<i32> = <Vec<i32>>::deserialize_full_copy(&mut cursor).unwrap();
+let b: Vec<i32> = <Vec<i32>>::deserialize_full(&mut cursor).unwrap();
 assert_eq!(a, b);
 let buf = cursor.into_inner();
-let b: &[i32] = <Vec<i32>>::deserialize_eps_copy(&buf).unwrap();
+let b: &[i32] = <Vec<i32>>::deserialize_eps(&buf).unwrap();
 assert_eq!(a, *b);
 ```
 */
