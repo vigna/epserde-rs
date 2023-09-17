@@ -363,7 +363,7 @@ struct containing a single field of primitive type.
 Deep-copy types instead are serialized and deserialized recursively, field by field.
 The basic idea in ε-serde is that *if a field has a type that is a parameter, during
 ε-copy deserialization the type will be replaced with its deserialization type*. Since
-this happens recursively, replacement can happen at any depth level. For example,
+the deserialization type is defined recursively, replacement can happen at any depth level. For example,
 a `Vec<Vec<Vec<usize>>>` will be deserialized as a `Vec<Vec<&[usize]>>` 
 
 This approach makes it possible to write ε-serde-aware structures that hide completely

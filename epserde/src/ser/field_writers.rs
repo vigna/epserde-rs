@@ -7,10 +7,13 @@
 
 use super::*;
 
-/// Trait providing methods to write fields and bytes; moreover,
+/// Trait providing methods to write fields and bytes associating
+/// a name with each operation; moreover,
 /// implementors need to keep track of the current position
 /// in the [`WriteNoStd`] stream. This is needed to guarante the correct
 /// alignment of the data to make zero-copy deserialization possible.
+///
+///
 ///
 /// Note that the most default methods of [`FieldWrite`]
 /// are reimplemented for [`SchemaWriter`], so it is fundamental to keep
@@ -209,17 +212,17 @@ impl Schema {
 /// Internal writer that keeps track of the schema and the path of the field
 /// we are serializing
 pub struct SchemaWriter<W: FieldWrite> {
-    /// The schema so far
+    /// The schema so far.
     pub schema: Schema,
-    /// The "path" of the previous fields names
+    /// The "path" of the previous fields names.
     path: Vec<String>,
-    /// What we actually write on
+    /// What we actually write on.
     writer: W,
 }
 
 impl<W: FieldWrite> SchemaWriter<W> {
     #[inline(always)]
-    /// Create a new empty [`SchemaWriter`] on top of a generic writer `W`
+    /// Create a new empty [`SchemaWriter`] on top of a generic writer `W`.
     pub fn new(backend: W) -> Self {
         Self {
             schema: Default::default(),

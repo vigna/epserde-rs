@@ -11,6 +11,10 @@ fn main() {
     // Create a vector to serialize
 
     let a = vec![0, 1, 2, 3];
+
+    // Decomment the following line to make the example work with slice serialization.
+    // let a: &[i32] = a.as_ref();
+
     let mut buf = epserde::new_aligned_cursor();
     // Serialize
     let _bytes_written = a.serialize(&mut buf).unwrap();

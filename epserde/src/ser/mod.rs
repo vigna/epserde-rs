@@ -41,7 +41,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub trait Serialize {
     /// Serialize the type using the given backend.
     fn serialize(&self, backend: &mut impl WriteNoStd) -> Result<usize> {
-        let mut write_with_pos = WriteWithPos::new(backend);
+        let mut write_with_pos = WriterWithPos::new(backend);
         self.serialize_on_field_write(&mut write_with_pos)?;
         Ok(write_with_pos.pos())
     }
@@ -52,7 +52,7 @@ pub trait Serialize {
     /// This method is mainly useful for debugging and to check cross-language
     /// interoperability.
     fn serialize_with_schema(&self, backend: &mut impl WriteNoStd) -> Result<Schema> {
-        let mut schema_writer = SchemaWriter::new(WriteWithPos::new(backend));
+        let mut schema_writer = SchemaWriter::new(WriterWithPos::new(backend));
         self.serialize_on_field_write(&mut schema_writer)?;
         let mut schema = schema_writer.schema;
         // sort the schema before returning it because 99% of the times the user
