@@ -32,13 +32,24 @@ macro_rules! impl_tuples {
             #[inline(always)]
             fn type_hash(
                 type_hasher: &mut impl core::hash::Hasher,
-                repr_hasher: &mut impl core::hash::Hasher,
-                offset_of: &mut usize,
             ) {
                 "()".hash(type_hasher);
                 core::mem::align_of::<Self>().hash(type_hasher);
                 $(
-                    <$t>::type_hash(type_hasher, repr_hasher, offset_of);
+                    <$t>::type_hash(type_hasher);
+                )*
+            }
+        }
+
+		impl<$($t: ReprHash,)*> ReprHash for ($($t,)*)
+        {
+            #[inline(always)]
+            fn repr_hash(
+                repr_hasher: &mut impl core::hash::Hasher,
+                offset_of: &mut usize,
+            ) {
+                $(
+                    <$t>::repr_hash(repr_hasher, offset_of);
                 )*
             }
         }
@@ -55,7 +66,7 @@ macro_rules! impl_tuples {
             }
         }
 
-		impl<$($t: ZeroCopy + TypeHash,)*> SerializeInner for ($($t,)*) {
+		impl<$($t: ZeroCopy + TypeHash + ReprHash,)*> SerializeInner for ($($t,)*) {
             const IS_ZERO_COPY: bool = true;
             const ZERO_COPY_MISMATCH: bool = false;
 
@@ -65,7 +76,7 @@ macro_rules! impl_tuples {
             }
         }
 
-		impl<$($t: ZeroCopy + TypeHash + 'static,)*> DeserializeInner for ($($t,)*) {
+		impl<$($t: ZeroCopy + TypeHash + ReprHash + 'static,)*> DeserializeInner for ($($t,)*) {
             type DeserType<'a> = &'a ($($t,)*);
             fn _deserialize_full_copy_inner(backend: &mut impl ReadWithPos) -> des::Result<Self> {
                 backend.deserialize_full_zero::<($($t,)*)>()

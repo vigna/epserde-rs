@@ -21,21 +21,16 @@ impl<T: CopyType, const N: usize> CopyType for [T; N] {
 }
 
 impl<T: TypeHash, const N: usize> TypeHash for [T; N] {
-    fn type_hash(
-        type_hasher: &mut impl core::hash::Hasher,
-        repr_hasher: &mut impl core::hash::Hasher,
-        offset_of: &mut usize,
-    ) {
+    fn type_hash(type_hasher: &mut impl core::hash::Hasher) {
         "[]".hash(type_hasher);
         type_hasher.write_usize(N);
-        // All empty arrays are compatible.
-        if N != 0 {
-            // We have to recurse into T because the elements
-            // may change the representation hash, but for efficiency
-            // we do it just once and update offset_of manually.
-            T::type_hash(type_hasher, repr_hasher, offset_of);
-            *offset_of += (N - 1) * core::mem::size_of::<T>();
-        }
+        T::type_hash(type_hasher);
+    }
+}
+
+impl<T: Sized, const N: usize> ReprHash for [T; N] {
+    fn repr_hash(repr_hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+        crate::traits::std_repr_hash::<Self>(repr_hasher, offset_of)
     }
 }
 

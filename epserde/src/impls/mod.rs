@@ -12,7 +12,7 @@ and [`DeserializeInner`](crate::des::DeserializeInner) for standard Rust types.
 
 */
 
-use crate::prelude::{CopyType, Deep, TypeHash};
+use crate::prelude::{CopyType, Deep, ReprHash, TypeHash};
 
 pub mod array;
 pub mod boxed_slice;
@@ -33,12 +33,10 @@ impl<T> CopyType for Box<T> {
 
 #[cfg(feature = "alloc")]
 impl<T: TypeHash + ?Sized> TypeHash for Box<T> {
-    fn type_hash(
-        type_hasher: &mut impl core::hash::Hasher,
-        repr_hasher: &mut impl core::hash::Hasher,
-        offset_of: &mut usize,
-    ) {
+    fn type_hash(type_hasher: &mut impl core::hash::Hasher) {
         "Box".hash(type_hasher);
-        T::type_hash(type_hasher, repr_hasher, offset_of);
+        T::type_hash(type_hasher);
     }
 }
+
+impl<T: ?Sized> ReprHash for Box<T> {}

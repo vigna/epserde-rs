@@ -95,7 +95,7 @@ impl<T: SerializeInner> Serialize for T {
 /// the user from modifying the methods in [`Serialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait SerializeInner: TypeHash + Sized {
+pub trait SerializeInner: TypeHash + ReprHash + Sized {
     /// Inner constant used to keep track recursively if the type
     /// satisfies the condition for being zero-copy. It is checked
     /// at runtime against the trait implemented by the type, and
@@ -117,17 +117,18 @@ pub trait SerializeInner: TypeHash + Sized {
 
 /// Common code for both ε-copy and full-copy deserialization.
 /// Must be kept in sync with [`crate::des::check_header`].
-pub fn write_header<T: TypeHash>(backend: &mut impl FieldWrite) -> Result<()> {
+pub fn write_header<T: TypeHash + ReprHash>(backend: &mut impl FieldWrite) -> Result<()> {
     backend.write_field("MAGIC", &MAGIC)?;
     backend.write_field("VERSION_MAJOR", &VERSION.0)?;
     backend.write_field("VERSION_MINOR", &VERSION.1)?;
     backend.write_field("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8))?;
 
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
+    T::type_hash(&mut type_hasher);
     let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
     let mut offset_of = 0;
+    T::repr_hash(&mut repr_hasher, &mut offset_of);
 
-    T::type_hash(&mut type_hasher, &mut repr_hasher, &mut offset_of);
     backend.write_field("TYPE_HASH", &type_hasher.finish())?;
     backend.write_field("TYPE_REPR_HASH", &repr_hasher.finish())?;
     backend.write_field("TYPE_NAME", &core::any::type_name::<T>().to_string())

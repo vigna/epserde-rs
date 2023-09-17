@@ -25,15 +25,13 @@ impl<T> CopyType for Vec<T> {
 use alloc::vec::Vec;
 #[cfg(feature = "alloc")]
 impl<T: TypeHash> TypeHash for Vec<T> {
-    fn type_hash(
-        type_hasher: &mut impl core::hash::Hasher,
-        repr_hasher: &mut impl core::hash::Hasher,
-        _offset_of: &mut usize,
-    ) {
+    fn type_hash(type_hasher: &mut impl core::hash::Hasher) {
         "Vec".hash(type_hasher);
-        T::type_hash(type_hasher, repr_hasher, _offset_of);
+        T::type_hash(type_hasher);
     }
 }
+
+impl<T> ReprHash for Vec<T> {}
 
 impl<T: CopyType + SerializeInner + TypeHash> SerializeInner for Vec<T>
 where

@@ -20,13 +20,9 @@ impl<T> CopyType for Box<[T]> {
 }
 
 impl<T: TypeHash> TypeHash for [T] {
-    fn type_hash(
-        type_hasher: &mut impl core::hash::Hasher,
-        repr_hasher: &mut impl core::hash::Hasher,
-        offset_of: &mut usize,
-    ) {
+    fn type_hash(type_hasher: &mut impl core::hash::Hasher) {
         "Box[]".hash(type_hasher);
-        T::type_hash(type_hasher, repr_hasher, offset_of);
+        T::type_hash(type_hasher);
     }
 }
 

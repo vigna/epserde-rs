@@ -25,24 +25,20 @@ use alloc::string::String;
 
 #[cfg(feature = "alloc")]
 impl TypeHash for String {
-    fn type_hash(
-        type_hasher: &mut impl core::hash::Hasher,
-        _repr_hasher: &mut impl core::hash::Hasher,
-        _offset_of: &mut usize,
-    ) {
+    fn type_hash(type_hasher: &mut impl core::hash::Hasher) {
         "String".hash(type_hasher);
     }
 }
 
+impl ReprHash for String {}
+
 impl TypeHash for str {
-    fn type_hash(
-        type_hasher: &mut impl core::hash::Hasher,
-        _repr_hasher: &mut impl core::hash::Hasher,
-        _offset_of: &mut usize,
-    ) {
+    fn type_hash(type_hasher: &mut impl core::hash::Hasher) {
         "str".hash(type_hasher);
     }
 }
+
+impl ReprHash for str {}
 
 impl SerializeInner for String {
     // Vec<$ty> can, but Vec<Vec<$ty>> cannot!

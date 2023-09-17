@@ -100,15 +100,11 @@ fn test_wrong_endianess() {
     v[10..12].copy_from_slice(&VERSION.1.to_ne_bytes());
 
     let mut type_hasher = Xxh3::with_seed(0);
-    let mut repr_hasher = Xxh3::with_seed(0);
-    let mut offset_of = 0;
-    <usize>::type_hash(&mut type_hasher, &mut repr_hasher, &mut offset_of);
+    <usize>::type_hash(&mut type_hasher);
     let usize_type_hash = type_hasher.finish();
 
     let mut type_hasher = Xxh3::with_seed(0);
-    let mut repr_hasher = Xxh3::with_seed(0);
-    let mut offset_of = 0;
-    <i8>::type_hash(&mut type_hasher, &mut repr_hasher, &mut offset_of);
+    <i8>::type_hash(&mut type_hasher);
     let i8_hash = type_hasher.finish();
 
     let err = <i8>::deserialize_full_copy(&mut std::io::Cursor::new(&v));

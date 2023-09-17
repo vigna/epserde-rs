@@ -11,26 +11,59 @@ Traits computing structural information about a type.
 
 */
 
-/// Compute a type hash and a representational hash for a type.
-/// They are used during deserialization to
-/// check that the type of the data matches the type of the value being
-/// deserialized into.
+use crate::pad_align_to;
+use core::hash::Hash;
+
+/// Recursively compute a type hash for a type.
+///
+/// [`TypeHash::type_hash`] is a recursive function that computes information
+/// about a type. It is used to
+/// check that the type of the data being deserialized matches
+/// syntactically the type of the data that was written.
+///
+/// The type hasher should store information about the name and the type
+/// of the fields of a type, and the name of the type itself.
 pub trait TypeHash {
-    fn type_hash(
-        type_hasher: &mut impl core::hash::Hasher,
-        repr_hasher: &mut impl core::hash::Hasher,
-        offset_of: &mut usize,
-    );
+    fn type_hash(hasher: &mut impl core::hash::Hasher);
 
     /// Call [`TypeHash::type_hash`] on a value.
-    fn type_hash_val(
-        &self,
-        type_hasher: &mut impl core::hash::Hasher,
-        repr_hasher: &mut impl core::hash::Hasher,
-        offset_of: &mut usize,
-    ) {
-        Self::type_hash(type_hasher, repr_hasher, offset_of);
+    fn type_hash_val(&self, hasher: &mut impl core::hash::Hasher) {
+        Self::type_hash(hasher);
     }
+}
+
+/// Recursively compute a representational hash for a type.
+///
+/// [`ReprHash::repr_hash`] is a recursive function that computes
+/// representation information about a zero-copy type. It is used to
+/// check that the the alignment and the representation data
+/// of the data being deserialized.
+///
+/// More precisely, at each call a zero-copy type look at `offset_of`,
+/// assuming that the type is stored at that offset in the structure,
+/// hashes in the padding necessary to make `offset_of` a multiple of
+/// [`core::mem::align_of`] the type, hashes in the type size, and
+/// finally increases `offset_of` by [`core::mem::size_of`] the type.
+///
+/// For practical reasons, [`ReprHash`] must be implemented also for deep-copy
+/// types as a no-op.
+pub trait ReprHash {
+    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+
+    /// Call [`ReprHash::repr_hash`] on a value.
+    fn repr_hash_val(&self, hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+        Self::repr_hash(hasher, offset_of);
+    }
+}
+
+/// A function providing a reasonable default
+/// implementation of [`ReprHash::repr_hash`].
+pub(crate) fn std_repr_hash<T>(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+    let padding = pad_align_to(*offset_of, core::mem::align_of::<T>());
+    padding.hash(hasher);
+    core::mem::size_of::<T>().hash(hasher);
+    *offset_of += padding;
+    *offset_of += core::mem::size_of::<T>();
 }
 
 /// A trait giving the maximum size of a primitive field in a type.

@@ -27,11 +27,14 @@ macro_rules! impl_prim_type_hash {
         impl TypeHash for $ty {
             fn type_hash(
                 type_hasher: &mut impl core::hash::Hasher,
-                _repr_hasher: &mut impl core::hash::Hasher,
-                _offset_of: &mut usize,
-
             ) {
                 stringify!($ty).hash(type_hasher);
+            }
+        }
+
+        impl ReprHash for $ty {
+            fn repr_hash(repr_hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+                crate::traits::std_repr_hash::<Self>(repr_hasher, offset_of)
             }
         }
 
@@ -191,14 +194,10 @@ impl<T> CopyType for PhantomData<T> {
 }
 
 impl<T: TypeHash> TypeHash for PhantomData<T> {
-    fn type_hash(
-        _type_hasher: &mut impl core::hash::Hasher,
-        _repr_hasher: &mut impl core::hash::Hasher,
-        offset_of: &mut usize,
-    ) {
-        *offset_of += size_of::<Self>();
-    }
+    fn type_hash(_type_hasher: &mut impl core::hash::Hasher) {}
 }
+
+impl<T> ReprHash for PhantomData<T> {}
 
 impl<T: SerializeInner> SerializeInner for PhantomData<T> {
     const IS_ZERO_COPY: bool = false;
@@ -232,15 +231,13 @@ impl<T> CopyType for Option<T> {
 
 impl<T: TypeHash> TypeHash for Option<T> {
     #[inline(always)]
-    fn type_hash(
-        type_hasher: &mut impl core::hash::Hasher,
-        repr_hasher: &mut impl core::hash::Hasher,
-        _offset_of: &mut usize,
-    ) {
+    fn type_hash(type_hasher: &mut impl core::hash::Hasher) {
         "Option".hash(type_hasher);
-        T::type_hash(type_hasher, repr_hasher, _offset_of);
+        T::type_hash(type_hasher);
     }
 }
+
+impl<T> ReprHash for Option<T> {}
 
 impl<T: SerializeInner> SerializeInner for Option<T> {
     const IS_ZERO_COPY: bool = false;

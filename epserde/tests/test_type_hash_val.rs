@@ -13,9 +13,7 @@ use xxhash_rust::xxh3::Xxh3;
 macro_rules! impl_test {
     ($hashes:expr, $value:expr) => {{
         let mut type_hasher = Xxh3::with_seed(0);
-        let mut repr_hasher = Xxh3::with_seed(0);
-        let mut offset_of = 0;
-        ($value).type_hash_val(&mut type_hasher, &mut repr_hasher, &mut offset_of);
+        ($value).type_hash_val(&mut type_hasher);
         let type_hash = type_hasher.finish();
         let res = $hashes.insert(type_hash, stringify!($value));
         assert!(
