@@ -130,7 +130,7 @@ pub fn write_header<T: TypeHash + ReprHash>(backend: &mut impl FieldWrite) -> Re
     T::repr_hash(&mut repr_hasher, &mut offset_of);
 
     backend.write_field("TYPE_HASH", &type_hasher.finish())?;
-    backend.write_field("TYPE_REPR_HASH", &repr_hasher.finish())?;
+    backend.write_field("REPR_HASH", &repr_hasher.finish())?;
     backend.write_field("TYPE_NAME", &core::any::type_name::<T>().to_string())
 }
 

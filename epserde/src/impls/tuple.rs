@@ -31,12 +31,12 @@ macro_rules! impl_tuples {
         {
             #[inline(always)]
             fn type_hash(
-                type_hasher: &mut impl core::hash::Hasher,
+                hasher: &mut impl core::hash::Hasher,
             ) {
-                "()".hash(type_hasher);
-                core::mem::align_of::<Self>().hash(type_hasher);
+                "()".hash(hasher);
+                core::mem::align_of::<Self>().hash(hasher);
                 $(
-                    <$t>::type_hash(type_hasher);
+                    <$t>::type_hash(hasher);
                 )*
             }
         }
@@ -45,11 +45,11 @@ macro_rules! impl_tuples {
         {
             #[inline(always)]
             fn repr_hash(
-                repr_hasher: &mut impl core::hash::Hasher,
+                hasher: &mut impl core::hash::Hasher,
                 offset_of: &mut usize,
             ) {
                 $(
-                    <$t>::repr_hash(repr_hasher, offset_of);
+                    <$t>::repr_hash(hasher, offset_of);
                 )*
             }
         }

@@ -477,40 +477,40 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                     impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause{
 
                         fn type_hash(
-                            type_hasher: &mut impl core::hash::Hasher,
+                            hasher: &mut impl core::hash::Hasher,
                         ) {
                             use core::hash::Hash;
                             // Hash in ZeroCopy
-                            "ZeroCopy".hash(type_hasher);
+                            "ZeroCopy".hash(hasher);
                             // Hash in struct and field names.
-                            #name_literal.hash(type_hasher);
+                            #name_literal.hash(hasher);
                             #(
-                                #fields_names.hash(type_hasher);
+                                #fields_names.hash(hasher);
                             )*
                             // Recurse on all fields.
                             #(
-                                <#fields_types as epserde::traits::TypeHash>::type_hash(type_hasher);
+                                <#fields_types as epserde::traits::TypeHash>::type_hash(hasher);
                             )*
                         }
                     }
 
                     impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause{
                         fn repr_hash(
-                            repr_hasher: &mut impl core::hash::Hasher,
+                            hasher: &mut impl core::hash::Hasher,
                             offset_of: &mut usize,
                         ) {
                             use core::hash::Hash;
                             // Hash in size, as padding is given by MaxSizeOf.
                             // and it is independent of the architecture.
-                            core::mem::size_of::<Self>().hash(repr_hasher);
+                            core::mem::size_of::<Self>().hash(hasher);
                             // Hash in representation data.
                             #(
-                                #repr.hash(repr_hasher);
+                                #repr.hash(hasher);
                             )*
                             // Recurse on all fields.
                             #(
                                 <#fields_types as epserde::traits::ReprHash>::repr_hash(
-                                    repr_hasher,
+                                    hasher,
                                     offset_of,
                                 );
                             )*
@@ -537,27 +537,27 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
 
                         #[inline(always)]
                         fn type_hash(
-                            type_hasher: &mut impl core::hash::Hasher,
+                            hasher: &mut impl core::hash::Hasher,
                         ) {
                             use core::hash::Hash;
                             // No alignment, so we do not hash in anything.
                             // Hash in DeepCopy
-                            "DeepCopy".hash(type_hasher);
+                            "DeepCopy".hash(hasher);
                             // Hash in struct and field names.
-                            #name_literal.hash(type_hasher);
+                            #name_literal.hash(hasher);
                             #(
-                                #fields_names.hash(type_hasher);
+                                #fields_names.hash(hasher);
                             )*
                             // Recurse on all fields.
                             #(
-                                <#fields_types as epserde::traits::TypeHash>::type_hash(type_hasher);
+                                <#fields_types as epserde::traits::TypeHash>::type_hash(hasher);
                             )*
                         }
                     }
 
                     impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause{
                         fn repr_hash(
-                            repr_hasher: &mut impl core::hash::Hasher,
+                            hasher: &mut impl core::hash::Hasher,
                             offset_of: &mut usize,
                         ) {
                             // Recurse on all fields after resetting offset_of. We might meet
@@ -565,7 +565,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             // as they will be aligned.
                             #(
                                 *offset_of = 0;
-                                <#fields_types as epserde::traits::ReprHash>::repr_hash(repr_hasher, offset_of);
+                                <#fields_types as epserde::traits::ReprHash>::repr_hash(hasher, offset_of);
                             )*
                         }
                     }

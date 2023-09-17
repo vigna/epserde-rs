@@ -21,16 +21,16 @@ impl<T: CopyType, const N: usize> CopyType for [T; N] {
 }
 
 impl<T: TypeHash, const N: usize> TypeHash for [T; N] {
-    fn type_hash(type_hasher: &mut impl core::hash::Hasher) {
-        "[]".hash(type_hasher);
-        type_hasher.write_usize(N);
-        T::type_hash(type_hasher);
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "[]".hash(hasher);
+        hasher.write_usize(N);
+        T::type_hash(hasher);
     }
 }
 
 impl<T: Sized, const N: usize> ReprHash for [T; N] {
-    fn repr_hash(repr_hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        crate::traits::std_repr_hash::<Self>(repr_hasher, offset_of)
+    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+        crate::traits::std_repr_hash::<Self>(hasher, offset_of)
     }
 }
 

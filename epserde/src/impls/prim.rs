@@ -26,15 +26,15 @@ macro_rules! impl_prim_type_hash {
 
         impl TypeHash for $ty {
             fn type_hash(
-                type_hasher: &mut impl core::hash::Hasher,
+                hasher: &mut impl core::hash::Hasher,
             ) {
-                stringify!($ty).hash(type_hasher);
+                stringify!($ty).hash(hasher);
             }
         }
 
         impl ReprHash for $ty {
-            fn repr_hash(repr_hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-                crate::traits::std_repr_hash::<Self>(repr_hasher, offset_of)
+            fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+                crate::traits::std_repr_hash::<Self>(hasher, offset_of)
             }
         }
 
@@ -194,7 +194,7 @@ impl<T> CopyType for PhantomData<T> {
 }
 
 impl<T: TypeHash> TypeHash for PhantomData<T> {
-    fn type_hash(_type_hasher: &mut impl core::hash::Hasher) {}
+    fn type_hash(_hasher: &mut impl core::hash::Hasher) {}
 }
 
 impl<T> ReprHash for PhantomData<T> {}
@@ -231,9 +231,9 @@ impl<T> CopyType for Option<T> {
 
 impl<T: TypeHash> TypeHash for Option<T> {
     #[inline(always)]
-    fn type_hash(type_hasher: &mut impl core::hash::Hasher) {
-        "Option".hash(type_hasher);
-        T::type_hash(type_hasher);
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "Option".hash(hasher);
+        T::type_hash(hasher);
     }
 }
 

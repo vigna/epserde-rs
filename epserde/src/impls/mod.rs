@@ -33,9 +33,9 @@ impl<T> CopyType for Box<T> {
 
 #[cfg(feature = "alloc")]
 impl<T: TypeHash + ?Sized> TypeHash for Box<T> {
-    fn type_hash(type_hasher: &mut impl core::hash::Hasher) {
-        "Box".hash(type_hasher);
-        T::type_hash(type_hasher);
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "Box".hash(hasher);
+        T::type_hash(hasher);
     }
 }
 

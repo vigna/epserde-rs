@@ -25,9 +25,9 @@ impl<T> CopyType for Vec<T> {
 use alloc::vec::Vec;
 #[cfg(feature = "alloc")]
 impl<T: TypeHash> TypeHash for Vec<T> {
-    fn type_hash(type_hasher: &mut impl core::hash::Hasher) {
-        "Vec".hash(type_hasher);
-        T::type_hash(type_hasher);
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "Vec".hash(hasher);
+        T::type_hash(hasher);
     }
 }
 
