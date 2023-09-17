@@ -55,14 +55,8 @@ pub trait Serialize {
         let mut schema_writer = SchemaWriter::new(WriterWithPos::new(backend));
         self.serialize_on_field_write(&mut schema_writer)?;
         let mut schema = schema_writer.schema;
-        // sort the schema before returning it because 99% of the times the user
-        // will want it sorted, and it won't take too much time.
-        // If the user doesn't want it sorted, they can just call
-        // ```rust
-        //  let mut schema = self
-        // .serialize_on_field_write(SchemaWriter::new(WriteWithPos::new(backend)))?
-        // .schema;
-        // ```
+        // Sort the schema before returning it. This is necessary because we add
+        // rows related to structures after writing them.
         schema.sort();
         Ok(schema)
     }

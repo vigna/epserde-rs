@@ -13,9 +13,12 @@ use super::*;
 /// in the [`WriteNoStd`] stream. This is needed to guarante the correct
 /// alignment of the data to make zero-copy deserialization possible.
 ///
+/// There are two implementations of [`FieldWrite`]: one is [`WriterWithPos`],
+/// which simply delegates to [`SerializeInner::_serialize_inner`], and
+/// [`SchemaWriter`], which additionally records the [`Schema`]
+/// of the serialized data
 ///
-///
-/// Note that the most default methods of [`FieldWrite`]
+/// Note that the some default methods of [`FieldWrite`]
 /// are reimplemented for [`SchemaWriter`], so it is fundamental to keep
 /// the two implementations in sync.
 pub trait FieldWrite: WriteNoStd + Sized {
@@ -44,6 +47,7 @@ pub trait FieldWrite: WriteNoStd + Sized {
     /// Writes a field to the given backend.
     ///
     /// This method is used for full-copy types and ancillary data such as slice lengths.
+    /// Data written by this method can be always full-copy deserialized.
     fn write_field<V: SerializeInner>(&mut self, field_name: &str, value: &V) -> Result<()> {
         self.do_write_field(field_name, value)
     }
@@ -59,7 +63,8 @@ pub trait FieldWrite: WriteNoStd + Sized {
     /// Write raw bytes [aligned](FieldWrite::align) using `V`.
     ///
     /// This method is used by [`FieldWrite::write_field_zero`] and
-    /// [`FieldWrite::write_slice_zero`] to write zero-copy types.
+    /// [`FieldWrite::write_slice_zero`] to write zero-copy types. Data written
+    /// by this method be zero-copy or full-copy deserialized.
     fn write_bytes<V: ZeroCopy>(&mut self, field_name: &str, value: &[u8]) -> Result<()> {
         self.do_write_bytes::<V>(field_name, value)
     }
@@ -99,7 +104,10 @@ pub trait FieldWrite: WriteNoStd + Sized {
     }
 
     /// Write a slice of zero-copy structures by encoding
-    /// its length first, and then the contents properly [aligned](FieldWrite::align) .
+    /// its length first, and then the contents properly [aligned](FieldWrite::align).
+    ///
+    /// Note that this method uses a single [`WriteNoStd::write_all`]
+    /// call to write the entire slice.
     ///
     /// Here we check [that the type is actually zero-copy](SerializeInner::IS_ZERO_COPY).
     fn write_slice_zero<V: SerializeInner + ZeroCopy>(&mut self, data: &[V]) -> Result<()> {
@@ -120,25 +128,22 @@ pub trait FieldWrite: WriteNoStd + Sized {
 }
 
 #[derive(Debug, Clone)]
-/// A row in the schema csv
 pub struct SchemaRow {
-    /// Name of the field
+    /// Name of the field.
     pub field: String,
-    /// Type of the field
+    /// Type of the field.
     pub ty: String,
-    /// Offset of the field from the start of the file
+    /// Offset of the field from the start of the file.
     pub offset: usize,
-    /// The length in bytes of the field
+    /// The length in bytes of the field.
     pub size: usize,
-    /// The alignment needed by the field, this is mostly to check if the
-    /// serialization is correct
+    /// The alignment needed by the field.
     pub align: usize,
 }
 
 #[derive(Default, Debug, Clone)]
-/// All the informations needed to decode back the data from another language.
-///
-/// The schma is not guaranteed to be sorted.
+/// A vector containing all the fields written during serialization, including
+/// ancillary data such as slice length and [`Option`] tags.
 pub struct Schema(pub Vec<SchemaRow>);
 
 impl Schema {
@@ -146,14 +151,11 @@ impl Schema {
     pub fn sort(&mut self) {
         self.0.sort_by_key(|row| (row.offset, -(row.size as isize)));
     }
-    /// Return in a String the csv representation of the schema
-    /// also printing the bytes of the data used to decode each leaf field.
+    /// Return a CSV representation of the schema, including data.
     ///
-    /// The schema is not guaranteed to be sorted, so if you need it sorted use:
-    ///  `schema.sort();`
-    ///
-    /// WARNING: the size of the csv will be bigger than the size of the
-    /// serialized file, so it's a bad idea calling this on big data structures.
+    /// WARNING: the size of the CSV will be larger than the size of the
+    /// serialized file, so it is not a good idea to call this method
+    /// on big structures.
     pub fn debug(&self, data: &[u8]) -> String {
         let mut result = "field,offset,align,size,ty,bytes\n".to_string();
         for i in 0..self.0.len().saturating_sub(1) {
@@ -193,10 +195,7 @@ impl Schema {
         result
     }
 
-    /// Return in a String the csv representation of the schema.
-    ///
-    /// The schema is not guaranteed to be sorted, so if you need it sorted use:
-    ///  `schema.sort();`
+    /// Return a CSV representation of the schema, excluding data.
     pub fn to_csv(&self) -> String {
         let mut result = "field,offset,align,size,ty\n".to_string();
         for row in &self.0 {
@@ -266,7 +265,8 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
         let pos = self.pos();
         <Self as FieldWrite>::do_write_field(self, field_name, value)?;
 
-        // compute the serialized size and update the schema
+        // Note that we are writing the schema row of the field after
+        // having written its content.
         self.schema.0.push(SchemaRow {
             field: self.path.join("."),
             ty: core::any::type_name::<V>().to_string(),
@@ -282,8 +282,10 @@ impl<W: FieldWrite> FieldWrite for SchemaWriter<W> {
     fn write_bytes<V: ZeroCopy>(&mut self, field_name: &str, value: &[u8]) -> Result<()> {
         let align = core::mem::align_of::<V>();
         let type_name = core::any::type_name::<V>().to_string();
-        // prepare a row with the field name and the type
+
         self.path.push(field_name.into());
+        // Note that we are writing the schema row of the field before
+        // having written its content.
         self.schema.0.push(SchemaRow {
             field: self.path.join("."),
             ty: type_name,
