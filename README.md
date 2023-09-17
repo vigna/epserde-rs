@@ -337,8 +337,10 @@ Being [`ZeroCopy`](traits::ZeroCopy) or [`DeepCopy`](traits::DeepCopy) decides
 instead how the type will be treated 
 when serializing and deserializing sequences, such as arrays, slices, boxed slices, and vectors. 
 Sequences of zero-copy types are deserialized using a reference, whereas sequences
-of deep-copy types are recursively deserialized in allocated memory. It is important to remark
-that *you cannot serialize a vector whose elements are of a type that is neither*
+of deep-copy types are recursively deserialized in allocated memory (to sequences of the
+associated deserialization type). It is important to remark
+that *you cannot serialize a sequence whose elements are of
+a type that is neither* [`ZeroCopy`](traits::ZeroCopy) *nor* [`DeepCopy`](traits::DeepCopy)
 (see the [`CopyType`](`traits::CopyType`) documentation for a deeper explanation).
 
 Logically, zero-copy types should be deserialized to references, and this indeed happens
@@ -361,13 +363,18 @@ struct containing a single field of primitive type.
 Deep-copy types instead are serialized and deserialized recursively, field by field.
 The basic idea in ε-serde is that *if a field has a type that is a parameter, during
 ε-copy deserialization the type will be replaced with its deserialization type*. Since
-this happens recursively, replacement can happen at any depth level. A good example
-is the `CompactArray` structure from `sux-rs`, which exposes an array of fields of fixed
-bit with using (usually) a `Vec<usize>` as backend. If you have your own struct and one
+this happens recursively, replacement can happen at any depth level. For example,
+a `Vec<Vec<Vec<usize>>>` will be deserialized as a `Vec<Vec<&[usize]>>` 
+
+This approach makes it possible to write ε-serde-aware structures that hide completely
+from the user the substitution. A good example
+is the `CompactArray` structure from [`sux-rs`](http://crates.io/sux/), which exposes an array of fields of fixed
+bit width using (usually) a `Vec<usize>` as backend. If you have your own struct and one
 of the fields is of type `A`, when serializing your struct with `A` equal to `CompactArray<Vec<usize>>`,
 upon deserialization you will get a version of your struct with `CompactArray<&[usize]>`. All this will
 happen under the hood because `CompactArray` is ε-serde-aware, and in fact you will not
-even notice the difference.
+even notice the difference, because you will access the same methods of `CompactArray` before
+and after.
 
 # Derived and hand-made implementation
 
@@ -380,4 +387,4 @@ on your structure will make it fully functional with ε-serde. The attribute
 You can also implement manually
 the traits [`CopyType`](traits::CopyType), [`MaxSizeOf`](traits::MaxSizeOf), [`TypeHash`](traits::TypeHash), [`ReprHash`](traits::ReprHash), 
 [`SerializeInner`](`ser::SerializeInner`), and [`DeserializeInner`](`deser::DeserializeInner`), but
-the process is error-prone.
+the process is error-prone, and you must fully aware of ε-serde's conventions.

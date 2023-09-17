@@ -24,6 +24,7 @@ use core::hash::Hash;
 /// The type hasher should store information about the name and the type
 /// of the fields of a type, and the name of the type itself.
 pub trait TypeHash {
+    /// Accumulate type information in `hasher`.
     fn type_hash(hasher: &mut impl core::hash::Hasher);
 
     /// Call [`TypeHash::type_hash`] on a value.
@@ -44,11 +45,9 @@ pub trait TypeHash {
 /// hashes in the padding necessary to make `offset_of` a multiple of
 /// [`core::mem::align_of`] the type, hashes in the type size, and
 /// finally increases `offset_of` by [`core::mem::size_of`] the type.
-///
-/// The no-op default implementation of [`ReprHash::repr_hash`] is used by
-/// some basic deep-copy types.
 pub trait ReprHash {
-    /// Default no-op implementation.
+    /// Accumulate representional information in `hasher` assuming to
+    /// be positioned at `offset_of`.
     fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize);
 
     /// Call [`ReprHash::repr_hash`] on a value.

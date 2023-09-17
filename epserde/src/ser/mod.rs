@@ -44,8 +44,10 @@ pub trait Serialize {
         Ok(write_with_pos.pos())
     }
 
-    /// Serialize the type using the given backend and return the schema.
-    /// This method is mainly useful for debugging and cross-language
+    /// Serialize the type using the given backend and return a [schema](Schema)
+    /// describing the data that has been written.
+    ///
+    /// This method is mainly useful for debugging and to check cross-language
     /// interoperability.
     fn serialize_with_schema(&self, backend: &mut impl WriteNoStd) -> Result<Schema> {
         let mut schema_writer = SchemaWriter::new(WriteWithPos::new(backend));
@@ -75,20 +77,6 @@ pub trait Serialize {
     }
 }
 
-/// Blanket implementation that prevents the user from overwriting the
-/// methods in [`Serialize`].
-///
-/// This implementation [writes a header](`write_header`) containing some hashes
-/// and debug information.
-impl<T: SerializeInner> Serialize for T {
-    /// Serialize the type using the given [`FieldWrite`].
-    fn serialize_on_field_write(&self, backend: &mut impl FieldWrite) -> Result<()> {
-        write_header::<Self>(backend)?;
-        backend.write_field("ROOT", self)?;
-        backend.flush()
-    }
-}
-
 /// Inner trait to implement serialization of a type. This trait exists
 /// to separate the user-facing [`Serialize`] trait from the low-level
 /// serialization mechanism of [`SerializeInner::_serialize_inner`]. Moreover,
@@ -115,6 +103,20 @@ pub trait SerializeInner: TypeHash + ReprHash + Sized {
 
     /// Serialize this structure using the given backend.
     fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> Result<()>;
+}
+
+/// Blanket implementation that prevents the user from overwriting the
+/// methods in [`Serialize`].
+///
+/// This implementation [writes a header](`write_header`) containing some hashes
+/// and debug information and then delegates to [FieldWrite::write_field].
+impl<T: SerializeInner> Serialize for T {
+    /// Serialize the type using the given [`FieldWrite`].
+    fn serialize_on_field_write(&self, backend: &mut impl FieldWrite) -> Result<()> {
+        write_header::<Self>(backend)?;
+        backend.write_field("ROOT", self)?;
+        backend.flush()
+    }
 }
 
 /// Common code for both ε-copy and full-copy serialization.

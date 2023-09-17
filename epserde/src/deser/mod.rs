@@ -186,24 +186,40 @@ pub trait Deserialize: DeserializeInner {
     }
 }
 
+/// Inner trait to implement deserialization of a type. This trait exists
+/// to separate the user-facing [`Deserialize`] trait from the low-level
+/// deserialization mechanisms of [`DeserializeInner::_deserialize_full_inner`]
+/// and [`DeserializeInner::_deserialize_eps_inner`]. Moreover,
+/// it makes it possible to behave slighly differently at the top
+/// of the recursion tree (e.g., to check the endianness marker), and to prevent
+/// the user from modifying the methods in [`Deserialize`].
+///
+/// The user should not implement this trait directly, but rather derive it.
+pub trait DeserializeInner: TypeHash + ReprHash + Sized {
+    type DeserType<'a>;
+    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> Result<Self>;
+
+    fn _deserialize_eps_inner<'a>(backend: &mut SliceWithPos<'a>) -> Result<Self::DeserType<'a>>;
+}
+
 /// Blanket implementation that prevents the user from overwriting the
 /// methods in [`Deserialize`].
 ///
 /// This implementation [checks the header](`check_header`) written
-/// by the blanket implementation of [`crate::ser::Serialize`] and then calls
+/// by the blanket implementation of [`crate::ser::Serialize`] and then delegates to
 /// [`DeserializeInner::_deserialize_full_inner`] or
-
 /// [`DeserializeInner::_deserialize_eps_inner`].
 impl<T: DeserializeInner> Deserialize for T {
     fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self> {
         let mut backend = ReaderWithPos::new(backend);
 
         let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
-        let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
         Self::type_hash(&mut type_hasher);
-        let mut offset_of = 0;
-        Self::repr_hash(&mut repr_hasher, &mut offset_of);
         let self_type_hash = type_hasher.finish();
+
+        let mut offset_of = 0;
+        let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
+        Self::repr_hash(&mut repr_hasher, &mut offset_of);
         let self_repr_hash = repr_hasher.finish();
 
         check_header(
@@ -234,22 +250,6 @@ impl<T: DeserializeInner> Deserialize for T {
         )?;
         Self::_deserialize_eps_inner(&mut backend)
     }
-}
-
-/// Inner trait to implement deserialization of a type. This trait exists
-/// to separate the user-facing [`Deserialize`] trait from the low-level
-/// deserialization mechanisms of [`DeserializeInner::_deserialize_full_inner`]
-/// and [`DeserializeInner::_deserialize_eps_inner`]. Moreover,
-/// it makes it possible to behave slighly differently at the top
-/// of the recursion tree (e.g., to check the endianness marker), and to prevent
-/// the user from modifying the methods in [`Deserialize`].
-///
-/// The user should not implement this trait directly, but rather derive it.
-pub trait DeserializeInner: TypeHash + ReprHash + Sized {
-    type DeserType<'a>;
-    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> Result<Self>;
-
-    fn _deserialize_eps_inner<'a>(backend: &mut SliceWithPos<'a>) -> Result<Self::DeserType<'a>>;
 }
 
 /// Common code for both full-copy and zero-copy deserialization
