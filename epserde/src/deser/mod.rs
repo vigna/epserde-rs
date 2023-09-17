@@ -289,10 +289,11 @@ pub fn check_header<T: DeserializeInner>(backend: &mut impl ReadWithPos) -> Resu
 /// deserialization for [`crate::traits::ZeroCopy`] and [`crate::traits::DeepCopy`] types.
 /// See [`crate::traits::CopyType`] for more information.
 pub trait DeserializeHelper<T: CopySelector> {
-    // TODO: do we really need this?
-    type FullType: TypeHash;
+    type FullType;
     type DeserType<'a>;
+
     fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> Result<Self::FullType>;
+
     fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> Result<Self::DeserType<'a>>;
@@ -305,9 +306,9 @@ pub enum Error {
     FileOpenError(std::io::Error),
     /// The underlying reader returned an error.
     ReadError,
-    /// The file is reasonable but the endianess is wrong.
+    /// The file is from ε-serde but the endianess is wrong.
     EndiannessError,
-    /// Some field is not properly aligned.
+    /// Some fields are not properly aligned.
     AlignmentError,
     /// The file was serialized with a version of ε-serde that is not compatible.
     MajorVersionMismatch(u16),
@@ -318,9 +319,8 @@ pub enum Error {
     /// `pointer_width` of the current architecture.
     /// For example, the file was serialized on a 64-bit machine and we are trying to
     /// deserialize it on a 32-bit machine.
-    /// We could check if the usizes are actually used, but currently we do not.
     UsizeSizeMismatch(usize),
-    /// The magic coookie is wrong. The byte sequence is not an ε-serde serialization.
+    /// The magic coookie is wrong. The byte sequence does not come from ε-serde.
     MagicCookieError(u64),
     /// A tag is wrong (e.g., for [`Option`]).
     InvalidTag(u8),
@@ -333,8 +333,9 @@ pub enum Error {
         got: u64,
     },
     /// The type representation hash is wrong. Probabliy the user is trying to
-    /// deserialize a file with the right type but this type has different
-    /// in-memory representations on the serialization arch and on the current one.
+    /// deserialize a file with some zero-copy type that has different
+    /// in-memory representations on the serialization arch and on the current one,
+    /// usually because of alignment issues.
     WrongTypeReprHash {
         got_type_name: String,
         expected_type_name: String,
@@ -348,9 +349,9 @@ impl std::error::Error for Error {}
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
-            Self::ReadError => write!(f, "Read error during ε-serde serialization"),
+            Self::ReadError => write!(f, "Read error during ε-serde deserialization"),
             Self::FileOpenError(error) => {
-                write!(f, "Write error during ε-serde serialization: {}", error)
+                write!(f, "Write error during ε-serde deserialization: {}", error)
             }
             Self::EndiannessError => write!(
                 f,
@@ -368,7 +369,7 @@ impl core::fmt::Display for Error {
             ),
             Self::MagicCookieError(magic) => write!(
                 f,
-                "Wrong magic cookie 0x{:016x}. The byte stream is not ε-serde serialization.",
+                "Wrong magic cookie 0x{:016x}. The byte stream does not come from ε-serde.",
                 magic,
             ),
             Self::MajorVersionMismatch(found_major) => write!(
@@ -383,7 +384,7 @@ impl core::fmt::Display for Error {
             ),
             Self::UsizeSizeMismatch(usize_size) => write!(
                 f,
-                "The file was serialized on a machine where an usize has size {}, but on the current machine it has size {}.",
+                "The file was serialized on hardware where a usize has size {}, but on the current machine it has size {}.",
                 usize_size,
                 core::mem::size_of::<usize>()
             ),
@@ -399,6 +400,7 @@ impl core::fmt::Display for Error {
                     f,
                     concat!(
                         "Wrong type hash. Expected: 0x{:016x} Actual: 0x{:016x}.\n",
+                        "You are trying to deserialize a file with the wrong type.\n",
                         "The serialized type is '{}' and the deserialized type is '{}'.",
                     ),
                     expected, got, expected_type_name, got_type_name,
@@ -416,7 +418,7 @@ impl core::fmt::Display for Error {
                         "Wrong type repr hash. Expected: 0x{:016x} Actual: 0x{:016x}.\n",
                         "You might be trying to deserialize a file that was serialized on ",
                         "an architecture with different alignment requirements, or some ",
-                        "of the fields of the type have changed their copy type (zero or not).\n",
+                        "of the fields of the type have changed their copy type (zero or deep).\n",
                         "The serialized type is '{}' and the deserialized type is '{}'.",
                     ),
                     expected, got, expected_type_name, got_type_name,
