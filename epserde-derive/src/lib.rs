@@ -137,6 +137,19 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     (is_repr_c, is_zero_copy, is_deep_copy)
 }
 
+/// Generate an ε-serde implementation for custom types.
+///
+/// Presently we only support
+/// standard structures (and not tuple structures).
+///
+/// The attribute `zero_copy` can be used to generate an implementation for a zero-copy
+/// type, but the type must be `repr(C)` and all fields must be zero-copy. Note that this
+/// condition can only be checked at serialization time.
+///
+/// If you do not specify `zero_copy`, the macro assumes your structure is deep-copy.
+/// However, if you have a structure that could be zero-copy, but has no attribute,
+/// a warning will be issued every time you serialize. The warning can be silenced adding
+/// the explicity attribute `deep_copy`.
 #[proc_macro_derive(Epserde, attributes(zero_copy, deep_copy))]
 pub fn epserde_derive(input: TokenStream) -> TokenStream {
     // Cloning input for type hash

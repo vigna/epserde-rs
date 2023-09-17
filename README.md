@@ -25,9 +25,9 @@ most of the data is given by large chunks of memory in the form of slices or vec
 at deserialization time one can build quickly a proper Rust structure whose referenced
 memory, however, is not copied. We call this approach *ε-copy deserialization*, as
 typically a minuscule fraction of the serialized data is copied to build the structure.
-The result is similar to that of the frameworks above, but with performance identical to 
-that of a standard, in-memory Rust structure, as references are resolved at deserialization
-time.
+The result is similar to that of the frameworks above, but the performance of the
+deserialized structure will be  identical to  that of a standard, in-memory 
+Rust structure, as references are resolved at deserialization time.
 
 We provide procedural macros implementing serialization and deserialization methods,
 basic (de)serialization for primitive types, vectors, etc.,
@@ -41,7 +41,7 @@ Tommaso Fontana, while working at INRIA under the supervision of Stefano Zacchir
 came up with the basic idea for ε-serde, that is, 
 replacing structures with equivalent references. The code was developed jointly
 with Sebastiano Vigna, who came up with the [`MemCase`](`des::MemCase`) and the 
-[`ZeroCopy`](`traits::ZeroCopy`)/[`DeepCopy`](`traits::DeepCopy`) logic.
+[`ZeroCopy`](traits::ZeroCopy)/[`DeepCopy`](traits::DeepCopy) logic.
 
 ## Cons
 
@@ -55,9 +55,9 @@ the fields you want to ε-copy must be type parameters implementing
 [`DeserializeInner`](`des::DeserializeInner`), to which a 
 [deserialized type](`des::DeserializeInner::DeserType`) is associated.
 For example, we provide implementations for
-`Vec<T>`/`Box<[T]>`, where `T` [is zero-copy](`traits::ZeroCopy`), or `String`/`Box<str>`, which have 
+`Vec<T>`/`Box<[T]>`, where `T` [is zero-copy](traits::ZeroCopy), or `String`/`Box<str>`, which have 
 associated deserialized type `&[T]` or `&str`, respectively. Vectors and boxed slices of
-types that are not zero copy will be fully deserialized in memory instead.
+types that are not zero-copy will be fully deserialized in memory instead.
 
 - After deserialization, you will obtain an associated deserialized type, which 
 will usually reference the underlying
@@ -90,7 +90,7 @@ deserialization time is stored in newly allocated memory. This is not the case w
 
 ## Example: Zero copy of standard types
 
-Let us start with the simplest case: data that can be zero copied. In this case,
+Let us start with the simplest case: data that can be zero-copy deserialized. In this case,
 we serialize an array of a thousand zeros, and get back a reference to such 
 an array:
 ```rust
@@ -134,8 +134,8 @@ memory-mapped region that supports it.
 
 ## Examples: ε-copy of standard structures
 
-Zero copy is not that interesting because it can be applied only to
-data whose memory layout is stable and known at compile time. 
+Zero-copy deserialization is not that interesting because it can be applied only to
+data whose memory layout and size is fixed and known at compile time. 
 This time, let us serialize a `Vec` containing a 
 a thousand zeros: ε-serde will deserialize its associated
 deserialization type, which is a reference to a slice.
@@ -176,11 +176,11 @@ Note also that we use the convenience method [`Deserialize::load_full`]()`des::D
 
 If your code must work both with the original and the deserialized
 version, however, it must be written for a trait that is implemented
-by both types, like `AsRef<[usize]>`.
+by both types, such as `AsRef<[usize]>`.
 
 ## Example: Zero-copy structures
 
-You can define your own types to be zero copy, in which case they will
+You can define your own types to be zero-copy, in which case they will
 work like `usize` in the previous examples. This requires the structure
 to be made of zero-copy fields, and to be annotated with `#[zero_copy]` 
 and `#[repr(C)]`:
@@ -221,13 +221,13 @@ let u: MemCase<&[Data]> =
     <Vec<Data>>::mmap(&file, Flags::empty()).unwrap();
 assert_eq!(s, **u);
 ```
-If a structure is not zero copy, vectors will be always deserialized to vectors
+If a structure is not zero-copy, vectors will be always deserialized to vectors
 (i.e., the full copy and the ε-copy will be the same).
 
 ## Examples: ε-copy structures
 
 More flexibility can be obtained by defining structures with fields
-whose field types are defined by parameters. In this case, ε-serde
+whose types are defined by parameters. In this case, ε-serde
 will deserialize the structure replacing its type parameters with
 the associated deserialized type.
 
@@ -322,17 +322,20 @@ assert_eq!(s.sum(), t.sum());
 Every type serializable with ε-serde has two features that are in principle orthogonal,
 but that in practice often condition one another:
 
-- the type has an *associated deserialization type* which is the type you obtain
+- the type has an *associated deserialization type*, which is the type you obtain
 upon deserialization;
-- the type can be either [`ZeroCopy`](`traits::ZeroCopy`) or [`DeepCopy`](`traits::DeepCopy`); it can also be neither.
+- the type can be either [`ZeroCopy`](traits::ZeroCopy) or [`DeepCopy`](traits::DeepCopy);
+  it can also be neither.
 
 There is no constraint on the associated deserialization type: it can be literally
 anything. In general, however, one tries to have a deserialization type that is somewhat
 compatible with the original type: for example, ε-serde deserializes vectors as 
 references to slices, so all mutation method that do not change the length work on both.
+And in general [`ZeroCopy`](traits::ZeroCopy) types deserialize to themselves.
 
-Being [`ZeroCopy`](`traits::ZeroCopy`) or [`DeepCopy`](`traits::DeepCopy`) decides instead how the type will be treated 
-when serializing and deserializing sequences, such as slices, boxed slices, and vectors. 
+Being [`ZeroCopy`](traits::ZeroCopy) or [`DeepCopy`](traits::DeepCopy) decides 
+instead how the type will be treated 
+when serializing and deserializing sequences, such as arrays, slices, boxed slices, and vectors. 
 Sequences of zero-copy types are deserialized using a reference, whereas sequences
 of deep-copy types are recursively deserialized in allocated memory. It is important to remark
 that *you cannot serialize a vector whose elements are of a type that is neither*
@@ -345,7 +348,9 @@ fully deserialized*. There are two reasons behind this non-orthogonal choice:
 - primitive types occupy so little space that deserializing them as a reference is
 not efficient;
 - if a type parameter `T` is a primitive type, writing generic code for `AsRef<T>` is
-really not nice.
+really not nice;
+- deserializing primitive types to a reference would require further padding to
+align them.
 
 Since this is true only of primitive types, when deserializing a
 1-tuple containing a primitive type one obtains a reference (and indeed this
@@ -353,10 +358,26 @@ workaround can be used if you really need to deserialize a primitive type as a r
 The same happens if you deserialize a zero-copy 
 struct containing a single field of primitive type.
 
-Zero-copy types are always serialized and deserialized by either referencing or reading/writing
-directly a sequence of bytes. Sequences (arrays, vectors and boxed slices) of zero-copy types
-behave in the same way: in particular, even if the deserialization type of a zero-copy type is 
-a reference, a sequence of elements is ε-deserialized as a reference to a slice of elements, 
-not as a (reference to) a slice of references, and it is fully deserialized as a sequence
-of elements. This is different from the behavior of ε-copy types, which are always fully
-deserialized to a sequence of elements whose type is defined by the deserialization type.
+Deep-copy types instead are serialized and deserialized recursively, field by field.
+The basic idea in ε-serde is that *if a field has a type that is a parameter, during
+ε-copy deserialization the type will be replaced with its deserialization type*. Since
+this happens recursively, replacement can happen at any depth level. A good example
+is the `CompactArray` structure from `sux-rs`, which exposes an array of fields of fixed
+bit with using (usually) a `Vec<usize>` as backend. If you have your own struct and one
+of the fields is of type `A`, when serializing your struct with `A` equal to `CompactArray<Vec<usize>>`,
+upon deserialization you will get a version of your struct with `CompactArray<&[usize]>`. All this will
+happen under the hood because `CompactArray` is ε-serde-aware, and in fact you will not
+even notice the difference.
+
+# Derived and hand-made implementation
+
+We strongly suggest to use the procedural macro [`Epserde`](`epserde_derive::Epserde`)
+to make own types serializable and deserializable. Just invoking the macro
+on your structure will make it fully functional with ε-serde. The attribute
+`#[zero_copy]` can be used to make a structure zero-copy, albeit it must satisfy
+[a few prerequisites](traits::CopyType).
+
+You can also implement manually
+the traits [`CopyType`](traits::CopyType), [`MaxSizeOf`](traits::TypeHash), [`ReprHash`](traits::ReprHash), 
+[`SerializeInner`](`ser::SerializeInner`), and [`Deserialize`](`des::DeserializeInner`), but
+the process is error-prone.
