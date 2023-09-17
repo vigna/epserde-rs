@@ -10,6 +10,7 @@
 Implementations for boxed slices.
 
 */
+use crate::deser::helpers::*;
 use crate::prelude::*;
 use core::hash::Hash;
 use deser::*;
@@ -84,13 +85,13 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Box<[
     type DeserType<'a> = &'a [T];
     #[inline(always)]
     fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        Ok(backend.deserialize_full_vec_zero()?.into_boxed_slice())
+        Ok(deserialize_full_vec_zero::<T>(backend)?.into_boxed_slice())
     }
     #[inline(always)]
     fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
-        backend.deserialize_eps_slice_zero()
+        deserialize_eps_slice_zero(backend)
     }
 }
 
@@ -105,6 +106,6 @@ impl<T: DeepCopy + DeserializeInner + 'static> DeserializeHelper<Deep> for Box<[
     fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
-        Ok(backend.deserialize_eps_vec_deep::<T>()?.into_boxed_slice())
+        Ok(deserialize_eps_vec_deep::<T>(backend)?.into_boxed_slice())
     }
 }

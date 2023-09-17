@@ -64,7 +64,7 @@ impl DeserializeInner for String {
     fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let slice = backend.deserialize_eps_slice_zero()?;
+        let slice = deserialize_eps_slice_zero(backend)?;
         Ok(unsafe {
             #[allow(clippy::transmute_bytes_to_str)]
             core::mem::transmute::<&'_ [u8], &'_ str>(slice)

@@ -79,13 +79,13 @@ macro_rules! impl_tuples {
 		impl<$($t: ZeroCopy + TypeHash + ReprHash + 'static,)*> DeserializeInner for ($($t,)*) {
             type DeserType<'a> = &'a ($($t,)*);
             fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-                backend.deserialize_full_zero::<($($t,)*)>()
+                deserialize_full_zero::<($($t,)*)>(backend)
             }
 
             fn _deserialize_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
                 ) -> deser::Result<Self::DeserType<'a>> {
-                backend.deserialize_eps_zero::<($($t,)*)>()
+                deserialize_eps_zero::<($($t,)*)>(backend)
             }
         }
     };

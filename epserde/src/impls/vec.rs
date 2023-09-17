@@ -11,6 +11,7 @@ Implementations for vectors.
 
 */
 use crate::deser;
+use crate::deser::helpers::*;
 use crate::deser::*;
 use crate::ser;
 use crate::ser::*;
@@ -93,7 +94,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T
     fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
-        backend.deserialize_eps_slice_zero()
+        deserialize_eps_slice_zero(backend)
     }
 }
 
@@ -102,12 +103,12 @@ impl<T: DeepCopy + DeserializeInner + 'static> DeserializeHelper<Deep> for Vec<T
     type DeserType<'a> = Vec<<T as DeserializeInner>::DeserType<'a>>;
     #[inline(always)]
     fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        backend.deserialize_full_vec_deep()
+        deserialize_full_vec_deep::<T>(backend)
     }
     #[inline(always)]
     fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
-        backend.deserialize_eps_vec_deep::<T>()
+        deserialize_eps_vec_deep::<T>(backend)
     }
 }
