@@ -88,7 +88,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T
     type DeserType<'a> = &'a [T];
     #[inline(always)]
     fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        backend.deserialize_full_vec_zero()
+        deserialize_full_vec_zero(backend)
     }
     #[inline(always)]
     fn _deserialize_eps_inner_impl<'a>(

@@ -5,9 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//!
-//! Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) crate.
-//!
+/*!
+
+Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) crate.
+
+*/
 
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};

@@ -56,7 +56,7 @@ impl SerializeInner for String {
 
 impl DeserializeInner for String {
     fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        let slice = backend.deserialize_full_vec_zero()?;
+        let slice = deserialize_full_vec_zero(backend)?;
         Ok(String::from_utf8(slice).unwrap())
     }
     type DeserType<'a> = &'a str;

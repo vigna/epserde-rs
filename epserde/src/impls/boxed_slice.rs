@@ -100,7 +100,7 @@ impl<T: DeepCopy + DeserializeInner + 'static> DeserializeHelper<Deep> for Box<[
     type DeserType<'a> = Box<[<T as DeserializeInner>::DeserType<'a>]>;
     #[inline(always)]
     fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        Ok(backend.deserialize_full_vec_deep()?.into_boxed_slice())
+        Ok(deserialize_full_vec_deep(backend)?.into_boxed_slice())
     }
     #[inline(always)]
     fn _deserialize_eps_inner_impl<'a>(

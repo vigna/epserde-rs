@@ -17,7 +17,7 @@ use crate::deser;
 use crate::traits::*;
 use core::mem::MaybeUninit;
 
-/// Return a fully deserialized zero-copy structure.
+/// Fully deserialize a zero-copy structure.
 pub fn deserialize_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> deser::Result<T> {
     backend.align::<T>()?;
     unsafe {
@@ -32,7 +32,7 @@ pub fn deserialize_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> des
     }
 }
 
-/// Return a fully deserialized vector of zero-copy structures.
+/// Fully deserialize a vector of zero-copy structures.
 ///
 /// Note that this method uses a single [`ReadNoStd::read_exact`]
 /// call to read the entire vector.
@@ -53,7 +53,7 @@ pub fn deserialize_full_vec_zero<T: DeserializeInner + ZeroCopy>(
     Ok(res)
 }
 
-/// Return a fully deserialized vector of deep-copy structures.
+/// Fully deserialize a vector of deep-copy structures.
 pub fn deserialize_full_vec_deep<T: DeserializeInner + DeepCopy>(
     backend: &mut impl ReadWithPos,
 ) -> deser::Result<Vec<T>> {
@@ -65,8 +65,8 @@ pub fn deserialize_full_vec_deep<T: DeserializeInner + DeepCopy>(
     Ok(res)
 }
 
-/// Return an ε-deserialized reference, backed by the `data`
-/// field of `backend`, to a zero-copy structure.
+/// ε-deserialize a reference to a zero-copy structure
+/// backed by the `data` field of `backend`.
 pub fn deserialize_eps_zero<'a, T: ZeroCopy>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<&'a T> {
@@ -80,8 +80,8 @@ pub fn deserialize_eps_zero<'a, T: ZeroCopy>(
     Ok(res)
 }
 
-/// Return an ε-deserialized reference, backed by the `data`
-///  field of `backend`, to a slice of a zero-copy structures.
+/// ε-deserialize a reference to a slice of zero-copy structures
+/// backed by the `data` field of `backend`.
 pub fn deserialize_eps_slice_zero<'a, T: ZeroCopy>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<&'a [T]> {
@@ -95,7 +95,7 @@ pub fn deserialize_eps_slice_zero<'a, T: ZeroCopy>(
     Ok(data)
 }
 
-/// Return an ε-deserialized vector of deep-copy structures.
+/// ε-deserialize a vector of deep-copy structures.
 pub fn deserialize_eps_vec_deep<'a, T: DeepCopy + DeserializeInner>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<Vec<<T as DeserializeInner>::DeserType<'a>>> {
