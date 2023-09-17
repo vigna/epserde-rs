@@ -212,54 +212,32 @@ pub trait DeserializeInner: TypeHash + ReprHash + Sized {
 impl<T: DeserializeInner> Deserialize for T {
     fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self> {
         let mut backend = ReaderWithPos::new(backend);
-
-        let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
-        Self::type_hash(&mut type_hasher);
-        let self_type_hash = type_hasher.finish();
-
-        let mut offset_of = 0;
-        let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
-        Self::repr_hash(&mut repr_hasher, &mut offset_of);
-        let self_repr_hash = repr_hasher.finish();
-
-        check_header(
-            &mut backend,
-            self_type_hash,
-            self_repr_hash,
-            core::any::type_name::<Self>().to_string(),
-        )?;
+        check_header::<Self>(&mut backend)?;
         Self::_deserialize_full_inner(&mut backend)
     }
 
     fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
         let mut backend = SliceWithPos::new(backend);
-
-        let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
-        Self::type_hash(&mut type_hasher);
-        let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
-        let mut offset_of = 0;
-        Self::repr_hash(&mut repr_hasher, &mut offset_of);
-        let self_type_hash = type_hasher.finish();
-        let self_repr_hash = repr_hasher.finish();
-
-        check_header(
-            &mut backend,
-            self_type_hash,
-            self_repr_hash,
-            core::any::type_name::<Self>().to_string(),
-        )?;
+        check_header::<Self>(&mut backend)?;
         Self::_deserialize_eps_inner(&mut backend)
     }
 }
 
-/// Common code for both full-copy and zero-copy deserialization
+/// Common header check code for both ε-copy and full-copy deserialization.
+///
 /// Must be kept in sync with [`crate::ser::write_header`].
-pub fn check_header(
-    backend: &mut impl ReadWithPos,
-    self_type_hash: u64,
-    self_repr_hash: u64,
-    self_name: String,
-) -> Result<()> {
+pub fn check_header<T: DeserializeInner>(backend: &mut impl ReadWithPos) -> Result<()> {
+    let self_type_name = core::any::type_name::<T>().to_string();
+
+    let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
+    T::type_hash(&mut type_hasher);
+    let self_type_hash = type_hasher.finish();
+
+    let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
+    let mut offset_of = 0;
+    T::repr_hash(&mut repr_hasher, &mut offset_of);
+    let self_repr_hash = repr_hasher.finish();
+
     let magic = u64::_deserialize_full_inner(backend)?;
     match magic {
         MAGIC => Ok(()),
@@ -283,24 +261,24 @@ pub fn check_header(
         return Err(Error::UsizeSizeMismatch(usize_size));
     };
 
-    let type_hash = u64::_deserialize_full_inner(backend)?;
-    let repr_hash = u64::_deserialize_full_inner(backend)?;
-    let type_name = String::_deserialize_full_inner(backend)?;
+    let ser_type_hash = u64::_deserialize_full_inner(backend)?;
+    let ser_repr_hash = u64::_deserialize_full_inner(backend)?;
+    let ser_type_name = String::_deserialize_full_inner(backend)?;
 
-    if type_hash != self_type_hash {
+    if ser_type_hash != self_type_hash {
         return Err(Error::WrongTypeHash {
-            got_type_name: self_name,
+            got_type_name: self_type_name,
             got: self_type_hash,
-            expected_type_name: type_name,
-            expected: type_hash,
+            expected_type_name: ser_type_name,
+            expected: ser_type_hash,
         });
     }
-    if repr_hash != self_repr_hash {
+    if ser_repr_hash != self_repr_hash {
         return Err(Error::WrongTypeReprHash {
-            got_type_name: self_name,
+            got_type_name: self_type_name,
             got: self_repr_hash,
-            expected_type_name: type_name,
-            expected: repr_hash,
+            expected_type_name: ser_type_name,
+            expected: ser_repr_hash,
         });
     }
 

@@ -21,14 +21,16 @@ bitflags! {
     }
 }
 
+/// Empty flags.
 impl core::default::Default for Flags {
     fn default() -> Self {
-        unsafe { core::mem::transmute::<u32, Flags>(0) }
+        Flags::empty()
     }
 }
 
 impl Flags {
-    pub fn mmap_flags(&self) -> mmap_rs::MmapFlags {
+    /// Translates internal flags to `mmap_rs` flags.
+    pub(crate) fn mmap_flags(&self) -> mmap_rs::MmapFlags {
         match self.contains(Flags::TRANSPARENT_HUGE_PAGES) {
             // By passing COPY_ON_WRITE we set the MAP_PRIVATE flag, which
             // in necessary for transparent huge pages to work.
@@ -41,7 +43,8 @@ impl Flags {
 /// Possible backends of a [`MemCase`]. The `None` variant is used when the data structure is
 /// created in memory; the `Memory` variant is used when the data structure is deserialized
 /// from a file loaded into a heap-allocated memory region; the `Mmap` variant is used when
-/// the data structure is deserialized from a `mmap()`-based region.
+/// the data structure is deserialized from a `mmap()`-based region, either coming from
+/// an allocation or a from mapping a file.
 pub enum MemBackend {
     /// No backend. The data structure is a standard Rust data structure.
     /// This variant is returned by [`MemCase::encase`].
@@ -65,18 +68,8 @@ impl MemBackend {
 }
 
 /// A wrapper keeping together an immutable structure and the memory
-/// it was deserialized from. It is specifically designed for
-/// the case of memory-mapped regions, where the mapping must
-/// be kept alive for the whole lifetime of the data structure.
-/// [`MemCase`] instances can not be cloned, but references
+/// it was deserialized from. [`MemCase`] instances can not be cloned, but references
 /// to such instances can be shared freely.
-///
-/// [`MemCase`] can also be used with data structures deserialized from
-/// memory, although in that case it is not strictly necessary;
-/// nonetheless, reading a single block of memory with [`std::io::Read::read_exact`] can be
-/// very fast, and using [`Deserialize::load_mem`](`crate::deser::Deserialize::load_mem`) to create a [`MemCase`]
-/// is a way to prevent cloning of the immutable
-/// structure.
 ///
 /// [`MemCase`] implements [`Deref`] and [`AsRef`] to the
 /// wrapped type, so it can be used almost transparently and
@@ -86,7 +79,7 @@ impl MemBackend {
 /// to use [`MemCase`] as the type of the field.
 /// [`MemCase`] implements [`From`] for the
 /// wrapped type, using the no-op [`None`](`MemBackend#variant.None`) variant
-/// of [`MemBackend`], so a data structure can be [encased](MemCase::encase)
+/// of [`MemBackend`], so a structure can be [encased](MemCase::encase)
 /// almost transparently.
 
 pub struct MemCase<S>(pub(crate) S, pub(crate) MemBackend);
