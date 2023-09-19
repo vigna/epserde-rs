@@ -18,8 +18,8 @@ macro_rules! impl_test {
         let full_copy = <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
         assert_eq!($data, full_copy);
 
-        let full_copy = <$ty>::deserialize_eps(&v).unwrap();
-        assert_eq!($data, full_copy);
+        let eps_copy = <$ty>::deserialize_eps(&v).unwrap();
+        assert_eq!($data, eps_copy);
     }
     {
         let mut v = vec![];
@@ -29,8 +29,8 @@ macro_rules! impl_test {
         let full_copy = <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
         assert_eq!($data, full_copy);
 
-        let full_copy = <$ty>::deserialize_eps(&v).unwrap();
-        assert_eq!($data, full_copy);
+        let eps_copy = <$ty>::deserialize_eps(&v).unwrap();
+        assert_eq!($data, eps_copy);
     }};
 }
 
