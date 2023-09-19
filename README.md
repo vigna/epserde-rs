@@ -380,7 +380,7 @@ and after.
 We strongly suggest to use the procedural macro [`Epserde`](`epserde_derive::Epserde`)
 to make own types serializable and deserializable. Just invoking the macro
 on your structure will make it fully functional with ε-serde. The attribute
-`#[zero_copy]` can be used to make a structure zero-copy, albeit it must satisfy
+`zero_copy` can be used to make a structure zero-copy, albeit it must satisfy
 [a few prerequisites](traits::CopyType).
 
 You can also implement manually

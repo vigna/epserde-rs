@@ -93,7 +93,8 @@ pub trait SerializeInner: TypeHash + ReprHash + Sized {
     /// track of whether all fields of a type are zero-copy
     /// but neither the attribute `#[zero_copy]` nor the attribute `#[deep_copy]`
     /// was specified. It is checked at runtime, and if it is true
-    /// attribute a warning will be issued, as the type could be zero-copy.
+    /// a warning will be issued, as the type could be zero-copy,
+    /// which would be more efficient.
     const ZERO_COPY_MISMATCH: bool;
 
     /// Serialize this structure using the given backend.
@@ -104,7 +105,7 @@ pub trait SerializeInner: TypeHash + ReprHash + Sized {
 /// methods in [`Serialize`].
 ///
 /// This implementation [writes a header](`write_header`) containing some hashes
-/// and debug information and then delegates to [WriteWithNames::_serialize_inner].
+/// and debug information and then delegates to [WriteWithNames::serialize].
 impl<T: SerializeInner> Serialize for T {
     /// Serialize the type using the given [`WriteWithNames`].
     fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {

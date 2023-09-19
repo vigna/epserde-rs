@@ -67,7 +67,7 @@ pub fn serialize_slice_zero<V: SerializeInner + ZeroCopy>(
 
 pub fn check_mismatch<V: SerializeInner>() {
     if V::ZERO_COPY_MISMATCH {
-        eprintln!("Type {} is zero-copy, but it has not declared as such; use the #deep_copy attribute to silence this warning", core::any::type_name::<V>());
+        eprintln!("Type {} is zero-copy, but it has not declared as such; use the #[deep_copy] attribute to silence this warning", core::any::type_name::<V>());
     }
 }
 
