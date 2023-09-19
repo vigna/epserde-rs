@@ -40,7 +40,7 @@ where
         // SAFETY: the fake vector we create is never used, and we forget it immediately
         // after writing it to the backend.
         let fake = unsafe { Vec::from_raw_parts(self.as_ptr() as *mut T, self.len(), self.len()) };
-        backend._serialize_inner("ROOT", &fake)?;
+        backend.serialize("ROOT", &fake)?;
         core::mem::forget(fake);
         backend.flush()
     }

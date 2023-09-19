@@ -253,10 +253,10 @@ impl<T: SerializeInner> SerializeInner for Option<T> {
     #[inline(always)]
     fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
-            None => backend._serialize_inner("Tag", &0_u8),
+            None => backend.serialize("Tag", &0_u8),
             Some(val) => {
-                backend._serialize_inner("Tag", &1_u8)?;
-                backend._serialize_inner("Some", val)
+                backend.serialize("Tag", &1_u8)?;
+                backend.serialize("Some", val)
             }
         }
     }

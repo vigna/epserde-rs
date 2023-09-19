@@ -354,7 +354,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
                             epserde::ser::helpers::check_mismatch::<Self>();
                             #(
-                                backend._serialize_inner(stringify!(#fields_names), &self.#fields_names)?;
+                                backend.serialize(stringify!(#fields_names), &self.#fields_names)?;
                             )*
                             Ok(())
                         }

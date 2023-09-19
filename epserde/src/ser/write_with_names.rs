@@ -41,7 +41,7 @@ pub trait WriteWithNames: WriteWithPos + Sized {
     /// The default implementation simply delegates to [`SerializeInner::_serialize_inner`].
     /// Other implementations might use the name information (e.g., [`SchemaWriter`]),
     /// but they must in the end delegate to [`SerializeInner::_serialize_inner`].
-    fn _serialize_inner<V: SerializeInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
+    fn serialize<V: SerializeInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
         value._serialize_inner(self)
     }
 
@@ -198,7 +198,7 @@ impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
     }
 
     #[inline(always)]
-    fn _serialize_inner<V: SerializeInner>(&mut self, field_name: &str, value: &V) -> Result<()> {
+    fn serialize<V: SerializeInner>(&mut self, field_name: &str, value: &V) -> Result<()> {
         // prepare a row with the field name and the type
         self.path.push(field_name.into());
         let pos = self.pos();
