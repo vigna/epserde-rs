@@ -25,8 +25,10 @@ use crate::*;
 use core::hash::Hasher;
 use std::{io::BufWriter, path::Path};
 
-pub mod field_writers;
-pub use field_writers::*;
+pub mod write_with_names;
+pub use write_with_names::*;
+pub mod helpers;
+pub use helpers::*;
 pub mod write;
 pub use write::*;
 
@@ -52,7 +54,8 @@ pub trait Serialize {
     /// This method is mainly useful for debugging and to check cross-language
     /// interoperability.
     fn serialize_with_schema(&self, backend: &mut impl WriteNoStd) -> Result<Schema> {
-        let mut schema_writer = SchemaWriter::new(WriterWithPos::new(backend));
+        let mut writer_with_pos = WriterWithPos::new(backend);
+        let mut schema_writer = SchemaWriter::new(&mut writer_with_pos);
         self.serialize_on_field_write(&mut schema_writer)?;
         let mut schema = schema_writer.schema;
         // Sort the schema before returning it. This is necessary because we add
@@ -61,8 +64,8 @@ pub trait Serialize {
         Ok(schema)
     }
 
-    /// Serialize the type using the given [`FieldWrite`].
-    fn serialize_on_field_write(&self, backend: &mut impl FieldWrite) -> Result<()>;
+    /// Serialize the type using the given [`WriteWithNames`].
+    fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()>;
 
     /// Commodity method to serialize to a file.
     fn store(&self, path: impl AsRef<Path>) -> Result<()> {
@@ -98,30 +101,31 @@ pub trait SerializeInner: TypeHash + ReprHash + Sized {
     const ZERO_COPY_MISMATCH: bool;
 
     /// Serialize this structure using the given backend.
-    fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> Result<()>;
+    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> Result<()>;
 }
 
 /// Blanket implementation that prevents the user from overwriting the
 /// methods in [`Serialize`].
 ///
 /// This implementation [writes a header](`write_header`) containing some hashes
-/// and debug information and then delegates to [FieldWrite::write_field].
+/// and debug information and then delegates to [WriteWithNames::_serialize_inner].
 impl<T: SerializeInner> Serialize for T {
-    /// Serialize the type using the given [`FieldWrite`].
-    fn serialize_on_field_write(&self, backend: &mut impl FieldWrite) -> Result<()> {
+    /// Serialize the type using the given [`WriteWithNames`].
+    fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         write_header::<Self>(backend)?;
-        backend.write_field("ROOT", self)?;
+        backend._serialize_inner("ROOT", self)?;
         backend.flush()
     }
 }
 
-/// Common code for both ε-copy and full-copy serialization.
+/// Write the header.
+///
 /// Must be kept in sync with [`crate::deser::check_header`].
-pub fn write_header<T: TypeHash + ReprHash>(backend: &mut impl FieldWrite) -> Result<()> {
-    backend.write_field("MAGIC", &MAGIC)?;
-    backend.write_field("VERSION_MAJOR", &VERSION.0)?;
-    backend.write_field("VERSION_MINOR", &VERSION.1)?;
-    backend.write_field("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8))?;
+pub fn write_header<T: TypeHash + ReprHash>(backend: &mut impl WriteWithNames) -> Result<()> {
+    backend._serialize_inner("MAGIC", &MAGIC)?;
+    backend._serialize_inner("VERSION_MAJOR", &VERSION.0)?;
+    backend._serialize_inner("VERSION_MINOR", &VERSION.1)?;
+    backend._serialize_inner("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8))?;
 
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
     T::type_hash(&mut type_hasher);
@@ -130,16 +134,16 @@ pub fn write_header<T: TypeHash + ReprHash>(backend: &mut impl FieldWrite) -> Re
     let mut offset_of = 0;
     T::repr_hash(&mut repr_hasher, &mut offset_of);
 
-    backend.write_field("TYPE_HASH", &type_hasher.finish())?;
-    backend.write_field("REPR_HASH", &repr_hasher.finish())?;
-    backend.write_field("TYPE_NAME", &core::any::type_name::<T>().to_string())
+    backend._serialize_inner("TYPE_HASH", &type_hasher.finish())?;
+    backend._serialize_inner("REPR_HASH", &repr_hasher.finish())?;
+    backend._serialize_inner("TYPE_NAME", &core::any::type_name::<T>().to_string())
 }
 
 /// A helper trait that makes it possible to implement differently
 /// serialization for [`crate::traits::ZeroCopy`] and [`crate::traits::DeepCopy`] types.
 /// See [`crate::traits::CopyType`] for more information.
 pub trait SerializeHelper<T: CopySelector> {
-    fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> Result<()>;
+    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> Result<()>;
 }
 
 #[derive(Debug)]

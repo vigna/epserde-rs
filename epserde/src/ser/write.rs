@@ -32,7 +32,6 @@ pub trait WriteNoStd {
 #[cfg(feature = "std")]
 use std::io::Write;
 
-use super::FieldWrite;
 #[cfg(feature = "std")]
 impl<W: Write> WriteNoStd for W {
     #[inline(always)]
@@ -45,11 +44,16 @@ impl<W: Write> WriteNoStd for W {
     }
 }
 
-/// A wrapper around a writer that keeps track of the current position
-/// so we can align the data.
+/// A trait for [`WriteNoStd`] that also keeps track of the current position.
 ///
 /// This is needed because the [`Write`] trait doesn't have a `seek` method and
 /// [`std::io::Seek`] would be a requirement much stronger than needed.
+pub trait WriteWithPos: WriteNoStd {
+    fn pos(&self) -> usize;
+}
+
+/// A wrapper for a [`WriteNoStd`] that implements [`WriteWithPos`]
+/// by keeping track of the current position.
 pub struct WriterWithPos<'a, F: WriteNoStd> {
     /// What we actually write on.
     backend: &'a mut F,
@@ -65,13 +69,6 @@ impl<'a, F: WriteNoStd> WriterWithPos<'a, F> {
     }
 }
 
-impl<'a, F: WriteNoStd> FieldWrite for WriterWithPos<'a, F> {
-    #[inline(always)]
-    fn pos(&self) -> usize {
-        self.pos
-    }
-}
-
 impl<'a, F: WriteNoStd> WriteNoStd for WriterWithPos<'a, F> {
     #[inline(always)]
     fn write_all(&mut self, buf: &[u8]) -> ser::Result<()> {
@@ -83,5 +80,12 @@ impl<'a, F: WriteNoStd> WriteNoStd for WriterWithPos<'a, F> {
     #[inline(always)]
     fn flush(&mut self) -> ser::Result<()> {
         self.backend.flush()
+    }
+}
+
+impl<'a, F: WriteNoStd> WriteWithPos for WriterWithPos<'a, F> {
+    #[inline(always)]
+    fn pos(&self) -> usize {
+        self.pos
     }
 }

@@ -49,8 +49,8 @@ impl SerializeInner for String {
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
-    fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> ser::Result<()> {
-        backend.write_slice_zero(self.as_bytes())
+    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        serialize_slice_zero(backend, self.as_bytes())
     }
 }
 
@@ -81,8 +81,8 @@ impl SerializeInner for Box<str> {
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
-    fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> ser::Result<()> {
-        backend.write_slice_zero(self.as_bytes())
+    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        serialize_slice_zero(backend, self.as_bytes())
     }
 }
 

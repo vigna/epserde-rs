@@ -48,7 +48,9 @@ macro_rules! impl_tuples {
                 offset_of: &mut usize,
             ) {
                 $(
+                    let curr_offset_of = *offset_of;
                     <$t>::repr_hash(hasher, offset_of);
+                    *offset_of = curr_offset_of + core::mem::size_of::<$t>();
                 )*
             }
         }
@@ -70,8 +72,8 @@ macro_rules! impl_tuples {
             const ZERO_COPY_MISMATCH: bool = false;
 
             #[inline(always)]
-            fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> ser::Result<()> {
-                backend.write_field_zero("tuple", self)
+            fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+                serialize_zero(backend, self)
             }
         }
 

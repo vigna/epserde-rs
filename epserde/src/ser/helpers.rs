@@ -24,7 +24,7 @@ fn check_zero_copy<V: SerializeInner>() {
     }
 }
 
-/// Serialize a zero-copy structure by writing its bytes properly [aligned](FieldWrite::align).
+/// Serialize a zero-copy structure by writing its bytes properly [aligned](WriteWithNames::align).
 ///
 /// Note that this method uses a single `write_all` call to write the entire structure.
 ///
@@ -43,9 +43,9 @@ pub fn serialize_zero<V: ZeroCopy + SerializeInner>(
 }
 
 /// Serialize a slice of zero-copy structures by encoding
-/// its length first, and then its bytes properly [aligned](FieldWrite::align).
+/// its length first, and then its bytes properly [aligned](WriteWithNames::align).
 ///
-/// Note that this method uses a single [`FieldWrite::write_all`]
+/// Note that this method uses a single `write_all`
 /// call to write the entire slice.
 ///
 /// Here we check [that the type is actually zero-copy](SerializeInner::IS_ZERO_COPY).

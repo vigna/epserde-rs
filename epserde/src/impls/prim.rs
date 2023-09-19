@@ -56,7 +56,7 @@ macro_rules! impl_prim_ser_des {
             const ZERO_COPY_MISMATCH: bool = false;
 
             #[inline(always)]
-            fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> ser::Result<()> {
+            fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
                 backend.write_all(&self.to_ne_bytes())
             }
         }
@@ -113,7 +113,7 @@ impl SerializeInner for bool {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> ser::Result<()> {
+    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         let val = if *self { 1 } else { 0 };
         backend.write_all(&[val])
     }
@@ -142,7 +142,7 @@ impl SerializeInner for char {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> ser::Result<()> {
+    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         (*self as u32)._serialize_inner(backend)
     }
 }
@@ -168,7 +168,7 @@ impl SerializeInner for () {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    fn _serialize_inner(&self, _backend: &mut impl FieldWrite) -> ser::Result<()> {
+    fn _serialize_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
         Ok(())
     }
 }
@@ -206,7 +206,7 @@ impl<T: SerializeInner> SerializeInner for PhantomData<T> {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    fn _serialize_inner(&self, _backend: &mut impl FieldWrite) -> ser::Result<()> {
+    fn _serialize_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
         Ok(())
     }
 }
@@ -251,12 +251,12 @@ impl<T: SerializeInner> SerializeInner for Option<T> {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    fn _serialize_inner(&self, backend: &mut impl FieldWrite) -> ser::Result<()> {
+    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
-            None => backend.write_field("Tag", &0_u8),
+            None => backend._serialize_inner("Tag", &0_u8),
             Some(val) => {
-                backend.write_field("Tag", &1_u8)?;
-                backend.write_field("Some", val)
+                backend._serialize_inner("Tag", &1_u8)?;
+                backend._serialize_inner("Some", val)
             }
         }
     }
