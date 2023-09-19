@@ -223,7 +223,7 @@ assert_eq!(s, **u);
 ```
 If a structure is not zero-copy, vectors will be always deserialized to vectors.
 
-## Example: structures with parameters
+## Example: Structures with parameters
 
 More flexibility can be obtained by defining structures with fields
 whose types are defined by parameters. In this case, ε-serde
@@ -363,15 +363,14 @@ Deep-copy types instead are serialized and deserialized recursively, field by fi
 The basic idea in ε-serde is that *if a field has a type that is a parameter, during
 ε-copy deserialization the type will be replaced with its deserialization type*. Since
 the deserialization type is defined recursively, replacement can happen at any depth level. For example,
-a `Vec<Vec<Vec<usize>>>` will be deserialized as a `Vec<Vec<&[usize]>>` 
+a `Vec<Vec<Vec<usize>>>` will be deserialized as a `Vec<Vec<&[usize]>>`.
 
 This approach makes it possible to write ε-serde-aware structures that hide completely
 from the user the substitution. A good example
 is the `CompactArray` structure from [`sux-rs`](http://crates.io/sux/), which exposes an array of fields of fixed
 bit width using (usually) a `Vec<usize>` as backend. If you have your own struct and one
 of the fields is of type `A`, when serializing your struct with `A` equal to `CompactArray<Vec<usize>>`,
-upon deserialization you will get a version of your struct with `CompactArray<&[usize]>`. All this will
-happen under the hood because `CompactArray` is ε-serde-aware, and in fact you will not
+upon ε-copy deserialization you will get a version of your struct with `CompactArray<&[usize]>`. All this will happen under the hood because `CompactArray` is ε-serde-aware, and in fact you will not
 even notice the difference, because you will access the same methods of `CompactArray` before
 and after.
 
@@ -380,7 +379,7 @@ and after.
 We strongly suggest to use the procedural macro [`Epserde`](`epserde_derive::Epserde`)
 to make own types serializable and deserializable. Just invoking the macro
 on your structure will make it fully functional with ε-serde. The attribute
-`zero_copy` can be used to make a structure zero-copy, albeit it must satisfy
+`#[zero_copy]` can be used to make a structure zero-copy, albeit it must satisfy
 [a few prerequisites](traits::CopyType).
 
 You can also implement manually
