@@ -15,7 +15,10 @@ use super::*;
 /// and the underlying [`WriteWithPos`] a layer in which serialization operations
 /// can be easily intercepted and recorded. In particular, serialization methods
 /// must use the methods of this trait if they want to record the schema of the
-/// serialized data. See [`helpers`] for examples. All methods have a default
+/// serialized data; this is true (maybe counterintuitively) even of ancillary
+/// data such as tags and slice lengths: see [`helpers`] or the
+/// [implementation of `Option`](impls::prim) for examples.
+/// All methods have a default
 /// implementation that must be replicated in other implementations.
 ///
 /// There are two implementations of [`WriteWithNames`]: [`WriterWithPos`],
