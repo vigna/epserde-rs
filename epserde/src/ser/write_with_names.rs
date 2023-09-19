@@ -16,10 +16,10 @@ use super::*;
 /// can be easily intercepted and recorded. In particular, serialization methods
 /// must use the methods of this trait if they want to record the schema of the
 /// serialized data. See [`helpers`] for examples. All methods have a default
-/// implementation which must be replicated in other implementations.
+/// implementation that must be replicated in other implementations.
 ///
-/// There are two implementations of [`WriteWithNames`]: one is [`WriterWithPos`],
-/// which simply uses the default implementation, and [`SchemaWriter`],
+/// There are two implementations of [`WriteWithNames`]: [`WriterWithPos`],
+/// which uses the default implementation, and [`SchemaWriter`],
 /// which additionally records a [`Schema`] of the serialized data.
 pub trait WriteWithNames: WriteWithPos + Sized {
     /// Add some zero padding so that `self.pos() % V:max_size_of() == 0.`

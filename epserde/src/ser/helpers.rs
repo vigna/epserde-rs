@@ -15,7 +15,7 @@ use super::{SerializeInner, WriteWithNames};
 use crate::ser;
 use crate::traits::*;
 
-fn check_zero_copy<V: SerializeInner>() {
+pub fn check_zero_copy<V: SerializeInner>() {
     if !V::IS_ZERO_COPY {
         panic!(
             "Cannot serialize type {} declared as zero-copy as it is not zero-copy",
@@ -65,21 +65,10 @@ pub fn serialize_slice_zero<V: SerializeInner + ZeroCopy>(
     backend.write_bytes::<V>(buffer)
 }
 
-fn check_mismatch<V: SerializeInner>() {
+pub fn check_mismatch<V: SerializeInner>() {
     if V::ZERO_COPY_MISMATCH {
         eprintln!("Type {} is zero-copy, but it has not declared as such; use the #deep_copy attribute to silence this warning", core::any::type_name::<V>());
     }
-}
-
-/// Serialize a deep-copy structure by delegating to [`SerializeInner::_serialize_inner`].
-///
-/// Here we warn [that the type might actually be zero-copy](SerializeInner::ZERO_COPY_MISMATCH).
-pub fn serialize_deep<V: SerializeInner>(
-    backend: &mut impl WriteWithNames,
-    data: V,
-) -> ser::Result<()> {
-    check_mismatch::<V>();
-    data._serialize_inner(backend)
 }
 
 /// Serialize a slice of deep-copy structures by encoding
