@@ -221,10 +221,9 @@ let u: MemCase<&[Data]> =
     <Vec<Data>>::mmap(&file, Flags::empty()).unwrap();
 assert_eq!(s, **u);
 ```
-If a structure is not zero-copy, vectors will be always deserialized to vectors
-(i.e., the full copy and the ε-copy will be the same).
+If a structure is not zero-copy, vectors will be always deserialized to vectors.
 
-## Examples: ε-copy structures
+## Example: structures with parameters
 
 More flexibility can be obtained by defining structures with fields
 whose types are defined by parameters. In this case, ε-serde
