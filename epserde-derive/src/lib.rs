@@ -309,11 +309,10 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         #[inline(always)]
                         fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
                             // No-op code that however checks that all fields are zero-copy.
-                            let mut c = 0;
+                            fn test<T: epserde::traits::ZeroCopy>() {}
                             #(
-                                <#fields_types as epserde::traits::ZeroCopy>::test();
+                                test::<#fields_types>();
                             )*
-
                             epserde::ser::helpers::serialize_zero(backend, self)
                         }
                     }
