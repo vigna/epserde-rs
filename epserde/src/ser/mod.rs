@@ -57,11 +57,7 @@ pub trait Serialize {
         let mut writer_with_pos = WriterWithPos::new(backend);
         let mut schema_writer = SchemaWriter::new(&mut writer_with_pos);
         self.serialize_on_field_write(&mut schema_writer)?;
-        let mut schema = schema_writer.schema;
-        // Sort the schema before returning it. This is necessary because we add
-        // rows related to structures after writing them.
-        schema.sort();
-        Ok(schema)
+        Ok(schema_writer.schema)
     }
 
     /// Serialize the type using the given [`WriteWithNames`].

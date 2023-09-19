@@ -54,17 +54,20 @@ pub trait WriteWithNames: WriteWithPos + Sized {
 
 impl<F: WriteNoStd> WriteWithNames for WriterWithPos<'_, F> {}
 
+/// Information about data written during serialization, either fields or
+/// ancillary data such as option tags and slice lengths.
 #[derive(Debug, Clone)]
 pub struct SchemaRow {
-    /// Name of the field.
+    /// Name of the piece of data.
     pub field: String,
-    /// Type of the field.
+    /// Type of the piece of data.
     pub ty: String,
-    /// Offset of the field from the start of the file.
+    /// Offset from the start of the file.
     pub offset: usize,
-    /// The length in bytes of the field.
+    /// Length in bytes of the piece of data.
     pub size: usize,
-    /// The alignment needed by the field.
+    /// The alignment needed by the piece of data, zero if not applicable
+    /// (e.g., primitive fields, ancillary data, or structures).
     pub align: usize,
 }
 
@@ -209,7 +212,7 @@ impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
                 field: self.path.join("."),
                 ty: core::any::type_name::<V>().to_string(),
                 offset: pos,
-                align: 1,
+                align: 0,
                 size: self.pos() - pos,
             },
         );
