@@ -158,7 +158,11 @@ impl core::fmt::Display for Error {
         match self {
             Self::WriteError => write!(f, "Write error during ε-serde serialization"),
             Self::FileOpenError(error) => {
-                write!(f, "Write error during ε-serde serialization: {}", error)
+                write!(
+                    f,
+                    "Error opening file during ε-serde serialization: {}",
+                    error
+                )
             }
         }
     }

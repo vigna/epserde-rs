@@ -353,7 +353,7 @@ impl core::fmt::Display for Error {
         match self {
             Self::ReadError => write!(f, "Read error during ε-serde deserialization"),
             Self::FileOpenError(error) => {
-                write!(f, "Write error during ε-serde deserialization: {}", error)
+                write!(f, "Error opening file during ε-serde deserialization: {}", error)
             }
             Self::EndiannessError => write!(
                 f,
