@@ -311,7 +311,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             // No-op code that however checks that all fields are zero-copy.
                             let mut c = 0;
                             #(
-                                std::any::type_name::<#fields_types as epserde::traits::ZeroCopy>();
+                                <#fields_types as epserde::traits::ZeroCopy>::test();
                             )*
 
                             epserde::ser::helpers::serialize_zero(backend, self)

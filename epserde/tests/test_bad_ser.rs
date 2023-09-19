@@ -6,10 +6,13 @@
 
 #![cfg(test)]
 
-use epserde::prelude::*;
+/*
+
+// This test should not compile, as the field of a zero-copy structure is not zero-copy.
 
 #[test]
 fn test_fake_zero() {
+    use epserde::prelude::*;
     #[derive(Epserde)]
     struct NewType {
         data: Vec<usize>,
@@ -39,3 +42,4 @@ fn test_fake_zero() {
     });
     assert!(result.is_err());
 }
+*/

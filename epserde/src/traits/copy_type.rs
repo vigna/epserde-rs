@@ -100,6 +100,8 @@ pub trait CopyType: Sized {
 /// Marker trait for zero-copy types. You should never implement
 /// this trait directly, but rather implement [`CopyType`] with `Copy=Zero`.
 pub trait ZeroCopy: CopyType<Copy = Zero> + MaxSizeOf {
+    /// No-op method used at compile time to check that a
+    /// type implements this trait.
     fn test() {}
 }
 impl<T: CopyType<Copy = Zero> + MaxSizeOf> ZeroCopy for T {}
