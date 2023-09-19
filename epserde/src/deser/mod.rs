@@ -386,7 +386,7 @@ impl core::fmt::Display for Error {
             ),
             Self::UsizeSizeMismatch(usize_size) => write!(
                 f,
-                "The file was serialized on hardware where a usize has size {}, but on the current machine it has size {}.",
+                "The file was serialized on an architecture where a usize has size {}, but on the current architecture it has size {}.",
                 usize_size,
                 core::mem::size_of::<usize>()
             ),
