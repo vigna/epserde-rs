@@ -56,7 +56,7 @@ pub fn serialize_slice_zero<V: SerializeInner + ZeroCopy>(
     check_zero_copy::<V>();
 
     let len = data.len();
-    backend.serialize("len", &len)?;
+    backend.write("len", &len)?;
     let buffer = unsafe {
         #[allow(clippy::manual_slice_size_calculation)]
         core::slice::from_raw_parts(data.as_ptr() as *const u8, len * core::mem::size_of::<V>())
@@ -81,9 +81,9 @@ pub fn serialize_slice_deep<V: SerializeInner>(
 ) -> ser::Result<()> {
     check_mismatch::<V>();
     let len = data.len();
-    backend.serialize("len", &len)?;
+    backend.write("len", &len)?;
     for item in data.iter() {
-        backend.serialize("item", item)?;
+        backend.write("item", item)?;
     }
     Ok(())
 }

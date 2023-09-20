@@ -110,7 +110,7 @@ impl<T: SerializeInner> Serialize for T {
     /// Serialize the type using the given [`WriteWithNames`].
     fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         write_header::<Self>(backend)?;
-        backend.serialize("ROOT", self)?;
+        backend.write("ROOT", self)?;
         backend.flush()
     }
 }
@@ -119,10 +119,10 @@ impl<T: SerializeInner> Serialize for T {
 ///
 /// Must be kept in sync with [`crate::deser::check_header`].
 pub fn write_header<T: TypeHash + ReprHash>(backend: &mut impl WriteWithNames) -> Result<()> {
-    backend.serialize("MAGIC", &MAGIC)?;
-    backend.serialize("VERSION_MAJOR", &VERSION.0)?;
-    backend.serialize("VERSION_MINOR", &VERSION.1)?;
-    backend.serialize("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8))?;
+    backend.write("MAGIC", &MAGIC)?;
+    backend.write("VERSION_MAJOR", &VERSION.0)?;
+    backend.write("VERSION_MINOR", &VERSION.1)?;
+    backend.write("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8))?;
 
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
     T::type_hash(&mut type_hasher);
@@ -131,9 +131,9 @@ pub fn write_header<T: TypeHash + ReprHash>(backend: &mut impl WriteWithNames) -
     let mut offset_of = 0;
     T::repr_hash(&mut repr_hasher, &mut offset_of);
 
-    backend.serialize("TYPE_HASH", &type_hasher.finish())?;
-    backend.serialize("REPR_HASH", &repr_hasher.finish())?;
-    backend.serialize("TYPE_NAME", &core::any::type_name::<T>().to_string())
+    backend.write("TYPE_HASH", &type_hasher.finish())?;
+    backend.write("REPR_HASH", &repr_hasher.finish())?;
+    backend.write("TYPE_NAME", &core::any::type_name::<T>().to_string())
 }
 
 /// A helper trait that makes it possible to implement differently

@@ -62,7 +62,7 @@ impl<T: DeepCopy + SerializeInner, const N: usize> SerializeHelper<Deep> for [T;
     #[inline(always)]
     fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         for item in self.iter() {
-            backend.serialize("item", item)?;
+            backend.write("item", item)?;
         }
         Ok(())
     }
