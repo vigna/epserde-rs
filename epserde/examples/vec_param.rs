@@ -8,7 +8,8 @@
 use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
-/// Example of an internal parameter, which is left untouched.
+/// Example of an internal parameter, which is left untouched,
+/// but needs some decoration to be used.
 struct Data<A: DeepCopy + 'static> {
     a: Vec<A>,
 }

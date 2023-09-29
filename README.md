@@ -172,7 +172,7 @@ to a slice; the same would happen when serializing a boxed slice.
 The reference points inside `b`, so there is very little
 copy performed (in fact, just a field containing the length of the slice).
 All this is due to the fact that `usize` is a zero-copy type.
-Note also that we use the convenience method [`Deserialize::load_full`]()`deser::Deserialize::load_full`).
+Note also that we use the convenience method [`Deserialize::load_full`](`deser::Deserialize::load_full`).
 
 If your code must work both with the original and the deserialized
 version, however, it must be written for a trait that is implemented
@@ -316,6 +316,43 @@ assert_eq!(s.data, t.data.as_ref());
 assert_eq!(s.sum(), t.sum());
 ```
 
+## Example: Structures with internal parameters
+
+Internal parameters, that is, parameters used by the
+types of your fields but that do not represent the type
+of your fields are left untouched. However, to be serializable
+they must be classified as deep-copy or zero-copy, and must have
+a `'static` lifetime. For example,
+```rust
+use epserde::prelude::*;
+use epserde_derive::*;
+
+#[derive(Epserde, Debug, PartialEq)]
+struct MyStruct<A: DeepCopy + 'static> {
+    data: Vec<A>,
+}
+
+// Create a structure where A is a Vec<isize>
+let s: MyStruct<Vec<isize>> = MyStruct { data: vec![vec![0, 1, 2, 3]] };
+// Serialize it
+let mut file = std::env::temp_dir();
+file.push("serialized4");
+s.store(&file);
+// Load the serialized form in a buffer
+let b = std::fs::read(&file).unwrap();
+
+// The type of t is unchanged
+let t: MyStruct<Vec<isize>> = 
+    <MyStruct<Vec<isize>>>::deserialize_eps(b.as_ref()).unwrap();
+```
+Note how the field originally containing a `Vec<Vec<isize>>` still contains
+the same type.
+
+## Example: `sux-rs`
+
+The [`sux-rs`](http://crates.io/crates/sux-rs/) crate provides several data structures
+that use ε-serde.
+
 ## Design
 
 Every type serializable with ε-serde has two features that are in principle orthogonal,
@@ -363,7 +400,7 @@ Deep-copy types instead are serialized and deserialized recursively, field by fi
 The basic idea in ε-serde is that *if a field has a type that is a parameter, during
 ε-copy deserialization the type will be replaced with its deserialization type*. Since
 the deserialization type is defined recursively, replacement can happen at any depth level. For example,
-a `Vec<Vec<Vec<usize>>>` will be deserialized as a `Vec<Vec<&[usize]>>`.
+a field of type `A = Vec<Vec<Vec<usize>>>` will be deserialized as a `A = Vec<Vec<&[usize]>>`.
 
 This approach makes it possible to write ε-serde-aware structures that hide completely
 from the user the substitution. A good example
