@@ -8,17 +8,15 @@
 use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
-/// Random struct we will use to test the nested serialization and deserialization.
-struct Data<A> {
-    a: A,
-    test: isize,
+/// Example of an internal parameter, which is left untouched.
+struct Data<A: DeepCopy + 'static> {
+    a: Vec<A>,
 }
 
 fn main() {
     // Create a new value to serialize
     let data = Data {
         a: vec![vec![0x89; 6]; 9],
-        test: -0xbadf00d,
     };
     let mut buf = epserde::new_aligned_cursor();
     // Serialize
@@ -27,10 +25,10 @@ fn main() {
 
     // Do a full-copy deserialization
     buf.set_position(0);
-    let full = <Data<Vec<Vec<i32>>>>::deserialize_full(&mut buf).unwrap();
+    let full = <Data<Vec<i32>>>::deserialize_full(&mut buf).unwrap();
     println!(
         "Full-copy deserialization type: {}",
-        std::any::type_name::<Data<Vec<Vec<i32>>>>(),
+        std::any::type_name::<Data<Vec<i32>>>(),
     );
     println!("Value: {:x?}", full);
 
@@ -38,10 +36,10 @@ fn main() {
 
     // Do an ε-copy deserialization
     let buf = buf.into_inner();
-    let eps = <Data<Vec<Vec<i32>>>>::deserialize_eps(&buf).unwrap();
+    let eps = <Data<Vec<i32>>>::deserialize_eps(&buf).unwrap();
     println!(
         " ε-copy deserialization type: {}",
-        std::any::type_name::<<Data<Vec<Vec<i32>>> as DeserializeInner>::DeserType<'_>>(),
+        std::any::type_name::<<Data<Vec<i32>> as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);
 }

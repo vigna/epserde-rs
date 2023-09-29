@@ -230,7 +230,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
             // Gather deserialization types of fields,
             // which are necessary to derive the deserialization type.
-            let desser_type_generics = generics_name_vec
+            let deser_type_generics = generics_name_vec
                 .iter()
                 .map(|ty| {
                     if generic_types
@@ -261,7 +261,13 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             derive_input.generics.params.iter().for_each(|param| {
                 if let GenericParam::Type(t) = param {
                     let ty = &t.ident;
-                    if t.bounds.is_empty() {
+                    // Skip generics not involved in deserialization type substitution.
+                    if t.bounds.is_empty() || ! 
+                     generic_types
+                        .iter()
+                        .any(|x| x.to_token_stream().to_string() == ty.to_string())
+                    
+                    {
                         return;
                     }
                     let mut lifetimes = Punctuated::new();
@@ -327,7 +333,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
 
-                        type DeserType<'epserde_desertype> = &'epserde_desertype #name<#(#desser_type_generics,)*>;
+                        type DeserType<'epserde_desertype> = &'epserde_desertype #name<#(#deser_type_generics,)*>;
 
                         fn _deserialize_eps_inner<'a>(
                             backend: &mut epserde::deser::SliceWithPos<'a>,
@@ -379,7 +385,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             })
                         }
 
-                        type DeserType<'epserde_desertype> = #name<#(#desser_type_generics,)*>;
+                        type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
 
                         fn _deserialize_eps_inner<'a>(
                             backend: &mut epserde::deser::SliceWithPos<'a>,
