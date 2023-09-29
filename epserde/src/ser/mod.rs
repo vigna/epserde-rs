@@ -105,7 +105,7 @@ pub trait SerializeInner: TypeHash + ReprHash + Sized {
 /// methods in [`Serialize`].
 ///
 /// This implementation [writes a header](`write_header`) containing some hashes
-/// and debug information and then delegates to [WriteWithNames::serialize].
+/// and debug information and then delegates to [WriteWithNames::write].
 impl<T: SerializeInner> Serialize for T {
     /// Serialize the type using the given [`WriteWithNames`].
     fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {

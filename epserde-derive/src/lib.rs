@@ -264,7 +264,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     // Skip generics not involved in deserialization type substitution.
                     if t.bounds.is_empty() || ! generic_types
                         .iter()
-                        .any(|x| x.to_token_stream().to_string() == ty.to_string())
+                        .any(|x| *ty == x.to_token_stream().to_string())
                     {
                         return;
                     }
