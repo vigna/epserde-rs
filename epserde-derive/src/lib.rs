@@ -262,11 +262,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 if let GenericParam::Type(t) = param {
                     let ty = &t.ident;
                     // Skip generics not involved in deserialization type substitution.
-                    if t.bounds.is_empty() || ! 
-                     generic_types
+                    if t.bounds.is_empty() || ! generic_types
                         .iter()
                         .any(|x| x.to_token_stream().to_string() == ty.to_string())
-                    
                     {
                         return;
                     }
