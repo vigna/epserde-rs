@@ -6,7 +6,7 @@ description = "Implementation of #[derive(Serialize, Deserialize)] for epserde"
 repository = "https://github.com/vigna/epserde-rs/"
 license = "Apache-2.0 OR LGPL-2.1-or-later"
 readme = "README.md"
-keywords = ["serialization", "zero-copy", "ε-copy"]
+keywords = ["serialization", "zero-copy", "mmap"]
 authors = ["Tommaso Fontana <tommaso.fontana.96@gmail.com>", "Sebastiano Vigna <sebastiano.vigna@unimi.it>"]
 
 [lib]
