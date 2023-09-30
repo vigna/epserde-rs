@@ -1,8 +1,8 @@
 [package]
 name = "epserde-derive"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
-description = "Implementation of #[derive(Serialize, Deserialize)] for epserde"
+description = "Procedural macros for ε-serde"
 repository = "https://github.com/vigna/epserde-rs/"
 license = "Apache-2.0 OR LGPL-2.1-or-later"
 readme = "README.md"
