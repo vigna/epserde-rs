@@ -57,7 +57,7 @@ the fields you want to ε-copy must be type parameters implementing
 For example, we provide implementations for
 `Vec<T>`/`Box<[T]>`, where `T` [is zero-copy](traits::ZeroCopy), or `String`/`Box<str>`, which have 
 associated deserialized type `&[T]` or `&str`, respectively. Vectors and boxed slices of
-types that are not zero-copy will be fully deserialized in memory instead.
+types that are not zero-copy will be deserialized recursively in memory instead.
 
 - After deserialization, you will obtain an associated deserialized type, which 
 will usually reference the underlying

@@ -194,7 +194,9 @@ impl<T> CopyType for PhantomData<T> {
 }
 
 impl<T: TypeHash> TypeHash for PhantomData<T> {
-    fn type_hash(_hasher: &mut impl core::hash::Hasher) {}
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        T::type_hash(hasher);
+    }
 }
 
 impl<T: ReprHash> ReprHash for PhantomData<T> {
