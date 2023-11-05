@@ -37,12 +37,13 @@ assert_eq!(a, *b);
 
 use crate::prelude::*;
 use ser::*;
+use std::hash::Hash;
 
 impl<T: TypeHash> TypeHash for [T] {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        hasher.hash("[");
+        "[".hash(hasher);
         T::type_hash(hasher);
-        hasher.hash("]");
+        "]".hash(hasher);
     }
 }
 
