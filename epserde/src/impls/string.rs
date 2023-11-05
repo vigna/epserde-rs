@@ -36,11 +36,21 @@ impl ReprHash for String {
 
 impl TypeHash for Box<str> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "str".hash(hasher);
+        "Box<str>".hash(hasher);
     }
 }
 
 impl ReprHash for Box<str> {
+    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+}
+
+impl TypeHash for str {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "str".hash(hasher);
+    }
+}
+
+impl ReprHash for str {
     fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 

@@ -189,21 +189,21 @@ impl DeserializeInner for () {
 
 // PhantomData is zero-copy. No reading or writing is performed when (de)serializing it.
 
-impl<T> CopyType for PhantomData<T> {
+impl<T: ?Sized> CopyType for PhantomData<T> {
     type Copy = Zero;
 }
 
-impl<T: TypeHash> TypeHash for PhantomData<T> {
+impl<T: ?Sized + TypeHash> TypeHash for PhantomData<T> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         T::type_hash(hasher);
     }
 }
 
-impl<T: ReprHash> ReprHash for PhantomData<T> {
+impl<T: ?Sized> ReprHash for PhantomData<T> {
     fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl<T: SerializeInner> SerializeInner for PhantomData<T> {
+impl<T: ?Sized + TypeHash> SerializeInner for PhantomData<T> {
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
@@ -213,17 +213,17 @@ impl<T: SerializeInner> SerializeInner for PhantomData<T> {
     }
 }
 
-impl<T: DeserializeInner> DeserializeInner for PhantomData<T> {
+impl<T: ?Sized + TypeHash> DeserializeInner for PhantomData<T> {
     #[inline(always)]
     fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomData::<T>)
     }
-    type DeserType<'a> = PhantomData<<T as DeserializeInner>::DeserType<'a>>;
+    type DeserType<'a> = PhantomData<T>;
     #[inline(always)]
     fn _deserialize_eps_inner<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        Ok(PhantomData::<<T as DeserializeInner>::DeserType<'a>>)
+        Ok(PhantomData)
     }
 }
 

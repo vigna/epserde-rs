@@ -149,8 +149,7 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
 /// standard structures (and not tuple structures).
 ///
 /// The attribute `zero_copy` can be used to generate an implementation for a zero-copy
-/// type, but the type must be `repr(C)` and all fields must be zero-copy. Note that this
-/// condition can only be checked at serialization time.
+/// type, but the type must be `repr(C)` and all fields must be zero-copy.
 ///
 /// If you do not specify `zero_copy`, the macro assumes your structure is deep-copy.
 /// However, if you have a structure that could be zero-copy, but has no attribute,

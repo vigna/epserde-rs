@@ -7,11 +7,16 @@
 
 /*!
 
-Serialize-only (slightly cheaty) implementation for slices that deserializes to vectors.
+Implementations for slices.
 
-This implementation of [`Serialize`] for slices is slightly cheaty, as it actually
-serializes a vector using the slice as a backing array, so it must be deserialized
-using a vector as type.
+Slices cannot be serialized in isolation, but they must implement [`TypeHash`] and
+[`ReprHash`] so that they can be used with [`PhantomData`](std::marker::PhantomData).
+
+We also provide a serialize-only (slightly cheaty) implementation
+for slices that deserializes to vectors.
+
+It is slightly cheaty in that it serializes a vector using the
+slice as a backing array, so it must be deserialized using a vector as type.
 
 Note that if you ε-copy deserialize the vector, you will
 get back the same slice.
@@ -27,9 +32,23 @@ let buf = cursor.into_inner();
 let b: &[i32] = <Vec<i32>>::deserialize_eps(&buf).unwrap();
 assert_eq!(a, *b);
 ```
+
 */
+
 use crate::prelude::*;
 use ser::*;
+
+impl<T: TypeHash> TypeHash for [T] {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        hasher.hash("[");
+        T::type_hash(hasher);
+        hasher.hash("]");
+    }
+}
+
+impl<T> ReprHash for [T] {
+    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+}
 
 impl<T: SerializeInner + CopyType> Serialize for &[T]
 where
