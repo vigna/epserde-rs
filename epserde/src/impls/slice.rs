@@ -59,7 +59,6 @@ where
     Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
 {
     fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        println!("CIAO");
         write_header::<Vec<T>>(backend)?;
         // SAFETY: the fake vector we create is never used, and we forget it immediately
         // after writing it to the backend.
