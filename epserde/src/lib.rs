@@ -21,7 +21,7 @@ extern crate epserde_derive;
 use std::io::Cursor;
 
 #[cfg(feature = "derive")]
-pub use epserde_derive::Epserde;
+pub use epserde_derive::{Epserde, TypeInfo};
 
 pub mod deser;
 pub mod impls;
@@ -47,7 +47,7 @@ pub mod prelude {
 }
 
 /// (Major, Minor) version of the file format, this follows semantic versioning
-pub const VERSION: (u16, u16) = (0, 0);
+pub const VERSION: (u16, u16) = (1, 0);
 
 /// Magic cookie, also used as endianess marker.
 pub const MAGIC: u64 = u64::from_ne_bytes(*b"epserde ");

@@ -23,8 +23,9 @@ get back the same slice.
 ```rust
 use epserde::prelude::*;
 let a = vec![1, 2, 3, 4];
+let s = a.as_slice();
 let mut cursor = epserde::new_aligned_cursor();
-a.serialize(&mut cursor).unwrap();
+s.serialize(&mut cursor).unwrap();
 cursor.set_position(0);
 let b: Vec<i32> = <Vec<i32>>::deserialize_full(&mut cursor).unwrap();
 assert_eq!(a, b);
@@ -40,6 +41,7 @@ use ser::*;
 use std::hash::Hash;
 
 impl<T: TypeHash> TypeHash for [T] {
+    #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "[".hash(hasher);
         T::type_hash(hasher);
@@ -48,14 +50,16 @@ impl<T: TypeHash> TypeHash for [T] {
 }
 
 impl<T> ReprHash for [T] {
+    #[inline(always)]
     fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl<T: SerializeInner + CopyType> Serialize for &[T]
+impl<T: SerializeInner + CopyType + TypeHash + ReprHash> Serialize for [T]
 where
     Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
 {
     fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        println!("CIAO");
         write_header::<Vec<T>>(backend)?;
         // SAFETY: the fake vector we create is never used, and we forget it immediately
         // after writing it to the backend.

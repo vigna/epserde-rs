@@ -194,17 +194,21 @@ impl<T: ?Sized> CopyType for PhantomData<T> {
 }
 
 impl<T: ?Sized + TypeHash> TypeHash for PhantomData<T> {
+    #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "PhantomData<".hash(hasher);
         T::type_hash(hasher);
+        ">".hash(hasher);
     }
 }
 
 impl<T: ?Sized> ReprHash for PhantomData<T> {
+    #[inline(always)]
     fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
 impl<T: ?Sized + TypeHash> SerializeInner for PhantomData<T> {
-    const IS_ZERO_COPY: bool = false;
+    const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]

@@ -18,4 +18,5 @@ pub mod prim;
 pub mod slice;
 pub mod string;
 pub mod tuple;
+#[cfg(any(feature="alloc", feature="std"))]
 pub mod vec;

@@ -60,7 +60,7 @@ impl<T: DeepCopy + SerializeInner> SerializeHelper<Deep> for Box<[T]> {
 }
 
 // This delegates to a private helper trait which we can specialize on in stable rust
-impl<T: DeserializeInner + CopyType + TypeHash + 'static> DeserializeInner for Box<[T]>
+impl<T: DeserializeInner + CopyType + 'static> DeserializeInner for Box<[T]>
 where
     Box<[T]>: DeserializeHelper<<T as CopyType>::Copy, FullType = Box<[T]>>,
 {

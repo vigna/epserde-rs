@@ -51,7 +51,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + SerializeInner, const N: usize> SerializeHelper<Zero> for [T; N] {
+impl<T: ZeroCopy + SerializeInner + TypeHash, const N: usize> SerializeHelper<Zero> for [T; N] {
     #[inline(always)]
     fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         serialize_zero(backend, self)

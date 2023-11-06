@@ -43,7 +43,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 /// It provides several convenience methods to load or map into memory
 /// structures that have been previously serialized. See, for example,
 /// [`Deserialize::load_full`], [`Deserialize::load_mem`], and [`Deserialize::mmap`].
-pub trait Deserialize: DeserializeInner {
+pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
     /// Fully deserialize a structure of this type from the given backend.
     fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self>;
     /// ε-copy deserialize a structure of this type from the given backend.
@@ -197,7 +197,7 @@ pub trait Deserialize: DeserializeInner {
 /// the user from modifying the methods in [`Deserialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait DeserializeInner: TypeHash + ReprHash + Sized {
+pub trait DeserializeInner: Sized {
     type DeserType<'a>;
     fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> Result<Self>;
 
@@ -211,7 +211,7 @@ pub trait DeserializeInner: TypeHash + ReprHash + Sized {
 /// by the blanket implementation of [`crate::ser::Serialize`] and then delegates to
 /// [`DeserializeInner::_deserialize_full_inner`] or
 /// [`DeserializeInner::_deserialize_eps_inner`].
-impl<T: DeserializeInner> Deserialize for T {
+impl<T: TypeHash + ReprHash + DeserializeInner> Deserialize for T {
     fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self> {
         let mut backend = ReaderWithPos::new(backend);
         check_header::<Self>(&mut backend)?;
@@ -228,7 +228,7 @@ impl<T: DeserializeInner> Deserialize for T {
 /// Common header check code for both ε-copy and full-copy deserialization.
 ///
 /// Must be kept in sync with [`crate::ser::write_header`].
-pub fn check_header<T: DeserializeInner>(backend: &mut impl ReadWithPos) -> Result<()> {
+pub fn check_header<T: Deserialize>(backend: &mut impl ReadWithPos) -> Result<()> {
     let self_type_name = core::any::type_name::<T>().to_string();
 
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();

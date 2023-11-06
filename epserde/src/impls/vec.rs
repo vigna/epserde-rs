@@ -19,13 +19,13 @@ use crate::ser::*;
 use crate::traits::*;
 use core::hash::Hash;
 
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::vec::Vec;
+
 impl<T> CopyType for Vec<T> {
     type Copy = Deep;
 }
 
-#[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::vec::Vec;
-#[cfg(feature = "alloc")]
 impl<T: TypeHash> TypeHash for Vec<T> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "Vec".hash(hasher);
