@@ -1,8 +1,8 @@
 #![cfg(test)]
 
+use core::marker::PhantomData;
 use epserde::prelude::*;
 use epserde::TypeInfo;
-use core::marker::PhantomData;
 
 #[test]
 /// Test that we can serialize and desertialize a PhantomData

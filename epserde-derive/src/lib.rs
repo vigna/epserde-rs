@@ -170,33 +170,19 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
         generics_name_vec,
         generics,
         ..
-    } = CommonDeriveInput::new(derive_input.clone(), 
-        vec![],
-    );
+    } = CommonDeriveInput::new(derive_input.clone(), vec![]);
 
     // Values for serialize (we add serialization bounds to generics)
     let CommonDeriveInput {
         generics: generics_serialize,
         ..
-    } = CommonDeriveInput::new(
-        derive_input.clone(),
-        vec![
-            //syn::parse_quote!(epserde::prelude::TypeHash), 
-            //syn::parse_quote!(epserde::prelude::ReprHash)
-        ],
-    );
+    } = CommonDeriveInput::new(derive_input.clone(), vec![]);
 
     // Values for deserialize (we add deserialization bounds to generics)
     let CommonDeriveInput {
         generics: generics_deserialize,
         ..
-    } = CommonDeriveInput::new(
-        derive_input.clone(),
-        vec![
-            //syn::parse_quote!(epserde::prelude::TypeHash), 
-            //syn::parse_quote!(epserde::prelude::ReprHash)
-        ],
-    );
+    } = CommonDeriveInput::new(derive_input.clone(), vec![]);
 
     let out = match derive_input.data {
         Data::Struct(s) => {
@@ -266,30 +252,26 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             fields_types.iter().for_each(|ty| {
                 // add that every struct field has to implement SerializeInner
                 let mut bounds_ser = Punctuated::new();
-                bounds_ser.push(
-                    syn::parse_quote!(epserde::ser::SerializeInner)
-                );
-                where_clause_ser.predicates.push(
-                    WherePredicate::Type(PredicateType { 
-                        lifetimes: None, 
-                        bounded_ty: (*ty).clone(), 
+                bounds_ser.push(syn::parse_quote!(epserde::ser::SerializeInner));
+                where_clause_ser
+                    .predicates
+                    .push(WherePredicate::Type(PredicateType {
+                        lifetimes: None,
+                        bounded_ty: (*ty).clone(),
                         colon_token: token::Colon::default(),
                         bounds: bounds_ser,
-                    })
-                );
+                    }));
                 // add that every struct field has to implement DeserializeInner
                 let mut bounds_des = Punctuated::new();
-                bounds_des.push(
-                    syn::parse_quote!(epserde::deser::DeserializeInner)
-                );
-                where_clause_des.predicates.push(
-                    WherePredicate::Type(PredicateType { 
-                        lifetimes: None, 
-                        bounded_ty: (*ty).clone(), 
+                bounds_des.push(syn::parse_quote!(epserde::deser::DeserializeInner));
+                where_clause_des
+                    .predicates
+                    .push(WherePredicate::Type(PredicateType {
+                        lifetimes: None,
+                        bounded_ty: (*ty).clone(),
                         colon_token: token::Colon::default(),
                         bounds: bounds_des,
-                    })
-                );
+                    }));
             });
 
             // We add to the deserialization where clause the bounds on the deserialization
@@ -466,9 +448,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         ..
     } = CommonDeriveInput::new(
         input.clone(),
-        vec![
-            syn::parse_quote!(epserde::traits::TypeHash),
-        ],
+        vec![syn::parse_quote!(epserde::traits::TypeHash)],
     );
 
     let CommonDeriveInput {
@@ -476,9 +456,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         ..
     } = CommonDeriveInput::new(
         input.clone(),
-        vec![
-            syn::parse_quote!(epserde::traits::ReprHash),
-        ],
+        vec![syn::parse_quote!(epserde::traits::ReprHash)],
     );
 
     let CommonDeriveInput {
@@ -486,9 +464,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         ..
     } = CommonDeriveInput::new(
         input.clone(),
-        vec![
-            syn::parse_quote!(epserde::traits::MaxSizeOf),
-        ],
+        vec![syn::parse_quote!(epserde::traits::MaxSizeOf)],
     );
 
     let out = match input.data {
