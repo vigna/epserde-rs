@@ -14,7 +14,7 @@ struct Object<A> {
 }
 
 #[repr(C)]
-#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone, Copy)]
 // We want to use zero-copy deserialization on Point,
 // and thus ε-copy deserialization on Vec<Point>, etc.
 #[zero_copy]

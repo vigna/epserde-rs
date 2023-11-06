@@ -13,7 +13,7 @@
  */
 use epserde::prelude::*;
 
-#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Epserde, Copy, Debug, PartialEq, Eq, Default, Clone)]
 #[repr(C)]
 #[zero_copy]
 struct USize {

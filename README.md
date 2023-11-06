@@ -2,6 +2,11 @@
 
 ε-serde is a Rust framework for *ε*-copy *ser*ialization and *de*serialization.
 
+## WARNING
+
+With release 0.2.0 we had to change the type hash function, so all serialized data
+must be regenerated. We apologize for the inconvenience.
+
 ## Why
 
 Large immutable data structures need time to be deserialized using the [serde](https://serde.rs/)
@@ -26,7 +31,7 @@ at deserialization time one can build quickly a proper Rust structure whose refe
 memory, however, is not copied. We call this approach *ε-copy deserialization*, as
 typically a minuscule fraction of the serialized data is copied to build the structure.
 The result is similar to that of the frameworks above, but the performance of the
-deserialized structure will be  identical to  that of a standard, in-memory 
+deserialized structure will be identical to that of a standard, in-memory 
 Rust structure, as references are resolved at deserialization time.
 
 We provide procedural macros implementing serialization and deserialization methods,
@@ -135,9 +140,8 @@ memory-mapped region that supports it.
 ## Examples: ε-copy of standard structures
 
 Zero-copy deserialization is not that interesting because it can be applied only to
-data whose memory layout and size is fixed and known at compile time. 
-This time, let us serialize a `Vec` containing a 
-a thousand zeros: ε-serde will deserialize its associated
+data whose memory layout and size are fixed and known at compile time. 
+This time, let us serialize a `Vec` containing a thousand zeros: ε-serde will deserialize its associated
 deserialization type, which is a reference to a slice.
 ```rust
 use epserde::prelude::*;
@@ -171,7 +175,7 @@ Note how we serialize a vector, but we deserialize a reference
 to a slice; the same would happen when serializing a boxed slice.
 The reference points inside `b`, so there is very little
 copy performed (in fact, just a field containing the length of the slice).
-All this is due to the fact that `usize` is a zero-copy type.
+All this is because `usize` is a zero-copy type.
 Note also that we use the convenience method [`Deserialize::load_full`](`deser::Deserialize::load_full`).
 
 If your code must work both with the original and the deserialized
@@ -180,7 +184,7 @@ by both types, such as `AsRef<[usize]>`.
 
 ## Example: Zero-copy structures
 
-You can define your own types to be zero-copy, in which case they will
+You can define your types to be zero-copy, in which case they will
 work like `usize` in the previous examples. This requires the structure
 to be made of zero-copy fields, and to be annotated with `#[zero_copy]` 
 and `#[repr(C)]`:
@@ -221,7 +225,7 @@ let u: MemCase<&[Data]> =
     <Vec<Data>>::mmap(&file, Flags::empty()).unwrap();
 assert_eq!(s, **u);
 ```
-If a structure is not zero-copy, vectors will be always deserialized to vectors.
+If a structure is not zero-copy, vectors will be always deserialized into vectors.
 
 ## Example: Structures with parameters
 
@@ -366,8 +370,8 @@ upon deserialization;
 There is no constraint on the associated deserialization type: it can be literally
 anything. In general, however, one tries to have a deserialization type that is somewhat
 compatible with the original type: for example, ε-serde deserializes vectors as 
-references to slices, so all mutation method that do not change the length work on both.
-And in general [`ZeroCopy`](traits::ZeroCopy) types deserialize to themselves.
+references to slices, so all mutation methods that do not change the length work on both.
+And in general [`ZeroCopy`](traits::ZeroCopy) types deserialize into themselves.
 
 Being [`ZeroCopy`](traits::ZeroCopy) or [`DeepCopy`](traits::DeepCopy) decides 
 instead how the type will be treated 
@@ -402,12 +406,13 @@ The basic idea in ε-serde is that *if a field has a type that is a parameter, d
 the deserialization type is defined recursively, replacement can happen at any depth level. For example,
 a field of type `A = Vec<Vec<Vec<usize>>>` will be deserialized as a `A = Vec<Vec<&[usize]>>`.
 
-This approach makes it possible to write ε-serde-aware structures that hide completely
+This approach makes it possible to write ε-serde-aware structures that hides completely
 from the user the substitution. A good example
 is the `CompactArray` structure from [`sux-rs`](http://crates.io/sux/), which exposes an array of fields of fixed
 bit width using (usually) a `Vec<usize>` as backend. If you have your own struct and one
 of the fields is of type `A`, when serializing your struct with `A` equal to `CompactArray<Vec<usize>>`,
-upon ε-copy deserialization you will get a version of your struct with `CompactArray<&[usize]>`. All this will happen under the hood because `CompactArray` is ε-serde-aware, and in fact you will not
+upon ε-copy deserialization you will get a version of your struct with `CompactArray<&[usize]>`. 
+All this will happen under the hood because `CompactArray` is ε-serde-aware, and in fact you will not
 even notice the difference, because you will access the same methods of `CompactArray` before
 and after.
 

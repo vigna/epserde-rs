@@ -196,9 +196,8 @@ impl<T: ?Sized> CopyType for PhantomData<T> {
 impl<T: ?Sized + TypeHash> TypeHash for PhantomData<T> {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "PhantomData<".hash(hasher);
+        "PhantomData".hash(hasher);
         T::type_hash(hasher);
-        ">".hash(hasher);
     }
 }
 

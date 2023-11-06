@@ -7,7 +7,7 @@
 
 use epserde::prelude::*;
 
-#[derive(Epserde, Debug)]
+#[derive(Epserde, Copy, Clone, Debug)]
 #[repr(C)]
 #[zero_copy]
 struct Data {

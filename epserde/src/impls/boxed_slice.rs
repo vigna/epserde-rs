@@ -22,7 +22,7 @@ impl<T> CopyType for Box<[T]> {
 
 impl<T: TypeHash> TypeHash for Box<[T]> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "[]".hash(hasher);
+        "Box<[]>".hash(hasher);
         T::type_hash(hasher);
     }
 }

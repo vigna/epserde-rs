@@ -16,10 +16,11 @@ struct Data<A: PartialEq = usize, const Q: usize = 3> {
 }
 
 #[test]
-fn test_box_slice_usize() -> Result<()> {
+fn test_cheaty_serialize() -> Result<()> {
     let a = vec![1, 2, 3, 4];
+    let s = a.as_slice();
     let mut cursor = epserde::new_aligned_cursor();
-    a.serialize(&mut cursor)?;
+    s.serialize(&mut cursor)?;
     cursor.set_position(0);
     let b = <Vec<i32>>::deserialize_full(&mut cursor)?;
     assert_eq!(a, b.as_slice());

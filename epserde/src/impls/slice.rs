@@ -43,9 +43,8 @@ use std::hash::Hash;
 impl<T: TypeHash> TypeHash for [T] {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "[".hash(hasher);
+        "[]".hash(hasher);
         T::type_hash(hasher);
-        "]".hash(hasher);
     }
 }
 
