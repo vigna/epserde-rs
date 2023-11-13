@@ -110,6 +110,7 @@ impl CommonDeriveInput {
 }
 
 /// Return whether the struct has attributes `repr(C)`, `zero_copy`, and `deep_copy`.
+///
 /// Performs coherence checks (e.g., to be `zero_copy` the struct must be `repr(C)`).
 fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     let is_repr_c = input.attrs.iter().any(|x| {
@@ -543,7 +544,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                     impl<#generics_maxsizeof> epserde::traits::MaxSizeOf for #name<#generics_names> #where_clause{
                         #[inline(always)]
                         fn max_size_of() -> usize {
-                            let mut max_size_of = 0;
+                            let mut max_size_of = std::mem::align_of::<Self>();
                             // Recurse on all fields.
                             #(
                                 if max_size_of < <#fields_types as epserde::traits::MaxSizeOf>::max_size_of() {
