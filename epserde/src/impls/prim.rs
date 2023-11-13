@@ -68,7 +68,7 @@ macro_rules! impl_prim_ser_des {
                 backend.read_exact(&mut buf)?;
                 Ok(<$ty>::from_ne_bytes(buf))
             }
-            type DeserType<'a> = $ty;
+            type DeserType<'a> = Self;
             #[inline(always)]
             fn _deserialize_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
@@ -221,7 +221,7 @@ impl<T: ?Sized + TypeHash> DeserializeInner for PhantomData<T> {
     fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomData::<T>)
     }
-    type DeserType<'a> = PhantomData<T>;
+    type DeserType<'a> = Self;
     #[inline(always)]
     fn _deserialize_eps_inner<'a>(
         _backend: &mut SliceWithPos<'a>,
