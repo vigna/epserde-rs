@@ -354,7 +354,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
 
-                        type DeserType<'epserde_desertype> = &'epserde_desertype #name<#(#deser_type_generics,)*>;
+                        type DeserType<'epserde_desertype> = &'epserde_desertype #name<#generics_names>;
 
                         fn _deserialize_eps_inner<'a>(
                             backend: &mut epserde::deser::SliceWithPos<'a>,

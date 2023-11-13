@@ -54,7 +54,7 @@ fn main() {
     let buf = buf.into_inner();
     let eps = Struct::deserialize_eps(&buf).unwrap();
     println!(
-        " ε-copy deserialization type: {}",
+        "ε-copy deserialization type: {}",
         std::any::type_name::<<Struct as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);

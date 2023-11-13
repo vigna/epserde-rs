@@ -28,7 +28,7 @@ fn main() {
     let buf = buf.into_inner();
     let eps = <Option<Vec<i32>>>::deserialize_eps(&buf).unwrap();
     println!(
-        " ε-copy deserialization type: {}",
+        "ε-copy deserialization type: {}",
         std::any::type_name::<<Option<Vec<i32>> as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);
@@ -54,7 +54,7 @@ fn main() {
     let buf = buf.into_inner();
     let eps = <Option<Vec<i32>>>::deserialize_eps(&buf).unwrap();
     println!(
-        " ε-copy deserialization type: {}",
+        "ε-copy deserialization type: {}",
         std::any::type_name::<<Option<Vec<i32>> as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);

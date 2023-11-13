@@ -8,8 +8,8 @@
 use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
-/// Example of an internal parameter, which is left untouched,
-/// but needs some decoration to be used.
+/// Example of an internal parameter of a deep-copy structure, which
+/// is left untouched, but needs some decoration to be used.
 struct Data<A: DeepCopy + 'static> {
     a: Vec<A>,
 }
@@ -39,7 +39,7 @@ fn main() {
     let buf = buf.into_inner();
     let eps = <Data<Vec<i32>>>::deserialize_eps(&buf).unwrap();
     println!(
-        " ε-copy deserialization type: {}",
+        "ε-copy deserialization type: {}",
         std::any::type_name::<<Data<Vec<i32>> as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);

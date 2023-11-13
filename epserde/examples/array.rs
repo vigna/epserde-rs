@@ -30,7 +30,7 @@ fn main() {
     let buf = buf.into_inner();
     let eps = <[usize; 100]>::deserialize_eps(&buf).unwrap();
     println!(
-        " ε-copy deserialization type: {}",
+        "ε-copy deserialization type: {}",
         std::any::type_name::<<[usize; 100] as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);

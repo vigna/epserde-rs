@@ -320,7 +320,7 @@ assert_eq!(s.data, t.data.as_ref());
 assert_eq!(s.sum(), t.sum());
 ```
 
-## Example: Structures with internal parameters
+## Example: Deep-copy structures with internal parameters
 
 Internal parameters, that is, parameters used by the
 types of your fields but that do not represent the type
@@ -349,8 +349,40 @@ let b = std::fs::read(&file).unwrap();
 let t: MyStruct<Vec<isize>> = 
     <MyStruct<Vec<isize>>>::deserialize_eps(b.as_ref()).unwrap();
 ```
-Note how the field originally containing a `Vec<Vec<isize>>` still contains
+Note how the field originally of type `Vec<Vec<isize>>` remains of
 the same type.
+
+## Example: Zero-copy structures with parameters
+
+For zero-copy structure, things are slightly different because types are not
+substituted, even if they represent the type of your fields. 
+So all parameters must be zero-copy and have a `'static` lifetime.
+ For example,
+```rust
+use epserde::prelude::*;
+use epserde_derive::*;
+
+#[derive(Epserde, Debug, PartialEq, Clone, Copy)]
+#[repr(C)]
+#[zero_copy]
+struct MyStruct<A: ZeroCopy + 'static> {
+    data: A,
+}
+
+// Create a structure where A is a Vec<isize>
+let s: MyStruct<i32> = MyStruct { data: 0 };
+// Serialize it
+let mut file = std::env::temp_dir();
+file.push("serialized5");
+s.store(&file);
+// Load the serialized form in a buffer
+let b = std::fs::read(&file).unwrap();
+
+// The type of t is unchanged
+let t: &MyStruct<i32> = 
+    <MyStruct<i32>>::deserialize_eps(b.as_ref()).unwrap();
+```
+Note how the field originally of type `i32` remains of the same type.
 
 ## Example: `sux-rs`
 

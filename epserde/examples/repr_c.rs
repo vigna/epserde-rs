@@ -49,7 +49,7 @@ fn main() {
     let buf = buf.into_inner();
     let eps = <Object<Vec<Point>>>::deserialize_eps(&buf).unwrap();
     println!(
-        " ε-copy deserialization type: {}",
+        "ε-copy deserialization type: {}",
         std::any::type_name::<<Object<Vec<Point>> as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);

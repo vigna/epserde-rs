@@ -7,29 +7,29 @@
 
 use epserde::prelude::*;
 
-#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
-/// Random struct we will use to test the nested serialization and deserialization.
-struct Data<A> {
+#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone, Copy)]
+#[repr(C)]
+#[zero_copy]
+/// Example of an internal parameter of a zero-copy structure,
+/// which is left untouched, but needs some decoration to be used.
+struct Data<A: ZeroCopy + 'static> {
     a: A,
 }
 
-type StringData = Data<Vec<String>>;
-
 fn main() {
     // Create a new value to serialize
-    let data = StringData {
-        a: vec!["A".to_owned(), "B".to_owned(), "C".to_owned()],
-    };
+    let data = Data { a: 4 };
     let mut buf = epserde::new_aligned_cursor();
     // Serialize
-    let _bytes_written = data.serialize(&mut buf).unwrap();
+    let schema = data.serialize_with_schema(&mut buf).unwrap();
+    println!("{}", schema.debug(&buf.clone().into_inner()));
 
     // Do a full-copy deserialization
     buf.set_position(0);
-    let full = StringData::deserialize_full(&mut buf).unwrap();
+    let full = <Data<i32>>::deserialize_full(&mut buf).unwrap();
     println!(
         "Full-copy deserialization type: {}",
-        std::any::type_name::<StringData>(),
+        std::any::type_name::<Data<i32>>(),
     );
     println!("Value: {:x?}", full);
 
@@ -37,10 +37,10 @@ fn main() {
 
     // Do an ε-copy deserialization
     let buf = buf.into_inner();
-    let eps = StringData::deserialize_eps(&buf).unwrap();
+    let eps = <Data<i32>>::deserialize_eps(&buf).unwrap();
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<<StringData as DeserializeInner>::DeserType<'_>>(),
+        std::any::type_name::<<Data<i32> as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);
 }
