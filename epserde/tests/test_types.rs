@@ -10,26 +10,20 @@ use epserde::prelude::*;
 
 macro_rules! impl_test {
     ($ty:ty, $val:expr) => {{
-        let len = 1024;
         let a = $val;
-        let mut v = unsafe {
-            Vec::from_raw_parts(
-                std::alloc::alloc_zeroed(std::alloc::Layout::from_size_align(len, 4096).unwrap()),
-                len,
-                len,
-            )
-        };
-        assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
-        let mut buf = std::io::Cursor::new(&mut v);
+        let mut buf = epserde::new_aligned_cursor();
 
         let mut schema = a.serialize_with_schema(&mut buf).unwrap();
         schema.0.sort_by_key(|a| a.offset);
         println!("{}", schema.to_csv());
 
-        let a1 = <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+        buf.set_position(0);
+        let a1 = <$ty>::deserialize_full(&mut buf).unwrap();
         assert_eq!(a, a1);
 
-        let a2 = <$ty>::deserialize_eps(&v).unwrap();
+        buf.set_position(0);
+        let bytes = buf.into_inner();
+        let a2 = <$ty>::deserialize_eps(&bytes).unwrap();
         assert_eq!(a, a2);
     }};
 }
@@ -38,25 +32,19 @@ macro_rules! impl_test {
 fn test_array_usize() {
     let a = [1, 2, 3, 4, 5];
 
-    let len = 1024;
-    let mut v = unsafe {
-        Vec::from_raw_parts(
-            std::alloc::alloc_zeroed(std::alloc::Layout::from_size_align(len, 4096).unwrap()),
-            len,
-            len,
-        )
-    };
-    assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
-    let mut buf = std::io::Cursor::new(&mut v);
+    let mut buf = epserde::new_aligned_cursor();
 
     let mut schema = a.serialize_with_schema(&mut buf).unwrap();
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
-    let a1 = <[usize; 5]>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+    buf.set_position(0);
+    let a1 = <[usize; 5]>::deserialize_full(&mut buf).unwrap();
     assert_eq!(a, a1);
 
-    let a2 = <[usize; 5]>::deserialize_eps(&v).unwrap();
+    buf.set_position(0);
+    let bytes = buf.into_inner();
+    let a2 = <[usize; 5]>::deserialize_eps(&bytes).unwrap();
     assert_eq!(a, *a2);
 }
 
@@ -69,25 +57,19 @@ fn test_vec_usize() {
 fn test_box_slice_usize() {
     let a = vec![1, 2, 3, 4, 5].into_boxed_slice();
 
-    let len = 1024;
-    let mut v = unsafe {
-        Vec::from_raw_parts(
-            std::alloc::alloc_zeroed(std::alloc::Layout::from_size_align(len, 4096).unwrap()),
-            len,
-            len,
-        )
-    };
-    assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
-    let mut buf = std::io::Cursor::new(&mut v);
+    let mut buf = epserde::new_aligned_cursor();
 
     let mut schema = a.serialize_with_schema(&mut buf).unwrap();
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
-    let a1 = <Box<[usize]>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+    buf.set_position(0);
+    let a1 = <Box<[usize]>>::deserialize_full(&mut buf).unwrap();
     assert_eq!(a, a1);
 
-    let a2 = <Box<[usize]>>::deserialize_eps(&v).unwrap();
+    buf.set_position(0);
+    let bytes = buf.into_inner();
+    let a2 = <Box<[usize]>>::deserialize_eps(&bytes).unwrap();
     assert_eq!(a, a2.into());
 }
 
@@ -95,25 +77,19 @@ fn test_box_slice_usize() {
 fn test_box_slice_string() {
     let a = vec!["A".to_string(), "V".to_string()].into_boxed_slice();
 
-    let len = 1024;
-    let mut v = unsafe {
-        Vec::from_raw_parts(
-            std::alloc::alloc_zeroed(std::alloc::Layout::from_size_align(len, 4096).unwrap()),
-            len,
-            len,
-        )
-    };
-    assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
-    let mut buf = std::io::Cursor::new(&mut v);
+    let mut buf = epserde::new_aligned_cursor();
 
     let mut schema = a.serialize_with_schema(&mut buf).unwrap();
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
-    let a1 = <Box<[String]>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+    buf.set_position(0);
+    let a1 = <Box<[String]>>::deserialize_full(&mut buf).unwrap();
     assert_eq!(a, a1);
 
-    let a2 = <Box<[String]>>::deserialize_eps(&v).unwrap();
+    buf.set_position(0);
+    let bytes = buf.into_inner();
+    let a2 = <Box<[String]>>::deserialize_eps(&bytes).unwrap();
     assert_eq!(a.len(), a2.len());
     a.iter().zip(a2.iter()).for_each(|(a, a2)| {
         assert_eq!(a, a2);
@@ -170,4 +146,89 @@ fn test_vec_vec_array_array_usize() {
         Vec<Vec<[[usize; 2]; 2]>>,
         vec![vec![[[1, 2], [3, 4],]], vec![[[5, 6], [7, 8],]],]
     )
+}
+
+#[test]
+fn test_struct_deep() {
+    #[derive(Epserde, Copy, Clone, Debug, PartialEq)]
+    struct Struct {
+        a: usize,
+        b: usize,
+        c: i32,
+    }
+    let a = Struct { a: 0, b: 1, c: 2 };
+    let mut buf = epserde::new_aligned_cursor();
+    // Serialize
+    let _bytes_written = a.serialize(&mut buf).unwrap();
+
+    buf.set_position(0);
+    let full = <Struct>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, full);
+
+    buf.set_position(0);
+    let eps = <Struct>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, eps);
+}
+
+#[test]
+fn test_struct_zero() {
+    #[derive(Epserde, Copy, Clone, Debug, PartialEq)]
+    #[repr(C)]
+    #[zero_copy]
+    struct Struct {
+        a: usize,
+        b: usize,
+        c: i32,
+    }
+    let a = Struct { a: 0, b: 1, c: 2 };
+    let mut buf = epserde::new_aligned_cursor();
+    // Serialize
+    let _bytes_written = a.serialize(&mut buf).unwrap();
+
+    buf.set_position(0);
+    let full = <Struct>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, full);
+
+    buf.set_position(0);
+    let eps = <Struct>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, eps);
+}
+
+#[test]
+fn test_tuple_struct_deep() {
+    #[derive(Epserde, Copy, Clone, Debug, PartialEq)]
+    struct Tuple(usize, usize, i32);
+    let a = Tuple(0, 1, 2);
+    let mut buf = epserde::new_aligned_cursor();
+    // Serialize
+    let _bytes_written = a.serialize(&mut buf).unwrap();
+
+    buf.set_position(0);
+    let full = <Tuple>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, full);
+
+    buf.set_position(0);
+    let eps = <Tuple>::deserialize_eps(&buf.into_inner()).unwrap();
+    assert_eq!(a, eps);
+}
+
+#[test]
+fn test_tuple_struct_zero() {
+    #[derive(Epserde, Copy, Clone, Debug, PartialEq)]
+    #[repr(C)]
+    #[zero_copy]
+    struct Tuple(usize, usize, i32);
+    let a = Tuple(0, 1, 2);
+    let mut buf = epserde::new_aligned_cursor();
+    // Serialize
+    let _bytes_written = a.serialize(&mut buf).unwrap();
+
+    buf.set_position(0);
+    let full = <Tuple>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, full);
+
+    buf.set_position(0);
+    let bytes = &buf.into_inner();
+    let eps = <Tuple>::deserialize_eps(bytes).unwrap();
+    assert_eq!(a, *eps);
 }

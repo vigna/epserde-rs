@@ -195,9 +195,14 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             let mut generic_types = vec![];
 
             // Scan the struct to find which fields are generics, and which are not.
-            s.fields.iter().for_each(|field| {
+            s.fields.iter().enumerate().for_each(|(field_idx, field)| {
                 let ty = &field.ty;
-                let field_name = field.ident.clone().unwrap();
+                let field_name = field
+                    .ident
+                    .to_owned()
+                    .map(|x| x.to_token_stream())
+                    .unwrap_or_else(|| syn::Index::from(field_idx).to_token_stream());
+
                 if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
                     generic_fields.push(field_name.clone());
                     generic_types.push(ty);
@@ -399,11 +404,10 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
                             use epserde::deser::DeserializeInner;
-                            #(
-                                let #fields_names = <#fields_types>::_deserialize_full_inner(backend)?;
-                            )*
                             Ok(#name{
-                                #(#fields_names),*
+                                #(
+                                    #fields_names: <#fields_types>::_deserialize_full_inner(backend)?,
+                                )*
                             })
                         }
 
@@ -414,11 +418,10 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         ) -> core::result::Result<Self::DeserType<'a>, epserde::deser::Error>
                         {
                             use epserde::deser::DeserializeInner;
-                            #(
-                                let #fields_names = <#fields_types>::#methods(backend)?;
-                            )*
                             Ok(#name{
-                                #(#fields_names),*
+                                #(
+                                    #fields_names: <#fields_types>::#methods(backend)?,
+                                )*
                             })
                         }
                     }
@@ -473,7 +476,14 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             let fields_names = s
                 .fields
                 .iter()
-                .map(|field| field.ident.to_owned().unwrap().to_string())
+                .enumerate()
+                .map(|(field_idx, field)| {
+                    field
+                        .ident
+                        .as_ref()
+                        .map(|ident| ident.to_string())
+                        .unwrap_or_else(|| format!("f{}", field_idx))
+                })
                 .collect::<Vec<_>>();
 
             let fields_types = s
