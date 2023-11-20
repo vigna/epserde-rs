@@ -18,12 +18,12 @@ fn test_wrong_endianess() {
     let len = 20;
     let mut v = unsafe {
         Vec::from_raw_parts(
-            std::alloc::alloc_zeroed(std::alloc::Layout::from_size_align(len, 4096).unwrap()),
+            std::alloc::alloc_zeroed(std::alloc::Layout::from_size_align(len, 16).unwrap()),
             len,
             len,
         )
     };
-    assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
+    assert!(v.as_ptr() as usize % 16 == 0, "{:p}", v.as_ptr());
     let mut buf = std::io::Cursor::new(&mut v);
 
     let schema = data.serialize_with_schema(&mut buf).unwrap();

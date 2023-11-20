@@ -22,31 +22,20 @@ fn test_inner_param_full() {
         a: vec![0x89; 6],
         b: [0xbadf00d; 2],
     };
-    // Create an aligned vector to serialize into so we can do a zero-copy
-    // deserialization safely
-    let len = 100;
-    let mut v = unsafe {
-        Vec::from_raw_parts(
-            std::alloc::alloc_zeroed(std::alloc::Layout::from_size_align(len, 4096).unwrap()),
-            len,
-            len,
-        )
-    };
-    assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
-    // Wrap the vector in a cursor so we can serialize into it
-    let mut buf = std::io::Cursor::new(&mut v);
-
+    let mut buf = epserde::new_aligned_cursor();
     // Serialize
     let _bytes_written = person.serialize(&mut buf).unwrap();
 
     // Do a full-copy deserialization
-    let full = <Data<Vec<usize>, 2>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+    buf.set_position(0);
+    let full = <Data<Vec<usize>, 2>>::deserialize_full(&mut buf).unwrap();
     assert_eq!(person, full);
 
     println!();
 
     // Do an ε-copy deserialization
-    let eps = <Data<Vec<usize>, 2>>::deserialize_eps(&v).unwrap();
+    let bytes = buf.into_inner();
+    let eps = <Data<Vec<usize>, 2>>::deserialize_eps(&bytes).unwrap();
     assert_eq!(person.a, eps.a);
     assert_eq!(person.b, eps.b);
 }
@@ -64,27 +53,18 @@ fn test_inner_param_eps() {
         a: vec![0x89; 6],
         _marker: PhantomData,
     };
-    // Create an aligned vector to serialize into so we can do a zero-copy
-    // deserialization safely
-    let len = 100;
-    let mut v = unsafe {
-        Vec::from_raw_parts(
-            std::alloc::alloc_zeroed(std::alloc::Layout::from_size_align(len, 4096).unwrap()),
-            len,
-            len,
-        )
-    };
-    assert!(v.as_ptr() as usize % 4096 == 0, "{:p}", v.as_ptr());
-    // Wrap the vector in a cursor so we can serialize into it
-    let mut buf = std::io::Cursor::new(&mut v);
 
+    let mut buf = epserde::new_aligned_cursor();
     // Serialize
     let _bytes_written = data.serialize(&mut buf).unwrap();
 
     // Do a full-copy deserialization
-    let full = <Data2<usize, Vec<usize>>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+    buf.set_position(0);
+    let full = <Data2<usize, Vec<usize>>>::deserialize_full(&mut buf).unwrap();
     assert_eq!(data, full);
     // Do an ε-copy deserialization
-    let eps = <Data2<usize, Vec<usize>>>::deserialize_eps(&v).unwrap();
+    buf.set_position(0);
+    let bytes = buf.into_inner();
+    let eps = <Data2<usize, Vec<usize>>>::deserialize_eps(&bytes).unwrap();
     assert_eq!(data.a, eps.a);
 }
