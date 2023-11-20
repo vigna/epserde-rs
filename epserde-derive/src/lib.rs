@@ -428,7 +428,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 }
             }
         }
-        _ => todo!("Missing implementation for union, enum and tuple types"),
+        _ => todo!("Missing implementation for union, enum"),
     };
 
     let mut out: TokenStream = out.into();
@@ -482,7 +482,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         .ident
                         .as_ref()
                         .map(|ident| ident.to_string())
-                        .unwrap_or_else(|| format!("f{}", field_idx))
+                        .unwrap_or_else(|| field_idx.to_string())
                 })
                 .collect::<Vec<_>>();
 
