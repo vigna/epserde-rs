@@ -234,7 +234,7 @@ fn test_tuple_struct_zero() {
     let eps = <Tuple>::deserialize_eps(bytes).unwrap();
     assert_eq!(a, *eps);
 }
-/*
+
 #[test]
 fn test_enum_deep() {
     #[derive(Epserde, Clone, Debug, PartialEq)]
@@ -245,7 +245,7 @@ fn test_enum_deep() {
         D { a: i32, b: V },
     }
 }
-*/
+
 #[test]
 fn test_enum_zero() {
     #[derive(Epserde, Clone, Copy, Debug, PartialEq)]
@@ -257,9 +257,6 @@ fn test_enum_zero() {
         C(u64),
         D { a: i32, b: i32 },
     }
-    let a = Data::B(0);
-    let a = Data::C(0);
-    let a = Data::D { a: 0, b: 0 };
 
     let mut buf = epserde::new_aligned_cursor();
     let a = Data::A;

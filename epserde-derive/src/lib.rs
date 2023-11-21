@@ -456,7 +456,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 syn::Fields::Unit => {
                     variants.push(variant.ident.to_token_stream());
                     variant_ser.push(quote! {{                        
-                        backend.write("tag", &#variant_id);
+                        backend.write("tag", &#variant_id)?;
                     }});
                     variant_full_des.push(quote! {{}});
                     variant_eps_des.push(quote! {{}});
@@ -518,7 +518,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     });
                     fields_types.extend(var_fields_types.clone());
                     variant_ser.push(quote! {
-                        backend.write("tag", &#variant_id);
+                        backend.write("tag", &#variant_id)?;
                         #(
                             backend.write(stringify!(#var_fields_names), #var_fields_names)?;
                         )*
@@ -602,7 +602,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     fields_types.extend(var_fields_types.clone());
 
                     variant_ser.push(quote! {
-                        backend.write("tag", &#variant_id);
+                        backend.write("tag", &#variant_id)?;
                         #(
                             backend.write(stringify!(#var_fields_names), #var_fields_names)?;
                         )*
