@@ -6,8 +6,9 @@
 
 #![cfg(test)]
 
+use std::iter;
+
 use epserde::prelude::*;
-use epserde_derive::TypeInfo;
 
 macro_rules! impl_test {
     ($ty:ty, $val:expr) => {{
@@ -233,27 +234,85 @@ fn test_tuple_struct_zero() {
     let eps = <Tuple>::deserialize_eps(bytes).unwrap();
     assert_eq!(a, *eps);
 }
-
+/*
 #[test]
 fn test_enum_deep() {
-    #[derive(TypeInfo, Clone, Debug, PartialEq)]
-    enum Data {
+    #[derive(Epserde, Clone, Debug, PartialEq)]
+    enum Data<V = Vec<usize>> {
         A,
         B(u64),
         C(u64, Vec<usize>),
-        D { a: i32, b: i64 },
+        D { a: i32, b: V },
     }
 }
-
+*/
 #[test]
 fn test_enum_zero() {
-    #[derive(TypeInfo, Clone, Copy, Debug, PartialEq)]
+    #[derive(Epserde, Clone, Copy, Debug, PartialEq)]
     #[repr(C)]
     #[zero_copy]
     enum Data {
         A,
         B(u64),
         C(u64),
-        D { a: i32, b: i64 },
+        D { a: i32, b: i32 },
     }
+    let a = Data::B(0);
+    let a = Data::C(0);
+    let a = Data::D { a: 0, b: 0 };
+
+    let mut buf = epserde::new_aligned_cursor();
+    let a = Data::A;
+    a.serialize(&mut buf).unwrap();
+    buf.set_position(0);
+    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, full);
+    buf.set_position(0);
+    let bytes = &buf.into_inner();
+    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    assert_eq!(a, *eps);
+
+    let mut buf = epserde::new_aligned_cursor();
+    let a = Data::B(3);
+    a.serialize(&mut buf).unwrap();
+    buf.set_position(0);
+    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, full);
+    buf.set_position(0);
+    let bytes = &buf.into_inner();
+    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    assert_eq!(a, *eps);
+
+    let mut buf = epserde::new_aligned_cursor();
+    let a = Data::C(4);
+    a.serialize(&mut buf).unwrap();
+    buf.set_position(0);
+    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, full);
+    buf.set_position(0);
+    let bytes = &buf.into_inner();
+    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    assert_eq!(a, *eps);
+
+    let mut buf = epserde::new_aligned_cursor();
+    let a = Data::D { a: 1, b: 2 };
+    a.serialize(&mut buf).unwrap();
+    buf.set_position(0);
+    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, full);
+    buf.set_position(0);
+    let bytes = &buf.into_inner();
+    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    assert_eq!(a, *eps);
+
+    let mut buf = epserde::new_aligned_cursor();
+    let a = Vec::from_iter(iter::repeat(Data::A).take(10));
+    a.serialize(&mut buf).unwrap();
+    buf.set_position(0);
+    let full = <Vec<Data>>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, full);
+    buf.set_position(0);
+    let bytes = &buf.into_inner();
+    let eps = <Vec<Data>>::deserialize_eps(bytes).unwrap();
+    assert_eq!(a, *eps);
 }

@@ -438,49 +438,187 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     predicates: Punctuated::new(),
                 });
 
+            let mut variants_names = Vec::new();
             let mut variants = Vec::new();
             let mut variant_ser = Vec::new();
-            let mut variant_des = Vec::new();
+            let mut where_clause_ser = where_clause.clone();
+            let mut where_clause_des = where_clause.clone();
+            let mut variant_full_des = Vec::new();
+            let mut variant_eps_des = Vec::new();
             let mut generic_types = Vec::new();
-            e.variants.iter().for_each(|variant| {
-                let mut res = variant.ident.to_owned().to_token_stream();
-                let mut var_args_ser = quote! {core::mem::size_of::<Self>()};
-                let mut var_args_des = quote! {core::mem::size_of::<Self>()};
+            let mut generic_fields = Vec::new();
+            let mut non_generic_fields = Vec::new();
+            let mut non_generic_types = Vec::new();
+            let mut fields_types = Vec::new();
+            e.variants.iter().enumerate().for_each(|(variant_id, variant)| {                    
+                variants_names.push(variant.ident.to_token_stream());
                 match &variant.fields {
-                    syn::Fields::Unit => {}
-                    syn::Fields::Named(fields) => {
-                        let mut args = proc_macro2::TokenStream::new();
-                        fields
-                            .named
-                            .iter()
-                            .map(|named| {
-                                (named.ident.as_ref().unwrap(), named.ty.to_token_stream())
-                            })
-                            .for_each(|(ident, ty)| {
-                                var_args_ser.extend([quote! {
-                                    #ident.serialize();
-                                }]);
-                                var_args_des.extend([quote! {
-                                    #ty.deserialize();
-                                }]);
-                                args.extend([ident.to_token_stream()]);
-                                args.extend([quote! {,}]);
-                                if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
-                                    //generic_fields.push(field_name.clone());
-                                    generic_types.push(ty);
-                                }
-                            });
-                        // extend res with the args sourrounded by curly braces
-                        res.extend(quote! {
-                            { #args }
-                        });
-                    }
-                    syn::Fields::Unnamed(fields) => {}
+                syn::Fields::Unit => {
+                    variants.push(variant.ident.to_token_stream());
+                    variant_ser.push(quote! {{                        
+                        backend.write("tag", &#variant_id);
+                    }});
+                    variant_full_des.push(quote! {{}});
+                    variant_eps_des.push(quote! {{}});
                 }
-                variants.push(res);
-                variant_ser.push(var_args_ser);
-                variant_des.push(var_args_des);
-            });
+                syn::Fields::Named(fields) => {
+                    variants_names.push(variant.ident.to_token_stream());
+                    let mut var_fields_names = Vec::new();
+                    let mut var_fields_types = Vec::new();
+                    let mut methods: Vec<proc_macro2::TokenStream> = vec![];
+                    fields
+                        .named
+                        .iter()
+                        .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
+                        .for_each(|(ident, ty)| {
+                            if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                                generic_fields.push(ident.to_token_stream());
+                                generic_types.push(ty.to_token_stream());
+                            } else {
+                                non_generic_fields.push(ident.to_token_stream());
+                                non_generic_types.push(ty.to_token_stream());
+                            }
+
+
+                            var_fields_names.push(ident.to_token_stream());
+                            var_fields_types.push(ty.to_token_stream());
+
+                            // add that every struct field has to implement SerializeInner
+                            let mut bounds_ser = Punctuated::new();
+                            bounds_ser.push(syn::parse_quote!(epserde::ser::SerializeInner));
+                            where_clause_ser
+                                .predicates
+                                .push(WherePredicate::Type(PredicateType {
+                                    lifetimes: None,
+                                    bounded_ty: ty.clone(),
+                                    colon_token: token::Colon::default(),
+                                    bounds: bounds_ser,
+                            }));
+                            // add that every struct field has to implement DeserializeInner
+                            let mut bounds_des = Punctuated::new();
+                            bounds_des.push(syn::parse_quote!(epserde::deser::DeserializeInner));
+                            where_clause_des
+                                .predicates
+                                .push(WherePredicate::Type(PredicateType {
+                                    lifetimes: None,
+                                    bounded_ty: ty.clone(),
+                                    colon_token: token::Colon::default(),
+                                    bounds: bounds_des,
+                            }));
+
+                            if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                                methods.push(syn::parse_quote!(_deserialize_eps_inner));
+                            } else {
+                                methods.push(syn::parse_quote!(_deserialize_full_inner));
+                            }
+                        });
+                    let ident = variant.ident.clone();
+                    variants.push(quote! {
+                        #ident{ #( #var_fields_names, )* }
+                    });
+                    fields_types.extend(var_fields_types.clone());
+                    variant_ser.push(quote! {
+                        backend.write("tag", &#variant_id);
+                        #(
+                            backend.write(stringify!(#var_fields_names), #var_fields_names)?;
+                        )*
+                    });
+                    variant_full_des.push(quote! {
+                        #(
+                            #var_fields_names: <#var_fields_types>::_deserialize_full_inner(backend)?,
+                        )*
+                    });
+                    variant_eps_des.push(quote! {
+                        #(
+                            #var_fields_names: <#var_fields_types>::#methods(backend)?,
+                        )*
+                    });
+                }
+                syn::Fields::Unnamed(fields) => {
+                    let mut var_fields_names = Vec::new();
+                    let mut var_fields_vars = Vec::new();
+                    let mut var_fields_types = Vec::new();
+                    let mut methods: Vec<proc_macro2::TokenStream> = vec![];
+
+                    fields
+                        .unnamed
+                        .iter()
+                        .enumerate()
+                        .for_each(|(field_idx, unnamed)| {
+                            let ty = &unnamed.ty;
+                            let ident = syn::Index::from(field_idx);
+                            if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                                generic_fields.push(ident.to_token_stream());
+                                generic_types.push(ty.to_token_stream());
+                            } else {
+                                non_generic_fields.push(ident.to_token_stream());
+                                non_generic_types.push(ty.to_token_stream());
+                            }
+
+                            var_fields_names.push(syn::Ident::new(
+                                &format!("v{}", field_idx),
+                                proc_macro2::Span::call_site(),
+                            )
+                            .to_token_stream());
+                            var_fields_vars.push(syn::Index::from(field_idx));
+                            var_fields_types.push(ty.to_token_stream());
+
+
+                            // add that every struct field has to implement SerializeInner
+                            let mut bounds_ser = Punctuated::new();
+                            bounds_ser.push(syn::parse_quote!(epserde::ser::SerializeInner));
+                            where_clause_ser
+                                .predicates
+                                .push(WherePredicate::Type(PredicateType {
+                                    lifetimes: None,
+                                    bounded_ty: ty.clone(),
+                                    colon_token: token::Colon::default(),
+                                    bounds: bounds_ser,
+                            }));
+                            // add that every struct field has to implement DeserializeInner
+                            let mut bounds_des = Punctuated::new();
+                            bounds_des.push(syn::parse_quote!(epserde::deser::DeserializeInner));
+                            where_clause_des
+                                .predicates
+                                .push(WherePredicate::Type(PredicateType {
+                                    lifetimes: None,
+                                    bounded_ty: ty.clone(),
+                                    colon_token: token::Colon::default(),
+                                    bounds: bounds_des,
+                            }));
+
+                            if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                                methods.push(syn::parse_quote!(_deserialize_eps_inner));
+                            } else {
+                                methods.push(syn::parse_quote!(_deserialize_full_inner));
+                            }
+
+                        });
+                        
+                    let ident = variant.ident.clone();
+                    variants.push(quote! {
+                        #ident( #( #var_fields_names, )* )
+                    });
+                    fields_types.extend(var_fields_types.clone());
+
+                    variant_ser.push(quote! {
+                        backend.write("tag", &#variant_id);
+                        #(
+                            backend.write(stringify!(#var_fields_names), #var_fields_names)?;
+                        )*
+                    });
+                    variant_full_des.push(quote! {
+                        #(
+                            #var_fields_vars    : <#var_fields_types>::_deserialize_full_inner(backend)?,
+                        )*
+                    });
+                    variant_eps_des.push(quote! {
+                        #(
+                            #var_fields_vars    : <#var_fields_types>::#methods(backend)?,
+                        )*
+                    });
+                }
+            }});
 
             // Gather deserialization types of fields,
             // which are necessary to derive the deserialization type.
@@ -498,52 +636,112 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 })
                 .collect::<Vec<_>>();
 
-            quote! {
-                #[automatically_derived]
-                impl<#generics> epserde::traits::CopyType for  #name<#generics_names> #where_clause {
-                    type Copy = epserde::traits::Deep;
-                }
+            let tag = (0..variants.len()).collect::<Vec<_>>();
 
-                #[automatically_derived]
-                impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
-                    // Compute whether the type could be zero copy
-                    //const IS_ZERO_COPY: bool = #is_repr_c #(
-                    //    && <#fields_types>::IS_ZERO_COPY
-                    //)*;
+            if is_zero_copy {
+                quote! {
+                    #[automatically_derived]
+                    impl<#generics> epserde::traits::CopyType for  #name<#generics_names> #where_clause {
+                        type Copy = epserde::traits::Zero;
+                    }
 
-                    // Compute whether the type could be zero copy but it is not declared as such,
-                    // and the attribute `deep_copy` is missing.
-                    //const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
+                    #[automatically_derived]
+                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_ser {
+                        // Compute whether the type could be zero copy
+                        const IS_ZERO_COPY: bool = #is_repr_c #(
+                            && <#fields_types>::IS_ZERO_COPY
+                        )*;
 
-                    #[inline(always)]
-                    fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
-                        epserde::ser::helpers::check_mismatch::<Self>();
-                        match self {
+                        // The type is declared as zero copy, so a fortiori there is no mismatch.
+                        const ZERO_COPY_MISMATCH: bool = false;
+
+                        #[inline(always)]
+                        fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
+                            // No-op code that however checks that all fields are zero-copy.
+                            fn test<T: epserde::traits::ZeroCopy>() {}
                             #(
-                               #name::#variants => #variant_ser,
+                                test::<#fields_types>();
                             )*
+                            epserde::ser::helpers::serialize_zero(backend, self)
                         }
-                        Ok(())
+                    }
+
+                    #[automatically_derived]
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#generics_names> #where_clause_des {
+                        fn _deserialize_full_inner(
+                            backend: &mut impl epserde::deser::ReadWithPos,
+                        ) -> core::result::Result<Self, epserde::deser::Error> {
+                            epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
+                        }
+
+                        type DeserType<'epserde_desertype> = &'epserde_desertype #name<#generics_names>;
+
+                        fn _deserialize_eps_inner<'a>(
+                            backend: &mut epserde::deser::SliceWithPos<'a>,
+                        ) -> core::result::Result<Self::DeserType<'a>, epserde::deser::Error>
+                        {
+                            epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
+                        }
                     }
                 }
-
-                #[automatically_derived]
-                impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#generics_names> #where_clause {
-                    fn _deserialize_full_inner(
-                        backend: &mut impl epserde::deser::ReadWithPos,
-                    ) -> core::result::Result<Self, epserde::deser::Error> {
-                        use epserde::deser::DeserializeInner;
-                        Ok()
+            } else {
+                quote! {
+                    #[automatically_derived]
+                    impl<#generics> epserde::traits::CopyType for  #name<#generics_names> #where_clause {
+                        type Copy = epserde::traits::Deep;
                     }
 
-                    type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
+                    #[automatically_derived]
+                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_ser {
+                        // Compute whether the type could be zero copy
+                        const IS_ZERO_COPY: bool = #is_repr_c #(
+                            && <#fields_types>::IS_ZERO_COPY
+                        )*;
 
-                    fn _deserialize_eps_inner<'a>(
-                        backend: &mut epserde::deser::SliceWithPos<'a>,
-                    ) -> core::result::Result<Self::DeserType<'a>, epserde::deser::Error>
-                    {
-                        use epserde::deser::DeserializeInner;
-                        Ok()
+                        // Compute whether the type could be zero copy but it is not declared as such,
+                        // and the attribute `deep_copy` is missing.
+                        const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
+
+                        #[inline(always)]
+                        fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
+                            epserde::ser::helpers::check_mismatch::<Self>();
+                            match self {
+                                #(
+                                   Self::#variants => { #variant_ser }
+                                )*
+                            }
+                            Ok(())
+                        }
+                    }
+
+                    #[automatically_derived]
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#generics_names> #where_clause_des {
+                        fn _deserialize_full_inner(
+                            backend: &mut impl epserde::deser::ReadWithPos,
+                        ) -> core::result::Result<Self, epserde::deser::Error> {
+                            use epserde::deser::DeserializeInner;
+                            match usize::deserialize_full(backend)? {
+                                #(
+                                    #tag => Ok(Self::#variants_names{ #variant_full_des }),
+                                )*
+                                tag => Err(epserde::deser::Error::InvalidTag(tag)),
+                            }
+                        }
+
+                        type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
+
+                        fn _deserialize_eps_inner<'a>(
+                            backend: &mut epserde::deser::SliceWithPos<'a>,
+                        ) -> core::result::Result<Self::DeserType<'a>, epserde::deser::Error>
+                        {
+                            use epserde::deser::DeserializeInner;
+                            match usize::deserialize_full(backend)? {
+                                #(
+                                    #tag => Ok(Self::DeserType::<'_>::#variants_names{ #variant_eps_des }),
+                                )*
+                                tag => Err(epserde::deser::Error::InvalidTag(tag)),
+                            }
+                        }
                     }
                 }
             }

@@ -274,7 +274,7 @@ impl<T: DeserializeInner> DeserializeInner for Option<T> {
         match tag {
             0 => Ok(None),
             1 => Ok(Some(T::_deserialize_full_inner(backend)?)),
-            _ => Err(deser::Error::InvalidTag(tag)),
+            _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
     type DeserType<'a> = Option<<T as DeserializeInner>::DeserType<'a>>;
@@ -286,7 +286,7 @@ impl<T: DeserializeInner> DeserializeInner for Option<T> {
         match tag {
             0 => Ok(None),
             1 => Ok(Some(T::_deserialize_eps_inner(backend)?)),
-            _ => Err(deser::Error::InvalidTag(backend.data[0])),
+            _ => Err(deser::Error::InvalidTag(backend.data[0] as usize)),
         }
     }
 }

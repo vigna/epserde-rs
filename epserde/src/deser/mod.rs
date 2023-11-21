@@ -325,7 +325,7 @@ pub enum Error {
     /// The magic coookie is wrong. The byte sequence does not come from ε-serde.
     MagicCookieError(u64),
     /// A tag is wrong (e.g., for [`Option`]).
-    InvalidTag(u8),
+    InvalidTag(usize),
     /// The type hash is wrong. Probably the user is trying to deserialize a
     /// file with the wrong type.
     WrongTypeHash {
