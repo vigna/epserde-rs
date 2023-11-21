@@ -7,6 +7,7 @@
 #![cfg(test)]
 
 use epserde::prelude::*;
+use epserde_derive::TypeInfo;
 
 macro_rules! impl_test {
     ($ty:ty, $val:expr) => {{
@@ -231,4 +232,28 @@ fn test_tuple_struct_zero() {
     let bytes = &buf.into_inner();
     let eps = <Tuple>::deserialize_eps(bytes).unwrap();
     assert_eq!(a, *eps);
+}
+
+#[test]
+fn test_enum_deep() {
+    #[derive(TypeInfo, Clone, Debug, PartialEq)]
+    enum Data {
+        A,
+        B(u64),
+        C(u64, Vec<usize>),
+        D { a: i32, b: i64 },
+    }
+}
+
+#[test]
+fn test_enum_zero() {
+    #[derive(TypeInfo, Clone, Copy, Debug, PartialEq)]
+    #[repr(C)]
+    #[zero_copy]
+    enum Data {
+        A,
+        B(u64),
+        C(u64),
+        D { a: i32, b: i64 },
+    }
 }

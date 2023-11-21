@@ -66,7 +66,8 @@ pub(crate) fn std_repr_hash<T>(hasher: &mut impl core::hash::Hasher, offset_of: 
     *offset_of += core::mem::size_of::<T>();
 }
 
-/// A trait giving the maximum size of a primitive field in a type.
+/// A trait providing the maximum size of a primitive field in a type
+/// maximized with [`core::mem::align_of`].
 ///
 /// We use the value returned by [`MaxSizeOf::max_size_of`]
 /// to generate padding before storing a zero-copy type. Note that this
@@ -77,6 +78,10 @@ pub(crate) fn std_repr_hash<T>(hasher: &mut impl core::hash::Hasher, offset_of: 
 /// In this way we increase interoperability between architectures
 /// with different alignment requirements for the same types (e.g.,
 /// 4 or 8 bytes for `u64`).
+///
+/// By maximizing with [`core::mem::align_of`] we ensure that
+/// we provide sufficient alignment in case the attribute `repr(align(N))`
+/// was specified.
 pub trait MaxSizeOf: Sized {
     fn max_size_of() -> usize;
 }

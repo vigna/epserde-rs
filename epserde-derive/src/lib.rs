@@ -428,7 +428,127 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 }
             }
         }
-        _ => todo!("Missing implementation for union, enum"),
+        Data::Enum(e) => {
+            let where_clause = derive_input
+                .generics
+                .where_clause
+                .clone()
+                .unwrap_or_else(|| WhereClause {
+                    where_token: token::Where::default(),
+                    predicates: Punctuated::new(),
+                });
+
+            let mut variants = Vec::new();
+            let mut variant_ser = Vec::new();
+            let mut variant_des = Vec::new();
+            let mut generic_types = Vec::new();
+            e.variants.iter().for_each(|variant| {
+                let mut res = variant.ident.to_owned().to_token_stream();
+                let mut var_args_ser = quote! {core::mem::size_of::<Self>()};
+                let mut var_args_des = quote! {core::mem::size_of::<Self>()};
+                match &variant.fields {
+                    syn::Fields::Unit => {}
+                    syn::Fields::Named(fields) => {
+                        let mut args = proc_macro2::TokenStream::new();
+                        fields
+                            .named
+                            .iter()
+                            .map(|named| {
+                                (named.ident.as_ref().unwrap(), named.ty.to_token_stream())
+                            })
+                            .for_each(|(ident, ty)| {
+                                var_args_ser.extend([quote! {
+                                    #ident.serialize();
+                                }]);
+                                var_args_des.extend([quote! {
+                                    #ty.deserialize();
+                                }]);
+                                args.extend([ident.to_token_stream()]);
+                                args.extend([quote! {,}]);
+                                if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                                    //generic_fields.push(field_name.clone());
+                                    generic_types.push(ty);
+                                }
+                            });
+                        // extend res with the args sourrounded by curly braces
+                        res.extend(quote! {
+                            { #args }
+                        });
+                    }
+                    syn::Fields::Unnamed(fields) => {}
+                }
+                variants.push(res);
+                variant_ser.push(var_args_ser);
+                variant_des.push(var_args_des);
+            });
+
+            // Gather deserialization types of fields,
+            // which are necessary to derive the deserialization type.
+            let deser_type_generics = generics_name_vec
+                .iter()
+                .map(|ty| {
+                    if generic_types
+                        .iter()
+                        .any(|x| x.to_token_stream().to_string() == ty.to_string())
+                    {
+                        quote!(<#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
+                    } else {
+                        ty.clone()
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            quote! {
+                #[automatically_derived]
+                impl<#generics> epserde::traits::CopyType for  #name<#generics_names> #where_clause {
+                    type Copy = epserde::traits::Deep;
+                }
+
+                #[automatically_derived]
+                impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause {
+                    // Compute whether the type could be zero copy
+                    //const IS_ZERO_COPY: bool = #is_repr_c #(
+                    //    && <#fields_types>::IS_ZERO_COPY
+                    //)*;
+
+                    // Compute whether the type could be zero copy but it is not declared as such,
+                    // and the attribute `deep_copy` is missing.
+                    //const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
+
+                    #[inline(always)]
+                    fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
+                        epserde::ser::helpers::check_mismatch::<Self>();
+                        match self {
+                            #(
+                               #name::#variants => #variant_ser,
+                            )*
+                        }
+                        Ok(())
+                    }
+                }
+
+                #[automatically_derived]
+                impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#generics_names> #where_clause {
+                    fn _deserialize_full_inner(
+                        backend: &mut impl epserde::deser::ReadWithPos,
+                    ) -> core::result::Result<Self, epserde::deser::Error> {
+                        use epserde::deser::DeserializeInner;
+                        Ok()
+                    }
+
+                    type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
+
+                    fn _deserialize_eps_inner<'a>(
+                        backend: &mut epserde::deser::SliceWithPos<'a>,
+                    ) -> core::result::Result<Self::DeserType<'a>, epserde::deser::Error>
+                    {
+                        use epserde::deser::DeserializeInner;
+                        Ok()
+                    }
+                }
+            }
+        }
+        _ => todo!("Union types are not currently supported"),
     };
 
     let mut out: TokenStream = out.into();
@@ -437,7 +557,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
     out
 }
 
-#[proc_macro_derive(TypeInfo)]
+#[proc_macro_derive(TypeInfo, attributes(zero_copy, deep_copy))]
 pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let (_, is_zero_copy, _) = check_attrs(&input);
@@ -608,7 +728,186 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                 }
             }
         }
-        _ => todo!(),
+        Data::Enum(e) => {
+            let where_clause = input
+                .generics
+                .where_clause
+                .clone()
+                .unwrap_or_else(|| WhereClause {
+                    where_token: token::Where::default(),
+                    predicates: Punctuated::new(),
+                });
+
+            let mut var_type_hashes = Vec::new();
+            let mut var_repr_hashes = Vec::new();
+            let mut var_max_size_ofs = Vec::new();
+
+            e.variants.iter().for_each(|variant| {
+                let ident = variant.ident.to_owned();
+                let mut var_type_hash = quote! { stringify!(#ident).hash(hasher); };
+                let mut var_repr_hash = quote! { };
+                let mut var_max_size_of = quote! {  };
+                match &variant.fields {
+                    syn::Fields::Unit => {}
+                    syn::Fields::Named(fields) => {
+                        fields
+                            .named
+                            .iter()
+                            .map(|named| {
+                                (named.ident.as_ref().unwrap(), named.ty.to_token_stream())
+                            })
+                            .for_each(|(ident, ty)| {
+                                var_type_hash.extend([quote! {
+                                    stringify!(#ident).hash(hasher);
+                                    <#ty as epserde::traits::TypeHash>::type_hash(hasher);
+                                }]);
+                                var_repr_hash.extend([quote! {
+                                    <#ty as epserde::traits::ReprHash>::repr_hash(hasher, offset_of);
+                                }]);
+                                var_max_size_of.extend([
+                                    quote! {
+                                        if max_size_of < <#ty as epserde::traits::MaxSizeOf>::max_size_of() {
+                                            max_size_of = <#ty as epserde::traits::MaxSizeOf>::max_size_of();
+                                        }
+                                    }
+                                ]);
+                            });
+                    }
+                    syn::Fields::Unnamed(fields) => {
+                        fields
+                            .unnamed
+                            .iter()
+                            .enumerate()
+                            .for_each(|(field_idx, unnamed)| {
+                                let ty = &unnamed.ty;
+                                let field_name = field_idx.to_string();
+                                var_type_hash.extend([quote! {
+                                    #field_name.hash(hasher);
+                                    <#ty as epserde::traits::TypeHash>::type_hash(hasher);
+                                }]);
+                                var_repr_hash.extend([quote! {
+                                    <#ty as epserde::traits::ReprHash>::repr_hash(hasher, offset_of);
+                                }]);
+                                var_max_size_of.extend([
+                                    quote! {
+                                        if max_size_of < <#ty as epserde::traits::MaxSizeOf>::max_size_of() {
+                                            max_size_of = <#ty as epserde::traits::MaxSizeOf>::max_size_of();
+                                        }
+                                    }
+                                ]);
+                            });
+                    }
+                }
+                var_type_hashes.push(var_type_hash);
+                var_repr_hashes.push(var_repr_hash);
+                var_max_size_ofs.push(var_max_size_of);
+            });
+
+            // Build type name
+            let name_literal = name.to_string();
+
+            // Add reprs
+            let repr = input
+                .attrs
+                .iter()
+                .filter(|x| x.meta.path().is_ident("repr"))
+                .map(|x| x.meta.require_list().unwrap().tokens.to_string())
+                .collect::<Vec<_>>();
+
+            if is_zero_copy {
+                quote! {
+                    #[automatically_derived]
+                    impl<#generics_typehash> epserde::traits::TypeHash for #name<#generics_names> #where_clause{
+
+                        #[inline(always)]
+                        fn type_hash(
+                            hasher: &mut impl core::hash::Hasher,
+                        ) {
+                            use core::hash::Hash;
+                            // Hash in ZeroCopy
+                            "ZeroCopy".hash(hasher);
+                            // Hash in struct and field names.
+                            #name_literal.hash(hasher);
+                            #(
+                                #var_type_hashes
+                            )*
+                        }
+                    }
+
+                    impl<#generics_reprhash> epserde::traits::ReprHash for #name<#generics_names> #where_clause{
+                        #[inline(always)]
+                        fn repr_hash(
+                            hasher: &mut impl core::hash::Hasher,
+                            offset_of: &mut usize,
+                        ) {
+                            use core::hash::Hash;
+                            // Hash in size, as padding is given by MaxSizeOf.
+                            // and it is independent of the architecture.
+                            core::mem::size_of::<Self>().hash(hasher);
+                            // Hash in representation data.
+                            #(
+                                #repr.hash(hasher);
+                            )*
+                            // Recurse on all fields.
+                            let old_offset_of = *offset_of;
+                            #(
+                                *offset_of = old_offset_of;
+                                #var_repr_hashes
+                            )*
+                        }
+                    }
+
+                    impl<#generics_maxsizeof> epserde::traits::MaxSizeOf for #name<#generics_names> #where_clause{
+                        #[inline(always)]
+                        fn max_size_of() -> usize {
+                            let mut max_size_of = std::mem::align_of::<Self>();
+                            #(
+                                #var_max_size_ofs
+                            )*
+                            max_size_of
+                        }
+                    }
+                }
+            } else {
+                quote! {
+                    #[automatically_derived]
+                    impl<#generics_typehash> epserde::traits::TypeHash for #name<#generics_names> #where_clause{
+
+                        #[inline(always)]
+                        fn type_hash(
+                            hasher: &mut impl core::hash::Hasher,
+                        ) {
+                            use core::hash::Hash;
+                            // No alignment, so we do not hash in anything.
+                            // Hash in DeepCopy
+                            "DeepCopy".hash(hasher);
+                            // Hash in struct and field names.
+                            #name_literal.hash(hasher);
+                            #(
+                                #var_type_hashes
+                            )*
+                        }
+                    }
+
+                    impl<#generics_reprhash> epserde::traits::ReprHash for #name<#generics_names> #where_clause{
+                        #[inline(always)]
+                        fn repr_hash(
+                            hasher: &mut impl core::hash::Hasher,
+                            offset_of: &mut usize,
+                        ) {
+                            // Recurse on all variants always starting from offset_of. We might meet
+                            // zero-copy types, but we must add their representation in isolation
+                            // as they will be aligned.
+                            #(
+                                *offset_of = 0;
+                                #var_repr_hashes
+                            )*
+                        }
+                    }
+                }
+            }
+        }
+        _ => todo!("Union types are not currently supported"),
     };
     out.into()
 }
