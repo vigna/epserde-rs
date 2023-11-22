@@ -720,7 +720,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
                             use epserde::deser::DeserializeInner;
-                            match usize::deserialize_full(backend)? {
+                            match usize::_deserialize_full_inner(backend)? {
                                 #(
                                     #tag => Ok(Self::#variants_names{ #variant_full_des }),
                                 )*
@@ -735,7 +735,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         ) -> core::result::Result<Self::DeserType<'a>, epserde::deser::Error>
                         {
                             use epserde::deser::DeserializeInner;
-                            match usize::deserialize_full(backend)? {
+                            match usize::_deserialize_full_inner(backend)? {
                                 #(
                                     #tag => Ok(Self::DeserType::<'_>::#variants_names{ #variant_eps_des }),
                                 )*

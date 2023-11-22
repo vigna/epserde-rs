@@ -244,6 +244,66 @@ fn test_enum_deep() {
         C(u64, Vec<usize>),
         D { a: i32, b: V },
     }
+
+    let mut buf = epserde::new_aligned_cursor();
+    let a = Data::A;
+    a.serialize(&mut buf).unwrap();
+    buf.set_position(0);
+    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, full);
+    buf.set_position(0);
+    let bytes = &buf.into_inner();
+    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    assert!(matches!(eps, Data::A));
+
+    let mut buf = epserde::new_aligned_cursor();
+    let a = Data::B(3);
+    a.serialize(&mut buf).unwrap();
+    buf.set_position(0);
+    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, full);
+    buf.set_position(0);
+    let bytes = &buf.into_inner();
+    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    assert!(matches!(eps, Data::B(3)));
+
+    let mut buf = epserde::new_aligned_cursor();
+    let a = Data::C(4, vec![1, 2, 3]);
+    a.serialize(&mut buf).unwrap();
+    buf.set_position(0);
+    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, full);
+    buf.set_position(0);
+    let bytes = &buf.into_inner();
+    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    assert!(matches!(eps, Data::C(4, _)));
+
+    let mut buf = epserde::new_aligned_cursor();
+    let a = Data::D {
+        a: 1,
+        b: vec![1, 2],
+    };
+    a.serialize(&mut buf).unwrap();
+    buf.set_position(0);
+    let full = <Data<Vec<i32>>>::deserialize_full(&mut buf).unwrap();
+    assert!(matches!(full, Data::D { a: 1, b: _ }));
+    buf.set_position(0);
+    let bytes = &buf.into_inner();
+    let eps = <Data<Vec<i32>>>::deserialize_eps(bytes).unwrap();
+    assert!(matches!(eps, Data::D { a: 1, b: [1, 2] }));
+
+    let mut buf = epserde::new_aligned_cursor();
+    let a = Vec::from_iter(iter::repeat(Data::A).take(10));
+    a.serialize(&mut buf).unwrap();
+    buf.set_position(0);
+    let full = <Vec<Data>>::deserialize_full(&mut buf).unwrap();
+    assert_eq!(a, full);
+    buf.set_position(0);
+    let bytes = &buf.into_inner();
+    let eps = <Vec<Data>>::deserialize_eps(bytes).unwrap();
+    for e in eps {
+        assert!(matches!(e, Data::A));
+    }
 }
 
 #[test]
