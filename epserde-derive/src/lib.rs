@@ -458,8 +458,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     variant_ser.push(quote! {{                        
                         backend.write("tag", &#variant_id)?;
                     }});
-                    variant_full_des.push(quote! {{}});
-                    variant_eps_des.push(quote! {{}});
+                    variant_full_des.push(quote! {});
+                    variant_eps_des.push(quote! {});
                 }
                 syn::Fields::Named(fields) => {
                     variants_names.push(variant.ident.to_token_stream());
