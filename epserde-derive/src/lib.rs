@@ -450,12 +450,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             let mut non_generic_fields = Vec::new();
             let mut non_generic_types = Vec::new();
             let mut fields_types = Vec::new();
-            e.variants.iter().enumerate().for_each(|(variant_id, variant)| {                    
+            e.variants.iter().enumerate().for_each(|(variant_id, variant)| {
                 variants_names.push(variant.ident.to_token_stream());
                 match &variant.fields {
                 syn::Fields::Unit => {
                     variants.push(variant.ident.to_token_stream());
-                    variant_ser.push(quote! {{                        
+                    variant_ser.push(quote! {{
                         backend.write("tag", &#variant_id)?;
                     }});
                     variant_full_des.push(quote! {});
@@ -594,7 +594,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             }
 
                         });
-                        
+
                     let ident = variant.ident.clone();
                     variants.push(quote! {
                         #ident( #( #var_fields_names, )* )
