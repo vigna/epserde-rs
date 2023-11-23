@@ -26,7 +26,6 @@ struct Point {
 }
 
 fn main() {
-    // Create a new value to serialize
     let point: Object<Vec<Point>> = Object {
         a: vec![Point { x: 2, y: 1 }; 6],
         test: -0xbadf00d,

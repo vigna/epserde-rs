@@ -462,7 +462,6 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     variant_eps_des.push(quote! {});
                 }
                 syn::Fields::Named(fields) => {
-                    variants_names.push(variant.ident.to_token_stream());
                     let mut var_fields_names = Vec::new();
                     let mut var_fields_types = Vec::new();
                     let mut methods: Vec<proc_macro2::TokenStream> = vec![];

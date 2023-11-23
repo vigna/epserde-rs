@@ -9,8 +9,6 @@
 use epserde::prelude::*;
 
 fn main() {
-    // Create a vector to serialize
-
     let a = Some(vec![0, 1, 2, 3]);
     let mut buf = epserde::new_aligned_cursor();
     // Serialize
@@ -24,6 +22,8 @@ fn main() {
         std::any::type_name::<Option<Vec<i32>>>(),
     );
     println!("Value: {:x?}", full);
+
+    println!();
 
     // Do an ε-copy deserialization
     let buf = buf.into_inner();
@@ -50,6 +50,8 @@ fn main() {
         std::any::type_name::<Option<Vec<i32>>>(),
     );
     println!("Value: {:x?}", full);
+
+    println!();
 
     // Do an ε-copy deserialization
     let buf = buf.into_inner();

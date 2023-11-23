@@ -17,7 +17,6 @@ struct Data {
 }
 
 fn main() {
-    // Create a vector to serialize
     let a = vec![Data { a: 5 }, Data { a: 6 }];
     let mut buf = epserde::new_aligned_cursor();
     // Serialize
@@ -32,7 +31,7 @@ fn main() {
     );
     println!("Value: {:x?}", full);
 
-    println!("\n");
+    println!();
 
     // Do an ε-copy deserialization
     let buf = buf.into_inner();

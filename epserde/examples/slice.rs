@@ -9,12 +9,9 @@
 use epserde::prelude::*;
 
 fn main() {
-    // Create a vector to serialize
-
     let a = vec![0, 1, 2, 3];
-
+    // Turn it into a slice
     let a: &[i32] = a.as_ref();
-
     let mut buf = epserde::new_aligned_cursor();
     // Serialize the slice using the cheaty implementation
     let _bytes_written = a.serialize(&mut buf).unwrap();
@@ -28,7 +25,7 @@ fn main() {
     );
     println!("Value: {:x?}", full);
 
-    println!("\n");
+    println!();
 
     // Do an ε-copy deserialization as, again, a slice
     let buf = buf.into_inner();

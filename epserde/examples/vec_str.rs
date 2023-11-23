@@ -17,7 +17,6 @@ struct Data<A> {
 type StringData = Data<Vec<String>>;
 
 fn main() {
-    // Create a new value to serialize
     let data = StringData {
         a: vec!["A".to_owned(), "B".to_owned(), "C".to_owned()],
     };
@@ -34,7 +33,7 @@ fn main() {
     );
     println!("Value: {:x?}", full);
 
-    println!("\n");
+    println!();
 
     // Do an ε-copy deserialization
     let buf = buf.into_inner();

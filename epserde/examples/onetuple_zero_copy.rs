@@ -12,7 +12,6 @@
 use epserde::prelude::*;
 
 fn main() {
-    // Create a new value to serialize
     let x = (0_usize,);
     let mut buf = epserde::new_aligned_cursor();
     // Serialize
@@ -30,7 +29,7 @@ fn main() {
 
     println!();
 
-    // Do an ε-copy deserialization
+    // Do an ε-copy deserialization (which will be zero-copy deserialization)
     let buf = buf.into_inner();
     let eps = <(usize,)>::deserialize_eps(&buf).unwrap();
     println!(

@@ -33,7 +33,7 @@ fn main() {
     );
     println!("Value: {:x?}", full);
 
-    println!("\n");
+    println!();
 
     // Do an ε-copy deserialization
     let buf = buf.into_inner();

@@ -33,9 +33,9 @@ fn main() {
     );
     println!("Value: {:x?}", full);
 
-    println!("\n");
+    println!();
 
-    // Do an ε-copy deserialization
+    // Do an ε-copy deserialization (which will be zero-copy deserialization)
     let buf = buf.into_inner();
     let eps = <Data<i32>>::deserialize_eps(&buf).unwrap();
     println!(
