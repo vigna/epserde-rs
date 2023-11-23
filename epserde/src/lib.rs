@@ -47,7 +47,7 @@ pub mod prelude {
 }
 
 /// (Major, Minor) version of the file format, this follows semantic versioning
-pub const VERSION: (u16, u16) = (1, 0);
+pub const VERSION: (u16, u16) = (1, 1);
 
 /// Magic cookie, also used as endianess marker.
 pub const MAGIC: u64 = u64::from_ne_bytes(*b"epserde ");
