@@ -146,8 +146,7 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
 /// `MaxSizeOf`, `TypeHash`, `ReprHash`, `SerializeInner`,
 /// and `DeserializeInner`.
 ///
-/// Presently we only support
-/// standard structures (and not tuple structures).
+/// Presently we do not support unions.
 ///
 /// The attribute `zero_copy` can be used to generate an implementation for a zero-copy
 /// type, but the type must be `repr(C)` and all fields must be zero-copy.
