@@ -1,6 +1,6 @@
 [package]
 name = "epserde-derive"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 description = "Procedural macros for ε-serde"
 repository = "https://github.com/vigna/epserde-rs/"

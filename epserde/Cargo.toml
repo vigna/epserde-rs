@@ -1,6 +1,6 @@
 [package]
 name = "epserde"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 description = "ε-serde is an ε-copy (i.e., almost zero-copy) serialization/deserialization framework"
 repository = "https://github.com/vigna/epserde-rs/"
@@ -14,7 +14,7 @@ mmap-rs = {version="0.5.0", optional=true}
 bitflags = {version="2.3.1", default-features=false}
 bytemuck = "1.14.0"
 xxhash-rust = {version="0.8.5", default-features=false, features=["xxh3"]}
-epserde-derive = { path = "../epserde-derive", optional = true } #{ version = "=0.2.2", optional = true }
+epserde-derive = { version = "=0.3.0", optional = true }
 anyhow = "1.0.75"
 
 [features]
