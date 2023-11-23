@@ -754,6 +754,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
     out
 }
 
+/// Generate a partial ε-serde implementation for custom types.
+///
+/// It generates implementations just for the traits
+/// `MaxSizeOf`, `TypeHash`, and `ReprHash`. See the documentation
+/// of [`epserde_derive`] for more information.
 #[proc_macro_derive(TypeInfo, attributes(zero_copy, deep_copy))]
 pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
