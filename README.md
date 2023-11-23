@@ -187,7 +187,8 @@ by both types, such as `AsRef<[usize]>`.
 You can define your types to be zero-copy, in which case they will
 work like `usize` in the previous examples. This requires the structure
 to be made of zero-copy fields, and to be annotated with `#[zero_copy]` 
-and `#[repr(C)]`:
+and `#[repr(C)]` (which means that you will lose the possibility that
+the compiler reorders the fields to optimize memory usage):
 ```rust
 use epserde::prelude::*;
 use epserde_derive::*;
@@ -225,7 +226,8 @@ let u: MemCase<&[Data]> =
     <Vec<Data>>::mmap(&file, Flags::empty()).unwrap();
 assert_eq!(s, **u);
 ```
-If a structure is not zero-copy, vectors will be always deserialized into vectors.
+If a structure is not zero-copy, vectors of structures will be always 
+deserialized into vectors.
 
 ## Example: Structures with parameters
 
@@ -332,12 +334,10 @@ use epserde::prelude::*;
 use epserde_derive::*;
 
 #[derive(Epserde, Debug, PartialEq)]
-struct MyStruct<A: DeepCopy + 'static> {
-    data: Vec<A>,
-}
+struct MyStruct<A: DeepCopy + 'static>(Vec<A>);
 
 // Create a structure where A is a Vec<isize>
-let s: MyStruct<Vec<isize>> = MyStruct { data: vec![vec![0, 1, 2, 3]] };
+let s: MyStruct<Vec<isize>> = MyStruct(vec![vec![0, 1, 2, 3]]);
 // Serialize it
 let mut file = std::env::temp_dir();
 file.push("serialized4");
@@ -383,6 +383,36 @@ let t: &MyStruct<i32> =
     <MyStruct<i32>>::deserialize_eps(b.as_ref()).unwrap();
 ```
 Note how the field originally of type `i32` remains of the same type.
+
+## Example: Enums
+
+Enums are supported, but there are two caveats: first, if you want them to be zero-copy,
+they must be `repr(C)`, and thus you will
+lose the possibility that the compiler optimize their memory representation; 
+second, if you have type parameters that are not used by all variants you must be careful
+to specify always the same type parameter when serializing and deserializing. This is
+obvious for non-enum types, but with enum types with default type parameters it can
+become tricky. For example,
+```rust
+use epserde::prelude::*;
+use epserde_derive::*;
+
+#[derive(Epserde, Debug, PartialEq, Clone, Copy)]
+enum Enum<T=Vec<usize>> {
+    A,
+    B(T),
+}
+
+// This enum has T=Vec<i32> by type inference
+let e = Enum::B(vec![0, 1, 2, 3]);
+// Serialize it
+let mut file = std::env::temp_dir();
+file.push("serialized6");
+e.store(&file);
+// Deserializing using just Enum will fail, as the type parameter 
+// by default is Vec<usize>
+assert!(<Enum>::load_full(&file).is_err());
+```
 
 ## Example: `sux-rs`
 
