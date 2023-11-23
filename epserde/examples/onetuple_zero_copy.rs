@@ -5,12 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*
- * This example shows how the standard behavior of ε-serde on primitive
- * types (returning a value rather than a reference) is somewhat custom:
- * the deserialization type associated to a one-element tuple containing
- * just a `usize` is a reference.
- */
+/// Example showing how the standard behavior of ε-serde on primitive
+/// types (returning a value rather than a reference) is somewhat custom:
+/// the deserialization type associated to a one-element tuple containing
+/// just a `usize` is a reference.
 use epserde::prelude::*;
 
 fn main() {

@@ -5,6 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+/// Example of a nested struct in which one of the fields
+/// of the inner struct is recursively ε-copied, as its
+/// type is a parameter. We also generate a schema.
 use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]

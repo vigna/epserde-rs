@@ -5,39 +5,37 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+/// Example showcasing the cheaty serialization of a slice.
 use epserde::prelude::*;
-
-#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone, Copy)]
-#[repr(C)]
-#[zero_copy]
-struct Data {
-    a: usize,
-}
 
 fn main() {
     // Create a vector to serialize
-    let a = vec![Data { a: 5 }];
+
+    let a = vec![0, 1, 2, 3];
+
+    let a: &[i32] = a.as_ref();
+
     let mut buf = epserde::new_aligned_cursor();
-    // Serialize
+    // Serialize the slice using the cheaty implementation
     let _bytes_written = a.serialize(&mut buf).unwrap();
 
-    // Do a full-copy deserialization
+    // Do a full-copy deserialization as a vector
     buf.set_position(0);
-    let full = <Vec<Data>>::deserialize_full(&mut buf).unwrap();
+    let full = <Vec<i32>>::deserialize_full(&mut buf).unwrap();
     println!(
         "Full-copy deserialization type: {}",
-        std::any::type_name::<Vec<Data>>(),
+        std::any::type_name::<Vec<i32>>(),
     );
     println!("Value: {:x?}", full);
 
     println!("\n");
 
-    // Do an ε-copy deserialization
+    // Do an ε-copy deserialization as, again, a slice
     let buf = buf.into_inner();
-    let eps = <Vec<Data>>::deserialize_eps(&buf).unwrap();
+    let eps = <Vec<i32>>::deserialize_eps(&buf).unwrap();
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<<Vec<Data> as DeserializeInner>::DeserType<'_>>(),
+        std::any::type_name::<<Vec<i32> as DeserializeInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);
 }

@@ -5,24 +5,20 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*
- * This example shows how the standard behavior of ε-serde on primitive
- * types (returning a value rather than a reference) is somewhat custom:
- * if we derive code for a zero-copy newtype containing just a `usize`,
- * the associated deserialization type is a reference.
- */
+/// Example showing how the standard behavior of ε-serde on primitive
+/// types (returning a value rather than a reference) is somewhat custom:
+/// if we derive code for a zero-copy newtype containing just a `usize`,
+/// the associated deserialization type is a reference.
 use epserde::prelude::*;
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Default, Clone)]
 #[repr(C)]
 #[zero_copy]
-struct USize {
-    value: usize,
-}
+struct USize(usize);
 
 fn main() {
     // Create a new value to serialize
-    let x = USize { value: 0 };
+    let x = USize(0);
     let mut buf = epserde::new_aligned_cursor();
     // Serialize
     let _bytes_written = x.serialize(&mut buf).unwrap();

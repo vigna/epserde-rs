@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+/// Example of zero-copy deserialization of an array.
 use epserde::prelude::*;
 
 fn main() {

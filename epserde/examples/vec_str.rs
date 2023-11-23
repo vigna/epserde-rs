@@ -5,10 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+/// Example showing that ε-copy deserialization can be used with
+/// a `Vec<String>`, giving back a `Vec<&str>`.
 use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
-/// Random struct we will use to test the nested serialization and deserialization.
 struct Data<A> {
     a: A,
 }
