@@ -31,10 +31,10 @@ impl core::default::Default for Flags {
 impl Flags {
     /// Translates internal flags to `mmap_rs` flags.
     pub(crate) fn mmap_flags(&self) -> mmap_rs::MmapFlags {
-        match self.contains(Flags::TRANSPARENT_HUGE_PAGES) {
+        match self.contains(Self::TRANSPARENT_HUGE_PAGES) {
             // By passing COPY_ON_WRITE we set the MAP_PRIVATE flag, which
             // in necessary for transparent huge pages to work.
-            true => mmap_rs::MmapFlags::TRANSPARENT_HUGE_PAGES | mmap_rs::MmapFlags::COPY_ON_WRITE,
+            true => mmap_rs::MmapFlags::TRANSPARENT_HUGE_PAGES,
             false => mmap_rs::MmapFlags::empty(),
         }
     }

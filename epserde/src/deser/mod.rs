@@ -65,7 +65,7 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let mut file = std::fs::File::open(path)?;
         // Round up to u128 size
-        let len = file_len + crate::pad_align_to(file_len, 16);
+        let capacity = file_len + crate::pad_align_to(file_len, 16);
 
         let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
             MaybeUninit::uninit();
@@ -75,9 +75,9 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
         // or with zeroes if the file is shorter than the vector.
         let mut bytes = unsafe {
             Vec::from_raw_parts(
-                std::alloc::alloc(std::alloc::Layout::from_size_align(len, 16)?),
-                len,
-                len,
+                std::alloc::alloc(std::alloc::Layout::from_size_align(capacity, 16)?),
+                capacity,
+                capacity,
             )
         };
 
@@ -167,7 +167,7 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
         let mmap = unsafe {
             mmap_rs::MmapOptions::new(file_len as _)?
                 .with_flags(flags.mmap_flags())
-                .with_file(file, 0)
+                .with_file(&file, 0)
                 .map()?
         };
 
