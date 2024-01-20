@@ -1,13 +1,13 @@
 [package]
 name = "epserde-derive"
+authors = ["Tommaso Fontana <tommaso.fontana.96@gmail.com>", "Sebastiano Vigna <sebastiano.vigna@unimi.it>"]
+description = "Procedural macros for ε-serde"
 version = "0.3.0"
 edition = "2021"
-description = "Procedural macros for ε-serde"
 repository = "https://github.com/vigna/epserde-rs/"
 license = "Apache-2.0 OR LGPL-2.1-or-later"
 readme = "README.md"
 keywords = ["serialization", "zero-copy", "mmap"]
-authors = ["Tommaso Fontana <tommaso.fontana.96@gmail.com>", "Sebastiano Vigna <sebastiano.vigna@unimi.it>"]
 
 [lib]
 proc-macro = true

@@ -115,13 +115,13 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
     ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let mut file = std::fs::File::open(path)?;
-        let capacity = (file_len + 7) / 8;
+        let capacity = file_len + crate::pad_align_to(file_len, 16);
 
         let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
             MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
-        let mut mmap = mmap_rs::MmapOptions::new(capacity * 8)?
+        let mut mmap = mmap_rs::MmapOptions::new(capacity)?
             .with_flags(flags.mmap_flags())
             .map_mut()?;
         file.read_exact(&mut mmap[..file_len])?;

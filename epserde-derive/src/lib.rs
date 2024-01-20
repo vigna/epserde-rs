@@ -13,10 +13,9 @@ Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) c
 
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, Data, DeriveInput};
 use syn::{
-    punctuated::Punctuated, token, BoundLifetimes, GenericParam, LifetimeParam, PredicateType,
-    WhereClause, WherePredicate,
+    parse_macro_input, punctuated::Punctuated, token, BoundLifetimes, Data, DeriveInput,
+    GenericParam, LifetimeParam, PredicateType, WhereClause, WherePredicate,
 };
 
 /// Pre-parsed information for the derive macros.

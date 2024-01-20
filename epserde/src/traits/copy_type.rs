@@ -33,7 +33,6 @@ impl CopySelector for Zero {
 }
 
 /// An implementation of a [`CopySelector`] specifying that a type is deep-copy.
-#[derive(Hash)]
 pub struct Deep {}
 
 impl CopySelector for Deep {

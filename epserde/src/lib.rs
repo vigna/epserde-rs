@@ -11,13 +11,6 @@
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 extern crate alloc;
 
-// Re-export epserde_derive conditional to the "derive" feature.
-//
-// The reason re-exporting is not enabled by default is that disabling it would
-// be annoying for crates that provide handwritten impls or data formats. They
-// would need to disable default features and then explicitly re-enable std.
-#[cfg(feature = "derive")]
-extern crate epserde_derive;
 use std::io::Cursor;
 
 #[cfg(feature = "derive")]

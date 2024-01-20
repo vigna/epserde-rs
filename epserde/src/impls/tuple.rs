@@ -10,8 +10,8 @@
 Implementations for tuples.
 
 For the time being, we only support tuples of up to 10 elements all of which
-are [`ZeroCopy`]. For tuples of more than 10 elements, or tuples with elements
-that are not [`ZeroCopy`], you must use [`epserde_derive::Epserde`] on a newtype.
+are [`ZeroCopy`] and parameterless. For tuples of more than 10 elements, tuples with elements
+that are not [`ZeroCopy`], or types with parameters, you must use [`epserde_derive::Epserde`] on a newtype.
 
 */
 use crate::deser::DeserializeInner;
