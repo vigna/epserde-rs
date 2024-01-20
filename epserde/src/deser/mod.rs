@@ -129,7 +129,7 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
         // for bit vectors.
         mmap[file_len..].fill(0);
 
-        let backend = MemBackend::Mmap(mmap.make_read_only().map_err(|(_, err)| err).unwrap());
+        let backend = MemBackend::Mmap(mmap.make_read_only().map_err(|(_, err)| err)?);
 
         // store the backend inside the MemCase
         unsafe {
