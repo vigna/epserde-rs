@@ -18,6 +18,16 @@ bitflags! {
         /// of this writing Linux does not support transparent huge pages
         /// in file-based memory mappings.
         const TRANSPARENT_HUGE_PAGES = 1 << 0;
+        /// Suggest that the mapped region will be accessed sequentially.
+        ///
+        /// This flag is only a suggestion, and it is ignored if the kernel does
+        /// not support it. It is mainly useful to support `madvise()` on Linux.
+        const SEQUENTIAL = 1 << 1;
+        /// Suggest that the mapped region will be accessed randomly.
+        ///
+        /// This flag is only a suggestion, and it is ignored if the kernel does
+        /// not support it. It is mainly useful to support `madvise()` on Linux.
+        const RANDOM_ACCESS = 1 << 2;
     }
 }
 
@@ -31,12 +41,18 @@ impl core::default::Default for Flags {
 impl Flags {
     /// Translates internal flags to `mmap_rs` flags.
     pub(crate) fn mmap_flags(&self) -> mmap_rs::MmapFlags {
-        match self.contains(Self::TRANSPARENT_HUGE_PAGES) {
-            // By passing COPY_ON_WRITE we set the MAP_PRIVATE flag, which
-            // in necessary for transparent huge pages to work.
-            true => mmap_rs::MmapFlags::TRANSPARENT_HUGE_PAGES,
-            false => mmap_rs::MmapFlags::empty(),
+        let mut flags: mmap_rs::MmapFlags = mmap_rs::MmapFlags::empty();
+        if self.contains(Self::SEQUENTIAL) {
+            flags |= mmap_rs::MmapFlags::SEQUENTIAL;
         }
+        if self.contains(Self::RANDOM_ACCESS) {
+            flags |= mmap_rs::MmapFlags::RANDOM_ACCESS;
+        }
+        if self.contains(Self::TRANSPARENT_HUGE_PAGES) {
+            flags |= mmap_rs::MmapFlags::TRANSPARENT_HUGE_PAGES;
+        }
+
+        flags
     }
 }
 

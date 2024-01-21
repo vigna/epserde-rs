@@ -1,4 +1,10 @@
-# ε-serde ![GitHub CI](https://github.com/vigna/epserde-rs/actions/workflows/rust.yml/badge.svg) ![Rust Version](https://img.shields.io/badge/status-stable-success) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![License: LGPL v2.1](https://img.shields.io/badge/license-LGPL_2.1-blue.svg)](https://www.gnu.org/licenses/lgpl-2.1)
+# ε-serde 
+
+[![downloads](https://img.shields.io/crates/d/epserde)](https://crates.io/crates/epserde)
+[![dependents](https://img.shields.io/librariesio/dependents/cargo/epserde)](https://crates.io/crates/epserde/reverse_dependencies)
+![GitHub CI](https://github.com/vigna/epserde-rs/actions/workflows/rust.yml/badge.svg)
+![Rust Version](https://img.shields.io/badge/status-stable-success)
+![license](https://img.shields.io/crates/l/epserde)
 
 ε-serde is a Rust framework for *ε*-copy *ser*ialization and *de*serialization.
 
@@ -470,20 +476,22 @@ The basic idea in ε-serde is that *if a field has a type that is a parameter, d
 the deserialization type is defined recursively, replacement can happen at any depth level. For example,
 a field of type `A = Vec<Vec<Vec<usize>>>` will be deserialized as a `A = Vec<Vec<&[usize]>>`.
 
-This approach makes it possible to write ε-serde-aware structures that hides completely
-from the user the substitution. A good example
-is the `BitFieldVec` structure from [`sux-rs`](http://crates.io/sux/), which exposes an array of fields of fixed
-bit width using (usually) a `Vec<usize>` as a backend; except for extension methods, all methods of 
-`BitFieldVec` come from the trait `BitFieldSlice`. If you have your own struct and one
-of the fields is of type `A`, when serializing your struct with `A` equal to `BitFieldVec<Vec<usize>>`,
-upon ε-copy deserialization you will get a version of your struct with `BitFieldVec<&[usize]>`. 
-All this will happen under the hood because `BitFieldVec` is ε-serde-aware, and in fact you will not
-even notice the difference if you access both versions using the trait `BitFieldSlice`.
+This approach makes it possible to write ε-serde-aware structures that hide from
+the user the substitution. A good example is the `BitFieldVec` structure from
+[`sux-rs`](http://crates.io/sux/), which exposes an array of fields of fixed bit
+width using (usually) a `Vec<usize>` as a backend; except for extension methods,
+all methods of `BitFieldVec` come from the trait `BitFieldSlice`. If you have
+your own struct and one of the fields is of type `A`, when serializing your
+struct with `A` equal to `BitFieldVec<Vec<usize>>`, upon ε-copy deserialization
+you will get a version of your struct with `BitFieldVec<&[usize]>`. All this
+will happen under the hood because `BitFieldVec` is ε-serde-aware, and in fact
+you will not even notice the difference if you access both versions using the
+trait `BitFieldSlice`.
 
 # Derived and hand-made implementation
 
-We strongly suggest to use the procedural macro [`Epserde`](`epserde_derive::Epserde`)
-to make own types serializable and deserializable. Just invoking the macro
+We strongly suggest using the procedural macro [`Epserde`](`epserde_derive::Epserde`)
+to make your own types serializable and deserializable. Just invoking the macro
 on your structure will make it fully functional with ε-serde. The attribute
 `#[zero_copy]` can be used to make a structure zero-copy, albeit it must satisfy
 [a few prerequisites](traits::CopyType).
@@ -491,7 +499,7 @@ on your structure will make it fully functional with ε-serde. The attribute
 You can also implement manually
 the traits [`CopyType`](traits::CopyType), [`MaxSizeOf`](traits::MaxSizeOf), [`TypeHash`](traits::TypeHash), [`ReprHash`](traits::ReprHash), 
 [`SerializeInner`](`ser::SerializeInner`), and [`DeserializeInner`](`deser::DeserializeInner`), but
-the process is error-prone, and you must fully aware of ε-serde's conventions. The procedural macro
+the process is error-prone, and you must be fully aware of ε-serde's conventions. The procedural macro
 [`TypeInfo`](`epserde_derive::TypeInfo`) can be used to generate automatically at least 
 [`MaxSizeOf`](traits::MaxSizeOf), [`TypeHash`](traits::TypeHash), and [`ReprHash`](traits::ReprHash) automatically.
 
