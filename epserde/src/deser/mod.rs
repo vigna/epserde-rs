@@ -36,6 +36,9 @@ pub use slice_with_pos::*;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
+/// A shorthand for the [deserialized type associated with a type](DeserializeInner::DeserType).
+pub type DeserType<'a, T> = <T as DeserializeInner>::DeserType<'a>;
+
 /// Main deserialization trait. It is separated from [`DeserializeInner`] to
 /// avoid that the user modify its behavior, and hide internal serialization
 /// methods.
@@ -198,6 +201,8 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
 ///
 /// The user should not implement this trait directly, but rather derive it.
 pub trait DeserializeInner: Sized {
+    /// The deserialization type associated with this type. It can be
+    /// retrieved conveniently with the alias [`DeserType`].
     type DeserType<'a>;
     fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> Result<Self>;
 
