@@ -4,6 +4,7 @@
 [![dependents](https://img.shields.io/librariesio/dependents/cargo/epserde)](https://crates.io/crates/epserde/reverse_dependencies)
 ![GitHub CI](https://github.com/vigna/epserde-rs/actions/workflows/rust.yml/badge.svg)
 ![license](https://img.shields.io/crates/l/epserde)
+[![](https://tokei.rs/b1/github/vigna/epserde-rs?type=Rust,Python)](https://github.com/vigna/epserde-rs)
 
 ε-serde is a Rust framework for *ε*-copy *ser*ialization and *de*serialization.
 
