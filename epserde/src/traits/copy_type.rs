@@ -12,6 +12,7 @@ Traits to mark types as zero-copy or deep-copy.
 */
 
 use crate::prelude::MaxSizeOf;
+use sealed::sealed;
 
 /// Internal trait used to select whether a type is zero-copy
 /// or deep-copy.
@@ -22,12 +23,14 @@ use crate::prelude::MaxSizeOf;
 /// from memory and deserialized to memory as a sequence of bytes;
 /// in the second case, one has to deserialize the type field
 /// by field.
+#[sealed]
 pub trait CopySelector {
     const IS_ZERO_COPY: bool;
 }
 /// An implementation of a [`CopySelector`] specifying that a type is zero-copy.
 pub struct Zero {}
 
+#[sealed]
 impl CopySelector for Zero {
     const IS_ZERO_COPY: bool = true;
 }
@@ -35,6 +38,7 @@ impl CopySelector for Zero {
 /// An implementation of a [`CopySelector`] specifying that a type is deep-copy.
 pub struct Deep {}
 
+#[sealed]
 impl CopySelector for Deep {
     const IS_ZERO_COPY: bool = false;
 }
