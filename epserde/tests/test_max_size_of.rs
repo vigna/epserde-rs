@@ -39,40 +39,46 @@ fn test_max_size_of_align() {
     assert_eq!(MyStruct::max_size_of(), MyStruct2::max_size_of());
 
     let x = MyStruct { u: 0x89 };
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     // Serialize
-    let _bytes_written = x.serialize(&mut buf).unwrap();
+    let _bytes_written = x.serialize(&mut cursor).unwrap();
 
     // Do a full-copy deserialization
-    buf.set_position(0);
+    cursor.set_position(0);
     // Do an ε-copy deserialization
-    let buf = buf.into_inner();
+    let buf = cursor.into_inner();
     let eps = <MyStruct>::deserialize_eps(&buf).unwrap();
     assert_eq!(x, *eps);
 
     // Create a new value to serialize
     let x = MyStruct2 { u: 0x89 };
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     // Serialize
-    let _bytes_written = x.serialize(&mut buf).unwrap();
+    let _bytes_written = x.serialize(&mut cursor).unwrap();
 
     // Do a full-copy deserialization
-    buf.set_position(0);
+    cursor.set_position(0);
     // Do an ε-copy deserialization
-    let buf = buf.into_inner();
+    let buf = cursor.into_inner();
     let eps = <MyStruct2>::deserialize_eps(&buf).unwrap();
     assert_eq!(x, *eps);
 
     // Create a new value to serialize
     let x = MyStruct64 { u: 0x89 };
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     // Serialize
-    let _bytes_written = x.serialize(&mut buf).unwrap();
+    let _bytes_written = x.serialize(&mut cursor).unwrap();
 
     // Do a full-copy deserialization
-    buf.set_position(0);
+    cursor.set_position(0);
     // Do an ε-copy deserialization
-    let buf = buf.into_inner();
+    let buf = cursor.into_inner();
     let eps = <MyStruct64>::deserialize_eps(&buf).unwrap();
     assert_eq!(x, *eps);
 }

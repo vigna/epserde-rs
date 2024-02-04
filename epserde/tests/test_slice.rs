@@ -19,7 +19,9 @@ struct Data<A: PartialEq = usize, const Q: usize = 3> {
 fn test_cheaty_serialize() -> Result<()> {
     let a = vec![1, 2, 3, 4];
     let s = a.as_slice();
-    let mut cursor = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     s.serialize(&mut cursor)?;
     cursor.set_position(0);
     let b = <Vec<i32>>::deserialize_full(&mut cursor)?;

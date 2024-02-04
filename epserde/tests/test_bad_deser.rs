@@ -24,9 +24,9 @@ fn test_wrong_endianess() {
         )
     };
     assert!(v.as_ptr() as usize % 16 == 0, "{:p}", v.as_ptr());
-    let mut buf = std::io::Cursor::new(&mut v);
+    let mut cursor = std::io::Cursor::new(&mut v);
 
-    let schema = data.serialize_with_schema(&mut buf).unwrap();
+    let schema = data.serialize_with_schema(&mut cursor).unwrap();
     println!("{}", schema.debug(&v));
     println!("{:02x?}", &v);
 

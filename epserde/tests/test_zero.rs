@@ -10,7 +10,8 @@ use epserde::prelude::*;
 
 macro_rules! impl_test {
     ($ty:ty, $data:expr) => {{
-        let mut cursor = epserde::new_aligned_cursor();
+        let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+        let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
 
         let _ = $data.serialize_with_schema(&mut cursor).unwrap();
 
@@ -24,7 +25,8 @@ macro_rules! impl_test {
         assert_eq!($data, *eps_copy);
     }
     {
-        let mut cursor = epserde::new_aligned_cursor();
+        let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+        let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
 
         $data.serialize(&mut cursor).unwrap();
 

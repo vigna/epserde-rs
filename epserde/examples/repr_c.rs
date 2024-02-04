@@ -30,13 +30,15 @@ fn main() {
         a: vec![Point { x: 2, y: 1 }; 6],
         test: -0xbadf00d,
     };
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     // Serialize
-    let _bytes_written = point.serialize(&mut buf).unwrap();
+    let _bytes_written = point.serialize(&mut cursor).unwrap();
 
     // Do a full-copy deserialization
-    buf.set_position(0);
-    let full = <Object<Vec<Point>>>::deserialize_full(&mut buf).unwrap();
+    cursor.set_position(0);
+    let full = <Object<Vec<Point>>>::deserialize_full(&mut cursor).unwrap();
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Object<Vec<Point>>>(),
@@ -47,7 +49,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let buf = buf.into_inner();
+    let buf = cursor.into_inner();
     let eps = <Object<Vec<Point>>>::deserialize_eps(&buf).unwrap();
     println!(
         "ε-copy deserialization type: {}",

@@ -11,9 +11,9 @@ use epserde::prelude::*;
 macro_rules! impl_test {
     ($data:expr, $ty:ty) => {{
         let mut v = vec![];
-        let mut buf = std::io::Cursor::new(&mut v);
+        let mut cursor = std::io::Cursor::new(&mut v);
 
-        let _ = $data.serialize_with_schema(&mut buf).unwrap();
+        let _ = $data.serialize_with_schema(&mut cursor).unwrap();
 
         let full_copy = <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
         assert_eq!($data, full_copy);
@@ -23,8 +23,8 @@ macro_rules! impl_test {
     }
     {
         let mut v = vec![];
-        let mut buf = std::io::Cursor::new(&mut v);
-        $data.serialize(&mut buf).unwrap();
+        let mut cursor = std::io::Cursor::new(&mut v);
+        $data.serialize(&mut cursor).unwrap();
 
         let full_copy = <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
         assert_eq!($data, full_copy);
@@ -87,12 +87,12 @@ fn test_string() {
         let s = test_str.to_string();
         {
             let mut v = vec![];
-            let mut buf = std::io::Cursor::new(&mut v);
+            let mut cursor = std::io::Cursor::new(&mut v);
 
-            let mut schema = s.serialize_with_schema(&mut buf).unwrap();
+            let mut schema = s.serialize_with_schema(&mut cursor).unwrap();
             schema.0.sort_by_key(|a| a.offset);
 
-            buf.set_position(0);
+            cursor.set_position(0);
             let full_copy = <String>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
             assert_eq!(s, full_copy);
 
@@ -104,10 +104,10 @@ fn test_string() {
         }
         {
             let mut v = vec![];
-            let mut buf = std::io::Cursor::new(&mut v);
-            s.serialize(&mut buf).unwrap();
+            let mut cursor = std::io::Cursor::new(&mut v);
+            s.serialize(&mut cursor).unwrap();
 
-            buf.set_position(0);
+            cursor.set_position(0);
             let full_copy = <String>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
             assert_eq!(s, full_copy);
 
@@ -123,12 +123,12 @@ fn test_box_str() {
         let s = test_str.to_string().into_boxed_str();
         {
             let mut v = vec![];
-            let mut buf = std::io::Cursor::new(&mut v);
+            let mut cursor = std::io::Cursor::new(&mut v);
 
-            let mut schema = s.serialize_with_schema(&mut buf).unwrap();
+            let mut schema = s.serialize_with_schema(&mut cursor).unwrap();
             schema.0.sort_by_key(|a| a.offset);
 
-            buf.set_position(0);
+            cursor.set_position(0);
             let full_copy = <Box<str>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
             assert_eq!(s, full_copy);
 
@@ -137,10 +137,10 @@ fn test_box_str() {
         }
         {
             let mut v = vec![];
-            let mut buf = std::io::Cursor::new(&mut v);
-            s.serialize(&mut buf).unwrap();
+            let mut cursor = std::io::Cursor::new(&mut v);
+            s.serialize(&mut cursor).unwrap();
 
-            buf.set_position(0);
+            cursor.set_position(0);
             let full_copy = <Box<str>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
             assert_eq!(s, full_copy);
 

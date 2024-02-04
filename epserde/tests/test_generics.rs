@@ -22,19 +22,21 @@ fn test_inner_param_full() {
         a: vec![0x89; 6],
         b: [0xbadf00d; 2],
     };
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     // Serialize
-    let _bytes_written = person.serialize(&mut buf).unwrap();
+    let _bytes_written = person.serialize(&mut cursor).unwrap();
 
     // Do a full-copy deserialization
-    buf.set_position(0);
-    let full = <Data<Vec<usize>, 2>>::deserialize_full(&mut buf).unwrap();
+    cursor.set_position(0);
+    let full = <Data<Vec<usize>, 2>>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(person, full);
 
     println!();
 
     // Do an ε-copy deserialization
-    let bytes = buf.into_inner();
+    let bytes = cursor.into_inner();
     let eps = <Data<Vec<usize>, 2>>::deserialize_eps(&bytes).unwrap();
     assert_eq!(person.a, eps.a);
     assert_eq!(person.b, eps.b);
@@ -54,17 +56,19 @@ fn test_inner_param_eps() {
         _marker: PhantomData,
     };
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     // Serialize
-    let _bytes_written = data.serialize(&mut buf).unwrap();
+    let _bytes_written = data.serialize(&mut cursor).unwrap();
 
     // Do a full-copy deserialization
-    buf.set_position(0);
-    let full = <Data2<usize, Vec<usize>>>::deserialize_full(&mut buf).unwrap();
+    cursor.set_position(0);
+    let full = <Data2<usize, Vec<usize>>>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(data, full);
     // Do an ε-copy deserialization
-    buf.set_position(0);
-    let bytes = buf.into_inner();
+    cursor.set_position(0);
+    let bytes = cursor.into_inner();
     let eps = <Data2<usize, Vec<usize>>>::deserialize_eps(&bytes).unwrap();
     assert_eq!(data.a, eps.a);
 }

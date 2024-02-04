@@ -17,13 +17,15 @@ struct Data {
 
 fn main() {
     let a = Data { a: [1_usize; 100] };
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     // Serialize
-    let _bytes_written = a.serialize(&mut buf).unwrap();
+    let _bytes_written = a.serialize(&mut cursor).unwrap();
 
     // Do a full-copy deserialization
-    buf.set_position(0);
-    let full = Data::deserialize_full(&mut buf).unwrap();
+    cursor.set_position(0);
+    let full = Data::deserialize_full(&mut cursor).unwrap();
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Data>(),
@@ -33,7 +35,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization (which will be a zero-copy deserialization)
-    let buf = buf.into_inner();
+    let buf = cursor.into_inner();
     let eps = Data::deserialize_eps(&buf).unwrap();
     println!(
         "ε-copy deserialization type: {}",

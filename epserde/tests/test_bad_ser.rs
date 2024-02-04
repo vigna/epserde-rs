@@ -31,7 +31,9 @@ fn test_fake_zero() {
     }
 
     let result = std::panic::catch_unwind(|| {
-        let mut cursor = epserde::new_aligned_cursor();
+            let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
         let a = FakeZero {
             a: NewType {
                 data: vec![0x89; 6],

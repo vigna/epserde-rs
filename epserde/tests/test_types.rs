@@ -13,18 +13,19 @@ use epserde::prelude::*;
 macro_rules! impl_test {
     ($ty:ty, $val:expr) => {{
         let a = $val;
-        let mut buf = epserde::new_aligned_cursor();
+        let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+        let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
 
-        let mut schema = a.serialize_with_schema(&mut buf).unwrap();
+        let mut schema = a.serialize_with_schema(&mut cursor).unwrap();
         schema.0.sort_by_key(|a| a.offset);
         println!("{}", schema.to_csv());
 
-        buf.set_position(0);
-        let a1 = <$ty>::deserialize_full(&mut buf).unwrap();
+        cursor.set_position(0);
+        let a1 = <$ty>::deserialize_full(&mut cursor).unwrap();
         assert_eq!(a, a1);
 
-        buf.set_position(0);
-        let bytes = buf.into_inner();
+        cursor.set_position(0);
+        let bytes = cursor.into_inner();
         let a2 = <$ty>::deserialize_eps(&bytes).unwrap();
         assert_eq!(a, a2);
     }};
@@ -34,18 +35,19 @@ macro_rules! impl_test {
 fn test_array_usize() {
     let a = [1, 2, 3, 4, 5];
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
 
-    let mut schema = a.serialize_with_schema(&mut buf).unwrap();
+    let mut schema = a.serialize_with_schema(&mut cursor).unwrap();
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
-    buf.set_position(0);
-    let a1 = <[usize; 5]>::deserialize_full(&mut buf).unwrap();
+    cursor.set_position(0);
+    let a1 = <[usize; 5]>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, a1);
 
-    buf.set_position(0);
-    let bytes = buf.into_inner();
+    cursor.set_position(0);
+    let bytes = cursor.into_inner();
     let a2 = <[usize; 5]>::deserialize_eps(&bytes).unwrap();
     assert_eq!(a, *a2);
 }
@@ -59,18 +61,19 @@ fn test_vec_usize() {
 fn test_box_slice_usize() {
     let a = vec![1, 2, 3, 4, 5].into_boxed_slice();
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
 
-    let mut schema = a.serialize_with_schema(&mut buf).unwrap();
+    let mut schema = a.serialize_with_schema(&mut cursor).unwrap();
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
-    buf.set_position(0);
-    let a1 = <Box<[usize]>>::deserialize_full(&mut buf).unwrap();
+    cursor.set_position(0);
+    let a1 = <Box<[usize]>>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, a1);
 
-    buf.set_position(0);
-    let bytes = buf.into_inner();
+    cursor.set_position(0);
+    let bytes = cursor.into_inner();
     let a2 = <Box<[usize]>>::deserialize_eps(&bytes).unwrap();
     assert_eq!(a, a2.into());
 }
@@ -79,18 +82,19 @@ fn test_box_slice_usize() {
 fn test_box_slice_string() {
     let a = vec!["A".to_string(), "V".to_string()].into_boxed_slice();
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
 
-    let mut schema = a.serialize_with_schema(&mut buf).unwrap();
+    let mut schema = a.serialize_with_schema(&mut cursor).unwrap();
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
-    buf.set_position(0);
-    let a1 = <Box<[String]>>::deserialize_full(&mut buf).unwrap();
+    cursor.set_position(0);
+    let a1 = <Box<[String]>>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, a1);
 
-    buf.set_position(0);
-    let bytes = buf.into_inner();
+    cursor.set_position(0);
+    let bytes = cursor.into_inner();
     let a2 = <Box<[String]>>::deserialize_eps(&bytes).unwrap();
     assert_eq!(a.len(), a2.len());
     a.iter().zip(a2.iter()).for_each(|(a, a2)| {
@@ -159,16 +163,18 @@ fn test_struct_deep() {
         c: i32,
     }
     let a = Struct { a: 0, b: 1, c: 2 };
-    let mut buf = epserde::new_aligned_cursor();
-    // Serialize
-    let _bytes_written = a.serialize(&mut buf).unwrap();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
 
-    buf.set_position(0);
-    let full = <Struct>::deserialize_full(&mut buf).unwrap();
+    // Serialize
+    let _bytes_written = a.serialize(&mut cursor).unwrap();
+
+    cursor.set_position(0);
+    let full = <Struct>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
 
-    buf.set_position(0);
-    let eps = <Struct>::deserialize_full(&mut buf).unwrap();
+    cursor.set_position(0);
+    let eps = <Struct>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, eps);
 }
 
@@ -183,16 +189,18 @@ fn test_struct_zero() {
         c: i32,
     }
     let a = Struct { a: 0, b: 1, c: 2 };
-    let mut buf = epserde::new_aligned_cursor();
-    // Serialize
-    let _bytes_written = a.serialize(&mut buf).unwrap();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
 
-    buf.set_position(0);
-    let full = <Struct>::deserialize_full(&mut buf).unwrap();
+    // Serialize
+    let _bytes_written = a.serialize(&mut cursor).unwrap();
+
+    cursor.set_position(0);
+    let full = <Struct>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
 
-    buf.set_position(0);
-    let eps = <Struct>::deserialize_full(&mut buf).unwrap();
+    cursor.set_position(0);
+    let eps = <Struct>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, eps);
 }
 
@@ -201,16 +209,18 @@ fn test_tuple_struct_deep() {
     #[derive(Epserde, Copy, Clone, Debug, PartialEq)]
     struct Tuple(usize, usize, i32);
     let a = Tuple(0, 1, 2);
-    let mut buf = epserde::new_aligned_cursor();
-    // Serialize
-    let _bytes_written = a.serialize(&mut buf).unwrap();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
 
-    buf.set_position(0);
-    let full = <Tuple>::deserialize_full(&mut buf).unwrap();
+    // Serialize
+    let _bytes_written = a.serialize(&mut cursor).unwrap();
+
+    cursor.set_position(0);
+    let full = <Tuple>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
 
-    buf.set_position(0);
-    let eps = <Tuple>::deserialize_eps(&buf.into_inner()).unwrap();
+    cursor.set_position(0);
+    let eps = <Tuple>::deserialize_eps(&cursor.into_inner()).unwrap();
     assert_eq!(a, eps);
 }
 
@@ -221,16 +231,18 @@ fn test_tuple_struct_zero() {
     #[zero_copy]
     struct Tuple(usize, usize, i32);
     let a = Tuple(0, 1, 2);
-    let mut buf = epserde::new_aligned_cursor();
-    // Serialize
-    let _bytes_written = a.serialize(&mut buf).unwrap();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
 
-    buf.set_position(0);
-    let full = <Tuple>::deserialize_full(&mut buf).unwrap();
+    // Serialize
+    let _bytes_written = a.serialize(&mut cursor).unwrap();
+
+    cursor.set_position(0);
+    let full = <Tuple>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
 
-    buf.set_position(0);
-    let bytes = &buf.into_inner();
+    cursor.set_position(0);
+    let bytes = &cursor.into_inner();
     let eps = <Tuple>::deserialize_eps(bytes).unwrap();
     assert_eq!(a, *eps);
 }
@@ -246,72 +258,84 @@ fn test_enum_deep() {
         E,
     }
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     let a = Data::A;
-    a.serialize(&mut buf).unwrap();
-    buf.set_position(0);
-    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    a.serialize(&mut cursor).unwrap();
+    cursor.set_position(0);
+    let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    buf.set_position(0);
-    let bytes = &buf.into_inner();
+    cursor.set_position(0);
+    let bytes = &cursor.into_inner();
     let eps = <Data>::deserialize_eps(bytes).unwrap();
     assert!(matches!(eps, Data::A));
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     let a = Data::B(3);
-    a.serialize(&mut buf).unwrap();
-    buf.set_position(0);
-    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    a.serialize(&mut cursor).unwrap();
+    cursor.set_position(0);
+    let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    buf.set_position(0);
-    let bytes = &buf.into_inner();
+    cursor.set_position(0);
+    let bytes = &cursor.into_inner();
     let eps = <Data>::deserialize_eps(bytes).unwrap();
     assert!(matches!(eps, Data::B(3)));
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     let a = Data::C(4, vec![1, 2, 3]);
-    a.serialize(&mut buf).unwrap();
-    buf.set_position(0);
-    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    a.serialize(&mut cursor).unwrap();
+    cursor.set_position(0);
+    let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    buf.set_position(0);
-    let bytes = &buf.into_inner();
+    cursor.set_position(0);
+    let bytes = &cursor.into_inner();
     let eps = <Data>::deserialize_eps(bytes).unwrap();
     assert!(matches!(eps, Data::C(4, _)));
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     let a = Data::D {
         a: 1,
         b: vec![1, 2],
     };
-    a.serialize(&mut buf).unwrap();
-    buf.set_position(0);
-    let full = <Data<Vec<i32>>>::deserialize_full(&mut buf).unwrap();
+    a.serialize(&mut cursor).unwrap();
+    cursor.set_position(0);
+    let full = <Data<Vec<i32>>>::deserialize_full(&mut cursor).unwrap();
     assert!(matches!(full, Data::D { a: 1, b: _ }));
-    buf.set_position(0);
-    let bytes = &buf.into_inner();
+    cursor.set_position(0);
+    let bytes = &cursor.into_inner();
     let eps = <Data<Vec<i32>>>::deserialize_eps(bytes).unwrap();
     assert!(matches!(eps, Data::D { a: 1, b: [1, 2] }));
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     let a = Data::E;
-    a.serialize(&mut buf).unwrap();
-    buf.set_position(0);
-    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    a.serialize(&mut cursor).unwrap();
+    cursor.set_position(0);
+    let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    buf.set_position(0);
-    let bytes = &buf.into_inner();
+    cursor.set_position(0);
+    let bytes = &cursor.into_inner();
     let eps = <Data>::deserialize_eps(bytes).unwrap();
     assert!(matches!(eps, Data::E));
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     let a = Vec::from_iter(iter::repeat(Data::A).take(10));
-    a.serialize(&mut buf).unwrap();
-    buf.set_position(0);
-    let full = <Vec<Data>>::deserialize_full(&mut buf).unwrap();
+    a.serialize(&mut cursor).unwrap();
+    cursor.set_position(0);
+    let full = <Vec<Data>>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    buf.set_position(0);
-    let bytes = &buf.into_inner();
+    cursor.set_position(0);
+    let bytes = &cursor.into_inner();
     let eps = <Vec<Data>>::deserialize_eps(bytes).unwrap();
     for e in eps {
         assert!(matches!(e, Data::A));
@@ -330,58 +354,68 @@ fn test_enum_zero() {
         D { a: i32, b: i32 },
     }
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     let a = Data::A;
-    a.serialize(&mut buf).unwrap();
-    buf.set_position(0);
-    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    a.serialize(&mut cursor).unwrap();
+    cursor.set_position(0);
+    let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    buf.set_position(0);
-    let bytes = &buf.into_inner();
+    cursor.set_position(0);
+    let bytes = &cursor.into_inner();
     let eps = <Data>::deserialize_eps(bytes).unwrap();
     assert_eq!(a, *eps);
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     let a = Data::B(3);
-    a.serialize(&mut buf).unwrap();
-    buf.set_position(0);
-    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    a.serialize(&mut cursor).unwrap();
+    cursor.set_position(0);
+    let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    buf.set_position(0);
-    let bytes = &buf.into_inner();
+    cursor.set_position(0);
+    let bytes = &cursor.into_inner();
     let eps = <Data>::deserialize_eps(bytes).unwrap();
     assert_eq!(a, *eps);
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     let a = Data::C(4);
-    a.serialize(&mut buf).unwrap();
-    buf.set_position(0);
-    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    a.serialize(&mut cursor).unwrap();
+    cursor.set_position(0);
+    let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    buf.set_position(0);
-    let bytes = &buf.into_inner();
+    cursor.set_position(0);
+    let bytes = &cursor.into_inner();
     let eps = <Data>::deserialize_eps(bytes).unwrap();
     assert_eq!(a, *eps);
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     let a = Data::D { a: 1, b: 2 };
-    a.serialize(&mut buf).unwrap();
-    buf.set_position(0);
-    let full = <Data>::deserialize_full(&mut buf).unwrap();
+    a.serialize(&mut cursor).unwrap();
+    cursor.set_position(0);
+    let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    buf.set_position(0);
-    let bytes = &buf.into_inner();
+    cursor.set_position(0);
+    let bytes = &cursor.into_inner();
     let eps = <Data>::deserialize_eps(bytes).unwrap();
     assert_eq!(a, *eps);
 
-    let mut buf = epserde::new_aligned_cursor();
+    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
+    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+
     let a = Vec::from_iter(iter::repeat(Data::A).take(10));
-    a.serialize(&mut buf).unwrap();
-    buf.set_position(0);
-    let full = <Vec<Data>>::deserialize_full(&mut buf).unwrap();
+    a.serialize(&mut cursor).unwrap();
+    cursor.set_position(0);
+    let full = <Vec<Data>>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    buf.set_position(0);
-    let bytes = &buf.into_inner();
+    cursor.set_position(0);
+    let bytes = &cursor.into_inner();
     let eps = <Vec<Data>>::deserialize_eps(bytes).unwrap();
     assert_eq!(a, *eps);
 }
