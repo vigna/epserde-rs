@@ -16,14 +16,7 @@ fn test_wrong_endianess() {
     let data = 1337_usize;
 
     let len = 20;
-    let mut v = unsafe {
-        Vec::from_raw_parts(
-            std::alloc::alloc_zeroed(std::alloc::Layout::from_size_align(len, 16).unwrap()),
-            len,
-            len,
-        )
-    };
-    assert!(v.as_ptr() as usize % 16 == 0, "{:p}", v.as_ptr());
+    let mut v = Vec::with_capacity(len);
     let mut buf = std::io::Cursor::new(&mut v);
 
     let schema = data.serialize_with_schema(&mut buf).unwrap();
