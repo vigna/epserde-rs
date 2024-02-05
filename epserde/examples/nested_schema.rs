@@ -58,8 +58,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let buf = cursor.into_inner();
-    let eps = Struct::deserialize_eps(&buf).unwrap();
+    let eps = Struct::deserialize_eps(cursor.as_bytes()).unwrap();
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<Struct as DeserializeInner>::DeserType<'_>>(),

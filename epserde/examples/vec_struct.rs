@@ -35,8 +35,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let buf = cursor.into_inner();
-    let eps = <Vec<Data>>::deserialize_eps(&buf).unwrap();
+    let eps = <Vec<Data>>::deserialize_eps(cursor.as_bytes()).unwrap();
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<Vec<Data> as DeserializeInner>::DeserType<'_>>(),

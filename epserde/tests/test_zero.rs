@@ -20,8 +20,7 @@ macro_rules! impl_test {
         assert_eq!($data, full_copy);
 
         cursor.set_position(0);
-        let slice = cursor.into_inner();
-        let eps_copy = <$ty>::deserialize_eps(&slice).unwrap();
+        let eps_copy = <$ty>::deserialize_eps(cursor.as_bytes()).unwrap();
         assert_eq!($data, *eps_copy);
     }
     {
@@ -33,8 +32,7 @@ macro_rules! impl_test {
         assert_eq!($data, full_copy);
 
         cursor.set_position(0);
-        let slice = cursor.into_inner();
-        let eps_copy = <$ty>::deserialize_eps(&slice).unwrap();
+        let eps_copy = <$ty>::deserialize_eps(cursor.as_bytes()).unwrap();
         assert_eq!($data, *eps_copy);
     }};
 }

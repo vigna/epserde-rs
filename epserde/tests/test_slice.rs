@@ -25,8 +25,7 @@ fn test_cheaty_serialize() -> Result<()> {
     cursor.set_position(0);
     let b = <Vec<i32>>::deserialize_full(&mut cursor)?;
     assert_eq!(a, b.as_slice());
-    let backend = cursor.into_inner();
-    let b = <Vec<i32>>::deserialize_eps(&backend)?;
+    let b = <Vec<i32>>::deserialize_eps(cursor.as_bytes())?;
     assert_eq!(a, b);
     Ok(())
 }

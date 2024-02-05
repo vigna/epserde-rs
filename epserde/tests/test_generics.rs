@@ -34,8 +34,7 @@ fn test_inner_param_full() {
     println!();
 
     // Do an ε-copy deserialization
-    let bytes = cursor.into_inner();
-    let eps = <Data<Vec<usize>, 2>>::deserialize_eps(&bytes).unwrap();
+    let eps = <Data<Vec<usize>, 2>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(person.a, eps.a);
     assert_eq!(person.b, eps.b);
 }
@@ -64,7 +63,6 @@ fn test_inner_param_eps() {
     assert_eq!(data, full);
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let bytes = cursor.into_inner();
-    let eps = <Data2<usize, Vec<usize>>>::deserialize_eps(&bytes).unwrap();
+    let eps = <Data2<usize, Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(data.a, eps.a);
 }

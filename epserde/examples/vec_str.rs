@@ -37,8 +37,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let buf = cursor.into_inner();
-    let eps = StringData::deserialize_eps(&buf).unwrap();
+    let eps = StringData::deserialize_eps(cursor.as_bytes()).unwrap();
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<StringData as DeserializeInner>::DeserType<'_>>(),

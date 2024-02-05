@@ -29,8 +29,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization (which will be a zero-copy deserialization)
-    let buf = cursor.into_inner();
-    let eps = <[usize; 100]>::deserialize_eps(&buf).unwrap();
+    let eps = <[usize; 100]>::deserialize_eps(cursor.as_bytes()).unwrap();
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<[usize; 100] as DeserializeInner>::DeserType<'_>>(),

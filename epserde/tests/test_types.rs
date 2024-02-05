@@ -23,9 +23,7 @@ macro_rules! impl_test {
         let a1 = <$ty>::deserialize_full(&mut cursor).unwrap();
         assert_eq!(a, a1);
 
-        cursor.set_position(0);
-        let bytes = cursor.into_inner();
-        let a2 = <$ty>::deserialize_eps(&bytes).unwrap();
+        let a2 = <$ty>::deserialize_eps(cursor.as_bytes()).unwrap();
         assert_eq!(a, a2);
     }};
 }
@@ -44,8 +42,7 @@ fn test_array_usize() {
     assert_eq!(a, a1);
 
     cursor.set_position(0);
-    let bytes = cursor.into_inner();
-    let a2 = <[usize; 5]>::deserialize_eps(&bytes).unwrap();
+    let a2 = <[usize; 5]>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, *a2);
 }
 
@@ -68,8 +65,7 @@ fn test_box_slice_usize() {
     assert_eq!(a, a1);
 
     cursor.set_position(0);
-    let bytes = cursor.into_inner();
-    let a2 = <Box<[usize]>>::deserialize_eps(&bytes).unwrap();
+    let a2 = <Box<[usize]>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, a2.into());
 }
 
@@ -87,8 +83,7 @@ fn test_box_slice_string() {
     assert_eq!(a, a1);
 
     cursor.set_position(0);
-    let bytes = cursor.into_inner();
-    let a2 = <Box<[String]>>::deserialize_eps(&bytes).unwrap();
+    let a2 = <Box<[String]>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a.len(), a2.len());
     a.iter().zip(a2.iter()).for_each(|(a, a2)| {
         assert_eq!(a, a2);
@@ -206,8 +201,7 @@ fn test_tuple_struct_deep() {
     let full = <Tuple>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
 
-    cursor.set_position(0);
-    let eps = <Tuple>::deserialize_eps(&cursor.into_inner()).unwrap();
+    let eps = <Tuple>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, eps);
 }
 
@@ -227,8 +221,7 @@ fn test_tuple_struct_zero() {
     assert_eq!(a, full);
 
     cursor.set_position(0);
-    let bytes = &cursor.into_inner();
-    let eps = <Tuple>::deserialize_eps(bytes).unwrap();
+    let eps = <Tuple>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, *eps);
 }
 
@@ -250,8 +243,7 @@ fn test_enum_deep() {
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
     cursor.set_position(0);
-    let bytes = &cursor.into_inner();
-    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert!(matches!(eps, Data::A));
 
     let mut cursor = <AlignedCursor<A16>>::new();
@@ -261,8 +253,7 @@ fn test_enum_deep() {
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
     cursor.set_position(0);
-    let bytes = &cursor.into_inner();
-    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert!(matches!(eps, Data::B(3)));
 
     let mut cursor = <AlignedCursor<A16>>::new();
@@ -272,8 +263,7 @@ fn test_enum_deep() {
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
     cursor.set_position(0);
-    let bytes = &cursor.into_inner();
-    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert!(matches!(eps, Data::C(4, _)));
 
     let mut cursor = <AlignedCursor<A16>>::new();
@@ -285,9 +275,7 @@ fn test_enum_deep() {
     cursor.set_position(0);
     let full = <Data<Vec<i32>>>::deserialize_full(&mut cursor).unwrap();
     assert!(matches!(full, Data::D { a: 1, b: _ }));
-    cursor.set_position(0);
-    let bytes = &cursor.into_inner();
-    let eps = <Data<Vec<i32>>>::deserialize_eps(bytes).unwrap();
+    let eps = <Data<Vec<i32>>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert!(matches!(eps, Data::D { a: 1, b: [1, 2] }));
 
     let mut cursor = <AlignedCursor<A16>>::new();
@@ -297,8 +285,7 @@ fn test_enum_deep() {
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
     cursor.set_position(0);
-    let bytes = &cursor.into_inner();
-    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert!(matches!(eps, Data::E));
 
     let mut cursor = <AlignedCursor<A16>>::new();
@@ -307,9 +294,7 @@ fn test_enum_deep() {
     cursor.set_position(0);
     let full = <Vec<Data>>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    cursor.set_position(0);
-    let bytes = &cursor.into_inner();
-    let eps = <Vec<Data>>::deserialize_eps(bytes).unwrap();
+    let eps = <Vec<Data>>::deserialize_eps(cursor.as_bytes()).unwrap();
     for e in eps {
         assert!(matches!(e, Data::A));
     }
@@ -333,9 +318,7 @@ fn test_enum_zero() {
     cursor.set_position(0);
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    cursor.set_position(0);
-    let bytes = &cursor.into_inner();
-    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, *eps);
 
     let mut cursor = <AlignedCursor<A16>>::new();
@@ -345,8 +328,7 @@ fn test_enum_zero() {
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
     cursor.set_position(0);
-    let bytes = &cursor.into_inner();
-    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, *eps);
 
     let mut cursor = <AlignedCursor<A16>>::new();
@@ -356,8 +338,7 @@ fn test_enum_zero() {
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
     cursor.set_position(0);
-    let bytes = &cursor.into_inner();
-    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, *eps);
 
     let mut cursor = <AlignedCursor<A16>>::new();
@@ -367,8 +348,7 @@ fn test_enum_zero() {
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
     cursor.set_position(0);
-    let bytes = &cursor.into_inner();
-    let eps = <Data>::deserialize_eps(bytes).unwrap();
+    let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, *eps);
 
     let mut cursor = <AlignedCursor<A16>>::new();
@@ -378,7 +358,6 @@ fn test_enum_zero() {
     let full = <Vec<Data>>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
     cursor.set_position(0);
-    let bytes = &cursor.into_inner();
-    let eps = <Vec<Data>>::deserialize_eps(bytes).unwrap();
+    let eps = <Vec<Data>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, *eps);
 }

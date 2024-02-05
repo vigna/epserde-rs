@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use core::slice;
 use std::io::{Read, Seek, SeekFrom, Write};
 
 use maligned::{Alignment, A16};
@@ -33,18 +34,12 @@ impl<T: Alignment> AlignedCursor<T> {
 
     pub fn as_bytes(&mut self) -> &[u8] {
         let ptr = self.vec.as_mut_ptr() as *mut u8;
-        unsafe { std::slice::from_raw_parts(ptr, self.len) }
+        unsafe { slice::from_raw_parts(ptr, self.len) }
     }
 
-    pub fn as_bytes_mut(&mut self) -> &[u8] {
+    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
         let ptr = self.vec.as_mut_ptr() as *mut u8;
-        unsafe { std::slice::from_raw_parts_mut(ptr, self.len) }
-    }
-
-    pub fn into_inner(self) -> Vec<u8> {
-        let mut vec: Vec<u8> = unsafe { std::mem::transmute(self.vec) };
-        vec.resize(self.len, 0);
-        vec
+        unsafe { slice::from_raw_parts_mut(ptr, self.len) }
     }
 
     pub fn position(&self) -> usize {
@@ -65,8 +60,8 @@ impl<T: Alignment> Default for AlignedCursor<T> {
 impl<T: Alignment> Read for AlignedCursor<T> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let pos = self.pos;
-        let remaining = self.vec.len() * std::mem::size_of::<T>() - pos;
-        let to_copy = std::cmp::min(buf.len(), remaining);
+        let rem = self.len - pos;
+        let to_copy = std::cmp::min(buf.len(), rem) as usize;
         buf[..to_copy].copy_from_slice(&self.as_bytes()[pos..pos + to_copy]);
         self.pos += to_copy;
         Ok(to_copy)
@@ -76,8 +71,9 @@ impl<T: Alignment> Read for AlignedCursor<T> {
 impl<T: Alignment> Write for AlignedCursor<T> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let len = buf.len();
-        let remaining = self.vec.len() * std::mem::size_of::<T>() - self.pos;
-        if remaining < buf.len() {
+        // TODO: minimize with usize::MAX?
+        let rem = self.vec.len() * std::mem::size_of::<T>() - self.pos;
+        if rem < buf.len() {
             self.vec.resize(
                 (self.pos + len).div_ceil(std::mem::size_of::<T>()),
                 T::default(),
@@ -85,10 +81,17 @@ impl<T: Alignment> Write for AlignedCursor<T> {
         }
 
         let position = self.pos;
+
         // SAFETY: we now have enough space in the vec.
-        let bytes: &mut [u8] = unsafe { std::mem::transmute(self.vec.as_mut_slice()) };
+        let bytes = unsafe {
+            slice::from_raw_parts_mut(
+                self.vec.as_mut_ptr() as *mut u8,
+                self.vec.len() * std::mem::size_of::<T>(),
+            )
+        };
         bytes[position..position + len].copy_from_slice(buf);
         self.pos += len;
+        self.len = self.len.max(self.pos);
         Ok(len)
     }
 

@@ -24,8 +24,7 @@ fn test_phantom() {
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let bytes = cursor.into_inner();
-    let eps = <PhantomData<usize>>::deserialize_eps(&bytes).unwrap();
+    let eps = <PhantomData<usize>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(obj, eps);
 }
 
@@ -55,7 +54,6 @@ fn test_not_serializable_in_phantom() {
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let bytes = cursor.into_inner();
-    let eps = <Data<NotSerializable>>::deserialize_eps(&bytes).unwrap();
+    let eps = <Data<NotSerializable>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(obj.a, eps.a);
 }
