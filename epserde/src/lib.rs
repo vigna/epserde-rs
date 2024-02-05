@@ -18,6 +18,7 @@ pub mod deser;
 pub mod impls;
 pub mod ser;
 pub mod traits;
+pub mod util;
 
 pub mod prelude {
     pub use crate::deser;
@@ -33,6 +34,7 @@ pub mod prelude {
     pub use crate::ser::SerializeHelper;
     pub use crate::ser::SerializeInner;
     pub use crate::traits::*;
+    pub use crate::util::*;
     #[cfg(feature = "derive")]
     pub use epserde_derive::Epserde;
 }

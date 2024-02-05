@@ -9,7 +9,7 @@
 /// of the inner struct is recursively ε-copied, as its
 /// type is a parameter.
 use epserde::prelude::*;
-use maligned::{AsBytesMut, A16};
+use maligned::A16;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct StructParam<A, B> {
@@ -38,9 +38,7 @@ fn main() {
         },
         test: -0xbadf00d,
     };
-    let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-
+    let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
     let _bytes_written = person.serialize(&mut cursor).unwrap();
 

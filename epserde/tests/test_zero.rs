@@ -7,12 +7,11 @@
 #![cfg(test)]
 
 use epserde::prelude::*;
-use maligned::{AsBytesMut, A16};
+use maligned::A16;
 
 macro_rules! impl_test {
     ($ty:ty, $data:expr) => {{
-        let mut aligned_buf = vec![A16::default(); 1024];
-        let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
+        let mut cursor = <AlignedCursor<A16>>::new();
 
         let _ = $data.serialize_with_schema(&mut cursor).unwrap();
 
@@ -26,9 +25,7 @@ macro_rules! impl_test {
         assert_eq!($data, *eps_copy);
     }
     {
-        let mut aligned_buf = vec![A16::default(); 1024];
-        let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-
+        let mut cursor = <AlignedCursor<A16>>::new();
         $data.serialize(&mut cursor).unwrap();
 
         cursor.set_position(0);

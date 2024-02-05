@@ -24,9 +24,7 @@ get back the same slice.
 use epserde::prelude::*;
 let a = vec![1, 2, 3, 4];
 let s = a.as_slice();
-    let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-
+let mut cursor = <AlignedCursor<A16>>::new();
 s.serialize(&mut cursor).unwrap();
 cursor.set_position(0);
 let b: Vec<i32> = <Vec<i32>>::deserialize_full(&mut cursor).unwrap();

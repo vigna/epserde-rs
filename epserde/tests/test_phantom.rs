@@ -3,7 +3,7 @@
 use core::marker::PhantomData;
 use epserde::prelude::*;
 use epserde::TypeInfo;
-use maligned::{AsBytesMut, A16};
+use maligned::A16;
 
 #[test]
 /// Test that we can serialize and desertialize a PhantomData
@@ -11,9 +11,7 @@ use maligned::{AsBytesMut, A16};
 fn test_phantom() {
     // Create a new value to serialize
     let obj = <PhantomData<usize>>::default();
-    let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-
+    let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
     let _bytes_written = obj.serialize(&mut cursor).unwrap();
 
@@ -44,9 +42,7 @@ struct NotSerializable;
 /// This should be a NOOP
 fn test_not_serializable_in_phantom() {
     let obj = <Data<NotSerializable>>::default();
-    let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-
+    let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
     let _bytes_written = obj.serialize(&mut cursor).unwrap();
 

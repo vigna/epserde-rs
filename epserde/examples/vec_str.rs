@@ -8,7 +8,7 @@
 /// Example showing that ε-copy deserialization can be used with
 /// a `Vec<String>`, giving back a `Vec<&str>`.
 use epserde::prelude::*;
-use maligned::{AsBytesMut, A16};
+use maligned::A16;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A> {
@@ -21,9 +21,7 @@ fn main() {
     let data = StringData {
         a: vec!["A".to_owned(), "B".to_owned(), "C".to_owned()],
     };
-    let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-
+    let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
     let _bytes_written = data.serialize(&mut cursor).unwrap();
 

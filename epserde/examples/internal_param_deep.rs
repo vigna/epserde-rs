@@ -8,7 +8,7 @@
 /// Example of an internal parameter of a deep-copy structure, which
 /// is left untouched, but needs some decoration to be used.
 use epserde::prelude::*;
-use maligned::{AsBytesMut, A16};
+use maligned::A16;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A: DeepCopy + 'static> {
@@ -20,16 +20,12 @@ fn main() {
     let data = Data {
         a: vec![vec![0x89; 6]; 9],
     };
-    let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-
+    let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
     let schema = data.serialize_with_schema(&mut cursor).unwrap();
 
     // Show the schema
-    let aligned_buf = cursor.into_inner();
-    println!("{}", schema.debug(aligned_buf));
-    let mut cursor = std::io::Cursor::new(aligned_buf);
+    println!("{}", schema.debug(cursor.as_bytes()));
 
     // Do a full-copy deserialization
     cursor.set_position(0);

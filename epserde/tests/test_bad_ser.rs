@@ -31,9 +31,7 @@ fn test_fake_zero() {
     }
 
     let result = std::panic::catch_unwind(|| {
-            let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-
+        let mut cursor = <AlignedCursor<A16>>::new();
         let a = FakeZero {
             a: NewType {
                 data: vec![0x89; 6],

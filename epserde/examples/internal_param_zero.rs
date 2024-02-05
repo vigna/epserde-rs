@@ -6,7 +6,7 @@
  */
 
 use epserde::prelude::*;
-use maligned::{AsBytesMut, A16};
+use maligned::A16;
 
 /// Example of an internal parameter of a zero-copy structure,
 /// which is left untouched, but needs some decoration to be used.
@@ -20,16 +20,12 @@ struct Data<A: ZeroCopy + 'static> {
 fn main() {
     // Create a new value to serialize
     let data = Data { a: 4 };
-    let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-
+    let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
     let schema = data.serialize_with_schema(&mut cursor).unwrap();
 
     // Show the schema
-    let aligned_buf = cursor.into_inner();
-    println!("{}", schema.debug(aligned_buf));
-    let mut cursor = std::io::Cursor::new(aligned_buf);
+    println!("{}", schema.debug(cursor.as_bytes()));
 
     // Do a full-copy deserialization
     cursor.set_position(0);

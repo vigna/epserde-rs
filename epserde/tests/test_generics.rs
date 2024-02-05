@@ -7,7 +7,7 @@
 #![cfg(test)]
 
 use epserde::prelude::*;
-use maligned::{AsBytesMut, A16};
+use maligned::A16;
 use std::marker::PhantomData;
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data<A: PartialEq = usize, const Q: usize = 3> {
@@ -22,9 +22,7 @@ fn test_inner_param_full() {
         a: vec![0x89; 6],
         b: [0xbadf00d; 2],
     };
-    let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-
+    let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
     let _bytes_written = person.serialize(&mut cursor).unwrap();
 
@@ -56,9 +54,7 @@ fn test_inner_param_eps() {
         _marker: PhantomData,
     };
 
-    let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-
+    let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
     let _bytes_written = data.serialize(&mut cursor).unwrap();
 

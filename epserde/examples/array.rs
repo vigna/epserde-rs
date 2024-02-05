@@ -6,7 +6,7 @@
  */
 
 use epserde::prelude::*;
-use maligned::{AsBytesMut, A16};
+use maligned::A16;
 
 /// Example of zero-copy deserialization of an array.
 
@@ -14,9 +14,7 @@ fn main() {
     // Create a vector to serialize
 
     let a = [1_usize; 100];
-    let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-    // Serialize
+    let mut cursor = <AlignedCursor<A16>>::new(); // Serialize
     let _bytes_written = a.serialize(&mut cursor).unwrap();
 
     // Do a full-copy deserialization

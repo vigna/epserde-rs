@@ -7,15 +7,13 @@
 
 /// Example showcasing the cheaty serialization of a slice.
 use epserde::prelude::*;
-use maligned::{AsBytesMut, A16};
+use maligned::A16;
 
 fn main() {
     let a = vec![0, 1, 2, 3];
     // Turn it into a slice
     let a: &[i32] = a.as_ref();
-    let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-
+    let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize the slice using the cheaty implementation
     let _bytes_written = a.serialize(&mut cursor).unwrap();
 

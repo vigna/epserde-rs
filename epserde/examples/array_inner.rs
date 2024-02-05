@@ -6,8 +6,8 @@
  */
 
 /// Example of zero-copy deserialization of a zero-copy struct.
-use epserde::prelude::*;
-use maligned::{AsBytesMut, A16};
+use epserde::{prelude::*, util::AlignedCursor};
+use maligned::A16;
 
 #[derive(Epserde, Copy, Clone, Debug)]
 #[repr(C)]
@@ -18,8 +18,7 @@ struct Data {
 
 fn main() {
     let a = Data { a: [1_usize; 100] };
-    let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
+    let mut cursor = <AlignedCursor<A16>>::new();
 
     // Serialize
     let _bytes_written = a.serialize(&mut cursor).unwrap();

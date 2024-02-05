@@ -10,7 +10,7 @@
 /// if we derive code for a zero-copy newtype containing just a `usize`,
 /// the associated deserialization type is a reference.
 use epserde::prelude::*;
-use maligned::{AsBytesMut, A16};
+use maligned::A16;
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Default, Clone)]
 #[repr(C)]
@@ -19,9 +19,7 @@ struct USize(usize);
 
 fn main() {
     let x = USize(0);
-    let mut aligned_buf = vec![A16::default(); 1024];
-    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
-
+    let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
     let _bytes_written = x.serialize(&mut cursor).unwrap();
 
