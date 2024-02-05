@@ -8,6 +8,7 @@
 /// Example of an internal parameter of a deep-copy structure, which
 /// is left untouched, but needs some decoration to be used.
 use epserde::prelude::*;
+use maligned::{AsBytesMut, A16};
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A: DeepCopy + 'static> {
@@ -19,8 +20,8 @@ fn main() {
     let data = Data {
         a: vec![vec![0x89; 6]; 9],
     };
-    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
-    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+    let mut aligned_buf = vec![A16::default(); 1024];
+    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
 
     // Serialize
     let schema = data.serialize_with_schema(&mut cursor).unwrap();

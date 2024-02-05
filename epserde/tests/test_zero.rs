@@ -7,11 +7,12 @@
 #![cfg(test)]
 
 use epserde::prelude::*;
+use maligned::{AsBytesMut, A16};
 
 macro_rules! impl_test {
     ($ty:ty, $data:expr) => {{
-        let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
-        let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+        let mut aligned_buf = vec![A16::default(); 1024];
+        let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
 
         let _ = $data.serialize_with_schema(&mut cursor).unwrap();
 
@@ -25,8 +26,8 @@ macro_rules! impl_test {
         assert_eq!($data, *eps_copy);
     }
     {
-        let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
-        let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+        let mut aligned_buf = vec![A16::default(); 1024];
+        let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
 
         $data.serialize(&mut cursor).unwrap();
 

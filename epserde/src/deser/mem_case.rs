@@ -65,9 +65,9 @@ pub enum MemBackend {
     /// No backend. The data structure is a standard Rust data structure.
     /// This variant is returned by [`MemCase::encase`].
     None,
-    /// The backend is a heap-allocated in a memory region aligned to 4096 bytes.
+    /// The backend is a heap-allocated in a memory region aligned to 16 bytes.
     /// This variant is returned by [`crate::deser::Deserialize::load_mem`].
-    Memory(Vec<u8>),
+    Memory(Box<[u8]>),
     /// The backend is the result to a call to `mmap()`.
     /// This variant is returned by [`crate::deser::Deserialize::load_mmap`] and [`crate::deser::Deserialize::mmap`].
     Mmap(mmap_rs::Mmap),

@@ -8,6 +8,7 @@
 
 use anyhow::Result;
 use epserde::prelude::*;
+use maligned::{AsBytesMut, A16};
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data<A: PartialEq = usize, const Q: usize = 3> {
@@ -19,8 +20,8 @@ struct Data<A: PartialEq = usize, const Q: usize = 3> {
 fn test_cheaty_serialize() -> Result<()> {
     let a = vec![1, 2, 3, 4];
     let s = a.as_slice();
-    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
-    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+    let mut aligned_buf = vec![A16::default(); 1024];
+    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
 
     s.serialize(&mut cursor)?;
     cursor.set_position(0);

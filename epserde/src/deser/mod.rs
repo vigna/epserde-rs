@@ -21,6 +21,7 @@ use crate::traits::*;
 use crate::{MAGIC, MAGIC_REV, VERSION};
 use core::ptr::addr_of_mut;
 use core::{hash::Hasher, mem::MaybeUninit};
+use maligned::{AsBytesMut, A16};
 use std::{io::BufReader, path::Path};
 
 pub mod helpers;
@@ -76,19 +77,19 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
 
         // SAFETY: the entire vector will be filled with data read from the file,
         // or with zeroes if the file is shorter than the vector.
-        let mut bytes = unsafe {
-            Vec::from_raw_parts(
-                std::alloc::alloc(std::alloc::Layout::from_size_align(capacity, 16)?),
-                capacity,
-                capacity,
-            )
-        };
+        #[allow(invalid_value)]
+        let mut aligned_buf = vec![A16::default(); capacity / 16];
+        let bytes = aligned_buf.as_bytes_mut();
 
         file.read_exact(&mut bytes[..file_len])?;
         // Fixes the last few bytes to guarantee zero-extension semantics
         // for bit vectors and full-vector initialization.
         bytes[file_len..].fill(0);
-        let backend = MemBackend::Memory(bytes);
+
+        // SAFETY: the vector is aligned to 16 bytes.
+        let aligned_boxed_slice =
+            unsafe { std::mem::transmute::<Box<[A16]>, Box<[u8]>>(aligned_buf.into_boxed_slice()) };
+        let backend = MemBackend::Memory(aligned_boxed_slice);
 
         // store the backend inside the MemCase
         unsafe {

@@ -9,6 +9,7 @@
 /// on a parameter, and some dont. See in particular the failed
 /// check of type hash.
 use epserde::prelude::*;
+use maligned::{AsBytesMut, A16};
 
 #[derive(Epserde, Debug, Clone, Copy)]
 enum Data<T = Vec<i32>> {
@@ -23,8 +24,8 @@ fn main() {
     // value--we need to know the type of the parameter, which
     // is assumed to be `Vec<i32>` by default.
     let a: Data = Data::A;
-    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
-    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+    let mut aligned_buf = vec![A16::default(); 1024];
+    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
 
     // Serialize
     let _bytes_written = a.serialize(&mut cursor).unwrap();
@@ -52,8 +53,8 @@ fn main() {
     // Now we give to the parameter a type different from the
     // default one.
     let a: Data<Vec<usize>> = Data::A;
-    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
-    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+    let mut aligned_buf = vec![A16::default(); 1024];
+    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
 
     // Serialize
     let _bytes_written = a.serialize(&mut cursor).unwrap();

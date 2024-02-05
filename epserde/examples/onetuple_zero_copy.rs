@@ -10,11 +10,12 @@
 /// the deserialization type associated to a one-element tuple containing
 /// just a `usize` is a reference.
 use epserde::prelude::*;
+use maligned::{AsBytesMut, A16};
 
 fn main() {
     let x = (0_usize,);
-    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
-    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+    let mut aligned_buf = vec![A16::default(); 1024];
+    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
 
     // Serialize
     let _bytes_written = x.serialize(&mut cursor).unwrap();

@@ -7,7 +7,7 @@
 #![cfg(test)]
 
 use epserde::prelude::*;
-
+use maligned::{AsBytesMut, A16};
 #[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 #[repr(align(32))]
@@ -39,8 +39,8 @@ fn test_max_size_of_align() {
     assert_eq!(MyStruct::max_size_of(), MyStruct2::max_size_of());
 
     let x = MyStruct { u: 0x89 };
-    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
-    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+    let mut aligned_buf = vec![A16::default(); 1024];
+    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
 
     // Serialize
     let _bytes_written = x.serialize(&mut cursor).unwrap();
@@ -54,8 +54,8 @@ fn test_max_size_of_align() {
 
     // Create a new value to serialize
     let x = MyStruct2 { u: 0x89 };
-    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
-    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+    let mut aligned_buf = vec![A16::default(); 1024];
+    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
 
     // Serialize
     let _bytes_written = x.serialize(&mut cursor).unwrap();
@@ -69,8 +69,8 @@ fn test_max_size_of_align() {
 
     // Create a new value to serialize
     let x = MyStruct64 { u: 0x89 };
-    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
-    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+    let mut aligned_buf = vec![A16::default(); 1024];
+    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
 
     // Serialize
     let _bytes_written = x.serialize(&mut cursor).unwrap();

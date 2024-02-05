@@ -43,11 +43,8 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub trait Serialize: TypeHash + ReprHash {
     /// Serialize the type using the given backend.
     fn serialize(&self, backend: &mut impl WriteNoStd) -> Result<usize> {
-        eprintln!("****");
         let mut write_with_pos = WriterWithPos::new(backend);
-        eprintln!("****");
         self.serialize_on_field_write(&mut write_with_pos)?;
-        eprintln!("****");
         Ok(write_with_pos.pos())
     }
 

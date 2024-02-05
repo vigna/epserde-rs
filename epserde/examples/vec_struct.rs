@@ -8,6 +8,7 @@
 /// Example showing that vectors of zero-copy types are
 /// ε-copy deserialized as references to slices.
 use epserde::prelude::*;
+use maligned::{AsBytesMut, A16};
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone, Copy)]
 #[repr(C)]
@@ -18,8 +19,8 @@ struct Data {
 
 fn main() {
     let a = vec![Data { a: 5 }, Data { a: 6 }];
-    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
-    let mut cursor = std::io::Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+    let mut aligned_buf = vec![A16::default(); 1024];
+    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
 
     // Serialize
     let _bytes_written = a.serialize(&mut cursor).unwrap();

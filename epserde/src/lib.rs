@@ -11,8 +11,6 @@
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 extern crate alloc;
 
-use std::io::Cursor;
-
 #[cfg(feature = "derive")]
 pub use epserde_derive::{Epserde, TypeInfo};
 

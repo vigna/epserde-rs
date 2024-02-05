@@ -5,18 +5,17 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use std::io::Cursor;
-
-use bytemuck::*;
-/// Example of zero-copy deserialization of an array.
 use epserde::prelude::*;
+use maligned::{AsBytesMut, A16};
+
+/// Example of zero-copy deserialization of an array.
 
 fn main() {
     // Create a vector to serialize
 
     let a = [1_usize; 100];
-    let mut aligned_buf = <Vec<u128>>::with_capacity(1024);
-    let mut cursor = Cursor::new(bytemuck::cast_slice_mut(aligned_buf.as_mut_slice()));
+    let mut aligned_buf = vec![A16::default(); 1024];
+    let mut cursor = std::io::Cursor::new(aligned_buf.as_bytes_mut());
     // Serialize
     let _bytes_written = a.serialize(&mut cursor).unwrap();
 
