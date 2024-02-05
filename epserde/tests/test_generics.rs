@@ -62,7 +62,7 @@ fn test_inner_param_eps() {
     let full = <Data2<usize, Vec<usize>>>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(data, full);
     // Do an ε-copy deserialization
-    cursor.set_position(0);
+
     let eps = <Data2<usize, Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(data.a, eps.a);
 }

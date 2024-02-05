@@ -41,7 +41,6 @@ fn test_array_usize() {
     let a1 = <[usize; 5]>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, a1);
 
-    cursor.set_position(0);
     let a2 = <[usize; 5]>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, *a2);
 }
@@ -64,7 +63,6 @@ fn test_box_slice_usize() {
     let a1 = <Box<[usize]>>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, a1);
 
-    cursor.set_position(0);
     let a2 = <Box<[usize]>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, a2.into());
 }
@@ -82,7 +80,6 @@ fn test_box_slice_string() {
     let a1 = <Box<[String]>>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, a1);
 
-    cursor.set_position(0);
     let a2 = <Box<[String]>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a.len(), a2.len());
     a.iter().zip(a2.iter()).for_each(|(a, a2)| {
@@ -220,7 +217,6 @@ fn test_tuple_struct_zero() {
     let full = <Tuple>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
 
-    cursor.set_position(0);
     let eps = <Tuple>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, *eps);
 }
@@ -242,7 +238,6 @@ fn test_enum_deep() {
     cursor.set_position(0);
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    cursor.set_position(0);
     let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert!(matches!(eps, Data::A));
 
@@ -252,7 +247,6 @@ fn test_enum_deep() {
     cursor.set_position(0);
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    cursor.set_position(0);
     let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert!(matches!(eps, Data::B(3)));
 
@@ -262,7 +256,6 @@ fn test_enum_deep() {
     cursor.set_position(0);
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    cursor.set_position(0);
     let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert!(matches!(eps, Data::C(4, _)));
 
@@ -284,7 +277,6 @@ fn test_enum_deep() {
     cursor.set_position(0);
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    cursor.set_position(0);
     let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert!(matches!(eps, Data::E));
 

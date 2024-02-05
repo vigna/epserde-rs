@@ -23,7 +23,6 @@ fn test_phantom() {
     println!();
 
     // Do an ε-copy deserialization
-    cursor.set_position(0);
     let eps = <PhantomData<usize>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(obj, eps);
 }

@@ -43,8 +43,6 @@ fn test_max_size_of_align() {
     // Serialize
     let _bytes_written = x.serialize(&mut cursor).unwrap();
 
-    // Do a full-copy deserialization
-    cursor.set_position(0);
     // Do an ε-copy deserialization
     let eps = <MyStruct>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(x, *eps);
@@ -55,8 +53,6 @@ fn test_max_size_of_align() {
     // Serialize
     let _bytes_written = x.serialize(&mut cursor).unwrap();
 
-    // Do a full-copy deserialization
-    cursor.set_position(0);
     // Do an ε-copy deserialization
     let eps = <MyStruct2>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(x, *eps);
@@ -68,8 +64,6 @@ fn test_max_size_of_align() {
     // Serialize
     let _bytes_written = x.serialize(&mut cursor).unwrap();
 
-    // Do a full-copy deserialization
-    cursor.set_position(0);
     // Do an ε-copy deserialization
     let eps = <MyStruct64>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(x, *eps);
