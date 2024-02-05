@@ -22,13 +22,13 @@ pub fn deserialize_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> des
     backend.align::<T>()?;
     unsafe {
         #[allow(clippy::uninit_assumed_init)]
-        let mut buf: T = MaybeUninit::uninit().assume_init();
+        let mut buf: MaybeUninit<T> = MaybeUninit::uninit();
         let slice = core::slice::from_raw_parts_mut(
-            &mut buf as *mut T as *mut u8,
+            &mut buf as *mut MaybeUninit<T> as *mut u8,
             core::mem::size_of::<T>(),
         );
         backend.read_exact(slice)?;
-        Ok(buf)
+        Ok(buf.assume_init())
     }
 }
 
