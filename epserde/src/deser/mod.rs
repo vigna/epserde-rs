@@ -66,6 +66,9 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
     fn load_mem<'a>(
         path: impl AsRef<Path>,
     ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
+        if core::mem::align_of::<Self>() > 16 {
+            return Err(Error::AlignmentError.into());
+        }
         let file_len = path.as_ref().metadata()?.len() as usize;
         let mut file = std::fs::File::open(path)?;
         // Round up to u128 size
