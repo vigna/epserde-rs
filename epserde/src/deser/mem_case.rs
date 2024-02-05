@@ -5,7 +5,8 @@
  */
 
 use bitflags::bitflags;
-use core::ops::Deref;
+use core::{mem::size_of, ops::Deref};
+use maligned::A16;
 
 bitflags! {
     /// Flags for [`map`] and [`load_mmap`].
@@ -67,7 +68,7 @@ pub enum MemBackend {
     None,
     /// The backend is a heap-allocated in a memory region aligned to 16 bytes.
     /// This variant is returned by [`crate::deser::Deserialize::load_mem`].
-    Memory(Box<[u8]>),
+    Memory(Box<[A16]>),
     /// The backend is the result to a call to `mmap()`.
     /// This variant is returned by [`crate::deser::Deserialize::load_mmap`] and [`crate::deser::Deserialize::mmap`].
     Mmap(mmap_rs::Mmap),
@@ -77,7 +78,12 @@ impl MemBackend {
     pub fn as_ref(&self) -> Option<&[u8]> {
         match self {
             MemBackend::None => None,
-            MemBackend::Memory(mem) => Some(mem),
+            MemBackend::Memory(mem) => Some(unsafe {
+                core::slice::from_raw_parts(
+                    mem.as_ptr() as *const A16 as *const u8,
+                    mem.len() * size_of::<A16>(),
+                )
+            }),
             MemBackend::Mmap(mmap) => Some(mmap),
         }
     }

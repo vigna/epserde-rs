@@ -32,6 +32,10 @@ impl<T: Alignment> AlignedCursor<T> {
         }
     }
 
+    pub fn into_parts(self) -> (Vec<T>, usize) {
+        (self.vec, self.len)
+    }
+
     pub fn as_bytes(&mut self) -> &[u8] {
         let ptr = self.vec.as_mut_ptr() as *mut u8;
         unsafe { slice::from_raw_parts(ptr, self.len) }

@@ -22,6 +22,7 @@ Note that if you ε-copy deserialize the vector, you will
 get back the same slice.
 ```rust
 use epserde::prelude::*;
+use maligned::A16;
 let a = vec![1, 2, 3, 4];
 let s = a.as_slice();
 let mut cursor = <AlignedCursor<A16>>::new();
@@ -29,8 +30,7 @@ s.serialize(&mut cursor).unwrap();
 cursor.set_position(0);
 let b: Vec<i32> = <Vec<i32>>::deserialize_full(&mut cursor).unwrap();
 assert_eq!(a, b);
-let buf = cursor.into_inner();
-let b: &[i32] = <Vec<i32>>::deserialize_eps(&buf).unwrap();
+let b: &[i32] = <Vec<i32>>::deserialize_eps(cursor.as_bytes()).unwrap();
 assert_eq!(a, *b);
 ```
 

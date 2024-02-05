@@ -87,9 +87,7 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
         bytes[file_len..].fill(0);
 
         // SAFETY: the vector is aligned to 16 bytes.
-        let aligned_boxed_slice =
-            unsafe { std::mem::transmute::<Box<[A16]>, Box<[u8]>>(aligned_buf.into_boxed_slice()) };
-        let backend = MemBackend::Memory(aligned_boxed_slice);
+        let backend = MemBackend::Memory(aligned_buf.into_boxed_slice());
 
         // store the backend inside the MemCase
         unsafe {

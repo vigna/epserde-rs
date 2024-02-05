@@ -7,11 +7,11 @@
 #![cfg(test)]
 
 use epserde::prelude::*;
-use maligned::A16;
+use maligned::{A16, A64};
 #[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 #[repr(align(32))]
-#[repr(align(64))]
+#[repr(align(64))] // The max wins
 #[zero_copy]
 struct MyStruct64 {
     u: u32,
@@ -63,7 +63,8 @@ fn test_max_size_of_align() {
 
     // Create a new value to serialize
     let x = MyStruct64 { u: 0x89 };
-    let mut cursor = <AlignedCursor<A16>>::new();
+    // We need a higher alignment
+    let mut cursor = <AlignedCursor<A64>>::new();
     // Serialize
     let _bytes_written = x.serialize(&mut cursor).unwrap();
 
