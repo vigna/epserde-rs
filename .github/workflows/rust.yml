@@ -21,5 +21,7 @@ jobs:
         run: for example in examples/*.rs ; do cargo run --example "$(basename "${example%.rs}")" ; done
       - name: Run clippy
         run: cargo clippy #-- -Dclippy::all -Dclippy::cargo
+      - name: Switch to nightly toolchain
+        run: rustup default nightly
       - name: Test with miri
-        run: MIRIFLAGS="-Zmiri-disable-isolation" cargo +nightly test
+        run: MIRIFLAGS="-Zmiri-disable-isolation" cargo test
