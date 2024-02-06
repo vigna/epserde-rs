@@ -6,7 +6,7 @@
 
 use bitflags::bitflags;
 use core::{mem::size_of, ops::Deref};
-use maligned::A16;
+use maligned::A64;
 
 bitflags! {
     /// Flags for [`map`] and [`load_mmap`].
@@ -57,6 +57,9 @@ impl Flags {
     }
 }
 
+/// The [alignment](maligned::Alignment) by the [`Memory`](MemBackend::Memory) variant of [`MemBackend`].
+pub type MemoryAlignment = A64;
+
 /// Possible backends of a [`MemCase`]. The `None` variant is used when the data structure is
 /// created in memory; the `Memory` variant is used when the data structure is deserialized
 /// from a file loaded into a heap-allocated memory region; the `Mmap` variant is used when
@@ -68,7 +71,7 @@ pub enum MemBackend {
     None,
     /// The backend is a heap-allocated in a memory region aligned to 16 bytes.
     /// This variant is returned by [`crate::deser::Deserialize::load_mem`].
-    Memory(Box<[A16]>),
+    Memory(Box<[MemoryAlignment]>),
     /// The backend is the result to a call to `mmap()`.
     /// This variant is returned by [`crate::deser::Deserialize::load_mmap`] and [`crate::deser::Deserialize::mmap`].
     Mmap(mmap_rs::Mmap),
@@ -80,8 +83,8 @@ impl MemBackend {
             MemBackend::None => None,
             MemBackend::Memory(mem) => Some(unsafe {
                 core::slice::from_raw_parts(
-                    mem.as_ptr() as *const A16 as *const u8,
-                    mem.len() * size_of::<A16>(),
+                    mem.as_ptr() as *const MemoryAlignment as *const u8,
+                    mem.len() * size_of::<MemoryAlignment>(),
                 )
             }),
             MemBackend::Mmap(mmap) => Some(mmap),
