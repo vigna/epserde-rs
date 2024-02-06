@@ -19,9 +19,9 @@ which is automatically derived with `#[derive(Deserialize)]`.
 
 use crate::traits::*;
 use crate::{MAGIC, MAGIC_REV, VERSION};
+use core::mem::align_of;
 use core::ptr::addr_of_mut;
 use core::{hash::Hasher, mem::MaybeUninit};
-use maligned::A16;
 use std::{io::BufReader, path::Path};
 
 pub mod helpers;
@@ -63,16 +63,20 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
     /// Load a file into heap-allocated memory and ε-deserialize a data structure from it,
     /// returning a [`MemCase`] containing the data structure and the
     /// memory. Excess bytes are zeroed out.
+    ///
+    /// The allocated memory will have [`MemoryAlignment`] as alignment: types with
+    /// a higher alignment requirement will cause an [alignment error](`Error::AlignmentError`).
     fn load_mem<'a>(
         path: impl AsRef<Path>,
     ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
-        if core::mem::align_of::<Self>() > 16 {
+        let align_to = align_of::<MemoryAlignment>();
+        if align_of::<Self>() > align_to {
             return Err(Error::AlignmentError.into());
         }
         let file_len = path.as_ref().metadata()?.len() as usize;
         let mut file = std::fs::File::open(path)?;
         // Round up to u128 size
-        let capacity = file_len + crate::pad_align_to(file_len, 16);
+        let capacity = file_len + crate::pad_align_to(file_len, align_to);
 
         let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
             MaybeUninit::uninit();
@@ -82,10 +86,11 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
         // or with zeroes if the file is shorter than the vector.
         #[allow(invalid_value)]
         let mut aligned_vec = unsafe {
-            <Vec<A16>>::from_raw_parts(
-                std::alloc::alloc(std::alloc::Layout::from_size_align(capacity, 16)?) as *mut A16,
-                capacity / 16,
-                capacity / 16,
+            <Vec<MemoryAlignment>>::from_raw_parts(
+                std::alloc::alloc(std::alloc::Layout::from_size_align(capacity, align_to)?)
+                    as *mut MemoryAlignment,
+                capacity / align_to,
+                capacity / align_to,
             )
         };
 
