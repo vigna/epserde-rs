@@ -502,7 +502,7 @@ will happen under the hood because `BitFieldVec` is ε-serde-aware, and in fact
 you will not even notice the difference if you access both versions using the
 trait `BitFieldSlice`.
 
-# Derived and hand-made implementation
+# Derived and hand-made implementations
 
 We strongly suggest using the procedural macro [`Epserde`](`epserde_derive::Epserde`)
 to make your own types serializable and deserializable. Just invoking the macro

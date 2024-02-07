@@ -319,7 +319,6 @@ fn test_enum_zero() {
     cursor.set_position(0);
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    cursor.set_position(0);
     let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, *eps);
 
@@ -329,7 +328,6 @@ fn test_enum_zero() {
     cursor.set_position(0);
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    cursor.set_position(0);
     let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, *eps);
 
@@ -339,7 +337,6 @@ fn test_enum_zero() {
     cursor.set_position(0);
     let full = <Data>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    cursor.set_position(0);
     let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, *eps);
 
@@ -349,7 +346,6 @@ fn test_enum_zero() {
     cursor.set_position(0);
     let full = <Vec<Data>>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(a, full);
-    cursor.set_position(0);
     let eps = <Vec<Data>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(a, *eps);
 }
