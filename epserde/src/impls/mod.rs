@@ -16,6 +16,8 @@ pub mod array;
 pub mod boxed_slice;
 pub mod prim;
 pub mod slice;
+#[cfg(feature = "std")]
+pub mod stdlib;
 pub mod string;
 pub mod tuple;
 #[cfg(any(feature = "alloc", feature = "std"))]
