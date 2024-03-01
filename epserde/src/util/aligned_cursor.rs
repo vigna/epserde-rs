@@ -78,6 +78,11 @@ impl<T: Alignment> AlignedCursor<T> {
         self.len
     }
 
+    /// Return whether this cursor contains no data.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// Return the current position of this cursor.
     pub fn position(&self) -> usize {
         self.pos
@@ -114,7 +119,7 @@ impl<T: Alignment> Read for AlignedCursor<T> {
 impl<T: Alignment> Write for AlignedCursor<T> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let len = buf.len().min(usize::MAX - self.pos);
-        if buf.len() > 0 && len == 0 {
+        if !buf.is_empty() && len == 0 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "write operation overflows usize::MAX length limit",
