@@ -12,9 +12,14 @@ Implementations for primitive types, `()`, [`PhantomData`] and [`Option`].
 */
 
 use crate::prelude::*;
+use common_traits::NonZero;
 use core::hash::Hash;
 use core::marker::PhantomData;
 use core::mem::size_of;
+use core::num::{
+    NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
+    NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
+};
 use deser::*;
 use ser::*;
 
@@ -85,26 +90,79 @@ macro_rules! impl_prim_ser_des {
     )*};
 }
 
-impl_prim_type_hash!(
-    isize,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    usize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    f32,
-    f64,
-    bool,
-    char,
-    ()
-);
+impl_prim_type_hash!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32, f64);
 impl_prim_ser_des!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32, f64);
+
+macro_rules! impl_nonzero_ser_des {
+    ($($ty:ty),*) => {$(
+		impl SerializeInner for $ty {
+            // Note that primitive types are declared zero-copy to be able to
+            // be part of zero-copy types, but we actually deserialize
+            // them in isolation as values.
+            const IS_ZERO_COPY: bool = true;
+            const ZERO_COPY_MISMATCH: bool = false;
+
+            #[inline(always)]
+            fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+                backend.write_all(&self.get().to_ne_bytes())
+            }
+        }
+
+		impl DeserializeInner for $ty {
+            #[inline(always)]
+            fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
+                let mut buf = [0; size_of::<$ty>()];
+                backend.read_exact(&mut buf)?;
+                Ok(<$ty as NonZero>::BaseType::from_ne_bytes(buf).try_into().unwrap())
+            }
+            type DeserType<'a> = Self;
+            #[inline(always)]
+            fn _deserialize_eps_inner<'a>(
+                backend: &mut SliceWithPos<'a>,
+            ) -> deser::Result<Self::DeserType<'a>> {
+                let res = <$ty as NonZero>::BaseType::from_ne_bytes(
+                        backend.data[..size_of::<$ty>()]
+                            .try_into()
+                            .unwrap()).try_into().unwrap();
+
+                backend.skip(size_of::<$ty>());
+                Ok(res)
+            }
+        }
+    )*};
+}
+
+impl_prim_type_hash!(
+    NonZeroIsize,
+    NonZeroI8,
+    NonZeroI16,
+    NonZeroI32,
+    NonZeroI64,
+    NonZeroI128,
+    NonZeroUsize,
+    NonZeroU8,
+    NonZeroU16,
+    NonZeroU32,
+    NonZeroU64,
+    NonZeroU128
+);
+
+impl_nonzero_ser_des!(
+    NonZeroIsize,
+    NonZeroI8,
+    NonZeroI16,
+    NonZeroI32,
+    NonZeroI64,
+    NonZeroI128,
+    NonZeroUsize,
+    NonZeroU8,
+    NonZeroU16,
+    NonZeroU32,
+    NonZeroU64,
+    NonZeroU128
+);
+
+impl_prim_type_hash!(bool, char, ());
 
 // Booleans are zero-copy serialized as u8.
 

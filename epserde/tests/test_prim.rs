@@ -6,6 +6,10 @@
 
 #![cfg(test)]
 
+use core::num::{
+    NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
+    NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
+};
 use epserde::prelude::*;
 
 macro_rules! impl_test {
@@ -34,7 +38,7 @@ macro_rules! impl_test {
     }};
 }
 
-macro_rules! test_primitive {
+macro_rules! test_prim {
     ($ty:ty, $test_name:ident) => {
         #[test]
         fn $test_name() {
@@ -46,18 +50,43 @@ macro_rules! test_primitive {
     };
 }
 
-test_primitive!(u8, test_u8);
-test_primitive!(u16, test_u16);
-test_primitive!(u32, test_u32);
-test_primitive!(u64, test_u64);
-test_primitive!(u128, test_u128);
-test_primitive!(usize, test_usize);
-test_primitive!(i8, test_i8);
-test_primitive!(i16, test_i16);
-test_primitive!(i32, test_i32);
-test_primitive!(i64, test_i64);
-test_primitive!(i128, test_i128);
-test_primitive!(isize, test_isize);
+test_prim!(u8, test_u8);
+test_prim!(u16, test_u16);
+test_prim!(u32, test_u32);
+test_prim!(u64, test_u64);
+test_prim!(u128, test_u128);
+test_prim!(usize, test_usize);
+test_prim!(i8, test_i8);
+test_prim!(i16, test_i16);
+test_prim!(i32, test_i32);
+test_prim!(i64, test_i64);
+test_prim!(i128, test_i128);
+test_prim!(isize, test_isize);
+
+macro_rules! test_nonzero {
+    ($ty:ty, $test_name:ident) => {
+        #[test]
+        fn $test_name() {
+            impl_test!(<$ty>::MAX, $ty);
+            impl_test!(<$ty>::MIN, $ty);
+            impl_test!(<$ty>::try_from(1).unwrap(), $ty);
+            impl_test!(<$ty>::try_from(7).unwrap(), $ty);
+        }
+    };
+}
+
+test_nonzero!(NonZeroU8, test_nonzero_u8);
+test_nonzero!(NonZeroU16, test_nonzero_u16);
+test_nonzero!(NonZeroU32, test_nonzero_u32);
+test_nonzero!(NonZeroU64, test_nonzero_u64);
+test_nonzero!(NonZeroU128, test_unonzero_128);
+test_nonzero!(NonZeroUsize, test_usnonzero_ize);
+test_nonzero!(NonZeroI8, testnonzero__i8);
+test_nonzero!(NonZeroI16, test_nonzero_i16);
+test_nonzero!(NonZeroI32, test_nonzero_i32);
+test_nonzero!(NonZeroI64, test_nonzero_i64);
+test_nonzero!(NonZeroI128, test_inonzero_128);
+test_nonzero!(NonZeroIsize, test_isnonzero_ize);
 
 #[test]
 fn test_unit() {
