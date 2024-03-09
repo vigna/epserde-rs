@@ -79,14 +79,14 @@ test_nonzero!(NonZeroU8, test_nonzero_u8);
 test_nonzero!(NonZeroU16, test_nonzero_u16);
 test_nonzero!(NonZeroU32, test_nonzero_u32);
 test_nonzero!(NonZeroU64, test_nonzero_u64);
-test_nonzero!(NonZeroU128, test_unonzero_128);
-test_nonzero!(NonZeroUsize, test_usnonzero_ize);
-test_nonzero!(NonZeroI8, testnonzero__i8);
+test_nonzero!(NonZeroU128, test_nonzero_u128);
+test_nonzero!(NonZeroUsize, test_nonzero_usize);
+test_nonzero!(NonZeroI8, testnonzero_i8);
 test_nonzero!(NonZeroI16, test_nonzero_i16);
 test_nonzero!(NonZeroI32, test_nonzero_i32);
 test_nonzero!(NonZeroI64, test_nonzero_i64);
-test_nonzero!(NonZeroI128, test_inonzero_128);
-test_nonzero!(NonZeroIsize, test_isnonzero_ize);
+test_nonzero!(NonZeroI128, test_nonzero_i128);
+test_nonzero!(NonZeroIsize, test_nonzero_isize);
 
 #[test]
 fn test_unit() {
