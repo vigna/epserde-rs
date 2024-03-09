@@ -22,6 +22,7 @@ pub mod util;
 
 pub mod prelude {
     pub use crate::deser;
+    pub use crate::deser::DeserType;
     pub use crate::deser::Deserialize;
     pub use crate::deser::DeserializeHelper;
     pub use crate::deser::DeserializeInner;
