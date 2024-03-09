@@ -8,42 +8,39 @@
 
 ε-serde is a Rust framework for *ε*-copy *ser*ialization and *de*serialization.
 
-## WARNING
-
-With release 0.2.0 we had to change the type hash function, so all serialized data
-must be regenerated. We apologize for the inconvenience.
-
 ## Why
 
-Large immutable data structures need time to be deserialized using the [serde](https://serde.rs/)
-approach. A possible solution for this problem is given by frameworks such as
-[Abomonation](https://crates.io/crates/abomonation), [rkiv](https://crates.io/crates/rkyv/), and
-[zerovec](https://crates.io/crates/zerovec), which provide *zero-copy* deserialization:
-the stream of bytes serializing the data structure can be used directly as a Rust structure.
-In particular, this approach makes it possible
-to map into memory an on-disk data structure, making it available instantly.
-It also makes it possible to load the data structure in a memory region with
-particular attributes, such as transparent huge pages on Linux. Even when
-using standard memory load and deserialization happen much
-faster as the entire structure can be loaded with a single read operation.
+Large immutable data structures need time to be deserialized using the
+[serde](https://serde.rs/) approach. A possible solution for this problem is
+given by frameworks such as [Abomonation](https://crates.io/crates/abomonation),
+[rkiv](https://crates.io/crates/rkyv/), and
+[zerovec](https://crates.io/crates/zerovec), which provide *zero-copy*
+deserialization: the stream of bytes serializing the data structure can be used
+directly as a Rust structure. In particular, this approach makes it possible to
+map into memory an on-disk data structure, making it available instantly. It
+also makes it possible to load the data structure in a memory region with
+particular attributes, such as transparent huge pages on Linux. Even when using
+standard memory load and deserialization happen much faster as the entire
+structure can be loaded with a single read operation.
 
-ε-serde has the same goals as the zero-copy frameworks above but provides different tradeoffs.
+ε-serde has the same goals as the zero-copy frameworks above but provides
+different tradeoffs.
 
 ## How
 
-Since in these data structures typically
-most of the data is given by large chunks of memory in the form of slices or vectors,
-at deserialization time one can build quickly a proper Rust structure whose referenced
-memory, however, is not copied. We call this approach *ε-copy deserialization*, as
-typically a minuscule fraction of the serialized data is copied to build the structure.
-The result is similar to that of the frameworks above, but the performance of the
-deserialized structure will be identical to that of a standard, in-memory
-Rust structure, as references are resolved at deserialization time.
+Since in these data structures typically most of the data is given by large
+chunks of memory in the form of slices or vectors, at deserialization time one
+can build quickly a proper Rust structure whose referenced memory, however, is
+not copied. We call this approach *ε-copy deserialization*, as typically a
+minuscule fraction of the serialized data is copied to build the structure. The
+result is similar to that of the frameworks above, but the performance of the
+deserialized structure will be identical to that of a standard, in-memory Rust
+structure, as references are resolved at deserialization time.
 
-We provide procedural macros implementing serialization and deserialization methods,
-basic (de)serialization for primitive types, vectors, etc.,
-convenience memory-mapping methods based on [mmap_rs](https://crates.io/crates/mmap-rs),
-and a [`MemCase`](`deser::MemCase`) structure that couples a deserialized structure with its backend
+We provide procedural macros implementing serialization and deserialization
+methods, basic (de)serialization for primitive types, vectors, etc., convenience
+memory-mapping methods based on [mmap_rs](https://crates.io/crates/mmap-rs), and
+a [`MemCase`] structure that couples a deserialized structure with its backend
 (e.g., a slice of memory or a memory-mapped region).
 
 ## Who
@@ -51,34 +48,34 @@ and a [`MemCase`](`deser::MemCase`) structure that couples a deserialized struct
 Tommaso Fontana, while working at INRIA under the supervision of Stefano Zacchiroli,
 came up with the basic idea for ε-serde, that is,
 replacing structures with equivalent references. The code was developed jointly
-with Sebastiano Vigna, who came up with the [`MemCase`](`deser::MemCase`) and the
-[`ZeroCopy`](traits::ZeroCopy)/[`DeepCopy`](traits::DeepCopy) logic.
+with Sebastiano Vigna, who came up with the [`MemCase`] and the
+[`ZeroCopy`]/[`DeepCopy`] logic.
 
 ## Cons
 
-These are the main limitations you should be aware of before choosing to use ε-serde:
+These are the main limitations you should be aware of before choosing to use
+ε-serde:
 
 - Your types cannot contain references. For example, you cannot use ε-serde on a tree.
 
-- While we provide procedural macros that implement serialization and deserialization,
-they require that your type is written and used in a specific way; in particular,
-the fields you want to ε-copy must be type parameters implementing
-[`DeserializeInner`](`deser::DeserializeInner`), to which a
-[deserialized type](`deser::DeserType`) is associated.
-For example, we provide implementations for
-`Vec<T>`/`Box<[T]>`, where `T` [is zero-copy](traits::ZeroCopy), or `String`/`Box<str>`, which have
-associated deserialized type `&[T]` or `&str`, respectively. Vectors and boxed slices of
+- While we provide procedural macros that implement serialization and
+deserialization, they require that your type is written and used in a specific
+way; in particular, the fields you want to ε-copy must be type parameters
+implementing [`DeserializeInner`], to which a [deserialized
+type](https://docs.rs/epserde/latest/epserde/deser/trait.DeserializeInner.html#associatedtype.DeserType)
+is associated. For example, we provide implementations for `Vec<T>`/`Box<[T]>`,
+where `T` is zero-copy, or `String`/`Box<str>`, which have associated
+deserialized type `&[T]` or `&str`, respectively. Vectors and boxed slices of
 types that are not zero-copy will be deserialized recursively in memory instead.
 
 - After deserialization, you will obtain an associated deserialized type, which
-will usually reference the underlying
-serialized support (e.g., a memory-mapped region). If you need to store
-the deserialized structure of type `T` in a field of a new structure
-you will need to couple permanently the deserialized structure with its serialized
-support, which is obtained by putting it in a [`MemCase`](`deser::MemCase`). A [`MemCase`](`deser::MemCase`) will
-deref to `T`, so it can be used transparently as long as fields and methods are
-concerned, but the field of the new structure will have to be of type `MemCase<T>`,
-not `T`.
+will usually reference the underlying serialized support (e.g., a memory-mapped
+region). If you need to store the deserialized structure of type `T` in a field
+of a new structure you will need to couple permanently the deserialized
+structure with its serialized support, which is obtained by putting it in a
+[`MemCase`]. A [`MemCase`] will deref to `T`, so it can be used transparently as
+long as fields and methods are concerned, but the field of the new structure
+will have to be of type `MemCase<T>`, not `T`.
 
 ## Pros
 
@@ -106,6 +103,7 @@ we serialize an array of a thousand zeros, and get back a reference to such
 an array:
 
 ```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 use epserde::prelude::*;
 
 let s = [0_usize; 1000];
@@ -113,37 +111,58 @@ let s = [0_usize; 1000];
 // Serialize it
 let mut file = std::env::temp_dir();
 file.push("serialized0");
-s.serialize(&mut std::fs::File::create(&file).unwrap()).unwrap();
+s.serialize(&mut std::fs::File::create(&file)?)?;
 // Load the serialized form in a buffer
-let b = std::fs::read(&file).unwrap();
+let b = std::fs::read(&file)?;
 
 // The type of t will be inferred--it is shown here only for clarity
 let t: &[usize; 1000] =
-    <[usize; 1000]>::deserialize_eps(b.as_ref()).unwrap();
+    <[usize; 1000]>::deserialize_eps(b.as_ref())?;
+
+assert_eq!(s, *t);
+
+// You can derive the deserialization type, with a lifetime depending on b
+let t: DeserType<'_, [usize; 1000]> =
+    <[usize; 1000]>::deserialize_eps(b.as_ref())?;
 
 assert_eq!(s, *t);
 
 // This is a traditional deserialization instead
 let t: [usize; 1000] = 
     <[usize; 1000]>::deserialize_full(
-        &mut std::fs::File::open(&file).unwrap()
-    ).unwrap();
+        &mut std::fs::File::open(&file)?
+    )?;
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
 let u: MemCase<&[usize; 1000]> = 
-    <[usize; 1000]>::mmap(&file, Flags::empty()).unwrap();
+    <[usize; 1000]>::mmap(&file, Flags::empty())?;
+
 assert_eq!(s, **u);
+
+// When using a MemCase, the lifetime of the derived deserialization type is 'static
+let u: MemCase<DeserType<'static, [usize; 1000]>> = 
+    <[usize; 1000]>::mmap(&file, Flags::empty())?;
+
+assert_eq!(s, **u);
+#     Ok(())
+# }
 ```
 
 Note how we serialize an array, but we deserialize a reference.
 The reference points inside `b`, so there is
-no copy performed. The second call creates a new array instead.
+no copy performed. The call to [`deserialize_full`] creates a new array instead.
 The third call maps the data structure into memory and returns
-a [`MemCase`](`deser::MemCase`) that can be used transparently as a reference to the array;
-moreover, the [`MemCase`](`deser::MemCase`) can be passed to other functions or stored
+a [`MemCase`] that can be used transparently as a reference to the array;
+moreover, the [`MemCase`] can be passed to other functions or stored
 in a structure field, as it contains both the structure and the
 memory-mapped region that supports it.
+
+The type alias [`DeserType`] can be used to derive the deserialized type
+associated with a type. It contains a lifetime, which is the lifetime of the
+memory region containing the serialized data. When deserializing into a
+[`MemCase`], however, the lifetime is `'static`, as [`MemCase`] is an owned
+type.
 
 ## Examples: ε-copy of standard structures
 
@@ -153,6 +172,7 @@ This time, let us serialize a `Vec` containing a thousand zeros: ε-serde will d
 deserialization type, which is a reference to a slice.
 
 ```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 use epserde::prelude::*;
 
 let s = vec![0; 1000];
@@ -160,25 +180,27 @@ let s = vec![0; 1000];
 // Serialize it
 let mut file = std::env::temp_dir();
 file.push("serialized1");
-s.serialize(&mut std::fs::File::create(&file).unwrap()).unwrap();
+s.serialize(&mut std::fs::File::create(&file)?)?;
 // Load the serialized form in a buffer
-let b = std::fs::read(&file).unwrap();
+let b = std::fs::read(&file)?;
 
 // The type of t will be inferred--it is shown here only for clarity
-let t: &[usize] =
-    <Vec<usize>>::deserialize_eps(b.as_ref()).unwrap();
+let t: DeserType<'_, Vec<usize>> =
+    <Vec<usize>>::deserialize_eps(b.as_ref())?;
 
 assert_eq!(s, *t);
 
 // This is a traditional deserialization instead
 let t: Vec<usize> = 
-    <Vec<usize>>::load_full(&file).unwrap();
+    <Vec<usize>>::load_full(&file)?;
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let u: MemCase<&[usize]> = 
-    <Vec<usize>>::mmap(&file, Flags::empty()).unwrap();
+let u: MemCase<DeserType<'static, Vec<usize>>> = 
+    <Vec<usize>>::mmap(&file, Flags::empty())?;
 assert_eq!(s, **u);
+#     Ok(())
+# }
 ```
 
 Note how we serialize a vector, but we deserialize a reference
@@ -186,7 +208,7 @@ to a slice; the same would happen when serializing a boxed slice.
 The reference points inside `b`, so there is very little
 copy performed (in fact, just a field containing the length of the slice).
 All this is because `usize` is a zero-copy type.
-Note also that we use the convenience method [`Deserialize::load_full`](`deser::Deserialize::load_full`).
+Note also that we use the convenience method [`Deserialize::load_full`].
 
 If your code must work both with the original and the deserialized
 version, however, it must be written for a trait that is implemented
@@ -201,6 +223,7 @@ and `#[repr(C)]` (which means that you will lose the possibility that
 the compiler reorders the fields to optimize memory usage):
 
 ```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 use epserde::prelude::*;
 use epserde_derive::*;
 
@@ -217,25 +240,27 @@ let s = vec![Data { foo: 0, bar: 0 }; 1000];
 // Serialize it
 let mut file = std::env::temp_dir();
 file.push("serialized2");
-s.serialize(&mut std::fs::File::create(&file).unwrap()).unwrap();
+s.serialize(&mut std::fs::File::create(&file)?)?;
 // Load the serialized form in a buffer
-let b = std::fs::read(&file).unwrap();
+let b = std::fs::read(&file)?;
 
 // The type of t will be inferred--it is shown here only for clarity
-let t: &[Data] =
-    <Vec<Data>>::deserialize_eps(b.as_ref()).unwrap();
+let t: DeserType<'_, Vec<Data>> =
+    <Vec<Data>>::deserialize_eps(b.as_ref())?;
 
 assert_eq!(s, *t);
 
 // This is a traditional deserialization instead
 let t: Vec<Data> = 
-    <Vec<Data>>::load_full(&file).unwrap();
+    <Vec<Data>>::load_full(&file)?;
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let u: MemCase<&[Data]> = 
-    <Vec<Data>>::mmap(&file, Flags::empty()).unwrap();
+let u: MemCase<DeserType<'static, Vec<Data>>> = 
+    <Vec<Data>>::mmap(&file, Flags::empty())?;
 assert_eq!(s, **u);
+#     Ok(())
+# }
 ```
 
 If a structure is not zero-copy, vectors of structures will be always
@@ -252,6 +277,7 @@ Let us design a structure that will contain an integer,
 which will be copied, and a vector of integers that we want to ε-copy:
 
 ```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 use epserde::prelude::*;
 use epserde_derive::*;
 
@@ -268,25 +294,27 @@ let mut file = std::env::temp_dir();
 file.push("serialized3");
 s.store(&file);
 // Load the serialized form in a buffer
-let b = std::fs::read(&file).unwrap();
+let b = std::fs::read(&file)?;
 
 // The type of t will be inferred--it is shown here only for clarity
-let t: MyStruct<&[isize]> = 
-    <MyStruct<Vec<isize>>>::deserialize_eps(b.as_ref()).unwrap();
+let t: DeserType<'_, MyStruct<Vec<isize>>> = 
+    <MyStruct<Vec<isize>>>::deserialize_eps(b.as_ref())?;
 
 assert_eq!(s.id, t.id);
 assert_eq!(s.data, Vec::from(t.data));
 
 // This is a traditional deserialization instead
 let t: MyStruct<Vec<isize>> = 
-    <MyStruct::<Vec<isize>>>::load_full(&file).unwrap();
+    <MyStruct::<Vec<isize>>>::load_full(&file)?;
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let u: MemCase<MyStruct<&[isize]>> = 
-    <MyStruct::<Vec<isize>>>::mmap(&file, Flags::empty()).unwrap();
+let u: MemCase<DeserType<'static, MyStruct<Vec<isize>>>> = 
+    <MyStruct::<Vec<isize>>>::mmap(&file, Flags::empty())?;
 assert_eq!(s.id, u.id);
 assert_eq!(s.data, u.data.as_ref());
+#     Ok(())
+# }
 ```
 
 Note how the field originally containing a `Vec<isize>` now contains a `&[isize]` (this
@@ -299,6 +327,7 @@ to take care that they are defined in a way that will work both on the original 
 its associated deserialized type; we can also use `type` to reduce the clutter:
 
 ```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 use epserde::prelude::*;
 use epserde_derive::*;
 
@@ -324,17 +353,19 @@ let mut file = std::env::temp_dir();
 file.push("serialized4");
 s.store(&file);
 // Load the serialized form in a buffer
-let b = std::fs::read(&file).unwrap();
-let t = MyStruct::deserialize_eps(b.as_ref()).unwrap();
+let b = std::fs::read(&file)?;
+let t = MyStruct::deserialize_eps(b.as_ref())?;
 // We can call the method on both structures
 assert_eq!(s.sum(), t.sum());
 
-let t = <MyStruct>::mmap(&file, Flags::empty()).unwrap();
+let t = <MyStruct>::mmap(&file, Flags::empty())?;
 
 // t works transparently as a MyStructParam<&[isize]>
 assert_eq!(s.id, t.id);
 assert_eq!(s.data, t.data.as_ref());
 assert_eq!(s.sum(), t.sum());
+#     Ok(())
+# }
 ```
 
 ## Example: Deep-copy structures with internal parameters
@@ -346,6 +377,7 @@ they must be classified as deep-copy or zero-copy, and must have
 a `'static` lifetime. For example,
 
 ```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 use epserde::prelude::*;
 use epserde_derive::*;
 
@@ -359,11 +391,13 @@ let mut file = std::env::temp_dir();
 file.push("serialized4");
 s.store(&file);
 // Load the serialized form in a buffer
-let b = std::fs::read(&file).unwrap();
+let b = std::fs::read(&file)?;
 
 // The type of t is unchanged
 let t: MyStruct<Vec<isize>> = 
-    <MyStruct<Vec<isize>>>::deserialize_eps(b.as_ref()).unwrap();
+    <MyStruct<Vec<isize>>>::deserialize_eps(b.as_ref())?;
+#     Ok(())
+# }
 ```
 
 Note how the field originally of type `Vec<Vec<isize>>` remains of
@@ -377,6 +411,7 @@ So all parameters must be zero-copy and have a `'static` lifetime.
  For example,
 
 ```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 use epserde::prelude::*;
 use epserde_derive::*;
 
@@ -394,11 +429,13 @@ let mut file = std::env::temp_dir();
 file.push("serialized5");
 s.store(&file);
 // Load the serialized form in a buffer
-let b = std::fs::read(&file).unwrap();
+let b = std::fs::read(&file)?;
 
 // The type of t is unchanged
 let t: &MyStruct<i32> = 
-    <MyStruct<i32>>::deserialize_eps(b.as_ref()).unwrap();
+    <MyStruct<i32>>::deserialize_eps(b.as_ref())?;
+#     Ok(())
+# }
 ```
 
 Note how the field originally of type `i32` remains of the same type.
@@ -414,6 +451,7 @@ obvious for non-enum types, but with enum types with default type parameters it 
 become tricky. For example,
 
 ```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 use epserde::prelude::*;
 use epserde_derive::*;
 
@@ -432,6 +470,8 @@ e.store(&file);
 // Deserializing using just Enum will fail, as the type parameter 
 // by default is Vec<usize>
 assert!(<Enum>::load_full(&file).is_err());
+#     Ok(())
+# }
 ```
 
 ## Example: `sux-rs`
@@ -446,7 +486,7 @@ but that in practice often condition one another:
 
 - the type has an *associated deserialization type*, which is the type you obtain
 upon deserialization;
-- the type can be either [`ZeroCopy`](traits::ZeroCopy) or [`DeepCopy`](traits::DeepCopy);
+- the type can be either [`ZeroCopy`] or [`DeepCopy`];
   it can also be neither.
 
 There is no constraint on the associated deserialization type: it can be literally
@@ -455,17 +495,17 @@ compatible with the original type, in the sense that they both satisfy a trait f
 implementations can be written: for example, ε-serde deserializes vectors as
 references to slices, so implementations can be written for references to slices and
 will work both on the original and the deserialized type.
-And, in general, [`ZeroCopy`](traits::ZeroCopy) types deserialize into themselves.
+And, in general, [`ZeroCopy`] types deserialize into themselves.
 
-Being [`ZeroCopy`](traits::ZeroCopy) or [`DeepCopy`](traits::DeepCopy) decides
+Being [`ZeroCopy`] or [`DeepCopy`] decides
 instead how the type will be treated
 when serializing and deserializing sequences, such as arrays, slices, boxed slices, and vectors.
 Sequences of zero-copy types are deserialized using a reference, whereas sequences
 of deep-copy types are recursively deserialized in allocated memory (to sequences of the
 associated deserialization types). It is important to remark
 that *you cannot serialize a sequence whose elements are of
-a type that is neither* [`ZeroCopy`](traits::ZeroCopy) *nor* [`DeepCopy`](traits::DeepCopy)
-(see the [`CopyType`](`traits::CopyType`) documentation for a deeper explanation).
+a type that is neither* [`ZeroCopy`] *nor* [`DeepCopy`]
+(see the [`CopyType`] documentation for a deeper explanation).
 
 Logically, zero-copy types should be deserialized to references, and this indeed happens
 in most cases, and certainly in the derived code: however, *primitive types are always
@@ -504,20 +544,35 @@ trait `BitFieldSlice`.
 
 # Derived and hand-made implementations
 
-We strongly suggest using the procedural macro [`Epserde`](`epserde_derive::Epserde`)
+We strongly suggest using the procedural macro [`Epserde`]
 to make your own types serializable and deserializable. Just invoking the macro
 on your structure will make it fully functional with ε-serde. The attribute
 `#[zero_copy]` can be used to make a structure zero-copy, albeit it must satisfy
-[a few prerequisites](traits::CopyType).
+[a few prerequisites](https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html).
 
 You can also implement manually
-the traits [`CopyType`](traits::CopyType), [`MaxSizeOf`](traits::MaxSizeOf), [`TypeHash`](traits::TypeHash), [`ReprHash`](traits::ReprHash),
-[`SerializeInner`](`ser::SerializeInner`), and [`DeserializeInner`](`deser::DeserializeInner`), but
+the traits [`CopyType`], [`MaxSizeOf`], [`TypeHash`], [`ReprHash`],
+[`SerializeInner`], and [`DeserializeInner`], but
 the process is error-prone, and you must be fully aware of ε-serde's conventions. The procedural macro
-[`TypeInfo`](`epserde_derive::TypeInfo`) can be used to generate automatically at least
-[`MaxSizeOf`](traits::MaxSizeOf), [`TypeHash`](traits::TypeHash), and [`ReprHash`](traits::ReprHash) automatically.
+[`TypeInfo`] can be used to generate automatically at least
+[`MaxSizeOf`], [`TypeHash`], and [`ReprHash`] automatically.
 
 # Acknowledgments
 
 This software has been partially supported by project SERICS (PE00000014) under the NRRP MUR program funded by the EU - NGEU,
 and by project ANR COREGRAPHIE, grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
+
+[`MemCase`]: https://docs.rs/epserde/latest/epserde/deser/mem_case/struct.MemCase.html
+[`ZeroCopy`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.ZeroCopy.html
+[`DeepCopy`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.DeepCopy.html
+[`CopyType`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html
+[`MaxSizeOf`]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.MaxSizeOf.html
+[`TypeHash`]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html
+[`ReprHash`]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.ReprHash.html
+[`DeserializeInner`]: https://docs.rs/epserde/latest/epserde/deser/trait.DeserializeInner.html
+[`SerializeInner`]: https://docs.rs/epserde/latest/epserde/ser/trait.SerializeInner.html
+[`TypeInfo`]: https://docs.rs/epserde/latest/epserde/derive.TypeInfo.html
+[`Epserde`]: https://docs.rs/epserde/latest/epserde_derive/derive.Epserde.html
+[`Deserialize::load_full`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_full
+[`deserialize_full`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#tymethod.deserialize_full
+[`DeserType`]: https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html
