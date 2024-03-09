@@ -68,14 +68,19 @@ where `T` is zero-copy, or `String`/`Box<str>`, which have associated
 deserialized type `&[T]` or `&str`, respectively. Vectors and boxed slices of
 types that are not zero-copy will be deserialized recursively in memory instead.
 
-- After deserialization, you will obtain an associated deserialized type, which
+- After deserialization of a type `T`, you will obtain an associated
+deserialized type [`DeserType<'_,
+T>`](https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html), which
 will usually reference the underlying serialized support (e.g., a memory-mapped
-region). If you need to store the deserialized structure of type `T` in a field
-of a new structure you will need to couple permanently the deserialized
-structure with its serialized support, which is obtained by putting it in a
-[`MemCase`]. A [`MemCase`] will deref to `T`, so it can be used transparently as
-long as fields and methods are concerned, but the field of the new structure
-will have to be of type `MemCase<T>`, not `T`.
+region); hence the need for a lifetime. If you need to store the deserialized
+structure in a field of a new structure you will need to couple
+permanently the deserialized structure with its serialized support, which is
+obtained by putting it in a [`MemCase`] using the convenience methods
+[`Deserialize::load_mem`], [`Deserialize::load_mmap`], and [`Deserialize::mmap`].
+A [`MemCase`] will deref to its
+contained type, so it can be used transparently as long as fields and methods
+are concerned, but if your original type is `T` the field of the new structure
+will have to be of type `MemCase<DeserType<'static, T>>`, not `T`.
 
 ## Pros
 
@@ -576,3 +581,6 @@ and by project ANR COREGRAPHIE, grant ANR-20-CE23-0002 of the French Agence Nati
 [`Deserialize::load_full`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_full
 [`deserialize_full`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#tymethod.deserialize_full
 [`DeserType`]: https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html
+[`Deserialize::load_mem`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mem
+[`Deserialize::load_mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mmap
+[`Deserialize::mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.mmap
