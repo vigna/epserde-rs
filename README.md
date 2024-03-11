@@ -84,18 +84,20 @@ will have to be of type `MemCase<DeserType<'static, T>>`, not `T`.
 
 ## Pros
 
-- Almost instant deserialization with minimal allocation, provided that you designed
-your type following the ε-serde guidelines or that you use standard types.
+- Almost instant deserialization with minimal allocation, provided that you
+designed your type following the ε-serde guidelines or that you use standard
+types.
 
-- The structure you get by deserialization is essentially of the same type as the structure
-you serialized (e.g., vectors become references to slices, structures remain the same
-but with different type parameters, etc.).
-This is not the case with [rkiv](https://crates.io/crates/rkyv/),
-which requires you to reimplement all methods on the deserialized type.
+- The structure you get by deserialization is the same structure you serialized,
+except that type parameters will be replaced by their associated deserialization
+type (e.g., vectors will become become references to slices). This is not the
+case with [rkiv](https://crates.io/crates/rkyv/), which requires you to
+reimplement all methods on the deserialized type.
 
 - The structure you get by deserialization has exactly the same performance as
 the structure you serialized. This is not the case with
-[zerovec](https://crates.io/crates/zerovec).
+[zerovec](https://crates.io/crates/zerovec) or
+[rkiv](https://crates.io/crates/rkyv/).
 
 - You can deserialize from read-only supports, as all dynamic information generated at
 deserialization time is stored in newly allocated memory. This is not the case with
