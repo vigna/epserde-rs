@@ -72,7 +72,8 @@ exclusive](https://github.com/rust-lang/rfcs/pull/1672#issuecomment-1405377983).
 
 For an array of elements of type `T` to be zero-copy serializable and
 deserializable, `T` must implement `CopySelector<Type=Zero>`. The conditions for this marker trait are that
-`T` is a copy type, that it has a fixed memory layout, and that it does not contain any reference.
+`T` is a [copy type](Copy), that it has a fixed memory layout,
+and that it does not contain any reference (in particular, that it has `'static` lifetime).
 If this happen vectors of `T` or boxed slices of `T` can be ε-copy deserialized
 using a reference to a slice of `T`.
 
@@ -102,8 +103,8 @@ pub trait CopyType: Sized {
 
 /// Marker trait for zero-copy types. You should never implement
 /// this trait directly, but rather implement [`CopyType`] with `Copy=Zero`.
-pub trait ZeroCopy: CopyType<Copy = Zero> + Copy + MaxSizeOf {}
-impl<T: CopyType<Copy = Zero> + Copy + MaxSizeOf> ZeroCopy for T {}
+pub trait ZeroCopy: CopyType<Copy = Zero> + Copy + MaxSizeOf + 'static {}
+impl<T: CopyType<Copy = Zero> + Copy + MaxSizeOf + 'static> ZeroCopy for T {}
 
 /// Marker trait for deep-copy types. You should never implement
 /// this trait directly, but rather implement [`CopyType`] with `Copy=Deep`.
