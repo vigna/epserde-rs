@@ -61,16 +61,14 @@ These are the main limitations you should be aware of before choosing to use
 - While we provide procedural macros that implement serialization and
 deserialization, they require that your type is written and used in a specific
 way; in particular, the fields you want to ε-copy must be type parameters
-implementing [`DeserializeInner`], to which a [deserialized
-type](https://docs.rs/epserde/latest/epserde/deser/trait.DeserializeInner.html#associatedtype.DeserType)
+implementing [`DeserializeInner`], to which a [deserialized type]
 is associated. For example, we provide implementations for `Vec<T>`/`Box<[T]>`,
 where `T` is zero-copy, or `String`/`Box<str>`, which have associated
 deserialized type `&[T]` or `&str`, respectively. Vectors and boxed slices of
 types that are not zero-copy will be deserialized recursively in memory instead.
 
 - After deserialization of a type `T`, you will obtain an associated
-deserialized type [`DeserType<'_,
-T>`](https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html), which
+deserialized type [`DeserType<'_,T>`], which
 will usually reference the underlying serialized support (e.g., a memory-mapped
 region); hence the need for a lifetime. If you need to store the deserialized
 structure in a field of a new structure you will need to couple
@@ -555,7 +553,7 @@ We strongly suggest using the procedural macro [`Epserde`]
 to make your own types serializable and deserializable. Just invoking the macro
 on your structure will make it fully functional with ε-serde. The attribute
 `#[zero_copy]` can be used to make a structure zero-copy, albeit it must satisfy
-[a few prerequisites](https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html).
+[a few prerequisites].
 
 You can also implement manually
 the traits [`CopyType`], [`MaxSizeOf`], [`TypeHash`], [`ReprHash`],
@@ -586,3 +584,6 @@ and by project ANR COREGRAPHIE, grant ANR-20-CE23-0002 of the French Agence Nati
 [`Deserialize::load_mem`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mem
 [`Deserialize::load_mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mmap
 [`Deserialize::mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.mmap
+[a few prerequisites]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html
+[deserialized type]: https://docs.rs/epserde/latest/epserde/deser/trait.DeserializeInner.html#associatedtype.DeserType
+[`DeserType<'_,T>`]: https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html
