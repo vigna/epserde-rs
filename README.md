@@ -5,6 +5,8 @@
 ![GitHub CI](https://github.com/vigna/epserde-rs/actions/workflows/rust.yml/badge.svg)
 ![license](https://img.shields.io/crates/l/epserde)
 [![](https://tokei.rs/b1/github/vigna/epserde-rs?type=Rust,Python)](https://github.com/vigna/epserde-rs)
+[![Latest version](https://img.shields.io/crates/v/epserde.svg)](https://crates.io/crates/epserde)
+[![Documentation](https://docs.rs/epserde/badge.svg)](https://docs.rs/epserde)
 
 ε-serde is a Rust framework for *ε*-copy *ser*ialization and *de*serialization.
 
