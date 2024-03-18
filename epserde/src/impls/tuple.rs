@@ -14,9 +14,7 @@ are [`ZeroCopy`] and parameterless. For tuples of more than 10 elements, tuples 
 that are not [`ZeroCopy`], or types with parameters, you must use [`epserde_derive::Epserde`] on a newtype.
 
 */
-use crate::deser::DeserializeInner;
 use crate::prelude::*;
-use crate::traits::TypeHash;
 use core::hash::Hash;
 use deser::*;
 use ser::*;

@@ -6,7 +6,7 @@
  */
 
 /// Example of zero-copy deserialization of a zero-copy struct.
-use epserde::{prelude::*, utils::AlignedCursor};
+use epserde::prelude::*;
 use maligned::A16;
 
 #[derive(Epserde, Copy, Clone, Debug)]
