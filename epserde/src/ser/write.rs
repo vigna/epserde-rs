@@ -12,6 +12,7 @@ No-std support for writing while keeping track of the current position.
  */
 
 use crate::prelude::*;
+use mem_dbg::{MemDbg, MemSize};
 
 /// [`std::io::Write`]-like trait for serialization that does not
 /// depend on [`std`].
@@ -54,6 +55,7 @@ pub trait WriteWithPos: WriteNoStd {
 
 /// A wrapper for a [`WriteNoStd`] that implements [`WriteWithPos`]
 /// by keeping track of the current position.
+#[derive(Debug, MemDbg, MemSize)]
 pub struct WriterWithPos<'a, F: WriteNoStd> {
     /// What we actually write on.
     backend: &'a mut F,

@@ -8,6 +8,7 @@ use core::slice;
 use std::io::{Read, Seek, SeekFrom, Write};
 
 use maligned::{Alignment, A16};
+use mem_dbg::{MemDbg, MemSize};
 
 /// An aligned version of [`Cursor`](std::io::Cursor).
 ///
@@ -19,7 +20,7 @@ use maligned::{Alignment, A16};
 /// Note that length and position are stored as `usize` values, so the maximum
 /// length and position are `usize::MAX`. This is different from
 /// [`Cursor`](std::io::Cursor), which uses a `u64`.
-
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct AlignedCursor<T: Alignment = A16> {
     vec: Vec<T>,
     pos: usize,

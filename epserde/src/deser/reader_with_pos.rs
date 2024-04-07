@@ -8,9 +8,11 @@
 use crate::prelude::*;
 
 use super::ReadNoStd;
+use mem_dbg::{MemDbg, MemSize};
 
 /// A wrapper for a [`ReadNoStd`] that implements [`ReadWithPos`]
 /// by keeping track of the current position.
+#[derive(Debug, MemDbg, MemSize)]
 pub struct ReaderWithPos<'a, F: ReadNoStd> {
     /// What we actually readfrom
     backend: &'a mut F,

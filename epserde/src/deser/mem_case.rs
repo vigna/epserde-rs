@@ -7,6 +7,7 @@
 use bitflags::bitflags;
 use core::{mem::size_of, ops::Deref};
 use maligned::A64;
+use mem_dbg::{MemDbg, MemSize};
 
 bitflags! {
     /// Flags for [`map`] and [`load_mmap`].
@@ -65,6 +66,7 @@ pub type MemoryAlignment = A64;
 /// from a file loaded into a heap-allocated memory region; the `Mmap` variant is used when
 /// the data structure is deserialized from a `mmap()`-based region, either coming from
 /// an allocation or a from mapping a file.
+#[derive(Debug, MemDbg, MemSize)]
 pub enum MemBackend {
     /// No backend. The data structure is a standard Rust data structure.
     /// This variant is returned by [`MemCase::encase`].
@@ -106,7 +108,7 @@ impl MemBackend {
 /// wrapped type, using the no-op [`None`](`MemBackend#variant.None`) variant
 /// of [`MemBackend`], so a structure can be [encased](MemCase::encase)
 /// almost transparently.
-
+#[derive(Debug, MemDbg, MemSize)]
 pub struct MemCase<S>(pub(crate) S, pub(crate) MemBackend);
 
 impl<S> MemCase<S> {

@@ -16,6 +16,7 @@ events happening during a serialization.
 */
 
 use super::*;
+use mem_dbg::{MemDbg, MemSize};
 
 /// Trait extending [`WriteWithPos`] with methods providing
 /// alignment, serialization of named data, and writing of byte slices
@@ -69,7 +70,7 @@ impl<F: WriteNoStd> WriteWithNames for WriterWithPos<'_, F> {}
 
 /// Information about data written during serialization, either fields or
 /// ancillary data such as option tags and slice lengths.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct SchemaRow {
     /// Name of the piece of data.
     pub field: String,
@@ -84,7 +85,7 @@ pub struct SchemaRow {
     pub align: usize,
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, MemDbg, MemSize)]
 /// A vector containing all the fields written during serialization, including
 /// ancillary data such as slice lengths and [`Option`] tags.
 pub struct Schema(pub Vec<SchemaRow>);
@@ -149,6 +150,7 @@ impl Schema {
 
 /// A [`WriteWithNames`] that keeps track of the data written on an underlying
 /// [`WriteWithPos`] in a [`Schema`].
+#[derive(Debug, MemDbg, MemSize)]
 pub struct SchemaWriter<'a, W> {
     /// The schema so far.
     pub schema: Schema,
