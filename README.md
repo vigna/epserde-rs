@@ -541,6 +541,10 @@ the hood because `BitFieldVec` is ε-serde-aware, and in fact you will not even
 notice the difference if you access both versions using the trait
 `BitFieldSlice`.
 
+## MemDbg / MemSize
+
+All ε-serde structures implement the [`MemDbg`] and [`MemSize`] traits.
+
 ## Derived and hand-made implementations
 
 We strongly suggest using the procedural macro [`Epserde`] to make your own
@@ -588,3 +592,5 @@ grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
 [rkiv]: <https://crates.io/crates/rkyv/>
 [zerovec]: <https://crates.io/crates/zerovec>
 [mmap_rs]: <https://crates.io/crates/mmap-rs>
+[`MemDbg`]: https://docs.rs/mem_dbg/latest/mem_dbg/trait.MemDbg.html
+[`MemSize`]: https://docs.rs/mem_dbg/latest/mem_dbg/trait.MemSize.html
