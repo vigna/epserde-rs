@@ -55,7 +55,7 @@ pub trait WriteWithPos: WriteNoStd {
 
 /// A wrapper for a [`WriteNoStd`] that implements [`WriteWithPos`]
 /// by keeping track of the current position.
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, MemDbg, MemSize)]
 pub struct WriterWithPos<'a, F: WriteNoStd> {
     /// What we actually write on.
     backend: &'a mut F,

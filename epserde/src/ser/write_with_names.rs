@@ -150,7 +150,7 @@ impl Schema {
 
 /// A [`WriteWithNames`] that keeps track of the data written on an underlying
 /// [`WriteWithPos`] in a [`Schema`].
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, MemDbg, MemSize)]
 pub struct SchemaWriter<'a, W> {
     /// The schema so far.
     pub schema: Schema,
