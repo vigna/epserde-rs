@@ -18,6 +18,7 @@ anyhow = "1.0.79"
 sealed = "0.5.0"
 maligned = "0.2.1"
 common_traits = "0.10.2"
+mem_dbg = "0.1.5"
 
 [features]
 default = ["std", "mmap-rs", "derive"]

@@ -7,10 +7,11 @@
 
 use super::*;
 use crate::prelude::*;
+use mem_dbg::{MemDbg, MemSize};
 
 /// [`std::io::Cursor`]-like trait for deserialization that does not
 /// depend on [`std`].
-#[derive(Debug)]
+#[derive(Debug, Clone, MemDbg, MemSize)]
 pub struct SliceWithPos<'a> {
     pub data: &'a [u8],
     pub pos: usize,
