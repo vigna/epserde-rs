@@ -360,9 +360,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#generics_names>;
 
-                        fn _deserialize_eps_inner<'a>(
-                            backend: &mut epserde::deser::SliceWithPos<'a>,
-                        ) -> core::result::Result<Self::DeserType<'a>, epserde::deser::Error>
+                        fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
+                            backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
+                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
                         {
                             epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
                         }
@@ -411,9 +411,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
 
-                        fn _deserialize_eps_inner<'a>(
-                            backend: &mut epserde::deser::SliceWithPos<'a>,
-                        ) -> core::result::Result<Self::DeserType<'a>, epserde::deser::Error>
+                        fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
+                            backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
+                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
                         {
                             use epserde::deser::DeserializeInner;
                             Ok(#name{
@@ -673,9 +673,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#generics_names>;
 
-                        fn _deserialize_eps_inner<'a>(
-                            backend: &mut epserde::deser::SliceWithPos<'a>,
-                        ) -> core::result::Result<Self::DeserType<'a>, epserde::deser::Error>
+                        fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
+                            backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
+                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
                         {
                             epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
                         }
@@ -727,9 +727,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
 
-                        fn _deserialize_eps_inner<'a>(
-                            backend: &mut epserde::deser::SliceWithPos<'a>,
-                        ) -> core::result::Result<Self::DeserType<'a>, epserde::deser::Error>
+                        fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
+                            backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
+                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
                         {
                             use epserde::deser::DeserializeInner;
                             match usize::_deserialize_full_inner(backend)? {
