@@ -5,6 +5,8 @@
 ### Changed
 
 * Updated MemDbg to 0.2.1
+* Added const generic parameters to type hash
+* Fixed handling of zero-sized zerocopy struct's eps_deserialization
 
 
 ## [0.5.1] - 2024-03-18

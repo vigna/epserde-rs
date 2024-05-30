@@ -66,3 +66,36 @@ fn test_inner_param_eps() {
     let eps = <Data2<usize, Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(data.a, eps.a);
 }
+
+#[derive(Epserde, Debug, PartialEq, Eq, Clone, Copy)]
+#[zero_copy]
+#[repr(C)]
+struct Data3<const N: usize = 10>;
+
+#[test]
+fn test_consts() {
+    // Create a new value to serialize
+    let data = Data3::<11> {};
+
+    let mut cursor = <AlignedCursor<A16>>::new();
+    // Serialize
+    let _bytes_written = data.serialize(&mut cursor).unwrap();
+    cursor.set_position(0);
+
+    // with a different const the deserialization should fail
+    let eps = <Data3<12>>::deserialize_full(&mut cursor);
+    assert!(eps.is_err());
+
+    // Do a full-copy deserialization
+    cursor.set_position(0);
+    let full = <Data3<11>>::deserialize_full(&mut cursor).unwrap();
+    assert_eq!(data, full);
+
+    // Do an ε-copy deserialization
+    let eps = <Data3<11>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    assert_eq!(&data, eps);
+
+    // with a different const the deserialization should fail
+    let eps = <Data3<12>>::deserialize_eps(cursor.as_bytes());
+    assert!(eps.is_err());
+}

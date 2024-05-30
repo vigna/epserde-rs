@@ -71,6 +71,12 @@ pub fn deserialize_eps_zero<'a, T: ZeroCopy>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<&'a T> {
     let bytes = core::mem::size_of::<T>();
+    if bytes == 0 {
+        // SAFETY: T is zero-sized and `assume_init` is safe.
+        #[allow(invalid_value)]
+        #[allow(clippy::uninit_assumed_init)]
+        return Ok(unsafe { MaybeUninit::uninit().assume_init() });
+    }
     backend.align::<T>()?;
     let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<T>() };
     debug_assert!(pre.is_empty());

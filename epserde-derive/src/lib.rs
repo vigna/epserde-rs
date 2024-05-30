@@ -32,11 +32,13 @@ struct CommonDeriveInput {
     generics_names: proc_macro2::TokenStream,
     /// A vector containing the name of generics types, represented as strings.
     generics_names_raw: Vec<String>,
-    /// A vector containing the identifier of the constants, represented as strings.
-    /// Used to include the const values into the type hash.
-    //consts_names_raw: Vec<String>,
     /// The where clause.
     where_clause: proc_macro2::TokenStream,
+    /// A vector containing the identifier of the constants, represented as strings.
+    /// Used to include the const values into the type hash.
+    //const_names_raw: Vec<String>,
+    /// A vector containing the identifiers of the generic constants.
+    const_names_vec: Vec<syn::Ident>,
 }
 
 impl CommonDeriveInput {
@@ -50,6 +52,10 @@ impl CommonDeriveInput {
         //let mut consts_names_raw = vec![];
         let mut generics_name_vec = vec![];
         let mut generics_names = quote!();
+
+        let mut const_names_vec = vec![];
+        //let mut const_names_raw = vec![];
+
         if !input.generics.params.is_empty() {
             input.generics.params.into_iter().for_each(|x| {
                 match x {
@@ -83,6 +89,8 @@ impl CommonDeriveInput {
                                           // otherwise we can't use them in the impl generics
                         generics.extend(quote!(#c,));
                         generics_name_vec.push(c.ident.to_token_stream());
+                        const_names_vec.push(c.ident.clone());
+                        //const_names_raw.push(c.ident.to_string());
                     }
                 };
                 generics_names.extend(quote!(,))
@@ -102,8 +110,9 @@ impl CommonDeriveInput {
             generics_names,
             where_clause,
             generics_names_raw,
-            //consts_names_raw,
             generics_name_vec,
+            //const_names_raw,
+            const_names_vec,
         }
     }
 }
@@ -768,7 +777,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         generics_names,
         where_clause,
         //generics_names_raw,
-        //consts_names_raw,
+        const_names_vec,
         ..
     } = CommonDeriveInput::new(
         input.clone(),
@@ -840,6 +849,9 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             #(
                                 #fields_names.hash(hasher);
                             )*
+                            #(
+                                #const_names_vec.hash(hasher);
+                            )*
                             // Recurse on all fields.
                             #(
                                 <#fields_types as epserde::traits::TypeHash>::type_hash(hasher);
@@ -902,6 +914,9 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             #name_literal.hash(hasher);
                             #(
                                 #fields_names.hash(hasher);
+                            )*
+                            #(
+                                #const_names_vec.hash(hasher);
                             )*
                             // Recurse on all fields.
                             #(
@@ -1029,6 +1044,9 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             // Hash in struct and field names.
                             #name_literal.hash(hasher);
                             #(
+                                #const_names_vec.hash(hasher);
+                            )*
+                            #(
                                 #var_type_hashes
                             )*
                         }
@@ -1083,6 +1101,9 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             "DeepCopy".hash(hasher);
                             // Hash in struct and field names.
                             #name_literal.hash(hasher);
+                            #(
+                                #const_names_vec.hash(hasher);
+                            )*
                             #(
                                 #var_type_hashes
                             )*
