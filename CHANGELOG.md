@@ -1,5 +1,12 @@
 # Change Log
 
+## [0.5.2] - 2024-05-30
+
+### Changed
+
+* Updated MemDbg to 0.2.1
+
+
 ## [0.5.1] - 2024-03-18
 
 ### Changed
