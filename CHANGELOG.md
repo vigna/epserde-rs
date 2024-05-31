@@ -5,8 +5,7 @@
 ### Changed
 
 * Updated MemDbg to 0.2.1
-
-* Added const generic parameters to type hash.
+* Added const generic parameters values and names to type hash.
 
 ### Fixed
 
