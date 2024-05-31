@@ -39,6 +39,9 @@ struct CommonDeriveInput {
     //const_names_raw: Vec<String>,
     /// A vector containing the identifiers of the generic constants.
     const_names_vec: Vec<syn::Ident>,
+    /// A vector containing the identifier of the constants, represented as strings.
+    /// Used to include the const values into the type hash.
+    const_names_raw: Vec<String>,
 }
 
 impl CommonDeriveInput {
@@ -49,12 +52,11 @@ impl CommonDeriveInput {
         let name = input.ident;
         let mut generics = quote!();
         let mut generics_names_raw = vec![];
-        //let mut consts_names_raw = vec![];
         let mut generics_name_vec = vec![];
         let mut generics_names = quote!();
 
         let mut const_names_vec = vec![];
-        //let mut const_names_raw = vec![];
+        let mut const_names_raw = vec![];
 
         if !input.generics.params.is_empty() {
             input.generics.params.into_iter().for_each(|x| {
@@ -83,14 +85,14 @@ impl CommonDeriveInput {
                     }
                     syn::GenericParam::Const(mut c) => {
                         generics_names.extend(c.ident.to_token_stream());
-                        //consts_names_raw.push(c.ident.to_string());
+                        const_names_raw.push(c.ident.to_string());
 
                         c.default = None; // remove the defaults from the const generics
                                           // otherwise we can't use them in the impl generics
                         generics.extend(quote!(#c,));
                         generics_name_vec.push(c.ident.to_token_stream());
                         const_names_vec.push(c.ident.clone());
-                        //const_names_raw.push(c.ident.to_string());
+                        const_names_raw.push(c.ident.to_string());
                     }
                 };
                 generics_names.extend(quote!(,))
@@ -111,7 +113,7 @@ impl CommonDeriveInput {
             where_clause,
             generics_names_raw,
             generics_name_vec,
-            //const_names_raw,
+            const_names_raw,
             const_names_vec,
         }
     }
@@ -778,6 +780,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         where_clause,
         //generics_names_raw,
         const_names_vec,
+        const_names_raw,
         ..
     } = CommonDeriveInput::new(
         input.clone(),
@@ -844,13 +847,17 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             use core::hash::Hash;
                             // Hash in ZeroCopy
                             "ZeroCopy".hash(hasher);
+                            // Hash the generic const values and names
+                            #(
+                                #const_names_vec.hash(hasher);
+                            )*
+                            #(
+                                #const_names_raw.hash(hasher);
+                            )*
                             // Hash in struct and field names.
                             #name_literal.hash(hasher);
                             #(
                                 #fields_names.hash(hasher);
-                            )*
-                            #(
-                                #const_names_vec.hash(hasher);
                             )*
                             // Recurse on all fields.
                             #(
@@ -910,13 +917,17 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             // No alignment, so we do not hash in anything.
                             // Hash in DeepCopy
                             "DeepCopy".hash(hasher);
+                            // Hash the generic const values and names
+                            #(
+                                #const_names_vec.hash(hasher);
+                            )*
+                            #(
+                                #const_names_raw.hash(hasher);
+                            )*
                             // Hash in struct and field names.
                             #name_literal.hash(hasher);
                             #(
                                 #fields_names.hash(hasher);
-                            )*
-                            #(
-                                #const_names_vec.hash(hasher);
                             )*
                             // Recurse on all fields.
                             #(
@@ -1041,11 +1052,15 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             use core::hash::Hash;
                             // Hash in ZeroCopy
                             "ZeroCopy".hash(hasher);
-                            // Hash in struct and field names.
-                            #name_literal.hash(hasher);
+                            // Hash the generic const values and names
                             #(
                                 #const_names_vec.hash(hasher);
                             )*
+                            #(
+                                #const_names_raw.hash(hasher);
+                            )*
+                            // Hash in struct and field names.
+                            #name_literal.hash(hasher);
                             #(
                                 #var_type_hashes
                             )*
@@ -1099,11 +1114,15 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             // No alignment, so we do not hash in anything.
                             // Hash in DeepCopy
                             "DeepCopy".hash(hasher);
-                            // Hash in struct and field names.
-                            #name_literal.hash(hasher);
+                            // Hash the generic const values and names
                             #(
                                 #const_names_vec.hash(hasher);
                             )*
+                            #(
+                                #const_names_raw.hash(hasher);
+                            )*
+                            // Hash in struct and field names.
+                            #name_literal.hash(hasher);
                             #(
                                 #var_type_hashes
                             )*
