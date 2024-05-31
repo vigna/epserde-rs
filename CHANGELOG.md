@@ -5,15 +5,19 @@
 ### Changed
 
 * Updated MemDbg to 0.2.1
-* Added const generic parameters to type hash
-* Fixed handling of zero-sized zerocopy struct's eps_deserialization
+
+* Added const generic parameters to type hash.
+
+### Fixed
+
+* Fixed handling of zero-sized zero-copy structs eps_deserialization.
 
 
 ## [0.5.1] - 2024-03-18
 
 ### Changed
 
-* Added MemDbg, MemSize, and Debug to most structs .
+* Added MemDbg, MemSize, and Debug to most structs.
 
 ### Fixed
 
