@@ -1,5 +1,12 @@
 # Change Log
 
+## [0.6.1] - 2024-06-03
+
+### Fixed
+
+* Added missing implementation of MaxSizeOf for PhantomData.
+
+
 ## [0.6.0] - 2024-06-03
 
 ### Changed
