@@ -245,10 +245,17 @@ impl DeserializeInner for () {
     }
 }
 
-// PhantomData is zero-copy. No reading or writing is performed when (de)serializing it.
+// PhantomData is zero-copy. No reading or writing is performed when
+// (de)serializing it.
 
 impl<T: ?Sized> CopyType for PhantomData<T> {
     type Copy = Zero;
+}
+
+impl<T: ?Sized> MaxSizeOf for PhantomData<T> {
+    fn max_size_of() -> usize {
+        0
+    }
 }
 
 impl<T: ?Sized + TypeHash> TypeHash for PhantomData<T> {

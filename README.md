@@ -82,13 +82,13 @@ your original type is `T` the field of the new structure will have to be of type
 
 ## Pros
 
-- Almost instant deserialization with minimal allocation, provided that you
+- Almost instant deserialization with minimal allocation provided that you
 designed your type following the ε-serde guidelines or that you use standard
 types.
 
 - The structure you get by deserialization is the same structure you serialized,
 except that type parameters will be replaced by their associated deserialization
-type (e.g., vectors will become become references to slices). This is not the
+type (e.g., vectors will become references to slices). This is not the
 case with [rkiv], which requires you to reimplement all methods on the
 deserialized type.
 
@@ -374,7 +374,9 @@ assert_eq!(s.sum(), t.sum());
 Internal parameters, that is, parameters used by the types of your fields but
 that do not represent the type of your fields are left untouched. However, to be
 serializable they must be classified as deep-copy or zero-copy, and in the first
-case they must have a `'static` lifetime. For example,
+case they must have a `'static` lifetime. The only exception to this rule is
+for types inside a [`PhantomData`], which do not even need to be serializable.
+For example,
 
 ```rust
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -405,9 +407,10 @@ type.
 
 ## Example: Zero-copy structures with parameters
 
-For zero-copy structure, things are slightly different because types are not
+For zero-copy structures, things are slightly different because types are not
 substituted, even if they represent the type of your fields. So all parameters
-must be zero-copy. For example,
+must be zero-copy. This must hold even for types inside a [`PhantomData`].
+For example,
 
 ```rust
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -594,3 +597,4 @@ grant ANR-20-CE23-0002 of the French Agence Nationale de la Recherche.
 [mmap_rs]: <https://crates.io/crates/mmap-rs>
 [`MemDbg`]: https://docs.rs/mem_dbg/latest/mem_dbg/trait.MemDbg.html
 [`MemSize`]: https://docs.rs/mem_dbg/latest/mem_dbg/trait.MemSize.html
+[`PhantomData`]: <https://doc.rust-lang.org/std/marker/struct.PhantomData.html>

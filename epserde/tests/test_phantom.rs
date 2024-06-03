@@ -28,31 +28,104 @@ fn test_phantom() {
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
-struct Data<A> {
-    a: PhantomData<A>,
+struct DataFull<A> {
+    a: usize,
+    b: PhantomData<A>,
 }
-
 #[derive(Debug, PartialEq, Eq, Clone, Default, TypeInfo)]
-struct NotSerializable;
+struct NotSerializableType;
 
+/// Test that we can serialize a PhantomData of a non-serializable type
+/// in a full-copy type.
+/// This should be a no-op.
 #[test]
-/// Test that we can serialize a Phantom Data of a non-serializable type
-/// This should be a NOOP
 fn test_not_serializable_in_phantom() {
-    let obj = <Data<NotSerializable>>::default();
+    // Full copy with a non-serializable type
+    let obj = <DataFull<NotSerializableType>>::default();
+
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
     let _bytes_written = obj.serialize(&mut cursor).unwrap();
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = <Data<NotSerializable>>::deserialize_full(&mut cursor).unwrap();
+    let full = <DataFull<NotSerializableType>>::deserialize_full(&mut cursor).unwrap();
     assert_eq!(obj, full);
 
     println!();
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let eps = <Data<NotSerializable>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = <DataFull<NotSerializableType>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    assert_eq!(obj.a, eps.a);
+}
+
+#[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
+#[repr(C)]
+#[zero_copy]
+struct DataZero<A: Default + ZeroCopy> {
+    a: usize,
+    b: PhantomData<A>,
+}
+#[derive(Epserde, Debug, Copy, PartialEq, Eq, Clone, Default)]
+#[repr(C)]
+#[zero_copy]
+struct ZeroCopyType;
+
+/// Test that we can serialize a PhantomData in a zero-copy
+/// type if the argument of the PhantomData is zero-copy.
+/// This should be a no-op.
+#[test]
+fn test_phantom_zero_copy() {
+    // Zero copy needs a zero-copy type, even if inside a PhantomData
+    let obj = <DataZero<ZeroCopyType>>::default();
+
+    let mut cursor = <AlignedCursor<A16>>::new();
+    // Serialize
+    let _bytes_written = obj.serialize(&mut cursor).unwrap();
+
+    // Do a full-copy deserialization
+    cursor.set_position(0);
+    let zero = <DataZero<ZeroCopyType>>::deserialize_full(&mut cursor).unwrap();
+    assert_eq!(obj, zero);
+
+    println!();
+
+    // Do an ε-copy deserialization
+    cursor.set_position(0);
+    let eps = <DataZero<ZeroCopyType>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    assert_eq!(obj.a, eps.a);
+}
+
+#[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
+#[repr(C)]
+#[zero_copy]
+struct OnlyPhantom<A: Default + ZeroCopy> {
+    a: PhantomData<A>,
+    b: PhantomData<(A, A)>,
+}
+
+/// Test that we can serialize a zero-copy type containing a single
+/// PhantomData.
+/// This should be a no-op.
+#[test]
+fn test_only_phantom() {
+    // Zero copy needs a zero-copy type, even if inside a PhantomData
+    let obj = <OnlyPhantom<ZeroCopyType>>::default();
+
+    let mut cursor = <AlignedCursor<A16>>::new();
+    // Serialize
+    let _bytes_written = obj.serialize(&mut cursor).unwrap();
+
+    // Do a full-copy deserialization
+    cursor.set_position(0);
+    let zero = <OnlyPhantom<ZeroCopyType>>::deserialize_full(&mut cursor).unwrap();
+    assert_eq!(obj, zero);
+
+    println!();
+
+    // Do an ε-copy deserialization
+    cursor.set_position(0);
+    let eps = <OnlyPhantom<ZeroCopyType>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(obj.a, eps.a);
 }
