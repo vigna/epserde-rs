@@ -1,13 +1,16 @@
 # Change Log
 
-## [0.5.2] - 2024-05-30
+## [0.6.0] - 2024-06-03
 
 ### Changed
 
-* Updated MemDbg to 0.2.1
-* Added const generic parameters values and names to type hash.
+* Updated MemDbg to 0.2.1.
 
 ### Fixed
+
+* Added const generic parameters values and names to type hash. Note that
+  this change will invalidate type hashes for structures with generic
+  constants.
 
 * Fixed handling of zero-sized zero-copy structs eps_deserialization.
 

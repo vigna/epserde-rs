@@ -23,25 +23,25 @@ struct CommonDeriveInput {
     /// The identifier of the struct.
     name: syn::Ident,
     /// The token stream to be used after `impl` in angle brackets. It contains
-    /// the generics, lifetimes, and consts, with their trait bounds.
+    /// the generic types, lifetimes, and constants, with their trait bounds.
     generics: proc_macro2::TokenStream,
     /// A vector containing the identifiers of the generics.
     generics_name_vec: Vec<proc_macro2::TokenStream>,
     /// Same as `generics_name_vec`, but names are concatenated
-    /// and separated by commans.
+    /// and separated by commas.
     generics_names: proc_macro2::TokenStream,
     /// A vector containing the name of generics types, represented as strings.
-    generics_names_raw: Vec<String>,
+    /// Used to include the identifiers of generic types into the type hash.
+    type_names_raw: Vec<String>,
+    /// A vector containing the identifiers of the generic constants.
+    /// Used to include the generic constant values into the type hash.
+    const_names_vec: Vec<syn::Ident>,
+    /// A vector containing the identifier of the generic constants, represented
+    /// as strings. Used to include the identifiers of generic constants into
+    /// the type hash.
+    const_names_raw: Vec<String>,
     /// The where clause.
     where_clause: proc_macro2::TokenStream,
-    /// A vector containing the identifier of the constants, represented as strings.
-    /// Used to include the const values into the type hash.
-    //const_names_raw: Vec<String>,
-    /// A vector containing the identifiers of the generic constants.
-    const_names_vec: Vec<syn::Ident>,
-    /// A vector containing the identifier of the constants, represented as strings.
-    /// Used to include the const values into the type hash.
-    const_names_raw: Vec<String>,
 }
 
 impl CommonDeriveInput {
@@ -51,7 +51,7 @@ impl CommonDeriveInput {
     fn new(input: DeriveInput, traits_to_add: Vec<syn::Path>) -> Self {
         let name = input.ident;
         let mut generics = quote!();
-        let mut generics_names_raw = vec![];
+        let mut type_names_raw = vec![];
         let mut generics_name_vec = vec![];
         let mut generics_names = quote!();
 
@@ -63,7 +63,7 @@ impl CommonDeriveInput {
                 match x {
                     syn::GenericParam::Type(mut t) => {
                         generics_names.extend(t.ident.to_token_stream());
-                        generics_names_raw.push(t.ident.to_string());
+                        type_names_raw.push(t.ident.to_string());
 
                         t.default = None;
                         for trait_to_add in traits_to_add.iter() {
@@ -92,7 +92,6 @@ impl CommonDeriveInput {
                         generics.extend(quote!(#c,));
                         generics_name_vec.push(c.ident.to_token_stream());
                         const_names_vec.push(c.ident.clone());
-                        const_names_raw.push(c.ident.to_string());
                     }
                 };
                 generics_names.extend(quote!(,))
@@ -111,7 +110,7 @@ impl CommonDeriveInput {
             generics,
             generics_names,
             where_clause,
-            generics_names_raw,
+            type_names_raw,
             generics_name_vec,
             const_names_raw,
             const_names_vec,
@@ -176,7 +175,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
     let CommonDeriveInput {
         name,
         generics_names,
-        generics_names_raw,
+        type_names_raw,
         generics_name_vec,
         generics,
         ..
@@ -212,7 +211,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     .map(|x| x.to_token_stream())
                     .unwrap_or_else(|| syn::Index::from(field_idx).to_token_stream());
 
-                if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                if type_names_raw.contains(&ty.to_token_stream().to_string()) {
                     generic_fields.push(field_name.clone());
                     generic_types.push(ty);
                 } else {
@@ -229,7 +228,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
             s.fields.iter().for_each(|field| {
                 let ty = &field.ty;
-                if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                if type_names_raw.contains(&ty.to_token_stream().to_string()) {
                     methods.push(syn::parse_quote!(_deserialize_eps_inner));
                 } else {
                     methods.push(syn::parse_quote!(_deserialize_full_inner));
@@ -479,7 +478,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .iter()
                         .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
                         .for_each(|(ident, ty)| {
-                            if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                            if type_names_raw.contains(&ty.to_token_stream().to_string()) {
                                 generic_fields.push(ident.to_token_stream());
                                 generic_types.push(ty.to_token_stream());
                             } else {
@@ -514,7 +513,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                     bounds: bounds_des,
                             }));
 
-                            if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                            if type_names_raw.contains(&ty.to_token_stream().to_string()) {
                                 methods.push(syn::parse_quote!(_deserialize_eps_inner));
                             } else {
                                 methods.push(syn::parse_quote!(_deserialize_full_inner));
@@ -555,7 +554,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .for_each(|(field_idx, unnamed)| {
                             let ty = &unnamed.ty;
                             let ident = syn::Index::from(field_idx);
-                            if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                            if type_names_raw.contains(&ty.to_token_stream().to_string()) {
                                 generic_fields.push(ident.to_token_stream());
                                 generic_types.push(ty.to_token_stream());
                             } else {
@@ -595,7 +594,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                     bounds: bounds_des,
                             }));
 
-                            if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                            if type_names_raw.contains(&ty.to_token_stream().to_string()) {
                                 methods.push(syn::parse_quote!(_deserialize_eps_inner));
                             } else {
                                 methods.push(syn::parse_quote!(_deserialize_full_inner));
@@ -778,7 +777,6 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         generics: generics_typehash,
         generics_names,
         where_clause,
-        //generics_names_raw,
         const_names_vec,
         const_names_raw,
         ..
@@ -847,10 +845,11 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             use core::hash::Hash;
                             // Hash in ZeroCopy
                             "ZeroCopy".hash(hasher);
-                            // Hash the generic const values and names
+                            // Hash the values of generic constants
                             #(
                                 #const_names_vec.hash(hasher);
                             )*
+                            // Hash the identifiers of generic constants
                             #(
                                 #const_names_raw.hash(hasher);
                             )*
@@ -917,10 +916,11 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             // No alignment, so we do not hash in anything.
                             // Hash in DeepCopy
                             "DeepCopy".hash(hasher);
-                            // Hash the generic const values and names
+                            // Hash the values of generic constants
                             #(
                                 #const_names_vec.hash(hasher);
                             )*
+                            // Hash the identifiers of generic constants
                             #(
                                 #const_names_raw.hash(hasher);
                             )*
@@ -1052,10 +1052,11 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             use core::hash::Hash;
                             // Hash in ZeroCopy
                             "ZeroCopy".hash(hasher);
-                            // Hash the generic const values and names
+                            // Hash the values of generic constants
                             #(
                                 #const_names_vec.hash(hasher);
                             )*
+                            // Hash the identifiers of generic constants
                             #(
                                 #const_names_raw.hash(hasher);
                             )*
@@ -1114,10 +1115,11 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             // No alignment, so we do not hash in anything.
                             // Hash in DeepCopy
                             "DeepCopy".hash(hasher);
-                            // Hash the generic const values and names
+                            // Hash the values of generic constants
                             #(
                                 #const_names_vec.hash(hasher);
                             )*
+                            // Hash the identifiers of generic constants
                             #(
                                 #const_names_raw.hash(hasher);
                             )*
