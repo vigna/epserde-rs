@@ -1,5 +1,14 @@
 # Change Log
 
+## [0.6.2] - 2024-07-19
+
+### Fixed
+
+* Added missing implementation of `TypeHash`, `ReprHash`, `MaxSizeOf`, 
+  `SerializeInner`, `DeserializeInner` for:
+  `Range`, `RangeFrom`, `RangeFull`, `RangeInclusive`, `RangeTo`, 
+  `RangeToInclusive`, `Bound`, `ControlFlow`.
+
 ## [0.6.1] - 2024-06-03
 
 ### Fixed
