@@ -8,7 +8,10 @@
 use ser::WriteWithNames;
 
 use crate::prelude::*;
-use core::{hash::Hash, ops::{Bound, RangeBounds}};
+use core::{
+    hash::Hash,
+    ops::{Bound, RangeBounds},
+};
 use std::collections::hash_map::DefaultHasher;
 
 impl TypeHash for DefaultHasher {
@@ -154,7 +157,6 @@ impl<Idx: DeserializeInner> DeserializeInner for core::ops::RangeInclusive<Idx> 
     }
 }
 
-
 impl<Idx: SerializeInner> SerializeInner for core::ops::RangeTo<Idx> {
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -255,7 +257,7 @@ impl DeserializeInner for core::ops::RangeFull {
     }
 }
 
-impl<T: CopyType>  CopyType for core::ops::Bound<T> {
+impl<T: CopyType> CopyType for core::ops::Bound<T> {
     type Copy = Deep;
 }
 
@@ -290,11 +292,11 @@ impl<T: SerializeInner> SerializeInner for core::ops::Bound<T> {
             core::ops::Bound::Included(val) => {
                 backend.write("Tag", &1_u8)?;
                 backend.write("Included", val)
-            },
+            }
             core::ops::Bound::Excluded(val) => {
                 backend.write("Tag", &2_u8)?;
                 backend.write("Excluded", val)
-            },
+            }
         }
     }
 }
@@ -305,8 +307,12 @@ impl<T: DeserializeInner> DeserializeInner for core::ops::Bound<T> {
         let tag = u8::_deserialize_full_inner(backend)?;
         match tag {
             0 => Ok(core::ops::Bound::Unbounded),
-            1 => Ok(core::ops::Bound::Included(T::_deserialize_full_inner(backend)?)),
-            2 => Ok(core::ops::Bound::Excluded(T::_deserialize_full_inner(backend)?)),
+            1 => Ok(core::ops::Bound::Included(T::_deserialize_full_inner(
+                backend,
+            )?)),
+            2 => Ok(core::ops::Bound::Excluded(T::_deserialize_full_inner(
+                backend,
+            )?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
@@ -318,8 +324,12 @@ impl<T: DeserializeInner> DeserializeInner for core::ops::Bound<T> {
         let tag = u8::_deserialize_full_inner(backend)?;
         match tag {
             0 => Ok(core::ops::Bound::Unbounded),
-            1 => Ok(core::ops::Bound::Included(T::_deserialize_eps_inner(backend)?)),
-            2 => Ok(core::ops::Bound::Excluded(T::_deserialize_eps_inner(backend)?)),
+            1 => Ok(core::ops::Bound::Included(T::_deserialize_eps_inner(
+                backend,
+            )?)),
+            2 => Ok(core::ops::Bound::Excluded(T::_deserialize_eps_inner(
+                backend,
+            )?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
@@ -363,12 +373,11 @@ impl<B: SerializeInner, C: SerializeInner> SerializeInner for core::ops::Control
             core::ops::ControlFlow::Break(br) => {
                 backend.write("Tag", &0_u8)?;
                 backend.write("Break", br)
-                
-            },
+            }
             core::ops::ControlFlow::Continue(val) => {
                 backend.write("Tag", &1_u8)?;
                 backend.write("Continue", val)
-            },
+            }
         }
     }
 }
@@ -378,20 +387,31 @@ impl<B: DeserializeInner, C: DeserializeInner> DeserializeInner for core::ops::C
     fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let tag = u8::_deserialize_full_inner(backend)?;
         match tag {
-            1 => Ok(core::ops::ControlFlow::Break(B::_deserialize_full_inner(backend)?)),
-            2 => Ok(core::ops::ControlFlow::Continue(C::_deserialize_full_inner(backend)?)),
+            1 => Ok(core::ops::ControlFlow::Break(B::_deserialize_full_inner(
+                backend,
+            )?)),
+            2 => Ok(core::ops::ControlFlow::Continue(
+                C::_deserialize_full_inner(backend)?,
+            )),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
-    type DeserType<'a> = core::ops::ControlFlow<<B as DeserializeInner>::DeserType<'a>, <C as DeserializeInner>::DeserType<'a>>;
+    type DeserType<'a> = core::ops::ControlFlow<
+        <B as DeserializeInner>::DeserType<'a>,
+        <C as DeserializeInner>::DeserType<'a>,
+    >;
     #[inline(always)]
     fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let tag = u8::_deserialize_full_inner(backend)?;
         match tag {
-            1 => Ok(core::ops::ControlFlow::Break(B::_deserialize_eps_inner(backend)?)),
-            2 => Ok(core::ops::ControlFlow::Continue(C::_deserialize_eps_inner(backend)?)),
+            1 => Ok(core::ops::ControlFlow::Break(B::_deserialize_eps_inner(
+                backend,
+            )?)),
+            2 => Ok(core::ops::ControlFlow::Continue(C::_deserialize_eps_inner(
+                backend,
+            )?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
