@@ -322,31 +322,52 @@ pub trait DeserializeHelper<T: CopySelector> {
     ) -> Result<Self::DeserType<'a>>;
 }
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 /// Errors that can happen during deserialization.
 pub enum Error {
+    #[error("Error reading stats for file during ε-serde deserialization: {0}")]
     /// [`Deserialize::load_full`] could not open the provided file.
     FileOpenError(std::io::Error),
+    #[error("Read error during ε-serde deserialization")]
     /// The underlying reader returned an error.
     ReadError,
     /// The file is from ε-serde but the endianess is wrong.
+    #[cfg_attr(
+        target_endian = "big",
+        error("The current arch is big-endian but the data is little-endian.")
+    )]
+    #[cfg_attr(
+        target_endian = "little",
+        error("The current arch is little-endian but the data is big-endian.")
+    )]
     EndiannessError,
+    #[error("Alignment error. Most likely you are deserializing from a memory region with insufficient alignment.")]
     /// Some fields are not properly aligned.
     AlignmentError,
+    #[error("Major version mismatch. Expected {} but got {0}.", VERSION.0)]
     /// The file was serialized with a version of ε-serde that is not compatible.
     MajorVersionMismatch(u16),
+    #[error("Minor version mismatch. Expected {} but got {0}.", VERSION.1)]
     /// The file was serialized with a compatible, but too new version of ε-serde
     /// so we might be missing features.
     MinorVersionMismatch(u16),
+    #[error("The file was serialized on an architecture where a usize has size {0}, but on the current architecture it has size {}.", core::mem::size_of::<usize>())]
     /// The the `pointer_width` of the serialized file is different from the
     /// `pointer_width` of the current architecture.
     /// For example, the file was serialized on a 64-bit machine and we are trying to
     /// deserialize it on a 32-bit machine.
     UsizeSizeMismatch(usize),
+    #[error("Wrong magic cookie 0x{0:016x}. The byte stream does not come from ε-serde.")]
     /// The magic coookie is wrong. The byte sequence does not come from ε-serde.
     MagicCookieError(u64),
+    #[error("Invalid tag: 0x{0:02x}")]
     /// A tag is wrong (e.g., for [`Option`]).
     InvalidTag(usize),
+    #[error(
+        r#"Wrong type hash. Expected: 0x{expected:016x} Actual: 0x{got:016x}.
+You are trying to deserialize a file with the wrong type.
+The serialized type is '{expected_type_name}' and the deserialized type is '{got_type_name}'."#
+    )]
     /// The type hash is wrong. Probably the user is trying to deserialize a
     /// file with the wrong type.
     WrongTypeHash {
@@ -355,6 +376,11 @@ pub enum Error {
         expected: u64,
         got: u64,
     },
+    #[error(
+r#"Wrong type repr hash. Expected: 0x{expected:016x} Actual: 0x{got:016x}.
+You might be trying to deserialize a file that was serialized on an architecture with different alignment requirements, or some of the fields of the type have changed their copy type (zero or deep).
+The serialized type is '{expected_type_name}' and the deserialized type is '{got_type_name}'."#
+    )]
     /// The type representation hash is wrong. Probabliy the user is trying to
     /// deserialize a file with some zero-copy type that has different
     /// in-memory representations on the serialization arch and on the current one,
@@ -365,88 +391,4 @@ pub enum Error {
         expected: u64,
         got: u64,
     },
-}
-
-impl std::error::Error for Error {}
-
-impl core::fmt::Display for Error {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match self {
-            Self::ReadError => write!(f, "Read error during ε-serde deserialization"),
-            Self::FileOpenError(error) => {
-                write!(f, "Error opening file during ε-serde deserialization: {}", error)
-            }
-            Self::EndiannessError => write!(
-                f,
-                "The current arch is {}-endian but the data is {}-endian.",
-                if cfg!(target_endian = "little") {
-                    "little"
-                } else {
-                    "big"
-                },
-                if cfg!(target_endian = "little") {
-                    "big"
-                } else {
-                    "little"
-                }
-            ),
-            Self::MagicCookieError(magic) => write!(
-                f,
-                "Wrong magic cookie 0x{:016x}. The byte stream does not come from ε-serde.",
-                magic,
-            ),
-            Self::MajorVersionMismatch(found_major) => write!(
-                f,
-                "Major version mismatch. Expected {} but got {}.",
-                VERSION.0, found_major,
-            ),
-            Self::MinorVersionMismatch(found_minor) => write!(
-                f,
-                "Minor version mismatch. Expected {} but got {}.",
-                VERSION.1, found_minor,
-            ),
-            Self::UsizeSizeMismatch(usize_size) => write!(
-                f,
-                "The file was serialized on an architecture where a usize has size {}, but on the current architecture it has size {}.",
-                usize_size,
-                core::mem::size_of::<usize>()
-            ),
-            Self::AlignmentError => write!(f, "Alignment error. Most likely you are deserializing from a memory region with insufficient alignment."),
-            Self::InvalidTag(tag) => write!(f, "Invalid tag: 0x{:02x}", tag),
-            Self::WrongTypeHash {
-                got_type_name,
-                expected_type_name,
-                expected,
-                got,
-            } => {
-                write!(
-                    f,
-                    concat!(
-                        "Wrong type hash. Expected: 0x{:016x} Actual: 0x{:016x}.\n",
-                        "You are trying to deserialize a file with the wrong type.\n",
-                        "The serialized type is '{}' and the deserialized type is '{}'.",
-                    ),
-                    expected, got, expected_type_name, got_type_name,
-                )
-            },
-            Self::WrongTypeReprHash {
-                got_type_name,
-                expected_type_name,
-                expected,
-                got,
-            } => {
-                write!(
-                    f,
-                    concat!(
-                        "Wrong type repr hash. Expected: 0x{:016x} Actual: 0x{:016x}.\n",
-                        "You might be trying to deserialize a file that was serialized on ",
-                        "an architecture with different alignment requirements, or some ",
-                        "of the fields of the type have changed their copy type (zero or deep).\n",
-                        "The serialized type is '{}' and the deserialized type is '{}'.",
-                    ),
-                    expected, got, expected_type_name, got_type_name,
-                )
-            }
-        }
-    }
 }
