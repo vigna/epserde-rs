@@ -68,13 +68,17 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
     /// a higher alignment requirement will cause an [alignment error](`Error::AlignmentError`).
     fn load_mem<'a>(
         path: impl AsRef<Path>,
-    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
+    ) -> Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
         let align_to = align_of::<MemoryAlignment>();
         if align_of::<Self>() > align_to {
             return Err(Error::AlignmentError.into());
         }
-        let file_len = path.as_ref().metadata()?.len() as usize;
-        let mut file = std::fs::File::open(path)?;
+        let file_len = path
+            .as_ref()
+            .metadata()
+            .map_err(Error::FileMetadataError)?
+            .len() as usize;
+        let mut file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
         // Round up to u128 size
         let capacity = file_len + crate::pad_align_to(file_len, align_to);
 
@@ -131,9 +135,13 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
     fn load_mmap<'a>(
         path: impl AsRef<Path>,
         flags: Flags,
-    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
-        let file_len = path.as_ref().metadata()?.len() as usize;
-        let mut file = std::fs::File::open(path)?;
+    ) -> Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
+        let file_len = path
+            .as_ref()
+            .metadata()
+            .map_err(Error::FileMetadataError)?
+            .len() as usize;
+        let mut file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
         let capacity = file_len + crate::pad_align_to(file_len, 16);
 
         let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
@@ -175,9 +183,13 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
     fn mmap<'a>(
         path: impl AsRef<Path>,
         flags: Flags,
-    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
-        let file_len = path.as_ref().metadata()?.len();
-        let file = std::fs::File::open(path)?;
+    ) -> Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
+        let file_len = path
+            .as_ref()
+            .metadata()
+            .map_err(Error::FileMetadataError)?
+            .len();
+        let file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
 
         let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
             MaybeUninit::uninit();
@@ -326,6 +338,9 @@ pub trait DeserializeHelper<T: CopySelector> {
 /// Errors that can happen during deserialization.
 pub enum Error {
     #[error("Error reading stats for file during ε-serde deserialization: {0}")]
+    /// [`Deserialize::load_full`] could not stat the provided file.
+    FileMetadataError(std::io::Error),
+    #[error("Error opening file during ε-serde deserialization: {0}")]
     /// [`Deserialize::load_full`] could not open the provided file.
     FileOpenError(std::io::Error),
     #[error("Read error during ε-serde deserialization")]
@@ -391,4 +406,10 @@ The serialized type is '{expected_type_name}' and the deserialized type is '{got
         expected: u64,
         got: u64,
     },
+    /// Error returned by [`std::alloc::Layout::from_size_align`]
+    #[error("Incompatible memory alignment: {0}")]
+    LayoutError(#[from] std::alloc::LayoutError),
+    /// Error returned by [`std::alloc::Layout::from_size_align`]
+    #[error("Could not mmap: {0}")]
+    MmapError(#[from] mmap_rs::Error),
 }
