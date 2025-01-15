@@ -23,6 +23,7 @@ struct Data<A> {
 
 type Person = PersonVec<Vec<usize>, Data<Vec<u16>>>;
 
+#[cfg(feature="mmap")]
 #[test]
 fn test_mem_case() {
     // Create a new value to serialize

@@ -127,6 +127,9 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
     ///
     /// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
     /// just pass `Flags::empty()`.
+    /// 
+    /// Requires the `mmap` feature.
+    #[cfg(feature = "mmap")]
     #[allow(clippy::uninit_vec)]
     fn load_mmap<'a>(
         path: impl AsRef<Path>,
@@ -171,6 +174,9 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
     ///
     /// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
     /// just pass `Flags::empty()`.
+    /// 
+    /// Requires the `mmap` feature.
+    #[cfg(feature = "mmap")]
     #[allow(clippy::uninit_vec)]
     fn mmap<'a>(
         path: impl AsRef<Path>,

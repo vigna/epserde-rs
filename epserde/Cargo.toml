@@ -19,10 +19,11 @@ anyhow = "1.0.79"
 sealed = "0.5.0"
 maligned = "0.2.1"
 common_traits = "0.10.2"
-mem_dbg = {version="0.2.1", features=["maligned", "mmap-rs"]}
+mem_dbg = { version="0.2.4", features=["maligned", "derive"], default-features=false }
 
 [features]
-default = ["std", "mmap-rs", "derive"]
+default = ["std", "mmap", "derive"]
 derive = ["epserde-derive"]
-std = ["alloc"]
+std = ["alloc", "mem_dbg/std"]
 alloc = []
+mmap = ["mmap-rs", "mem_dbg/mmap-rs"]
