@@ -138,6 +138,8 @@ let t: [usize; 1000] =
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
+//
+// Note: requires the `mmap` feature.
 let u: MemCase<&[usize; 1000]> = 
     <[usize; 1000]>::mmap(&file, Flags::empty())?;
 
