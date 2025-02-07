@@ -60,44 +60,45 @@ These are the main limitations you should be aware of before choosing to use
   tree.
 
 - While we provide procedural macros that implement serialization and
-deserialization, they require that your type is written and used in a specific
-way; in particular, the fields you want to ε-copy must be type parameters
-implementing [`DeserializeInner`], to which a [deserialized type] is associated.
-For example, we provide implementations for `Vec<T>`/`Box<[T]>`, where `T` is
-zero-copy, or `String`/`Box<str>`, which have associated deserialized type
-`&[T]` or `&str`, respectively. Vectors and boxed slices of types that are not
-zero-copy will be deserialized recursively in memory instead.
+  deserialization, they require that your type is written and used in a specific
+  way; in particular, the fields you want to ε-copy must be type parameters
+  implementing [`DeserializeInner`], to which a [deserialized type] is
+  associated. For example, we provide implementations for `Vec<T>`/`Box<[T]>`,
+  where `T` is zero-copy, or `String`/`Box<str>`, which have associated
+  deserialized type `&[T]` or `&str`, respectively. Vectors and boxed slices of
+  types that are not zero-copy will be deserialized recursively in memory
+  instead.
 
 - After deserialization of a type `T`, you will obtain an associated
-deserialized type [`DeserType<'_,T>`], which will usually reference the
-underlying serialized support (e.g., a memory-mapped region); hence the need for
-a lifetime. If you need to store the deserialized structure in a field of a new
-structure you will need to couple permanently the deserialized structure with
-its serialized support, which is obtained by putting it in a [`MemCase`] using
-the convenience methods [`Deserialize::load_mem`], [`Deserialize::load_mmap`],
-and [`Deserialize::mmap`]. A [`MemCase`] will deref to its contained type, so it
-can be used transparently as long as fields and methods are concerned, but if
-your original type is `T` the field of the new structure will have to be of type
-`MemCase<DeserType<'static, T>>`, not `T`.
+  deserialized type [`DeserType<'_,T>`], which will usually reference the
+  underlying serialized support (e.g., a memory-mapped region); hence the need for
+  a lifetime. If you need to store the deserialized structure in a field of a new
+  structure you will need to couple permanently the deserialized structure with
+  its serialized support, which is obtained by putting it in a [`MemCase`] using
+  the convenience methods [`Deserialize::load_mem`], [`Deserialize::load_mmap`],
+  and [`Deserialize::mmap`]. A [`MemCase`] will deref to its contained type, so it
+  can be used transparently as long as fields and methods are concerned, but if
+  your original type is `T` the field of the new structure will have to be of type
+  `MemCase<DeserType<'static, T>>`, not `T`.
 
 ## Pros
 
 - Almost instant deserialization with minimal allocation provided that you
-designed your type following the ε-serde guidelines or that you use standard
-types.
+  designed your type following the ε-serde guidelines or that you use standard
+  types.
 
 - The structure you get by deserialization is the same structure you serialized,
-except that type parameters will be replaced by their associated deserialization
-type (e.g., vectors will become references to slices). This is not the
-case with [rkiv], which requires you to reimplement all methods on the
-deserialized type.
+  except that type parameters will be replaced by their associated deserialization
+  type (e.g., vectors will become references to slices). This is not the
+  case with [rkiv], which requires you to reimplement all methods on the
+  deserialized type.
 
 - The structure you get by deserialization has exactly the same performance as
-the structure you serialized. This is not the case with [zerovec] or [rkiv].
+  the structure you serialized. This is not the case with [zerovec] or [rkiv].
 
 - You can deserialize from read-only supports, as all dynamic information
-generated at deserialization time is stored in newly allocated memory. This is
-not the case with [Abomonation].
+  generated at deserialization time is stored in newly allocated memory. This is
+  not the case with [Abomonation].
 
 ## Example: Zero copy of standard types
 
@@ -298,7 +299,7 @@ s.store(&file);
 let b = std::fs::read(&file)?;
 
 // The type of t will be inferred--it is shown here only for clarity
-let t: DeserType<'_, MyStruct<Vec<isize>>> = 
+let t: MyStruct<&[isize]> = 
     <MyStruct<Vec<isize>>>::deserialize_eps(b.as_ref())?;
 
 assert_eq!(s.id, t.id);
@@ -306,12 +307,12 @@ assert_eq!(s.data, Vec::from(t.data));
 
 // This is a traditional deserialization instead
 let t: MyStruct<Vec<isize>> = 
-    <MyStruct::<Vec<isize>>>::load_full(&file)?;
+    <MyStruct<Vec<isize>>>::load_full(&file)?;
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let u: MemCase<DeserType<'static, MyStruct<Vec<isize>>>> = 
-    <MyStruct::<Vec<isize>>>::mmap(&file, Flags::empty())?;
+let u: MemCase<MyStruct<&[isize]>> = 
+    <MyStruct<Vec<isize>>>::mmap(&file, Flags::empty())?;
 assert_eq!(s.id, u.id);
 assert_eq!(s.data, u.data.as_ref());
 #     Ok(())
@@ -486,7 +487,7 @@ Every type serializable with ε-serde has two features that are in principle
 orthogonal, but that in practice often condition one another:
 
 - the type has an *associated deserialization type*, which is the type you
-obtain upon deserialization;
+  obtain upon deserialization;
 - the type can be either [`ZeroCopy`] or [`DeepCopy`]; it can also be neither.
 
 There is no constraint on the associated deserialization type: it can be
@@ -513,11 +514,11 @@ types are always fully deserialized*. There are two reasons behind this
 non-orthogonal choice:
 
 - primitive types occupy so little space that deserializing them as a reference
-is not efficient;
+  is not efficient;
 - if a type parameter `T` is a primitive type, writing generic code for
-`AsRef<T>` is really not nice;
+  `AsRef<T>` is really not nice;
 - deserializing primitive types to a reference would require further padding to
-align them.
+  align them.
 
 Since this is true only of primitive types, when deserializing a 1-tuple
 containing a primitive type one obtains a reference (and indeed this workaround

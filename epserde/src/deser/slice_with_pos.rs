@@ -31,7 +31,7 @@ impl<'a> SliceWithPos<'a> {
     }
 }
 
-impl<'a> ReadNoStd for SliceWithPos<'a> {
+impl ReadNoStd for SliceWithPos<'_> {
     fn read_exact(&mut self, buf: &mut [u8]) -> deser::Result<()> {
         let len = buf.len();
         if len > self.data.len() {
@@ -44,7 +44,7 @@ impl<'a> ReadNoStd for SliceWithPos<'a> {
     }
 }
 
-impl<'a> ReadWithPos for SliceWithPos<'a> {
+impl ReadWithPos for SliceWithPos<'_> {
     fn pos(&self) -> usize {
         self.pos
     }

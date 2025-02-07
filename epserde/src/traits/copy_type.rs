@@ -96,7 +96,6 @@ just have to add `#[zero_copy]` to your structures (if you want them to be zero-
 and ε-serde will do the rest.
 
 */
-
 pub trait CopyType: Sized {
     type Copy: CopySelector;
 }

@@ -71,7 +71,7 @@ impl<'a, F: WriteNoStd> WriterWithPos<'a, F> {
     }
 }
 
-impl<'a, F: WriteNoStd> WriteNoStd for WriterWithPos<'a, F> {
+impl<F: WriteNoStd> WriteNoStd for WriterWithPos<'_, F> {
     #[inline(always)]
     fn write_all(&mut self, buf: &[u8]) -> ser::Result<()> {
         self.backend.write_all(buf)?;
@@ -85,7 +85,7 @@ impl<'a, F: WriteNoStd> WriteNoStd for WriterWithPos<'a, F> {
     }
 }
 
-impl<'a, F: WriteNoStd> WriteWithPos for WriterWithPos<'a, F> {
+impl<F: WriteNoStd> WriteWithPos for WriterWithPos<'_, F> {
     #[inline(always)]
     fn pos(&self) -> usize {
         self.pos

@@ -153,7 +153,7 @@ impl<Idx: DeserializeInner> DeserializeInner for core::ops::RangeInclusive<Idx> 
         let end = Idx::_deserialize_eps_inner(backend)?;
         let exhausted = bool::_deserialize_full_inner(backend)?;
         assert!(!exhausted, "cannot deserialize an exhausted range");
-        return Ok(start..=end);
+        Ok(start..=end)
     }
 }
 

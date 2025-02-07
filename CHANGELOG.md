@@ -1,13 +1,17 @@
 # Change Log
 
-## [0.6.2] - 2024-07-19
+## [0.6.2] - 2025-02-07
+
+### Improved
+
+* Added missing implementation of `TypeHash`, `ReprHash`, `MaxSizeOf`,
+  `SerializeInner`, `DeserializeInner` for `Range`, `RangeFrom`, `RangeFull`,
+  `RangeInclusive`, `RangeTo`, `RangeToInclusive`, `Bound`, `ControlFlow`.
 
 ### Fixed
 
-* Added missing implementation of `TypeHash`, `ReprHash`, `MaxSizeOf`, 
-  `SerializeInner`, `DeserializeInner` for:
-  `Range`, `RangeFrom`, `RangeFull`, `RangeInclusive`, `RangeTo`, 
-  `RangeToInclusive`, `Bound`, `ControlFlow`.
+* The return type of `Deserialize::load_full` is how an `anyhow::Result`,
+  analogously to the other `load` functions.
 
 ## [0.6.1] - 2024-06-03
 

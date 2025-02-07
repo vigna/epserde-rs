@@ -63,7 +63,7 @@ pub trait Serialize: TypeHash + ReprHash {
     /// Serialize the type using the given [`WriteWithNames`].
     fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()>;
 
-    /// Commodity method to serialize to a file.
+    /// Convenience method to serialize to a file.
     fn store(&self, path: impl AsRef<Path>) -> Result<()> {
         let file = std::fs::File::create(path).map_err(Error::FileOpenError)?;
         let mut buf_writer = BufWriter::new(file);

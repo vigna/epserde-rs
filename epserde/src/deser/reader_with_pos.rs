@@ -28,7 +28,7 @@ impl<'a, F: ReadNoStd> ReaderWithPos<'a, F> {
     }
 }
 
-impl<'a, F: ReadNoStd> ReadNoStd for ReaderWithPos<'a, F> {
+impl<F: ReadNoStd> ReadNoStd for ReaderWithPos<'_, F> {
     fn read_exact(&mut self, buf: &mut [u8]) -> deser::Result<()> {
         self.backend.read_exact(buf)?;
         self.pos += buf.len();
@@ -36,7 +36,7 @@ impl<'a, F: ReadNoStd> ReadNoStd for ReaderWithPos<'a, F> {
     }
 }
 
-impl<'a, F: ReadNoStd> ReadWithPos for ReaderWithPos<'a, F> {
+impl<F: ReadNoStd> ReadWithPos for ReaderWithPos<'_, F> {
     fn pos(&self) -> usize {
         self.pos
     }

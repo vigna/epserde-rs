@@ -9,7 +9,6 @@ use epserde::prelude::*;
 use maligned::A16;
 
 /// Example of zero-copy deserialization of an array.
-
 fn main() {
     // Create a vector to serialize
 

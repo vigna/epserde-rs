@@ -53,11 +53,11 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
     /// ε-copy deserialize a structure of this type from the given backend.
     fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
 
-    /// Commodity method to fully deserialize from a file.
-    fn load_full(path: impl AsRef<Path>) -> Result<Self> {
+    /// Convenience method to fully deserialize from a file.
+    fn load_full(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
         let mut buf_reader = BufReader::new(file);
-        Self::deserialize_full(&mut buf_reader)
+        Self::deserialize_full(&mut buf_reader).map_err(|e| e.into())
     }
 
     /// Load a file into heap-allocated memory and ε-deserialize a data structure from it,

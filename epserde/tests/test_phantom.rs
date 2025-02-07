@@ -10,7 +10,7 @@ use maligned::A16;
 /// This should be a NOOP
 fn test_phantom() {
     // Create a new value to serialize
-    let obj = <PhantomData<usize>>::default();
+    let obj = PhantomData::<usize>;
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
     let _bytes_written = obj.serialize(&mut cursor).unwrap();

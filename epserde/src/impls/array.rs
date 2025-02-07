@@ -99,8 +99,8 @@ impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper
             Ok(res.assume_init())
         }
     }
-    #[inline(always)]
 
+    #[inline(always)]
     fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
