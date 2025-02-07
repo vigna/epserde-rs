@@ -42,6 +42,7 @@ impl core::default::Default for Flags {
 
 impl Flags {
     /// Translates internal flags to `mmap_rs` flags.
+    #[cfg(feature = "mmap")]
     pub(crate) fn mmap_flags(&self) -> mmap_rs::MmapFlags {
         let mut flags: mmap_rs::MmapFlags = mmap_rs::MmapFlags::empty();
         if self.contains(Self::SEQUENTIAL) {
@@ -76,6 +77,7 @@ pub enum MemBackend {
     Memory(Box<[MemoryAlignment]>),
     /// The backend is the result to a call to `mmap()`.
     /// This variant is returned by [`crate::deser::Deserialize::load_mmap`] and [`crate::deser::Deserialize::mmap`].
+    #[cfg(feature = "mmap")]
     Mmap(mmap_rs::Mmap),
 }
 
@@ -89,6 +91,7 @@ impl MemBackend {
                     mem.len() * size_of::<MemoryAlignment>(),
                 )
             }),
+            #[cfg(feature = "mmap")]
             MemBackend::Mmap(mmap) => Some(mmap),
         }
     }
