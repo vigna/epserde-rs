@@ -127,7 +127,7 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
     ///
     /// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
     /// just pass `Flags::empty()`.
-    /// 
+    ///
     /// Requires the `mmap` feature.
     #[cfg(feature = "mmap")]
     #[allow(clippy::uninit_vec)]
@@ -174,7 +174,7 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
     ///
     /// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
     /// just pass `Flags::empty()`.
-    /// 
+    ///
     /// Requires the `mmap` feature.
     #[cfg(feature = "mmap")]
     #[allow(clippy::uninit_vec)]
@@ -350,14 +350,14 @@ pub enum Error {
     #[error("Alignment error. Most likely you are deserializing from a memory region with insufficient alignment.")]
     /// Some fields are not properly aligned.
     AlignmentError,
-    #[error("Major version mismatch. Expected {} but got {0}.", VERSION.0)]
+    #[error("Major version mismatch. Expected {major} but got {0}.", major = VERSION.0)]
     /// The file was serialized with a version of ε-serde that is not compatible.
     MajorVersionMismatch(u16),
-    #[error("Minor version mismatch. Expected {} but got {0}.", VERSION.1)]
+    #[error("Minor version mismatch. Expected {minor} but got {0}.", minor = VERSION.1)]
     /// The file was serialized with a compatible, but too new version of ε-serde
     /// so we might be missing features.
     MinorVersionMismatch(u16),
-    #[error("The file was serialized on an architecture where a usize has size {0}, but on the current architecture it has size {}.", core::mem::size_of::<usize>())]
+    #[error("The file was serialized on an architecture where a usize has size {0}, but on the current architecture it has size {size}.", size = core::mem::size_of::<usize>())]
     /// The the `pointer_width` of the serialized file is different from the
     /// `pointer_width` of the current architecture.
     /// For example, the file was serialized on a 64-bit machine and we are trying to

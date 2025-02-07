@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.6.3] - 2025-02-07
+
+### New
+
+* Memory-mapping can be disabled using the `mmap` default feature.
+
 ## [0.6.2] - 2025-02-07
 
 ### Improved

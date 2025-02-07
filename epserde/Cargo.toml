@@ -2,7 +2,7 @@
 name = "epserde"
 authors = ["Tommaso Fontana <tommaso.fontana.96@gmail.com>", "Sebastiano Vigna <sebastiano.vigna@unimi.it>"]
 description = "ε-serde is an ε-copy (i.e., almost zero-copy) serialization/deserialization framework"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2021"
 repository = "https://github.com/vigna/epserde-rs/"
 license = "Apache-2.0 OR LGPL-2.1-or-later"
@@ -16,10 +16,10 @@ xxhash-rust = {version="0.8.8", default-features=false, features=["xxh3"] }
 epserde-derive = { version="=0.6.0", optional = true }
 #epserde-derive = { path="../epserde-derive", optional = true }
 anyhow = "1.0.79"
-thiserror = "1.0.63"
-sealed = "0.5.0"
+thiserror = "2.0.11"
+sealed = "0.6.0"
 maligned = "0.2.1"
-common_traits = "0.10.2"
+common_traits = "0.11.2"
 mem_dbg = { version="0.2.4", features=["maligned", "derive"], default-features=false }
 
 [features]
