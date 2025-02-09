@@ -1,6 +1,9 @@
 [package]
 name = "epserde-derive"
-authors = ["Tommaso Fontana <tommaso.fontana.96@gmail.com>", "Sebastiano Vigna <sebastiano.vigna@unimi.it>"]
+authors = [
+	"Tommaso Fontana <tommaso.fontana.96@gmail.com>",
+	"Sebastiano Vigna <sebastiano.vigna@unimi.it>",
+]
 description = "Procedural macros for ε-serde"
 version = "0.6.0"
 edition = "2021"
