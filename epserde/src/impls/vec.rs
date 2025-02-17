@@ -40,10 +40,11 @@ impl<T: ReprHash> ReprHash for Vec<T> {
     }
 }
 
-impl<T: CopyType + SerializeInner + TypeHash> SerializeInner for Vec<T>
+impl<T: CopyType + SerializeInner + TypeHash + ReprHash> SerializeInner for Vec<T>
 where
     Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
 {
+    type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
     fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {

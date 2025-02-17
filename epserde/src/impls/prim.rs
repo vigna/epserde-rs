@@ -54,6 +54,7 @@ macro_rules! impl_prim_type_hash {
 macro_rules! impl_prim_ser_des {
     ($($ty:ty),*) => {$(
 		impl SerializeInner for $ty {
+            type SerType = Self;
             // Note that primitive types are declared zero-copy to be able to
             // be part of zero-copy types, but we actually deserialize
             // them in isolation as values.
@@ -96,7 +97,7 @@ impl_prim_ser_des!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u12
 macro_rules! impl_nonzero_ser_des {
     ($($ty:ty),*) => {$(
 		impl SerializeInner for $ty {
-            // Note that primitive types are declared zero-copy to be able to
+            type SerType = Self;                // Note that primitive types are declared zero-copy to be able to
             // be part of zero-copy types, but we actually deserialize
             // them in isolation as values.
             const IS_ZERO_COPY: bool = true;
@@ -167,6 +168,7 @@ impl_prim_type_hash!(bool, char, ());
 // Booleans are zero-copy serialized as u8.
 
 impl SerializeInner for bool {
+    type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
 
@@ -196,6 +198,7 @@ impl DeserializeInner for bool {
 // Chars are zero-copy serialized as u32.
 
 impl SerializeInner for char {
+    type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
 
@@ -222,6 +225,7 @@ impl DeserializeInner for char {
 // () is zero-copy. No reading or writing is performed when (de)serializing it.
 
 impl SerializeInner for () {
+    type SerType = ();
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
 
@@ -272,6 +276,7 @@ impl<T: ?Sized> ReprHash for PhantomData<T> {
 }
 
 impl<T: ?Sized + TypeHash> SerializeInner for PhantomData<T> {
+    type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
 
@@ -316,7 +321,8 @@ impl<T: ReprHash> ReprHash for Option<T> {
     }
 }
 
-impl<T: SerializeInner> SerializeInner for Option<T> {
+impl<T: SerializeInner + ReprHash + TypeHash> SerializeInner for Option<T> {
+    type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 

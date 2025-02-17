@@ -40,11 +40,11 @@ pub type Result<T> = core::result::Result<T, Error>;
 ///
 /// It provides a convenience method [`Serialize::store`] that serializes
 /// the type to a file.
-pub trait Serialize: TypeHash + ReprHash {
+pub trait Serialize: SerializeInner + TypeHash + ReprHash + Sized {
     /// Serialize the type using the given backend.
     fn serialize(&self, backend: &mut impl WriteNoStd) -> Result<usize> {
         let mut write_with_pos = WriterWithPos::new(backend);
-        self.serialize_on_field_write(&mut write_with_pos)?;
+        self.serialize_on_field_write::<<Self as SerializeInner>::SerType>(&mut write_with_pos)?;
         Ok(write_with_pos.pos())
     }
 
@@ -56,12 +56,15 @@ pub trait Serialize: TypeHash + ReprHash {
     fn serialize_with_schema(&self, backend: &mut impl WriteNoStd) -> Result<Schema> {
         let mut writer_with_pos = WriterWithPos::new(backend);
         let mut schema_writer = SchemaWriter::new(&mut writer_with_pos);
-        self.serialize_on_field_write(&mut schema_writer)?;
+        self.serialize_on_field_write::<Self>(&mut schema_writer)?;
         Ok(schema_writer.schema)
     }
 
     /// Serialize the type using the given [`WriteWithNames`].
-    fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()>;
+    fn serialize_on_field_write<U: SerializeInner + TypeHash + ReprHash>(
+        &self,
+        backend: &mut impl WriteWithNames,
+    ) -> Result<()>;
 
     /// Convenience method to serialize to a file.
     fn store(&self, path: impl AsRef<Path>) -> Result<()> {
@@ -81,6 +84,7 @@ pub trait Serialize: TypeHash + ReprHash {
 ///
 /// The user should not implement this trait directly, but rather derive it.
 pub trait SerializeInner {
+    type SerType: SerializeInner + TypeHash + ReprHash;
     /// Inner constant used by the derive macros to keep
     /// track recursively of whether the type
     /// satisfies the conditions for being zero-copy. It is checked
@@ -108,8 +112,11 @@ pub trait SerializeInner {
 /// and debug information and then delegates to [WriteWithNames::write].
 impl<T: SerializeInner + TypeHash + ReprHash> Serialize for T {
     /// Serialize the type using the given [`WriteWithNames`].
-    fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
-        write_header::<Self>(backend)?;
+    fn serialize_on_field_write<U: SerializeInner + TypeHash + ReprHash>(
+        &self,
+        backend: &mut impl WriteWithNames,
+    ) -> Result<()> {
+        write_header::<U>(backend)?;
         backend.write("ROOT", self)?;
         backend.flush()
     }

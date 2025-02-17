@@ -65,7 +65,8 @@ impl_ranges!(RangeInclusive);
 impl_ranges!(RangeTo);
 impl_ranges!(RangeToInclusive);
 
-impl<Idx: SerializeInner> SerializeInner for core::ops::Range<Idx> {
+impl<Idx: SerializeInner + ReprHash + TypeHash> SerializeInner for core::ops::Range<Idx> {
+    type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
 
@@ -95,7 +96,8 @@ impl<Idx: DeserializeInner> DeserializeInner for core::ops::Range<Idx> {
     }
 }
 
-impl<Idx: SerializeInner> SerializeInner for core::ops::RangeFrom<Idx> {
+impl<Idx: SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::RangeFrom<Idx> {
+    type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
 
@@ -122,7 +124,8 @@ impl<Idx: DeserializeInner> DeserializeInner for core::ops::RangeFrom<Idx> {
     }
 }
 
-impl<Idx: SerializeInner> SerializeInner for core::ops::RangeInclusive<Idx> {
+impl<Idx: SerializeInner + ReprHash + TypeHash> SerializeInner for core::ops::RangeInclusive<Idx> {
+    type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
 
@@ -157,7 +160,8 @@ impl<Idx: DeserializeInner> DeserializeInner for core::ops::RangeInclusive<Idx> 
     }
 }
 
-impl<Idx: SerializeInner> SerializeInner for core::ops::RangeTo<Idx> {
+impl<Idx: SerializeInner + ReprHash + TypeHash> SerializeInner for core::ops::RangeTo<Idx> {
+    type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
 
@@ -184,7 +188,10 @@ impl<Idx: DeserializeInner> DeserializeInner for core::ops::RangeTo<Idx> {
     }
 }
 
-impl<Idx: SerializeInner> SerializeInner for core::ops::RangeToInclusive<Idx> {
+impl<Idx: SerializeInner + ReprHash + TypeHash> SerializeInner
+    for core::ops::RangeToInclusive<Idx>
+{
+    type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
 
@@ -234,6 +241,7 @@ impl MaxSizeOf for core::ops::RangeFull {
 }
 
 impl SerializeInner for core::ops::RangeFull {
+    type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
 
@@ -281,7 +289,8 @@ impl<T: MaxSizeOf> MaxSizeOf for core::ops::Bound<T> {
     }
 }
 
-impl<T: SerializeInner> SerializeInner for core::ops::Bound<T> {
+impl<T: SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::Bound<T> {
+    type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
@@ -363,7 +372,10 @@ impl<B: MaxSizeOf, C: MaxSizeOf> MaxSizeOf for core::ops::ControlFlow<B, C> {
     }
 }
 
-impl<B: SerializeInner, C: SerializeInner> SerializeInner for core::ops::ControlFlow<B, C> {
+impl<B: SerializeInner + ReprHash + TypeHash, C: SerializeInner + ReprHash + TypeHash>
+    SerializeInner for core::ops::ControlFlow<B, C>
+{
+    type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 

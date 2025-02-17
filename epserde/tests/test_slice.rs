@@ -27,5 +27,23 @@ fn test_cheaty_serialize() -> Result<()> {
     assert_eq!(a, b.as_slice());
     let b = <Vec<i32>>::deserialize_eps(cursor.as_bytes())?;
     assert_eq!(a, b);
+
+    cursor.set_position(0);
+    let d = Data {
+        a: vec![0, 1, 2, 3].into_boxed_slice(),
+        b: [1, 2, 3],
+    };
+    d.serialize(&mut cursor)?;
+    cursor.set_position(0);
+    let e = Data::<Box<[i32]>>::deserialize_full(&mut cursor)?;
+    assert_eq!(e, d);
+
+    cursor.set_position(0);
+    let d = Data { a: s, b: [1, 2, 3] };
+    d.serialize(&mut cursor)?;
+    cursor.set_position(0);
+    let e = Data::<Vec<i32>>::deserialize_eps(cursor.as_bytes())?;
+    assert_eq!(e, d);
+
     Ok(())
 }

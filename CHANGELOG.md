@@ -25,7 +25,6 @@
 
 * Added missing implementation of MaxSizeOf for PhantomData.
 
-
 ## [0.6.0] - 2024-06-03
 
 ### Changed
@@ -40,7 +39,6 @@
 
 * Fixed handling of zero-sized zero-copy structs eps_deserialization.
 
-
 ## [0.5.1] - 2024-03-18
 
 ### Changed
@@ -51,7 +49,6 @@
 
 * Renamed the lifetime `'a` in derives to `deserialize_eps_inner_lifetime`
   to avoid clashes.
-
 
 ## [0.5.0] - 2024-03-18
 

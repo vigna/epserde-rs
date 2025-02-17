@@ -40,7 +40,11 @@ use crate::prelude::*;
 use ser::*;
 use std::hash::Hash;
 
-impl<T: TypeHash> TypeHash for [T] {
+impl<T> CopyType for &[T] {
+    type Copy = Deep;
+}
+
+impl<T: TypeHash> TypeHash for &[T] {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "[]".hash(hasher);
@@ -48,22 +52,24 @@ impl<T: TypeHash> TypeHash for [T] {
     }
 }
 
-impl<T> ReprHash for [T] {
+impl<T> ReprHash for &[T] {
     #[inline(always)]
     fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl<T: SerializeInner + CopyType + TypeHash + ReprHash> Serialize for [T]
+impl<T: SerializeInner + CopyType + TypeHash + ReprHash> SerializeInner for &[T]
 where
     Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
 {
-    fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        write_header::<Vec<T>>(backend)?;
+    type SerType = Vec<T>;
+    const IS_ZERO_COPY: bool = false;
+    const ZERO_COPY_MISMATCH: bool = false;
+    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // SAFETY: the fake vector we create is never used, and we forget it immediately
         // after writing it to the backend.
         let fake = unsafe { Vec::from_raw_parts(self.as_ptr() as *mut T, self.len(), self.len()) };
-        backend.write("ROOT", &fake)?;
+        ser::SerializeInner::_serialize_inner(&fake, backend)?;
         core::mem::forget(fake);
-        backend.flush()
+        Ok(())
     }
 }

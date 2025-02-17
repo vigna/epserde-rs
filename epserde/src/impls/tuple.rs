@@ -66,6 +66,7 @@ macro_rules! impl_tuples {
         }
 
 		impl<$($t: ZeroCopy + TypeHash + ReprHash,)*> SerializeInner for ($($t,)*) {
+            type SerType = Self;
             const IS_ZERO_COPY: bool = true;
             const ZERO_COPY_MISMATCH: bool = false;
 

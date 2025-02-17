@@ -55,6 +55,7 @@ impl ReprHash for str {
 }
 
 impl SerializeInner for String {
+    type SerType = Self;
     // Vec<$ty> can, but Vec<Vec<$ty>> cannot!
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -87,6 +88,7 @@ impl CopyType for Box<str> {
 }
 
 impl SerializeInner for Box<str> {
+    type SerType = Self;
     // Box<[$ty]> can, but Vec<Box<[$ty]>> cannot!
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;

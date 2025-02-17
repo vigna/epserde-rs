@@ -44,6 +44,7 @@ impl<T: CopyType + SerializeInner + TypeHash, const N: usize> SerializeInner for
 where
     [T; N]: SerializeHelper<<T as CopyType>::Copy>,
 {
+    type SerType = Self;
     const IS_ZERO_COPY: bool = T::IS_ZERO_COPY;
     const ZERO_COPY_MISMATCH: bool = T::ZERO_COPY_MISMATCH;
     fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
