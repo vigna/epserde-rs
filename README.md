@@ -482,11 +482,55 @@ assert!(<Enum>::load_full(&file).is_err());
 # }
 ```
 
-## Example: Structures containing references to slices
+## Example: (Structures containing references to) slices
 
 For convinience, ε-serde can serialize references to slices, and will
 deserialize them as if they were vectors. You must however be careful to
-deserialize with the correct type.
+deserialize with the correct type. For example,
+
+```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use epserde::prelude::*;
+use epserde_derive::*;
+
+let v = vec![0, 1, 2, 3];
+// This is a slice
+let s: &[i32] = v.as_ref();
+// Serialize it
+let mut file = std::env::temp_dir();
+file.push("serialized7");
+s.store(&file);
+// Load the serialized form in a buffer
+let b = std::fs::read(&file)?;
+
+// We must deserialize as a vector, even if we are getting back a reference
+let t: &[i32] = <Vec<i32>>::deserialize_eps(b.as_ref())?;
+let t: Vec<i32> = <Vec<i32>>::deserialize_full(
+        &mut std::fs::File::open(&file)?
+    )?;
+let t: MemCase<&[i32]> = <Vec<i32>>::mmap(&file, Flags::empty())?;
+
+// Within a structure
+#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
+struct Data<A> {
+    s: A,
+}
+
+let d = Data { s };
+// Serialize it
+d.store(&file);
+// Load the serialized form in a buffer
+let b = std::fs::read(&file)?;
+
+// We must deserialize the field as a vector, even if we are getting back a reference
+let t: Data<&[i32]> = <Data<Vec<i32>>>::deserialize_eps(b.as_ref())?;
+let t: Data<Vec<i32>> = <Data<Vec<i32>>>::deserialize_full(
+        &mut std::fs::File::open(&file)?
+    )?;
+let t: MemCase<Data<&[i32]>> = <Data<Vec<i32>>>::mmap(&file, Flags::empty())?;
+#     Ok(())
+# }
+```
 
 ## Example: `sux-rs`
 
@@ -494,21 +538,25 @@ The [`sux-rs`] crate provides several data structures that use ε-serde.
 
 ## Design
 
-Every type serializable with ε-serde has two features that are in principle
+Every type serializable with ε-serde has three features that are in principle
 orthogonal, but that in practice often condition one another:
 
+- the type has an *associated serialization type*, which is the type we
+  write when serializing;
 - the type has an *associated deserialization type*, which is the type you
   obtain upon deserialization;
 - the type can be either [`ZeroCopy`] or [`DeepCopy`]; it can also be neither.
 
-There is no constraint on the associated deserialization type: it can be
+There is no constraint on the associated (de)serialization type: it can be
 literally anything. In general, however, one tries to have a deserialization
 type that is somewhat compatible with the original type, in the sense that they
 both satisfy a trait for which implementations can be written: for example,
 ε-serde deserializes vectors as references to slices, so implementations can be
 written for references to slices and will work both on the original and the
 deserialized type. And, in general, [`ZeroCopy`] types deserialize into
-themselves.
+themselves. Presently the associated serialization type is almost always `Self`,
+with the notable exception of references to slices, which are serialized for
+convenience as vectors.
 
 Being [`ZeroCopy`] or [`DeepCopy`] decides instead how the type will be treated
 when serializing and deserializing sequences, such as arrays, slices, boxed
