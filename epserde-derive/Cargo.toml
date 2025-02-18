@@ -5,7 +5,7 @@ authors = [
 	"Sebastiano Vigna <sebastiano.vigna@unimi.it>",
 ]
 description = "Procedural macros for ε-serde"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 repository = "https://github.com/vigna/epserde-rs/"
 license = "Apache-2.0 OR LGPL-2.1-or-later"

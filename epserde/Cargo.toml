@@ -5,7 +5,7 @@ authors = [
 	"Sebastiano Vigna <sebastiano.vigna@unimi.it>",
 ]
 description = "ε-serde is an ε-copy (i.e., almost zero-copy) serialization/deserialization framework"
-version = "0.6.4"
+version = "0.7.0"
 edition = "2021"
 repository = "https://github.com/vigna/epserde-rs/"
 license = "Apache-2.0 OR LGPL-2.1-or-later"

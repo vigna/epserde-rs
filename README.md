@@ -96,6 +96,9 @@ These are the main limitations you should be aware of before choosing to use
 - The structure you get by deserialization has exactly the same performance as
   the structure you serialized. This is not the case with [zerovec] or [rkiv].
 
+- You can serialize structures containing references to slices, and they will
+  be deserialized as if you had written a vector.
+
 - You can deserialize from read-only supports, as all dynamic information
   generated at deserialization time is stored in newly allocated memory. This is
   not the case with [Abomonation].
@@ -478,6 +481,12 @@ assert!(<Enum>::load_full(&file).is_err());
 #     Ok(())
 # }
 ```
+
+## Example: Structures containing references to slices
+
+For convinience, ε-serde can serialize references to slices, and will
+deserialize them as if they were vectors. You must however be careful to
+deserialize with the correct type.
 
 ## Example: `sux-rs`
 
