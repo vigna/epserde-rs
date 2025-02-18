@@ -867,6 +867,55 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
     out
 }
 
+fn type_repr_maxsizeof_where_clauses(
+    where_clause: &WhereClause,
+    generic_types: &Vec<syn::Type>,
+) -> (WhereClause, WhereClause, WhereClause) {
+    let mut bounds_typehash = Punctuated::new();
+    bounds_typehash.push(syn::parse_quote!(epserde::traits::TypeHash));
+    let mut where_clause_typehash = where_clause.clone();
+
+    let mut bounds_reprhash = Punctuated::new();
+    bounds_reprhash.push(syn::parse_quote!(epserde::traits::ReprHash));
+    let mut where_clause_reprhash = where_clause.clone();
+
+    let mut bounds_maxsizeof = Punctuated::new();
+    bounds_maxsizeof.push(syn::parse_quote!(epserde::traits::MaxSizeOf));
+    let mut where_clause_maxsizeof = where_clause.clone();
+
+    generic_types.iter().for_each(|ty| {
+        where_clause_typehash
+            .predicates
+            .push(WherePredicate::Type(PredicateType {
+                lifetimes: None,
+                bounded_ty: ty.clone(),
+                colon_token: token::Colon::default(),
+                bounds: bounds_typehash.clone(),
+            }));
+        where_clause_reprhash
+            .predicates
+            .push(WherePredicate::Type(PredicateType {
+                lifetimes: None,
+                bounded_ty: ty.clone(),
+                colon_token: token::Colon::default(),
+                bounds: bounds_reprhash.clone(),
+            }));
+        where_clause_maxsizeof
+            .predicates
+            .push(WherePredicate::Type(PredicateType {
+                lifetimes: None,
+                bounded_ty: ty.clone(),
+                colon_token: token::Colon::default(),
+                bounds: bounds_maxsizeof.clone(),
+            }));
+    });
+    (
+        where_clause_typehash,
+        where_clause_reprhash,
+        where_clause_maxsizeof,
+    )
+}
+
 /// Generate a partial ε-serde implementation for custom types.
 ///
 /// It generates implementations just for the traits
@@ -908,47 +957,8 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                 }
             });
 
-            let mut bounds_typehash = Punctuated::new();
-            bounds_typehash.push(syn::parse_quote!(epserde::traits::TypeHash));
-            let mut where_clause_typehash = where_clause.clone();
-            generic_types.iter().for_each(|ty| {
-                where_clause_typehash
-                    .predicates
-                    .push(WherePredicate::Type(PredicateType {
-                        lifetimes: None,
-                        bounded_ty: ty.clone(),
-                        colon_token: token::Colon::default(),
-                        bounds: bounds_typehash.clone(),
-                    }));
-            });
-
-            let mut bounds_reprhash = Punctuated::new();
-            bounds_reprhash.push(syn::parse_quote!(epserde::traits::ReprHash));
-            let mut where_clause_reprhash = where_clause.clone();
-            generic_types.iter().for_each(|ty| {
-                where_clause_reprhash
-                    .predicates
-                    .push(WherePredicate::Type(PredicateType {
-                        lifetimes: None,
-                        bounded_ty: ty.clone(),
-                        colon_token: token::Colon::default(),
-                        bounds: bounds_reprhash.clone(),
-                    }));
-            });
-
-            let mut bounds_maxsizeof = Punctuated::new();
-            bounds_maxsizeof.push(syn::parse_quote!(epserde::traits::MaxSizeOf));
-            let mut where_clause_maxsizeof = where_clause.clone();
-            generic_types.iter().for_each(|ty| {
-                where_clause_maxsizeof
-                    .predicates
-                    .push(WherePredicate::Type(PredicateType {
-                        lifetimes: None,
-                        bounded_ty: ty.clone(),
-                        colon_token: token::Colon::default(),
-                        bounds: bounds_maxsizeof.clone(),
-                    }));
-            });
+            let (where_clause_typehash, where_clause_reprhash, where_clause_maxsizeof) =
+                type_repr_maxsizeof_where_clauses(&where_clause, &generic_types);
 
             let fields_names = s
                 .fields
@@ -1194,47 +1204,8 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                 .map(|x| x.meta.require_list().unwrap().tokens.to_string())
                 .collect::<Vec<_>>();
 
-            let mut bounds_typehash = Punctuated::new();
-            bounds_typehash.push(syn::parse_quote!(epserde::traits::TypeHash));
-            let mut where_clause_typehash = where_clause.clone();
-            generic_types.iter().for_each(|ty| {
-                where_clause_typehash
-                    .predicates
-                    .push(WherePredicate::Type(PredicateType {
-                        lifetimes: None,
-                        bounded_ty: ty.clone(),
-                        colon_token: token::Colon::default(),
-                        bounds: bounds_typehash.clone(),
-                    }));
-            });
-
-            let mut bounds_reprhash = Punctuated::new();
-            bounds_reprhash.push(syn::parse_quote!(epserde::traits::ReprHash));
-            let mut where_clause_reprhash = where_clause.clone();
-            generic_types.iter().for_each(|ty| {
-                where_clause_reprhash
-                    .predicates
-                    .push(WherePredicate::Type(PredicateType {
-                        lifetimes: None,
-                        bounded_ty: ty.clone(),
-                        colon_token: token::Colon::default(),
-                        bounds: bounds_reprhash.clone(),
-                    }));
-            });
-
-            let mut bounds_maxsizeof = Punctuated::new();
-            bounds_maxsizeof.push(syn::parse_quote!(epserde::traits::MaxSizeOf));
-            let mut where_clause_maxsizeof = where_clause.clone();
-            generic_types.iter().for_each(|ty| {
-                where_clause_maxsizeof
-                    .predicates
-                    .push(WherePredicate::Type(PredicateType {
-                        lifetimes: None,
-                        bounded_ty: ty.clone(),
-                        colon_token: token::Colon::default(),
-                        bounds: bounds_maxsizeof.clone(),
-                    }));
-            });
+            let (where_clause_typehash, where_clause_reprhash, where_clause_maxsizeof) =
+                type_repr_maxsizeof_where_clauses(&where_clause, &generic_types);
 
             if is_zero_copy {
                 quote! {
