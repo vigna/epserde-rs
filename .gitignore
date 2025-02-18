@@ -1,5 +1,6 @@
 /target
-/Cargo.lock
+/epserde/Cargo.lock
+/epserde-derive/Cargo.lock
 .vscode
 serialized
 lcov.info
