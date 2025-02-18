@@ -7,38 +7,36 @@
 
 /*!
 
-Implementations for slices.
+Implementations for (references to) slices.
 
-Slices cannot be serialized in isolation, but they must implement [`TypeHash`] and
-[`ReprHash`] so that they can be used with [`PhantomData`](std::marker::PhantomData).
+In theory all types serialized by ε-serde must not contain references. However,
+we provide a convenience implementation that serializes references to
+slices as vectors. Moreover, we implement [`TypeHash`] and
+[`ReprHash`] for slices, so that they can be used with
+[`PhantomData`](std::marker::PhantomData).
 
-We also provide a serialize-only (slightly cheaty) implementation
-for slices that deserializes to vectors.
-
-It is slightly cheaty in that it serializes a vector using the
-slice as a backing array, so it must be deserialized using a vector as type.
-
-Note that if you ε-copy deserialize the vector, you will
-get back the same slice.
-```rust
-use epserde::prelude::*;
-use maligned::A16;
-let a = vec![1, 2, 3, 4];
-let s = a.as_slice();
-let mut cursor = <AlignedCursor<A16>>::new();
-s.serialize(&mut cursor).unwrap();
-cursor.set_position(0);
-let b: Vec<i32> = <Vec<i32>>::deserialize_full(&mut cursor).unwrap();
-assert_eq!(a, b);
-let b: &[i32] = <Vec<i32>>::deserialize_eps(cursor.as_bytes()).unwrap();
-assert_eq!(a, *b);
-```
+Note, however, that you must deserialize the slice as a vector,
+even when it appears a type parameter—see the example
+in the [crate-level documentation](crate).
 
 */
 
 use crate::prelude::*;
 use ser::*;
 use std::hash::Hash;
+
+impl<T: TypeHash> TypeHash for [T] {
+    #[inline(always)]
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "[]".hash(hasher);
+        T::type_hash(hasher);
+    }
+}
+
+impl<T> ReprHash for [T] {
+    #[inline(always)]
+    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+}
 
 impl<T> CopyType for &[T] {
     type Copy = Deep;
@@ -47,7 +45,7 @@ impl<T> CopyType for &[T] {
 impl<T: TypeHash> TypeHash for &[T] {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "[]".hash(hasher);
+        "&[]".hash(hasher);
         T::type_hash(hasher);
     }
 }

@@ -17,7 +17,7 @@ struct Data<A: PartialEq = usize, const Q: usize = 3> {
 }
 
 #[test]
-fn test_cheaty_serialize() -> Result<()> {
+fn test_slices() -> Result<()> {
     let a = vec![1, 2, 3, 4];
     let s = a.as_slice();
     let mut cursor = <AlignedCursor<A16>>::new();

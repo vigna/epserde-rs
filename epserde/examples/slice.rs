@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/// Example showcasing the cheaty serialization of a slice.
+/// Example showcasing the convenience serialization of references to slices.
 use epserde::prelude::*;
 use maligned::A16;
 
