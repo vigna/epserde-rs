@@ -11,7 +11,6 @@ Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) c
 
 */
 
-use core::borrow::Borrow;
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
@@ -21,31 +20,27 @@ use syn::{
 
 /// Check if `sub_type` is part of `ty`. we use this function to detect which
 /// field types contains generics and thus need to be bounded.
-fn is_subtype(ty: impl Borrow<syn::Type>, sub_type: impl Borrow<syn::Type>) -> bool {
+fn is_subtype(ty: &syn::Type, sub_type: &syn::Type) -> bool {
     // early stop if they perfectly match
-    if ty.borrow() == sub_type.borrow() {
+    if ty == sub_type {
         return true;
     }
 
-    match ty.borrow() {
+    match ty {
         syn::Type::Never(_) => false,
-        syn::Type::Verbatim(token) => {
-            token.to_string() == sub_type.borrow().to_token_stream().to_string()
-        }
+        syn::Type::Verbatim(token) => token.to_string() == sub_type.to_token_stream().to_string(),
         syn::Type::Array(ty) => is_subtype(ty.elem.as_ref(), sub_type),
-        syn::Type::Tuple(ty) => ty.elems.iter().any(|x| is_subtype(x, sub_type.borrow())),
+        syn::Type::Tuple(ty) => ty.elems.iter().any(|x| is_subtype(x, sub_type)),
         syn::Type::Ptr(ty) => is_subtype(ty.elem.as_ref(), sub_type),
         syn::Type::Reference(ty) => is_subtype(ty.elem.as_ref(), sub_type),
         syn::Type::Slice(ty) => is_subtype(ty.elem.as_ref(), sub_type),
         syn::Type::Paren(ty) => is_subtype(ty.elem.as_ref(), sub_type),
         syn::Type::Group(ty) => is_subtype(ty.elem.as_ref(), sub_type),
         syn::Type::BareFn(ty) => {
-            ty.inputs
-                .iter()
-                .any(|x| is_subtype(&x.ty, sub_type.borrow()))
+            ty.inputs.iter().any(|x| is_subtype(&x.ty, sub_type))
                 || match ty.output {
                     syn::ReturnType::Default => false,
-                    syn::ReturnType::Type(_, ref ty) => is_subtype(ty.as_ref(), sub_type.borrow()),
+                    syn::ReturnType::Type(_, ref ty) => is_subtype(ty.as_ref(), sub_type),
                 }
         }
         syn::Type::ImplTrait(ty) => ty.bounds.iter().any(|x| match x {
@@ -55,15 +50,13 @@ fn is_subtype(ty: impl Borrow<syn::Type>, sub_type: impl Borrow<syn::Type>) -> b
             _ => false,
         }),
         syn::Type::Path(ty) => ty.path.segments.iter().any(|x| {
-            x.ident == sub_type.borrow().to_token_stream().to_string()
+            x.ident == sub_type.to_token_stream().to_string()
                 || match x.arguments {
                     syn::PathArguments::None => false,
                     syn::PathArguments::AngleBracketed(ref args) => {
                         args.args.iter().any(|x| match x {
-                            syn::GenericArgument::Type(ty) => is_subtype(ty, sub_type.borrow()),
-                            syn::GenericArgument::AssocType(ty) => {
-                                is_subtype(&ty.ty, sub_type.borrow())
-                            }
+                            syn::GenericArgument::Type(ty) => is_subtype(ty, sub_type),
+                            syn::GenericArgument::AssocType(ty) => is_subtype(&ty.ty, sub_type),
                             syn::GenericArgument::Const(_) => false,
                             syn::GenericArgument::Lifetime(_) => false,
                             syn::GenericArgument::AssocConst(_) => false,
@@ -79,7 +72,7 @@ fn is_subtype(ty: impl Borrow<syn::Type>, sub_type: impl Borrow<syn::Type>) -> b
             syn::TypeParamBound::Lifetime(_) => false,
             syn::TypeParamBound::PreciseCapture(_) => false,
             syn::TypeParamBound::Verbatim(ty) => {
-                ty.to_string() == sub_type.borrow().to_token_stream().to_string()
+                ty.to_string() == sub_type.to_token_stream().to_string()
             }
             _ => unimplemented!("Non exaustive"),
         }),
@@ -869,7 +862,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
 fn type_repr_maxsizeof_where_clauses(
     where_clause: &WhereClause,
-    generic_types: &Vec<syn::Type>,
+    generic_types: &[syn::Type],
 ) -> (WhereClause, WhereClause, WhereClause) {
     let mut bounds_typehash = Punctuated::new();
     bounds_typehash.push(syn::parse_quote!(epserde::traits::TypeHash));
