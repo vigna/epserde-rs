@@ -2,9 +2,12 @@
 
 ## [0.7.0] - 2025-02-18
 
-* Now Serialize inner has an associated type SerType that is used to write the 
-  file header. This is done so `Data<&[u32]>` can be serialized as if it were
-  `Data<Vec<u32>>`.
+### New
+
+* Now `SerializeInner` inner has an associated type `SerType` that is used to
+  write the file header. This is done so `Data<&[u32]>` can be conveniently
+  serialized as if it were `Data<Vec<u32>>`. There is no change in the file
+  format.
 
 ## [0.6.3] - 2025-02-07
 

@@ -40,7 +40,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 ///
 /// It provides a convenience method [`Serialize::store`] that serializes
 /// the type to a file.
-pub trait Serialize: SerializeInner + Sized {
+pub trait Serialize: TypeHash + ReprHash {
     /// Serialize the type using the given backend.
     fn serialize(&self, backend: &mut impl WriteNoStd) -> Result<usize> {
         let mut write_with_pos = WriterWithPos::new(backend);
@@ -81,10 +81,10 @@ pub trait Serialize: SerializeInner + Sized {
 ///
 /// The user should not implement this trait directly, but rather derive it.
 pub trait SerializeInner {
-    /// This is the type that will be written in the header of the file, and thus
-    /// the type that can be deserialized. In most cases it is the same as `Self`,
-    /// but we need it to serialized types that are references to slices, which
-    /// can be deserialized as vectors.
+    /// This is the type that will be written in the header of the file, and
+    /// thus the type that will be deserialized. In most cases it is `Self`, but
+    /// in some cases, as for [references to slices](crate::impls::slice),
+    /// it is customized.
     type SerType: TypeHash + ReprHash;
     /// Inner constant used by the derive macros to keep
     /// track recursively of whether the type
@@ -111,7 +111,7 @@ pub trait SerializeInner {
 ///
 /// This implementation [writes a header](`write_header`) containing some hashes
 /// and debug information and then delegates to [WriteWithNames::write].
-impl<T: SerializeInner> Serialize for T {
+impl<T: SerializeInner + TypeHash + ReprHash> Serialize for T {
     /// Serialize the type using the given [`WriteWithNames`].
     fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // write the header using the serialized type, not the type itself

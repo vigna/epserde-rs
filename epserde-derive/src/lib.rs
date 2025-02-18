@@ -98,8 +98,8 @@ struct CommonDeriveInput {
     /// The token stream to be used after `impl` in angle brackets. It contains
     /// the generic types, lifetimes, and constants, with their trait bounds.
     generics: proc_macro2::TokenStream,
-    /// The generic types of the struct
-    generic_tys: Vec<syn::Type>,
+    /// A vector containing the [types](syn::Type) of the generics.
+    generics_type_vec: Vec<syn::Type>,
     /// A vector containing the identifiers of the generics.
     generics_name_vec: Vec<proc_macro2::TokenStream>,
     /// Same as `generics_name_vec`, but names are concatenated
@@ -127,7 +127,7 @@ impl CommonDeriveInput {
         let mut type_names_raw = vec![];
         let mut generics_name_vec = vec![];
         let mut generics_names = quote!();
-        let mut generic_tys: Vec<syn::Type> = vec![];
+        let mut generics_type_vec: Vec<syn::Type> = vec![];
 
         let mut const_names_vec = vec![];
         let mut const_names_raw = vec![];
@@ -150,7 +150,7 @@ impl CommonDeriveInput {
                         }
                         generics.extend(quote!(#t,));
                         generics_name_vec.push(t.ident.to_token_stream());
-                        generic_tys.push(syn::Type::Verbatim(t.ident.into_token_stream()));
+                        generics_type_vec.push(syn::Type::Verbatim(t.ident.into_token_stream()));
                     }
                     syn::GenericParam::Lifetime(l) => {
                         generics_names.extend(l.lifetime.to_token_stream());
@@ -176,7 +176,7 @@ impl CommonDeriveInput {
         Self {
             name,
             generics,
-            generic_tys,
+            generics_type_vec,
             generics_names,
             type_names_raw,
             generics_name_vec,
@@ -246,7 +246,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
         type_names_raw,
         generics_name_vec,
         generics,
-        generic_tys,
+        generics_type_vec,
         ..
     } = CommonDeriveInput::new(derive_input.clone(), vec![]);
 
@@ -280,7 +280,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     .map(|x| x.to_token_stream())
                     .unwrap_or_else(|| syn::Index::from(field_idx).to_token_stream());
 
-                if generic_tys.iter().any(|x| is_subtype(ty, x)) {
+                if generics_type_vec.iter().any(|x| is_subtype(ty, x)) {
                     generic_fields.push(field_name.clone());
                     generic_types.push(ty);
                 } else {
@@ -573,7 +573,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .iter()
                         .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
                         .for_each(|(ident, ty)| {
-                            if generic_tys.iter().any(|x| is_subtype(ty, x)) {
+                            if generics_type_vec.iter().any(|x| is_subtype(ty, x)) {
                                 generic_fields.push(ident.to_token_stream());
                                 generic_types.push(ty.to_token_stream());
                             } else {
@@ -648,7 +648,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .for_each(|(field_idx, unnamed)| {
                             let ty = &unnamed.ty;
                             let ident = syn::Index::from(field_idx);
-                            if generic_tys.iter().any(|x| is_subtype(ty, x)) {
+                            if generics_type_vec.iter().any(|x| is_subtype(ty, x)) {
                                 generic_fields.push(ident.to_token_stream());
                                 generic_types.push(ty.to_token_stream());
                             } else {
@@ -760,10 +760,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     #[automatically_derived]
                     impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_ser {
                         type SerType =  #name<#(#ser_type_generics,)*>;
+
                         // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
                             && <#fields_types>::IS_ZERO_COPY
                         )*;
+
                         // The type is declared as zero copy, so a fortiori there is no mismatch.
                         const ZERO_COPY_MISMATCH: bool = false;
                         #[inline(always)]
@@ -784,7 +786,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         ) -> core::result::Result<Self, epserde::deser::Error> {
                             epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
+
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#generics_names>;
+
                         fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                         ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
@@ -802,10 +806,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     #[automatically_derived]
                     impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_ser {
                         type SerType =  #name<#(#ser_type_generics,)*>;
+
                         // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
                             && <#fields_types>::IS_ZERO_COPY
                         )*;
+
                         // Compute whether the type could be zero copy but it is not declared as such,
                         // and the attribute `deep_copy` is missing.
                         const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
@@ -833,7 +839,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                 tag => Err(epserde::deser::Error::InvalidTag(tag)),
                             }
                         }
+
                         type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
+
                         fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                         ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
@@ -873,7 +881,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         name,
         generics,
         generics_names,
-        generic_tys,
+        generics_type_vec,
         const_names_vec,
         const_names_raw,
         ..
@@ -895,7 +903,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             // Compute which fields types are super-types of the generic parameters
             s.fields.iter().for_each(|field| {
                 let ty = &field.ty;
-                if generic_tys.iter().any(|x| is_subtype(ty, x)) {
+                if generics_type_vec.iter().any(|x| is_subtype(ty, x)) {
                     generic_types.push(ty.clone());
                 }
             });
@@ -1137,7 +1145,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                                         }
                                     }
                                 ]);
-                                if generic_tys.iter().any(|x| is_subtype(&ty, x)) {
+                                if generics_type_vec.iter().any(|x| is_subtype(&ty, x)) {
                                     generic_types.push(ty);
                                 }
                             });
@@ -1164,7 +1172,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                                         }
                                     }
                                 ]);
-                                if generic_tys.iter().any(|x| is_subtype(ty, x)) {
+                                if generics_type_vec.iter().any(|x| is_subtype(ty, x)) {
                                     generic_types.push(ty.clone());
                                 }
                             });
