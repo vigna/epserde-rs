@@ -11,12 +11,85 @@ Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) c
 
 */
 
+use core::borrow::Borrow;
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{
     parse_macro_input, punctuated::Punctuated, token, BoundLifetimes, Data, DeriveInput,
     GenericParam, LifetimeParam, PredicateType, WhereClause, WherePredicate,
 };
+
+/// Check if `sub_type` is part of `ty`. we use this function to detect which
+/// field types contains generics and thus need to be bounded.
+fn is_subtype(ty: impl Borrow<syn::Type>, sub_type: impl Borrow<syn::Type>) -> bool {
+    // early stop if they perfectly match
+    if ty.borrow() == sub_type.borrow() {
+        return true;
+    }
+
+    match ty.borrow() {
+        syn::Type::Never(_) => false,
+        syn::Type::Verbatim(token) => {
+            token.to_string() == sub_type.borrow().to_token_stream().to_string()
+        }
+        syn::Type::Array(ty) => is_subtype(ty.elem.as_ref(), sub_type),
+        syn::Type::Tuple(ty) => ty.elems.iter().any(|x| is_subtype(x, sub_type.borrow())),
+        syn::Type::Ptr(ty) => is_subtype(ty.elem.as_ref(), sub_type),
+        syn::Type::Reference(ty) => is_subtype(ty.elem.as_ref(), sub_type),
+        syn::Type::Slice(ty) => is_subtype(ty.elem.as_ref(), sub_type),
+        syn::Type::Paren(ty) => is_subtype(ty.elem.as_ref(), sub_type),
+        syn::Type::Group(ty) => is_subtype(ty.elem.as_ref(), sub_type),
+        syn::Type::BareFn(ty) => {
+            ty.inputs
+                .iter()
+                .any(|x| is_subtype(&x.ty, sub_type.borrow()))
+                || match ty.output {
+                    syn::ReturnType::Default => false,
+                    syn::ReturnType::Type(_, ref ty) => is_subtype(ty.as_ref(), sub_type.borrow()),
+                }
+        }
+        syn::Type::ImplTrait(ty) => ty.bounds.iter().any(|x| match x {
+            syn::TypeParamBound::Trait(_) => {
+                unimplemented!("This shouldn't happen inside a struct")
+            }
+            _ => false,
+        }),
+        syn::Type::Path(ty) => ty.path.segments.iter().any(|x| {
+            x.ident == sub_type.borrow().to_token_stream().to_string()
+                || match x.arguments {
+                    syn::PathArguments::None => false,
+                    syn::PathArguments::AngleBracketed(ref args) => {
+                        args.args.iter().any(|x| match x {
+                            syn::GenericArgument::Type(ty) => is_subtype(ty, sub_type.borrow()),
+                            syn::GenericArgument::AssocType(ty) => {
+                                is_subtype(&ty.ty, sub_type.borrow())
+                            }
+                            syn::GenericArgument::Const(_) => false,
+                            syn::GenericArgument::Lifetime(_) => false,
+                            syn::GenericArgument::AssocConst(_) => false,
+                            syn::GenericArgument::Constraint(_) => todo!(),
+                            _ => unimplemented!("Non exaustive"),
+                        })
+                    }
+                    syn::PathArguments::Parenthesized(_) => todo!(),
+                }
+        }),
+        syn::Type::TraitObject(ty) => ty.bounds.iter().any(|x| match x {
+            syn::TypeParamBound::Trait(_) => todo!(),
+            syn::TypeParamBound::Lifetime(_) => false,
+            syn::TypeParamBound::PreciseCapture(_) => false,
+            syn::TypeParamBound::Verbatim(ty) => {
+                ty.to_string() == sub_type.borrow().to_token_stream().to_string()
+            }
+            _ => unimplemented!("Non exaustive"),
+        }),
+        syn::Type::Infer(_) => {
+            unimplemented!("We cannot check the covariance of a type to be inferred")
+        }
+        syn::Type::Macro(_) => unimplemented!("We cannot check the covariance of a macro type"),
+        _ => unimplemented!("Non exaustive"),
+    }
+}
 
 /// Pre-parsed information for the derive macros.
 struct CommonDeriveInput {
@@ -25,6 +98,8 @@ struct CommonDeriveInput {
     /// The token stream to be used after `impl` in angle brackets. It contains
     /// the generic types, lifetimes, and constants, with their trait bounds.
     generics: proc_macro2::TokenStream,
+    /// The generic types of the struct
+    generic_tys: Vec<syn::Type>,
     /// A vector containing the identifiers of the generics.
     generics_name_vec: Vec<proc_macro2::TokenStream>,
     /// Same as `generics_name_vec`, but names are concatenated
@@ -40,8 +115,6 @@ struct CommonDeriveInput {
     /// as strings. Used to include the identifiers of generic constants into
     /// the type hash.
     const_names_raw: Vec<String>,
-    /// The where clause.
-    where_clause: proc_macro2::TokenStream,
 }
 
 impl CommonDeriveInput {
@@ -54,6 +127,7 @@ impl CommonDeriveInput {
         let mut type_names_raw = vec![];
         let mut generics_name_vec = vec![];
         let mut generics_names = quote!();
+        let mut generic_tys: Vec<syn::Type> = vec![];
 
         let mut const_names_vec = vec![];
         let mut const_names_raw = vec![];
@@ -76,6 +150,7 @@ impl CommonDeriveInput {
                         }
                         generics.extend(quote!(#t,));
                         generics_name_vec.push(t.ident.to_token_stream());
+                        generic_tys.push(syn::Type::Verbatim(t.ident.into_token_stream()));
                     }
                     syn::GenericParam::Lifetime(l) => {
                         generics_names.extend(l.lifetime.to_token_stream());
@@ -98,18 +173,11 @@ impl CommonDeriveInput {
             });
         }
 
-        // We add a where keyword in case we need to add clauses
-        let where_clause = input
-            .generics
-            .where_clause
-            .map(|x| x.to_token_stream())
-            .unwrap_or(quote!(where));
-
         Self {
             name,
             generics,
+            generic_tys,
             generics_names,
-            where_clause,
             type_names_raw,
             generics_name_vec,
             const_names_raw,
@@ -178,6 +246,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
         type_names_raw,
         generics_name_vec,
         generics,
+        generic_tys,
         ..
     } = CommonDeriveInput::new(derive_input.clone(), vec![]);
 
@@ -211,7 +280,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     .map(|x| x.to_token_stream())
                     .unwrap_or_else(|| syn::Index::from(field_idx).to_token_stream());
 
-                if type_names_raw.contains(&ty.to_token_stream().to_string()) {
+                if generic_tys.iter().any(|x| is_subtype(ty, x)) {
                     generic_fields.push(field_name.clone());
                     generic_types.push(ty);
                 } else {
@@ -246,7 +315,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     {
                         quote!(<#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
                     } else {
-                        ty.clone()
+                        ty.to_token_stream()
                     }
                 })
                 .collect::<Vec<_>>();
@@ -267,6 +336,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 // add that every struct field has to implement SerializeInner
                 let mut bounds_ser = Punctuated::new();
                 bounds_ser.push(syn::parse_quote!(epserde::ser::SerializeInner));
+                bounds_ser.push(syn::parse_quote!(epserde::traits::TypeHash));
+                bounds_ser.push(syn::parse_quote!(epserde::traits::ReprHash));
                 where_clause_ser
                     .predicates
                     .push(WherePredicate::Type(PredicateType {
@@ -287,7 +358,19 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         bounds: bounds_des,
                     }));
             });
-
+            let ser_type_generics = generics_name_vec
+                .iter()
+                .map(|ty| {
+                    if generic_types
+                        .iter()
+                        .any(|x| x.to_token_stream().to_string() == ty.to_string())
+                    {
+                        quote!(<#ty as epserde::ser::SerializeInner>::SerType)
+                    } else {
+                        ty.to_token_stream()
+                    }
+                })
+                .collect::<Vec<_>>();
             // We add to the deserialization where clause the bounds on the deserialization
             // types of the fields derived from the bounds of the original types of the fields.
             // TODO: we presently handle only inlined bounds, and not bounds in a where clause.
@@ -327,6 +410,16 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             colon_token: token::Colon::default(),
                             bounds: t.bounds.clone(),
                         }));
+                    where_clause_ser
+                        .predicates
+                        .push(WherePredicate::Type(PredicateType {
+                            lifetimes: None,
+                            bounded_ty: syn::parse_quote!(
+                                <#ty as epserde::ser::SerializeInner>::SerType
+                            ),
+                            colon_token: token::Colon::default(),
+                            bounds: t.bounds.clone(),
+                        }));
                 }
             });
 
@@ -339,7 +432,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     #[automatically_derived]
                     impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_ser {
-                        type SerType = Self<#generics_names>;
+                        type SerType =  #name<#(#ser_type_generics),*>;
                         // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
                             && <#fields_types>::IS_ZERO_COPY
@@ -388,7 +481,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     #[automatically_derived]
                     impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_ser {
-                        type SerType = Self<#generics_names>;
+                        type SerType =  #name<#(#ser_type_generics,)*>;
                         // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
                             && <#fields_types>::IS_ZERO_COPY
@@ -480,14 +573,13 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .iter()
                         .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
                         .for_each(|(ident, ty)| {
-                            if type_names_raw.contains(&ty.to_token_stream().to_string()) {
+                            if generic_tys.iter().any(|x| is_subtype(ty, x)) {
                                 generic_fields.push(ident.to_token_stream());
                                 generic_types.push(ty.to_token_stream());
                             } else {
                                 non_generic_fields.push(ident.to_token_stream());
                                 non_generic_types.push(ty.to_token_stream());
                             }
-
 
                             var_fields_names.push(ident.to_token_stream());
                             var_fields_types.push(ty.to_token_stream());
@@ -556,7 +648,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .for_each(|(field_idx, unnamed)| {
                             let ty = &unnamed.ty;
                             let ident = syn::Index::from(field_idx);
-                            if type_names_raw.contains(&ty.to_token_stream().to_string()) {
+                            if generic_tys.iter().any(|x| is_subtype(ty, x)) {
                                 generic_fields.push(ident.to_token_stream());
                                 generic_types.push(ty.to_token_stream());
                             } else {
@@ -644,7 +736,19 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
                 })
                 .collect::<Vec<_>>();
-
+            let ser_type_generics = generics_name_vec
+                .iter()
+                .map(|ty| {
+                    if generic_types
+                        .iter()
+                        .any(|x| x.to_token_stream().to_string() == ty.to_string())
+                    {
+                        quote!(<#ty as epserde::ser::SerializeInner>::SerType)
+                    } else {
+                        ty.clone()
+                    }
+                })
+                .collect::<Vec<_>>();
             let tag = (0..variants.len()).collect::<Vec<_>>();
 
             if is_zero_copy {
@@ -653,17 +757,15 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     impl<#generics> epserde::traits::CopyType for  #name<#generics_names> #where_clause {
                         type Copy = epserde::traits::Zero;
                     }
-
                     #[automatically_derived]
                     impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_ser {
+                        type SerType =  #name<#(#ser_type_generics,)*>;
                         // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
                             && <#fields_types>::IS_ZERO_COPY
                         )*;
-
                         // The type is declared as zero copy, so a fortiori there is no mismatch.
                         const ZERO_COPY_MISMATCH: bool = false;
-
                         #[inline(always)]
                         fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
                             // No-op code that however checks that all fields are zero-copy.
@@ -682,9 +784,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         ) -> core::result::Result<Self, epserde::deser::Error> {
                             epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
-
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#generics_names>;
-
                         fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                         ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
@@ -699,18 +799,16 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     impl<#generics> epserde::traits::CopyType for  #name<#generics_names> #where_clause {
                         type Copy = epserde::traits::Deep;
                     }
-
                     #[automatically_derived]
                     impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_ser {
+                        type SerType =  #name<#(#ser_type_generics,)*>;
                         // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
                             && <#fields_types>::IS_ZERO_COPY
                         )*;
-
                         // Compute whether the type could be zero copy but it is not declared as such,
                         // and the attribute `deep_copy` is missing.
                         const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
-
                         #[inline(always)]
                         fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
                             epserde::ser::helpers::check_mismatch::<Self>();
@@ -722,7 +820,6 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             Ok(())
                         }
                     }
-
                     #[automatically_derived]
                     impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#generics_names> #where_clause_des {
                         fn _deserialize_full_inner(
@@ -736,9 +833,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                 tag => Err(epserde::deser::Error::InvalidTag(tag)),
                             }
                         }
-
                         type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
-
                         fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                         ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
@@ -776,35 +871,77 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
 
     let CommonDeriveInput {
         name,
-        generics: generics_typehash,
+        generics,
         generics_names,
-        where_clause,
+        generic_tys,
         const_names_vec,
         const_names_raw,
         ..
-    } = CommonDeriveInput::new(
-        input.clone(),
-        vec![syn::parse_quote!(epserde::traits::TypeHash)],
-    );
+    } = CommonDeriveInput::new(input.clone(), vec![]);
 
-    let CommonDeriveInput {
-        generics: generics_reprhash,
-        ..
-    } = CommonDeriveInput::new(
-        input.clone(),
-        vec![syn::parse_quote!(epserde::traits::ReprHash)],
-    );
-
-    let CommonDeriveInput {
-        generics: generics_maxsizeof,
-        ..
-    } = CommonDeriveInput::new(
-        input.clone(),
-        vec![syn::parse_quote!(epserde::traits::MaxSizeOf)],
-    );
+    let where_clause = input
+        .generics
+        .where_clause
+        .clone()
+        .unwrap_or_else(|| WhereClause {
+            where_token: token::Where::default(),
+            predicates: Punctuated::new(),
+        });
 
     let out = match input.data {
         Data::Struct(s) => {
+            //these are the type of the fields that contains generics parameters
+            let mut generic_types = vec![];
+            // Compute which fields types are super-types of the generic parameters
+            s.fields.iter().for_each(|field| {
+                let ty = &field.ty;
+                if generic_tys.iter().any(|x| is_subtype(ty, x)) {
+                    generic_types.push(ty.clone());
+                }
+            });
+
+            let mut bounds_typehash = Punctuated::new();
+            bounds_typehash.push(syn::parse_quote!(epserde::traits::TypeHash));
+            let mut where_clause_typehash = where_clause.clone();
+            generic_types.iter().for_each(|ty| {
+                where_clause_typehash
+                    .predicates
+                    .push(WherePredicate::Type(PredicateType {
+                        lifetimes: None,
+                        bounded_ty: ty.clone(),
+                        colon_token: token::Colon::default(),
+                        bounds: bounds_typehash.clone(),
+                    }));
+            });
+
+            let mut bounds_reprhash = Punctuated::new();
+            bounds_reprhash.push(syn::parse_quote!(epserde::traits::ReprHash));
+            let mut where_clause_reprhash = where_clause.clone();
+            generic_types.iter().for_each(|ty| {
+                where_clause_reprhash
+                    .predicates
+                    .push(WherePredicate::Type(PredicateType {
+                        lifetimes: None,
+                        bounded_ty: ty.clone(),
+                        colon_token: token::Colon::default(),
+                        bounds: bounds_reprhash.clone(),
+                    }));
+            });
+
+            let mut bounds_maxsizeof = Punctuated::new();
+            bounds_maxsizeof.push(syn::parse_quote!(epserde::traits::MaxSizeOf));
+            let mut where_clause_maxsizeof = where_clause.clone();
+            generic_types.iter().for_each(|ty| {
+                where_clause_maxsizeof
+                    .predicates
+                    .push(WherePredicate::Type(PredicateType {
+                        lifetimes: None,
+                        bounded_ty: ty.clone(),
+                        colon_token: token::Colon::default(),
+                        bounds: bounds_maxsizeof.clone(),
+                    }));
+            });
+
             let fields_names = s
                 .fields
                 .iter()
@@ -838,7 +975,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics_typehash> epserde::traits::TypeHash for #name<#generics_names> #where_clause{
+                    impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause_typehash {
 
                         #[inline(always)]
                         fn type_hash(
@@ -866,8 +1003,8 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             )*
                         }
                     }
-
-                    impl<#generics_reprhash> epserde::traits::ReprHash for #name<#generics_names> #where_clause{
+                    #[automatically_derived]
+                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash{
                         #[inline(always)]
                         fn repr_hash(
                             hasher: &mut impl core::hash::Hasher,
@@ -890,8 +1027,8 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             )*
                         }
                     }
-
-                    impl<#generics_maxsizeof> epserde::traits::MaxSizeOf for #name<#generics_names> #where_clause{
+                    #[automatically_derived]
+                    impl<#generics> epserde::traits::MaxSizeOf for #name<#generics_names> #where_clause_maxsizeof{
                         #[inline(always)]
                         fn max_size_of() -> usize {
                             let mut max_size_of = std::mem::align_of::<Self>();
@@ -908,7 +1045,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics_typehash> epserde::traits::TypeHash for #name<#generics_names> #where_clause{
+                    impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause_typehash{
 
                         #[inline(always)]
                         fn type_hash(
@@ -937,8 +1074,8 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             )*
                         }
                     }
-
-                    impl<#generics_reprhash> epserde::traits::ReprHash for #name<#generics_names> #where_clause{
+                    #[automatically_derived]
+                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash{
                         #[inline(always)]
                         fn repr_hash(
                             hasher: &mut impl core::hash::Hasher,
@@ -969,6 +1106,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             let mut var_type_hashes = Vec::new();
             let mut var_repr_hashes = Vec::new();
             let mut var_max_size_ofs = Vec::new();
+            let mut generic_types = vec![];
 
             e.variants.iter().for_each(|variant| {
                 let ident = variant.ident.to_owned();
@@ -982,7 +1120,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             .named
                             .iter()
                             .map(|named| {
-                                (named.ident.as_ref().unwrap(), named.ty.to_token_stream())
+                                (named.ident.as_ref().unwrap(), named.ty.clone())
                             })
                             .for_each(|(ident, ty)| {
                                 var_type_hash.extend([quote! {
@@ -999,6 +1137,9 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                                         }
                                     }
                                 ]);
+                                if generic_tys.iter().any(|x| is_subtype(&ty, x)) {
+                                    generic_types.push(ty);
+                                }
                             });
                     }
                     syn::Fields::Unnamed(fields) => {
@@ -1023,6 +1164,9 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                                         }
                                     }
                                 ]);
+                                if generic_tys.iter().any(|x| is_subtype(ty, x)) {
+                                    generic_types.push(ty.clone());
+                                }
                             });
                     }
                 }
@@ -1042,10 +1186,52 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                 .map(|x| x.meta.require_list().unwrap().tokens.to_string())
                 .collect::<Vec<_>>();
 
+            let mut bounds_typehash = Punctuated::new();
+            bounds_typehash.push(syn::parse_quote!(epserde::traits::TypeHash));
+            let mut where_clause_typehash = where_clause.clone();
+            generic_types.iter().for_each(|ty| {
+                where_clause_typehash
+                    .predicates
+                    .push(WherePredicate::Type(PredicateType {
+                        lifetimes: None,
+                        bounded_ty: ty.clone(),
+                        colon_token: token::Colon::default(),
+                        bounds: bounds_typehash.clone(),
+                    }));
+            });
+
+            let mut bounds_reprhash = Punctuated::new();
+            bounds_reprhash.push(syn::parse_quote!(epserde::traits::ReprHash));
+            let mut where_clause_reprhash = where_clause.clone();
+            generic_types.iter().for_each(|ty| {
+                where_clause_reprhash
+                    .predicates
+                    .push(WherePredicate::Type(PredicateType {
+                        lifetimes: None,
+                        bounded_ty: ty.clone(),
+                        colon_token: token::Colon::default(),
+                        bounds: bounds_reprhash.clone(),
+                    }));
+            });
+
+            let mut bounds_maxsizeof = Punctuated::new();
+            bounds_maxsizeof.push(syn::parse_quote!(epserde::traits::MaxSizeOf));
+            let mut where_clause_maxsizeof = where_clause.clone();
+            generic_types.iter().for_each(|ty| {
+                where_clause_maxsizeof
+                    .predicates
+                    .push(WherePredicate::Type(PredicateType {
+                        lifetimes: None,
+                        bounded_ty: ty.clone(),
+                        colon_token: token::Colon::default(),
+                        bounds: bounds_maxsizeof.clone(),
+                    }));
+            });
+
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics_typehash> epserde::traits::TypeHash for #name<#generics_names> #where_clause{
+                    impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause_typehash{
 
                         #[inline(always)]
                         fn type_hash(
@@ -1069,8 +1255,8 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             )*
                         }
                     }
-
-                    impl<#generics_reprhash> epserde::traits::ReprHash for #name<#generics_names> #where_clause{
+                    #[automatically_derived]
+                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash{
                         #[inline(always)]
                         fn repr_hash(
                             hasher: &mut impl core::hash::Hasher,
@@ -1092,8 +1278,8 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             )*
                         }
                     }
-
-                    impl<#generics_maxsizeof> epserde::traits::MaxSizeOf for #name<#generics_names> #where_clause{
+                    #[automatically_derived]
+                    impl<#generics> epserde::traits::MaxSizeOf for #name<#generics_names> #where_clause_maxsizeof{
                         #[inline(always)]
                         fn max_size_of() -> usize {
                             let mut max_size_of = std::mem::align_of::<Self>();
@@ -1107,7 +1293,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics_typehash> epserde::traits::TypeHash for #name<#generics_names> #where_clause{
+                    impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause_typehash{
 
                         #[inline(always)]
                         fn type_hash(
@@ -1133,7 +1319,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
 
-                    impl<#generics_reprhash> epserde::traits::ReprHash for #name<#generics_names> #where_clause{
+                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash{
                         #[inline(always)]
                         fn repr_hash(
                             hasher: &mut impl core::hash::Hasher,

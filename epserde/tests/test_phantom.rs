@@ -28,9 +28,9 @@ fn test_phantom() {
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
-struct DataFull<A> {
+struct DataFull<D> {
     a: usize,
-    b: PhantomData<A>,
+    b: PhantomData<D>,
 }
 #[derive(Debug, PartialEq, Eq, Clone, Default, TypeInfo)]
 struct NotSerializableType;

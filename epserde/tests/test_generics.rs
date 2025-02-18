@@ -40,9 +40,12 @@ fn test_inner_param_full() {
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-struct Data2<A, B> {
+struct Data2<P, B> {
     a: B,
-    _marker: std::marker::PhantomData<A>,
+    // this should be ignored, but contains `P` in the type name so it might
+    // be erroneously matched
+    _marker2: PhantomData<()>,
+    _marker: std::marker::PhantomData<P>,
 }
 
 #[test]
@@ -50,6 +53,7 @@ fn test_inner_param_eps() {
     // Create a new value to serialize
     let data = Data2::<usize, Vec<usize>> {
         a: vec![0x89; 6],
+        _marker2: PhantomData,
         _marker: PhantomData,
     };
 
