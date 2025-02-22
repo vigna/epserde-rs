@@ -329,8 +329,6 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 // add that every struct field has to implement SerializeInner
                 let mut bounds_ser = Punctuated::new();
                 bounds_ser.push(syn::parse_quote!(epserde::ser::SerializeInner));
-                bounds_ser.push(syn::parse_quote!(epserde::traits::TypeHash));
-                bounds_ser.push(syn::parse_quote!(epserde::traits::ReprHash));
                 where_clause_ser
                     .predicates
                     .push(WherePredicate::Type(PredicateType {
@@ -339,6 +337,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         colon_token: token::Colon::default(),
                         bounds: bounds_ser,
                     }));
+
                 // add that every struct field has to implement DeserializeInner
                 let mut bounds_des = Punctuated::new();
                 bounds_des.push(syn::parse_quote!(epserde::deser::DeserializeInner));
@@ -412,6 +411,20 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             ),
                             colon_token: token::Colon::default(),
                             bounds: t.bounds.clone(),
+                        }));
+                        
+                    let mut bounds_ser_sertype =  Punctuated::new();
+                    bounds_ser_sertype.push(syn::parse_quote!(epserde::traits::TypeHash));
+                    bounds_ser_sertype.push(syn::parse_quote!(epserde::traits::ReprHash));
+                    where_clause_ser
+                        .predicates
+                        .push(WherePredicate::Type(PredicateType {
+                            lifetimes: None,
+                            bounded_ty: syn::parse_quote!(
+                                <#ty as epserde::ser::SerializeInner>::SerType
+                            ),
+                            colon_token: token::Colon::default(),
+                            bounds: bounds_ser_sertype,
                         }));
                 }
             });
