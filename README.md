@@ -396,7 +396,7 @@ struct MyStruct<A: DeepCopy + 'static>(Vec<A>);
 let s: MyStruct<Vec<isize>> = MyStruct(vec![vec![0, 1, 2, 3]]);
 // Serialize it
 let mut file = std::env::temp_dir();
-file.push("serialized4");
+file.push("serialized5");
 s.store(&file);
 // Load the serialized form in a buffer
 let b = std::fs::read(&file)?;
@@ -434,7 +434,7 @@ struct MyStruct<A: ZeroCopy> {
 let s: MyStruct<i32> = MyStruct { data: 0 };
 // Serialize it
 let mut file = std::env::temp_dir();
-file.push("serialized5");
+file.push("serialized6");
 s.store(&file);
 // Load the serialized form in a buffer
 let b = std::fs::read(&file)?;
@@ -473,7 +473,7 @@ enum Enum<T=Vec<usize>> {
 let e = Enum::B(vec![0, 1, 2, 3]);
 // Serialize it
 let mut file = std::env::temp_dir();
-file.push("serialized6");
+file.push("serialized7");
 e.store(&file);
 // Deserializing using just Enum will fail, as the type parameter 
 // by default is Vec<usize>
@@ -498,7 +498,7 @@ let v = vec![0, 1, 2, 3];
 let s: &[i32] = v.as_ref();
 // Serialize it
 let mut file = std::env::temp_dir();
-file.push("serialized7");
+file.push("serialized8");
 s.store(&file);
 // Load the serialized form in a buffer
 let b = std::fs::read(&file)?;
