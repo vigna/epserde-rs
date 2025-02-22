@@ -1,5 +1,19 @@
 # Change Log
 
+## [0.8.0] - 2025-02-22
+
+### New
+
+* The file format has unfortunately changed. The ReprHash of arrays was wrong
+  and could have led to data corruption. We took this chance to fix a number of
+  ReprHash representation for deep-copy types that were not empty (as they
+  should have been).
+
+* The implementation for tuples was broken because it assumed that the memory
+  layout would have been the same of the source layout. We now just support
+  tuples of zero-copy identical types up to size 12. For the other cases, it is
+  necessary to create a `repr(C)` tuple newtype.
+
 ## [0.7.0] - 2025-02-18
 
 ### New

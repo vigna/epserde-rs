@@ -47,8 +47,9 @@ pub trait TypeHash {
 /// the type, hashes in the type size, and finally increases `offset_of` by
 /// [`core::mem::size_of`] the type.
 /// 
-/// All [deep-copy](DeepCopy) types must implement [`ReprHash`] with an empty
-/// implementation.
+/// All [deep-copy](crate::traits::DeepCopy) types must implement [`ReprHash`]
+/// with an empty implementation without any trait bound on their type
+/// parameters.
 pub trait ReprHash {
     /// Accumulate representional information in `hasher` assuming to
     /// be positioned at `offset_of`.
@@ -70,24 +71,23 @@ pub(crate) fn std_repr_hash<T: ZeroCopy>(hasher: &mut impl core::hash::Hasher, o
     *offset_of += core::mem::size_of::<T>();
 }
 
-/// A trait providing the maximum size of a primitive field in a type
-/// maximized with [`core::mem::align_of`].
+/// A trait providing the maximum size of a primitive field in a type maximized
+/// with [`core::mem::align_of`].
 ///
-/// We use the value returned by [`MaxSizeOf::max_size_of`]
-/// to generate padding before storing a zero-copy type. Note that this
-/// is different from the padding used to align the same type inside
-/// a struct, which is not under our control and is
-/// given by [`core::mem::align_of`].
+/// We use the value returned by [`MaxSizeOf::max_size_of`] to generate padding
+/// before storing a zero-copy type. Note that this is different from the
+/// padding used to align the same type inside a struct, which is not under our
+/// control and is given by [`core::mem::align_of`].
 ///
-/// In this way we increase interoperability between architectures
-/// with different alignment requirements for the same types (e.g.,
-/// 4 or 8 bytes for `u64`).
+/// In this way we increase interoperability between architectures with
+/// different alignment requirements for the same types (e.g., 4 or 8 bytes for
+/// `u64`).
 ///
-/// By maximizing with [`core::mem::align_of`] we ensure that
-/// we provide sufficient alignment in case the attribute `repr(align(N))`
-/// was specified.
+/// By maximizing with [`core::mem::align_of`] we ensure that we provide
+/// sufficient alignment in case the attribute `repr(align(N))` was specified.
 /// 
-/// [Deep-copy](DeepCopy) types do not need to implement [`MaxSizeOf`].
+/// [Deep-copy](crate::traits::DeepCopy) types do not need to implement
+/// [`MaxSizeOf`].
 pub trait MaxSizeOf: Sized {
     fn max_size_of() -> usize;
 }

@@ -329,6 +329,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 // add that every struct field has to implement SerializeInner
                 let mut bounds_ser = Punctuated::new();
                 bounds_ser.push(syn::parse_quote!(epserde::ser::SerializeInner));
+                bounds_ser.push(syn::parse_quote!(epserde::traits::TypeHash));
+                bounds_ser.push(syn::parse_quote!(epserde::traits::ReprHash));
                 where_clause_ser
                     .predicates
                     .push(WherePredicate::Type(PredicateType {
