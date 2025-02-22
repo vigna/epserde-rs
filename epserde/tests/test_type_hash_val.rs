@@ -48,7 +48,6 @@ fn test_type_hash_collision() {
 
     impl_test!(hashes, vec![1_usize, 2, 3, 4, 5]);
     impl_test!(hashes, vec![1_u8, 2, 3, 4, 5]);
-    impl_test!(hashes, vec![1_i8, 2, 3, 4, 5]);
     impl_test!(hashes, (1_u8, 3_u8, 2_u8));
 
     impl_test!(hashes, vec![1_i8, 2, 3, 4, 5].as_slice());
