@@ -47,9 +47,7 @@ macro_rules! impl_tuples {
                 offset_of: &mut usize,
             ) {
                 $(
-                    let curr_offset_of = *offset_of;
                     <$t>::repr_hash(hasher, offset_of);
-                    *offset_of = curr_offset_of + core::mem::size_of::<$t>();
                 )*
             }
         }

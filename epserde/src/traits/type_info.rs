@@ -47,9 +47,9 @@ pub trait TypeHash {
 /// the type, hashes in the type size, and finally increases `offset_of` by
 /// [`core::mem::size_of`] the type.
 /// 
-/// All deep-copy types must implement [`ReprHash`] by resetting `offset_of` to
-/// zero, and delegating to the [`ReprHash`] implementation of their fields. 
-/// 
+/// All deep-copy types must implement [`ReprHash`] by calling the [`ReprHash`]
+/// implementations of their fields with offset argument `&mut 0`.
+///
 /// If the fields have no alignement requirements (e.g., all types of strings),
 /// the implementation can be a no-op.
 pub trait ReprHash {

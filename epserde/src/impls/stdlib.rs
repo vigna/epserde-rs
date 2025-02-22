@@ -341,10 +341,9 @@ impl<B: TypeHash, C: TypeHash> TypeHash for core::ops::ControlFlow<B, C> {
 }
 
 impl<B: ReprHash, C: ReprHash> ReprHash for core::ops::ControlFlow<B, C> {
-    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        *offset_of = 0;
-        B::repr_hash(hasher, offset_of);
-        C::repr_hash(hasher, offset_of);
+    fn repr_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        B::repr_hash(hasher, &mut 0);
+        C::repr_hash(hasher, &mut 0);
     }
 }
 

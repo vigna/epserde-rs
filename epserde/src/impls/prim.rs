@@ -317,9 +317,8 @@ impl<T: TypeHash> TypeHash for Option<T> {
 }
 
 impl<T: ReprHash> ReprHash for Option<T> {
-    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        *offset_of = 0;
-        T::repr_hash(hasher, offset_of);
+    fn repr_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        T::repr_hash(hasher, &mut 0);
     }
 }
 
