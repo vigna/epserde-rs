@@ -19,12 +19,11 @@ use super::ZeroCopy;
 /// Recursively compute a type hash for a type.
 ///
 /// [`TypeHash::type_hash`] is a recursive function that computes information
-/// about a type. It is used to
-/// check that the type of the data being deserialized matches
-/// syntactically the type of the data that was written.
+/// about a type. It is used to check that the type of the data being
+/// deserialized matches syntactically the type of the data that was written.
 ///
-/// The type hasher should store information about the name and the type
-/// of the fields of a type, and the name of the type itself.
+/// The type hasher should store information about the name and the type of the
+/// fields of a type, and the name of the type itself.
 pub trait TypeHash {
     /// Accumulate type information in `hasher`.
     fn type_hash(hasher: &mut impl core::hash::Hasher);
@@ -35,11 +34,12 @@ pub trait TypeHash {
     }
 }
 
-/// Recursively compute a representational hash for a type.
+/// Recursively compute an alignment hash for a type.
 ///
-/// [`ReprHash::repr_hash`] is a recursive function that computes representation
-/// information about a zero-copy type. It is used to check that the the
-/// alignment and the representation data of the data being deserialized.
+/// [`ReprHash::repr_hash`] is a recursive function that computes alignment
+/// information about zero-copy types. It is used to check that the alignment
+/// (and thus padding) of data that is zero-copied matches the alignment at
+/// serialization time.
 ///
 /// More precisely, at each call a zero-copy type looks at `offset_of`, assuming
 /// that the type is stored at that offset in the structure, hashes in the
@@ -47,12 +47,14 @@ pub trait TypeHash {
 /// the type, hashes in the type size, and finally increases `offset_of` by
 /// [`core::mem::size_of`] the type.
 /// 
-/// All [deep-copy](crate::traits::DeepCopy) types must implement [`ReprHash`]
-/// with an empty implementation without any trait bound on their type
-/// parameters.
+/// All deep-copy types must implement [`ReprHash`] by resetting `offset_of` to
+/// zero, and delegating to the [`ReprHash`] implementation of their fields. 
+/// 
+/// If the fields have no alignement requirements (e.g., all types of strings),
+/// the implementation can be a no-op.
 pub trait ReprHash {
-    /// Accumulate representional information in `hasher` assuming to
-    /// be positioned at `offset_of`.
+    /// Accumulate alignment information in `hasher` assuming to be positioned
+    /// at `offset_of`.
     fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize);
 
     /// Call [`ReprHash::repr_hash`] on a value.
@@ -86,8 +88,7 @@ pub(crate) fn std_repr_hash<T: ZeroCopy>(hasher: &mut impl core::hash::Hasher, o
 /// By maximizing with [`core::mem::align_of`] we ensure that we provide
 /// sufficient alignment in case the attribute `repr(align(N))` was specified.
 /// 
-/// [Deep-copy](crate::traits::DeepCopy) types do not need to implement
-/// [`MaxSizeOf`].
+/// Deep-copy types do not need to implement [`MaxSizeOf`].
 pub trait MaxSizeOf: Sized {
     fn max_size_of() -> usize;
 }

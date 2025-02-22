@@ -250,7 +250,9 @@ impl DeserializeInner for () {
 }
 
 // PhantomData is zero-copy. No reading or writing is performed when
-// (de)serializing it.
+// (de)serializing it. The type parameter does not have to be sized,
+// but it does have to implement TypeHash, as we must be able to tell
+// apart structures with different type parameters stored in a PhantomData.
 
 impl<T: ?Sized> CopyType for PhantomData<T> {
     type Copy = Zero;
@@ -314,8 +316,11 @@ impl<T: TypeHash> TypeHash for Option<T> {
     }
 }
 
-impl<T> ReprHash for Option<T> {
-    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+impl<T: ReprHash> ReprHash for Option<T> {
+    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+        *offset_of = 0;
+        T::repr_hash(hasher, offset_of);
+    }
 }
 
 impl<T: SerializeInner + TypeHash + ReprHash> SerializeInner for Option<T> {

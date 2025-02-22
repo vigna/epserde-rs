@@ -27,8 +27,11 @@ impl<T: TypeHash> TypeHash for Box<[T]> {
     }
 }
 
-impl<T> ReprHash for Box<[T]> {
-    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+impl<T: ReprHash> ReprHash for Box<[T]> {
+    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+        *offset_of = 0;
+        T::repr_hash(hasher, offset_of);
+    }
 }
 
 impl<T: CopyType + SerializeInner + TypeHash + ReprHash> SerializeInner for Box<[T]>

@@ -85,7 +85,7 @@ pub trait SerializeInner {
     /// thus the type that will be deserialized. In most cases it is `Self`, but
     /// in some cases, as for [references to slices](crate::impls::slice),
     /// it is customized.
-    type SerType: TypeHash + ReprHash;
+    type SerType;
     /// Inner constant used by the derive macros to keep
     /// track recursively of whether the type
     /// satisfies the conditions for being zero-copy. It is checked
@@ -111,7 +111,10 @@ pub trait SerializeInner {
 ///
 /// This implementation [writes a header](`write_header`) containing some hashes
 /// and debug information and then delegates to [WriteWithNames::write].
-impl<T: SerializeInner> Serialize for T {
+impl<T: SerializeInner> Serialize for T
+where
+    <T as SerializeInner>::SerType: TypeHash + ReprHash,
+{
     /// Serialize the type using the given [`WriteWithNames`].
     fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // write the header using the serialized type, not the type itself
