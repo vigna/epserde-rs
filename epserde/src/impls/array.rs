@@ -33,7 +33,7 @@ impl<T: ReprHash, const N: usize> ReprHash for [T; N] {
         if N == 0 {
             return;
         }
-        T::repr_hash(hasher, offset_of);        
+        T::repr_hash(hasher, offset_of);
         *offset_of += (N - 1) * size_of::<T>();
     }
 }
@@ -56,7 +56,9 @@ where
     }
 }
 
-impl<T: ZeroCopy + SerializeInner + TypeHash + ReprHash, const N: usize> SerializeHelper<Zero> for [T; N] {
+impl<T: ZeroCopy + SerializeInner + TypeHash + ReprHash, const N: usize> SerializeHelper<Zero>
+    for [T; N]
+{
     #[inline(always)]
     fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         serialize_zero(backend, self)

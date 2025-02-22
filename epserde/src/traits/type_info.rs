@@ -46,7 +46,7 @@ pub trait TypeHash {
 /// padding necessary to make `offset_of` a multiple of [`core::mem::align_of`]
 /// the type, hashes in the type size, and finally increases `offset_of` by
 /// [`core::mem::size_of`] the type.
-/// 
+///
 /// All deep-copy types must implement [`ReprHash`] by calling the [`ReprHash`]
 /// implementations of their fields with offset argument `&mut 0`.
 ///
@@ -65,7 +65,10 @@ pub trait ReprHash {
 
 /// A function providing a reasonable default
 /// implementation of [`ReprHash::repr_hash`] for basic sized types.
-pub(crate) fn std_repr_hash<T: ZeroCopy>(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+pub(crate) fn std_repr_hash<T: ZeroCopy>(
+    hasher: &mut impl core::hash::Hasher,
+    offset_of: &mut usize,
+) {
     let padding = pad_align_to(*offset_of, core::mem::align_of::<T>());
     padding.hash(hasher);
     core::mem::size_of::<T>().hash(hasher);
@@ -87,7 +90,7 @@ pub(crate) fn std_repr_hash<T: ZeroCopy>(hasher: &mut impl core::hash::Hasher, o
 ///
 /// By maximizing with [`core::mem::align_of`] we ensure that we provide
 /// sufficient alignment in case the attribute `repr(align(N))` was specified.
-/// 
+///
 /// Deep-copy types do not need to implement [`MaxSizeOf`].
 pub trait MaxSizeOf: Sized {
     fn max_size_of() -> usize;

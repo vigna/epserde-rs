@@ -17,7 +17,9 @@ struct Data<A: ZeroCopy> {
 
 fn main() {
     // Create a new value to serialize
-    let data = Data { a: vec![0, 1, 2, 3] };
+    let data = Data {
+        a: vec![0, 1, 2, 3],
+    };
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
     let schema = data.serialize_with_schema(&mut cursor).unwrap();

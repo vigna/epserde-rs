@@ -57,7 +57,6 @@ impl_ranges!(RangeInclusive);
 impl_ranges!(RangeTo);
 impl_ranges!(RangeToInclusive);
 
-
 // RangeFull is a zero-sized type, so it is always zero-copy.
 
 impl CopyType for core::ops::RangeFull {
@@ -80,7 +79,9 @@ impl MaxSizeOf for core::ops::RangeFull {
     }
 }
 
-impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::Range<Idx> {
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner
+    for core::ops::Range<Idx>
+{
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -111,7 +112,9 @@ impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::Range<Idx
     }
 }
 
-impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::RangeFrom<Idx> {
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner
+    for core::ops::RangeFrom<Idx>
+{
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -139,7 +142,9 @@ impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeFrom
     }
 }
 
-impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::RangeInclusive<Idx> {
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner
+    for core::ops::RangeInclusive<Idx>
+{
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -175,7 +180,9 @@ impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeIncl
     }
 }
 
-impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::RangeTo<Idx> {
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner
+    for core::ops::RangeTo<Idx>
+{
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;

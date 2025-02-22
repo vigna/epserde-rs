@@ -1,7 +1,12 @@
+/*
+ * SPDX-FileCopyrightText: 2023 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
 use epserde::prelude::*;
 
-
-fn test_generic<T>(s: T) 
+fn test_generic<T>(s: T)
 where
     T: Serialize + Deserialize + PartialEq + core::fmt::Debug,
     for<'a> <T as DeserializeInner>::DeserType<'a>: PartialEq<T> + core::fmt::Debug,
@@ -44,5 +49,4 @@ fn test_range() {
     #[derive(Epserde, PartialEq, Debug)]
     struct Data(std::ops::Range<i32>);
     test_generic(Data(0..10));
-    
 }

@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-#![cfg(test)]
-
 use core::hash::Hasher;
 use epserde::prelude::*;
 use epserde::*;

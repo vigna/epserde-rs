@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-#![cfg(test)]
-
 /*
 
 // This test should not compile, as the field of a zero-copy structure is not zero-copy.

@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-#![cfg(test)]
-
 use epserde::prelude::*;
 use maligned::{A16, A64};
 #[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq)]
