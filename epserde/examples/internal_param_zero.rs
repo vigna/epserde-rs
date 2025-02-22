@@ -10,16 +10,14 @@ use maligned::A16;
 
 /// Example of an internal parameter of a zero-copy structure,
 /// which is left untouched, but needs some decoration to be used.
-#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone, Copy)]
-#[repr(C)]
-#[zero_copy]
+#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A: ZeroCopy> {
-    a: A,
+    a: Vec<A>,
 }
 
 fn main() {
     // Create a new value to serialize
-    let data = Data { a: 4 };
+    let data = Data { a: vec![0, 1, 2, 3] };
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
     let schema = data.serialize_with_schema(&mut cursor).unwrap();
@@ -38,7 +36,7 @@ fn main() {
 
     println!();
 
-    // Do an ε-copy deserialization (which will be zero-copy deserialization)
+    // Do an ε-copy deserialization
     let eps = <Data<i32>>::deserialize_eps(cursor.as_bytes()).unwrap();
     println!(
         "ε-copy deserialization type: {}",
