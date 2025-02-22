@@ -284,7 +284,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 fields_names.push(field_name);
             });
 
-            // Assign  ε-copy deserialization or full deserialization to
+            // Assign ε-copy deserialization or full deserialization to
             // fields depending whether they are generic or not.
             let mut methods: Vec<proc_macro2::TokenStream> = vec![];
 
@@ -297,8 +297,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 }
             });
 
-            // Gather deserialization types of fields,
-            // which are necessary to derive the deserialization type.
+            // Gather deserialization types of fields, as they are necessary to
+            // derive the deserialization type.
             let deser_type_generics = generics_name_vec
                 .iter()
                 .map(|ty| {
@@ -337,6 +337,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         colon_token: token::Colon::default(),
                         bounds: bounds_ser,
                     }));
+
+                // add that every struct field has to implement DeserializeInner
                 let mut bounds_des = Punctuated::new();
                 bounds_des.push(syn::parse_quote!(epserde::deser::DeserializeInner));
                 where_clause_des
@@ -348,6 +350,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         bounds: bounds_des,
                     }));
             });
+
+            // Map recursively type parameters to their SerType to generate this
+            // type's SerType
             let ser_type_generics = generics_name_vec
                 .iter()
                 .map(|ty| {
@@ -361,6 +366,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
                 })
                 .collect::<Vec<_>>();
+
             // We add to the deserialization where clause the bounds on the deserialization
             // types of the fields derived from the bounds of the original types of the fields.
             // TODO: we presently handle only inlined bounds, and not bounds in a where clause.
@@ -384,6 +390,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         colon_token: None,
                         bounds: Punctuated::new(),
                     }));
+                    // TODO: duplicate?
                     // add that the DeserType is a DeserializeInner
                     let mut bounds_des =  Punctuated::new();
                     bounds_des.push(syn::parse_quote!(epserde::deser::DeserializeInner));
@@ -1305,7 +1312,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             offset_of: &mut usize,
                         ) {
                             // Recurse on all variants starting at offset 0
-                            // Note that we share var_repre_hash with the
+                            // Note that we share var_align_hashes with the
                             // zero-copy case, so we cannot pass &mut 0.
 
                             #(
