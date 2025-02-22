@@ -337,7 +337,20 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         colon_token: token::Colon::default(),
                         bounds: bounds_ser,
                     }));
-
+                // the serialized type of the field has to implement TypeHash and ReprHash                    
+                let mut bounds_ser_sertype =  Punctuated::new();
+                bounds_ser_sertype.push(syn::parse_quote!(epserde::traits::TypeHash));
+                bounds_ser_sertype.push(syn::parse_quote!(epserde::traits::ReprHash));
+                where_clause_ser
+                    .predicates
+                    .push(WherePredicate::Type(PredicateType {
+                        lifetimes: None,
+                        bounded_ty: syn::parse_quote!(
+                            <#ty as epserde::ser::SerializeInner>::SerType
+                        ),
+                        colon_token: token::Colon::default(),
+                        bounds: bounds_ser_sertype,
+                    }));
                 // add that every struct field has to implement DeserializeInner
                 let mut bounds_des = Punctuated::new();
                 bounds_des.push(syn::parse_quote!(epserde::deser::DeserializeInner));
@@ -411,20 +424,6 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             ),
                             colon_token: token::Colon::default(),
                             bounds: t.bounds.clone(),
-                        }));
-                        
-                    let mut bounds_ser_sertype =  Punctuated::new();
-                    bounds_ser_sertype.push(syn::parse_quote!(epserde::traits::TypeHash));
-                    bounds_ser_sertype.push(syn::parse_quote!(epserde::traits::ReprHash));
-                    where_clause_ser
-                        .predicates
-                        .push(WherePredicate::Type(PredicateType {
-                            lifetimes: None,
-                            bounded_ty: syn::parse_quote!(
-                                <#ty as epserde::ser::SerializeInner>::SerType
-                            ),
-                            colon_token: token::Colon::default(),
-                            bounds: bounds_ser_sertype,
                         }));
                 }
             });
