@@ -37,6 +37,17 @@ impl<T> CopyType for &[T] {
     type Copy = Deep;
 }
 
+impl<T: TypeHash> TypeHash for &[T] {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        Vec::<T>::type_hash(hasher);
+    }
+}
+impl<T: ReprHash> ReprHash for &[T] {
+    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+        Vec::<T>::repr_hash(hasher, offset_of);
+    }
+}
+
 impl<T: CopyType + SerializeInner + TypeHash + ReprHash> SerializeInner for &[T]
 where
     Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
