@@ -1163,7 +1163,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                                     <#ty as epserde::traits::TypeHash>::type_hash(hasher);
                                 }]);
                                 var_repr_hash.extend([quote! {
-                                    <#ty as epserde::traits::ReprHash>::repr_hash(hasher, &mut 0);
+                                    <#ty as epserde::traits::ReprHash>::repr_hash(hasher, offset_of);
                                 }]);
                                 var_max_size_of.extend([
                                     quote! {
@@ -1190,7 +1190,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                                     <#ty as epserde::traits::TypeHash>::type_hash(hasher);
                                 }]);
                                 var_repr_hash.extend([quote! {
-                                    <#ty as epserde::traits::ReprHash>::repr_hash(hasher, &mut 0);
+                                    <#ty as epserde::traits::ReprHash>::repr_hash(hasher, offset_of);
                                 }]);
                                 var_max_size_of.extend([
                                     quote! {
@@ -1322,7 +1322,11 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             offset_of: &mut usize,
                         ) {
                             /*// Recurse on all variants starting at offset 0
+                            // Note that we share var_repre_hash with the
+                            // zero-copy case, so we cannot pass &mut 0.
+                            
                             #(
+                                *offset_of = 0;
                                 #var_repr_hashes
                             )**/
                         }
