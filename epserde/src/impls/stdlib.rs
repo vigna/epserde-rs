@@ -269,7 +269,7 @@ impl<T: TypeHash> TypeHash for core::ops::Bound<T> {
     }
 }
 
-impl<T: ReprHash> ReprHash for core::ops::Bound<T> {
+impl<T> ReprHash for core::ops::Bound<T> {
     fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 

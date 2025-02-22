@@ -27,15 +27,8 @@ impl<T: TypeHash> TypeHash for Box<[T]> {
     }
 }
 
-impl<T: ReprHash> ReprHash for Box<[T]> {
-    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        // TODO: this implemention should be empty, as all deep-copy types
-        // implementations should have an empty repr_hash implementation,
-        // and need not implement MaxSizeOf.
-        // We keep it temporarily to avoid breaking the file format.
-        *offset_of = 0;
-        T::repr_hash(hasher, offset_of);
-    }
+impl<T> ReprHash for Box<[T]> {
+    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
 impl<T: CopyType + SerializeInner + TypeHash + ReprHash> SerializeInner for Box<[T]>

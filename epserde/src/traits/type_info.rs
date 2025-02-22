@@ -37,16 +37,18 @@ pub trait TypeHash {
 
 /// Recursively compute a representational hash for a type.
 ///
-/// [`ReprHash::repr_hash`] is a recursive function that computes
-/// representation information about a zero-copy type. It is used to
-/// check that the the alignment and the representation data
-/// of the data being deserialized.
+/// [`ReprHash::repr_hash`] is a recursive function that computes representation
+/// information about a zero-copy type. It is used to check that the the
+/// alignment and the representation data of the data being deserialized.
 ///
-/// More precisely, at each call a zero-copy type look at `offset_of`,
-/// assuming that the type is stored at that offset in the structure,
-/// hashes in the padding necessary to make `offset_of` a multiple of
-/// [`core::mem::align_of`] the type, hashes in the type size, and
-/// finally increases `offset_of` by [`core::mem::size_of`] the type.
+/// More precisely, at each call a zero-copy type looks at `offset_of`, assuming
+/// that the type is stored at that offset in the structure, hashes in the
+/// padding necessary to make `offset_of` a multiple of [`core::mem::align_of`]
+/// the type, hashes in the type size, and finally increases `offset_of` by
+/// [`core::mem::size_of`] the type.
+/// 
+/// All [deep-copy](DeepCopy) types must implement [`ReprHash`] with an empty
+/// implementation.
 pub trait ReprHash {
     /// Accumulate representional information in `hasher` assuming to
     /// be positioned at `offset_of`.
@@ -84,6 +86,8 @@ pub(crate) fn std_repr_hash<T: ZeroCopy>(hasher: &mut impl core::hash::Hasher, o
 /// By maximizing with [`core::mem::align_of`] we ensure that
 /// we provide sufficient alignment in case the attribute `repr(align(N))`
 /// was specified.
+/// 
+/// [Deep-copy](DeepCopy) types do not need to implement [`MaxSizeOf`].
 pub trait MaxSizeOf: Sized {
     fn max_size_of() -> usize;
 }

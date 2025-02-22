@@ -337,20 +337,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         colon_token: token::Colon::default(),
                         bounds: bounds_ser,
                     }));
-                // the serialized type of the field has to implement TypeHash and ReprHash                    
-                let mut bounds_ser_sertype =  Punctuated::new();
-                bounds_ser_sertype.push(syn::parse_quote!(epserde::traits::TypeHash));
-                bounds_ser_sertype.push(syn::parse_quote!(epserde::traits::ReprHash));
-                where_clause_ser
-                    .predicates
-                    .push(WherePredicate::Type(PredicateType {
-                        lifetimes: None,
-                        bounded_ty: syn::parse_quote!(
-                            <#ty as epserde::ser::SerializeInner>::SerType
-                        ),
-                        colon_token: token::Colon::default(),
-                        bounds: bounds_ser_sertype,
-                    }));
+
                 // add that every struct field has to implement DeserializeInner
                 let mut bounds_des = Punctuated::new();
                 bounds_des.push(syn::parse_quote!(epserde::deser::DeserializeInner));
@@ -424,6 +411,20 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             ),
                             colon_token: token::Colon::default(),
                             bounds: t.bounds.clone(),
+                        }));
+                        
+                    let mut bounds_ser_sertype =  Punctuated::new();
+                    bounds_ser_sertype.push(syn::parse_quote!(epserde::traits::TypeHash));
+                    bounds_ser_sertype.push(syn::parse_quote!(epserde::traits::ReprHash));
+                    where_clause_ser
+                        .predicates
+                        .push(WherePredicate::Type(PredicateType {
+                            lifetimes: None,
+                            bounded_ty: syn::parse_quote!(
+                                <#ty as epserde::ser::SerializeInner>::SerType
+                            ),
+                            colon_token: token::Colon::default(),
+                            bounds: bounds_ser_sertype,
                         }));
                 }
             });
@@ -1098,20 +1099,12 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash{
+                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause {
                         #[inline(always)]
                         fn repr_hash(
                             hasher: &mut impl core::hash::Hasher,
                             offset_of: &mut usize,
-                        ) {
-                            // Recurse on all fields after resetting offset_of. We might meet
-                            // zero-copy types, but we must add their representation in isolation
-                            // as they will be aligned.
-                            #(
-                                *offset_of = 0;
-                                <#fields_types as epserde::traits::ReprHash>::repr_hash(hasher, offset_of);
-                            )*
-                        }
+                        ) {}
                     }
                 }
             }
@@ -1303,20 +1296,12 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
 
-                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash{
+                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause {
                         #[inline(always)]
                         fn repr_hash(
                             hasher: &mut impl core::hash::Hasher,
                             offset_of: &mut usize,
-                        ) {
-                            // Recurse on all variants always starting from offset_of. We might meet
-                            // zero-copy types, but we must add their representation in isolation
-                            // as they will be aligned.
-                            #(
-                                *offset_of = 0;
-                                #var_repr_hashes
-                            )*
-                        }
+                        ) {}
                     }
                 }
             }
