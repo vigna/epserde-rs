@@ -1113,16 +1113,16 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause {
+                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash {
                         #[inline(always)]
                         fn repr_hash(
                             hasher: &mut impl core::hash::Hasher,
                             _offset_of: &mut usize,
                         ) {
-                            /*// Recurse on all variants starting at offset 0
+                            // Recurse on all variants starting at offset 0
                             #(
                                 <#fields_types as epserde::traits::ReprHash>::repr_hash(hasher, &mut 0);
-                            )**/
+                            )*
                         }
                     }
                 }
@@ -1227,7 +1227,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause_typehash{
+                    impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause_typehash {
 
                         #[inline(always)]
                         fn type_hash(
@@ -1252,7 +1252,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash{
+                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash {
                         #[inline(always)]
                         fn repr_hash(
                             hasher: &mut impl core::hash::Hasher,
@@ -1315,20 +1315,20 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
 
-                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause {
+                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash {
                         #[inline(always)]
                         fn repr_hash(
                             hasher: &mut impl core::hash::Hasher,
                             offset_of: &mut usize,
                         ) {
-                            /*// Recurse on all variants starting at offset 0
+                            // Recurse on all variants starting at offset 0
                             // Note that we share var_repre_hash with the
                             // zero-copy case, so we cannot pass &mut 0.
                             
                             #(
                                 *offset_of = 0;
                                 #var_repr_hashes
-                            )**/
+                            )*
                         }
                     }
                 }
