@@ -113,7 +113,7 @@ pub trait SerializeInner {
 /// and debug information and then delegates to [WriteWithNames::write].
 impl<T: SerializeInner> Serialize for T
 where
-    <T as SerializeInner>::SerType: TypeHash + ReprHash,
+    <T as SerializeInner>::SerType: TypeHash + AlignHash,
 {
     /// Serialize the type using the given [`WriteWithNames`].
     fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
@@ -129,7 +129,7 @@ where
 /// Write the header.
 ///
 /// Must be kept in sync with [`crate::deser::check_header`].
-pub fn write_header<T: TypeHash + ReprHash>(backend: &mut impl WriteWithNames) -> Result<()> {
+pub fn write_header<T: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) -> Result<()> {
     backend.write("MAGIC", &MAGIC)?;
     backend.write("VERSION_MAJOR", &VERSION.0)?;
     backend.write("VERSION_MINOR", &VERSION.1)?;
@@ -138,12 +138,12 @@ pub fn write_header<T: TypeHash + ReprHash>(backend: &mut impl WriteWithNames) -
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
     T::type_hash(&mut type_hasher);
 
-    let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
+    let mut align_hasher = xxhash_rust::xxh3::Xxh3::new();
     let mut offset_of = 0;
-    T::repr_hash(&mut repr_hasher, &mut offset_of);
+    T::align_hash(&mut align_hasher, &mut offset_of);
 
     backend.write("TYPE_HASH", &type_hasher.finish())?;
-    backend.write("REPR_HASH", &repr_hasher.finish())?;
+    backend.write("REPR_HASH", &align_hasher.finish())?;
     backend.write("TYPE_NAME", &core::any::type_name::<T>().to_string())
 }
 

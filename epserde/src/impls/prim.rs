@@ -37,9 +37,9 @@ macro_rules! impl_prim_type_hash {
             }
         }
 
-        impl ReprHash for $ty {
-            fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-                crate::traits::std_repr_hash::<Self>(hasher, offset_of)
+        impl AlignHash for $ty {
+            fn align_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+                crate::traits::std_align_hash::<Self>(hasher, offset_of)
             }
         }
 
@@ -272,9 +272,9 @@ impl<T: ?Sized + TypeHash> TypeHash for PhantomData<T> {
     }
 }
 
-impl<T: ?Sized> ReprHash for PhantomData<T> {
+impl<T: ?Sized> AlignHash for PhantomData<T> {
     #[inline(always)]
-    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
 impl<T: ?Sized + TypeHash> SerializeInner for PhantomData<T> {
@@ -316,13 +316,13 @@ impl<T: TypeHash> TypeHash for Option<T> {
     }
 }
 
-impl<T: ReprHash> ReprHash for Option<T> {
-    fn repr_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
-        T::repr_hash(hasher, &mut 0);
+impl<T: AlignHash> AlignHash for Option<T> {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        T::align_hash(hasher, &mut 0);
     }
 }
 
-impl<T: SerializeInner + TypeHash + ReprHash> SerializeInner for Option<T> {
+impl<T: SerializeInner + TypeHash + AlignHash> SerializeInner for Option<T> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;

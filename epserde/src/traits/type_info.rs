@@ -36,7 +36,7 @@ pub trait TypeHash {
 
 /// Recursively compute an alignment hash for a type.
 ///
-/// [`ReprHash::repr_hash`] is a recursive function that computes alignment
+/// [`AlignHash::align_hash`] is a recursive function that computes alignment
 /// information about zero-copy types. It is used to check that the alignment
 /// (and thus padding) of data that is zero-copied matches the alignment at
 /// serialization time.
@@ -47,25 +47,26 @@ pub trait TypeHash {
 /// the type, hashes in the type size, and finally increases `offset_of` by
 /// [`core::mem::size_of`] the type.
 ///
-/// All deep-copy types must implement [`ReprHash`] by calling the [`ReprHash`]
-/// implementations of their fields with offset argument `&mut 0`.
+/// All deep-copy types must implement [`AlignHash`] by calling the [`AlignHash`]
+/// implementations of their fields with offset argument `&mut 0` (or a mutable
+/// reference to a variable initialized to 0).
 ///
 /// If the fields have no alignement requirements (e.g., all types of strings),
 /// the implementation can be a no-op.
-pub trait ReprHash {
+pub trait AlignHash {
     /// Accumulate alignment information in `hasher` assuming to be positioned
     /// at `offset_of`.
-    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize);
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize);
 
-    /// Call [`ReprHash::repr_hash`] on a value.
-    fn repr_hash_val(&self, hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        Self::repr_hash(hasher, offset_of);
+    /// Call [`AlignHash::align_hash`] on a value.
+    fn align_hash_val(&self, hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+        Self::align_hash(hasher, offset_of);
     }
 }
 
 /// A function providing a reasonable default
-/// implementation of [`ReprHash::repr_hash`] for basic sized types.
-pub(crate) fn std_repr_hash<T: ZeroCopy>(
+/// implementation of [`AlignHash::align_hash`] for basic sized types.
+pub(crate) fn std_align_hash<T: ZeroCopy>(
     hasher: &mut impl core::hash::Hasher,
     offset_of: &mut usize,
 ) {

@@ -12,7 +12,7 @@ Implementations for (references to) slices.
 In theory all types serialized by ε-serde must not contain references. However,
 we provide a convenience implementation that serializes references to
 slices as vectors. Moreover, we implement [`TypeHash`] and
-[`ReprHash`] for slices, so that they can be used with
+[`AlignHash`] for slices, so that they can be used with
 [`PhantomData`](std::marker::PhantomData).
 
 Note, however, that you must deserialize the slice as a vector,
@@ -42,13 +42,13 @@ impl<T: TypeHash> TypeHash for &[T] {
         Vec::<T>::type_hash(hasher);
     }
 }
-impl<T: ReprHash> ReprHash for &[T] {
-    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        Vec::<T>::repr_hash(hasher, offset_of);
+impl<T: AlignHash> AlignHash for &[T] {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+        Vec::<T>::align_hash(hasher, offset_of);
     }
 }
 
-impl<T: CopyType + SerializeInner + TypeHash + ReprHash> SerializeInner for &[T]
+impl<T: CopyType + SerializeInner + TypeHash + AlignHash> SerializeInner for &[T]
 where
     Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
 {

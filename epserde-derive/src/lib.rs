@@ -213,7 +213,7 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
 /// Generate an ε-serde implementation for custom types.
 ///
 /// It generates implementations for the traits `CopyType`,
-/// `MaxSizeOf`, `TypeHash`, `ReprHash`, `SerializeInner`,
+/// `MaxSizeOf`, `TypeHash`, `AlignHash`, `SerializeInner`,
 /// and `DeserializeInner`.
 ///
 /// Presently we do not support unions.
@@ -878,9 +878,9 @@ fn type_repr_maxsizeof_where_clauses(
     bounds_typehash.push(syn::parse_quote!(epserde::traits::TypeHash));
     let mut where_clause_typehash = where_clause.clone();
 
-    let mut bounds_reprhash = Punctuated::new();
-    bounds_reprhash.push(syn::parse_quote!(epserde::traits::ReprHash));
-    let mut where_clause_reprhash = where_clause.clone();
+    let mut bounds_align_hash = Punctuated::new();
+    bounds_align_hash.push(syn::parse_quote!(epserde::traits::AlignHash));
+    let mut where_clause_align_hash = where_clause.clone();
 
     let mut bounds_maxsizeof = Punctuated::new();
     bounds_maxsizeof.push(syn::parse_quote!(epserde::traits::MaxSizeOf));
@@ -895,13 +895,13 @@ fn type_repr_maxsizeof_where_clauses(
                 colon_token: token::Colon::default(),
                 bounds: bounds_typehash.clone(),
             }));
-        where_clause_reprhash
+        where_clause_align_hash
             .predicates
             .push(WherePredicate::Type(PredicateType {
                 lifetimes: None,
                 bounded_ty: ty.clone(),
                 colon_token: token::Colon::default(),
-                bounds: bounds_reprhash.clone(),
+                bounds: bounds_align_hash.clone(),
             }));
         where_clause_maxsizeof
             .predicates
@@ -914,7 +914,7 @@ fn type_repr_maxsizeof_where_clauses(
     });
     (
         where_clause_typehash,
-        where_clause_reprhash,
+        where_clause_align_hash,
         where_clause_maxsizeof,
     )
 }
@@ -922,7 +922,7 @@ fn type_repr_maxsizeof_where_clauses(
 /// Generate a partial ε-serde implementation for custom types.
 ///
 /// It generates implementations just for the traits
-/// `MaxSizeOf`, `TypeHash`, and `ReprHash`. See the documentation
+/// `MaxSizeOf`, `TypeHash`, and `AlignHash`. See the documentation
 /// of [`epserde_derive`] for more information.
 #[proc_macro_derive(TypeInfo, attributes(zero_copy, deep_copy))]
 pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
@@ -960,7 +960,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                 }
             });
 
-            let (where_clause_typehash, where_clause_reprhash, where_clause_maxsizeof) =
+            let (where_clause_typehash, where_clause_align_hash, where_clause_maxsizeof) =
                 type_repr_maxsizeof_where_clauses(&where_clause, &generic_types);
 
             let fields_names = s
@@ -1025,9 +1025,9 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash{
+                    impl<#generics> epserde::traits::AlignHash for #name<#generics_names> #where_clause_align_hash{
                         #[inline(always)]
-                        fn repr_hash(
+                        fn align_hash(
                             hasher: &mut impl core::hash::Hasher,
                             offset_of: &mut usize,
                         ) {
@@ -1041,7 +1041,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             )*
                             // Recurse on all fields.
                             #(
-                                <#fields_types as epserde::traits::ReprHash>::repr_hash(
+                                <#fields_types as epserde::traits::AlignHash>::align_hash(
                                     hasher,
                                     offset_of,
                                 );
@@ -1096,15 +1096,15 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash {
+                    impl<#generics> epserde::traits::AlignHash for #name<#generics_names> #where_clause_align_hash {
                         #[inline(always)]
-                        fn repr_hash(
+                        fn align_hash(
                             hasher: &mut impl core::hash::Hasher,
                             _offset_of: &mut usize,
                         ) {
                             // Recurse on all variants starting at offset 0
                             #(
-                                <#fields_types as epserde::traits::ReprHash>::repr_hash(hasher, &mut 0);
+                                <#fields_types as epserde::traits::AlignHash>::align_hash(hasher, &mut 0);
                             )*
                         }
                     }
@@ -1122,14 +1122,14 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                 });
 
             let mut var_type_hashes = Vec::new();
-            let mut var_repr_hashes = Vec::new();
+            let mut var_align_hashes = Vec::new();
             let mut var_max_size_ofs = Vec::new();
             let mut generic_types = vec![];
 
             e.variants.iter().for_each(|variant| {
                 let ident = variant.ident.to_owned();
                 let mut var_type_hash = quote! { stringify!(#ident).hash(hasher); };
-                let mut var_repr_hash = quote! { };
+                let mut var_align_hash = quote! { };
                 let mut var_max_size_of = quote! {  };
                 match &variant.fields {
                     syn::Fields::Unit => {}
@@ -1145,8 +1145,8 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                                     stringify!(#ident).hash(hasher);
                                     <#ty as epserde::traits::TypeHash>::type_hash(hasher);
                                 }]);
-                                var_repr_hash.extend([quote! {
-                                    <#ty as epserde::traits::ReprHash>::repr_hash(hasher, offset_of);
+                                var_align_hash.extend([quote! {
+                                    <#ty as epserde::traits::AlignHash>::align_hash(hasher, offset_of);
                                 }]);
                                 var_max_size_of.extend([
                                     quote! {
@@ -1172,8 +1172,8 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                                     #field_name.hash(hasher);
                                     <#ty as epserde::traits::TypeHash>::type_hash(hasher);
                                 }]);
-                                var_repr_hash.extend([quote! {
-                                    <#ty as epserde::traits::ReprHash>::repr_hash(hasher, offset_of);
+                                var_align_hash.extend([quote! {
+                                    <#ty as epserde::traits::AlignHash>::align_hash(hasher, offset_of);
                                 }]);
                                 var_max_size_of.extend([
                                     quote! {
@@ -1189,7 +1189,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                     }
                 }
                 var_type_hashes.push(var_type_hash);
-                var_repr_hashes.push(var_repr_hash);
+                var_align_hashes.push(var_align_hash);
                 var_max_size_ofs.push(var_max_size_of);
             });
 
@@ -1204,7 +1204,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                 .map(|x| x.meta.require_list().unwrap().tokens.to_string())
                 .collect::<Vec<_>>();
 
-            let (where_clause_typehash, where_clause_reprhash, where_clause_maxsizeof) =
+            let (where_clause_typehash, where_clause_align_hash, where_clause_maxsizeof) =
                 type_repr_maxsizeof_where_clauses(&where_clause, &generic_types);
 
             if is_zero_copy {
@@ -1235,9 +1235,9 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash {
+                    impl<#generics> epserde::traits::AlignHash for #name<#generics_names> #where_clause_align_hash {
                         #[inline(always)]
-                        fn repr_hash(
+                        fn align_hash(
                             hasher: &mut impl core::hash::Hasher,
                             offset_of: &mut usize,
                         ) {
@@ -1253,7 +1253,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             let old_offset_of = *offset_of;
                             #(
                                 *offset_of = old_offset_of;
-                                #var_repr_hashes
+                                #var_align_hashes
                             )*
                         }
                     }
@@ -1298,9 +1298,9 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
 
-                    impl<#generics> epserde::traits::ReprHash for #name<#generics_names> #where_clause_reprhash {
+                    impl<#generics> epserde::traits::AlignHash for #name<#generics_names> #where_clause_align_hash {
                         #[inline(always)]
-                        fn repr_hash(
+                        fn align_hash(
                             hasher: &mut impl core::hash::Hasher,
                             offset_of: &mut usize,
                         ) {
@@ -1310,7 +1310,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
 
                             #(
                                 *offset_of = 0;
-                                #var_repr_hashes
+                                #var_align_hashes
                             )*
                         }
                     }

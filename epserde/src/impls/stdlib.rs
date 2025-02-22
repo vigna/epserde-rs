@@ -36,10 +36,10 @@ macro_rules! impl_ranges {
             }
         }
 
-        impl<Idx: ZeroCopy + ReprHash> ReprHash for core::ops::$ty<Idx> {
-            fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-                crate::traits::std_repr_hash::<Idx>(hasher, offset_of);
-                crate::traits::std_repr_hash::<Idx>(hasher, offset_of);
+        impl<Idx: ZeroCopy + AlignHash> AlignHash for core::ops::$ty<Idx> {
+            fn align_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+                crate::traits::std_align_hash::<Idx>(hasher, offset_of);
+                crate::traits::std_align_hash::<Idx>(hasher, offset_of);
             }
         }
 
@@ -69,8 +69,8 @@ impl TypeHash for core::ops::RangeFull {
     }
 }
 
-impl ReprHash for core::ops::RangeFull {
-    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+impl AlignHash for core::ops::RangeFull {
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
 impl MaxSizeOf for core::ops::RangeFull {
@@ -79,7 +79,7 @@ impl MaxSizeOf for core::ops::RangeFull {
     }
 }
 
-impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     for core::ops::Range<Idx>
 {
     type SerType = Self;
@@ -112,7 +112,7 @@ impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::Range<Idx
     }
 }
 
-impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     for core::ops::RangeFrom<Idx>
 {
     type SerType = Self;
@@ -142,7 +142,7 @@ impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeFrom
     }
 }
 
-impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     for core::ops::RangeInclusive<Idx>
 {
     type SerType = Self;
@@ -180,7 +180,7 @@ impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeIncl
     }
 }
 
-impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     for core::ops::RangeTo<Idx>
 {
     type SerType = Self;
@@ -210,7 +210,7 @@ impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeTo<I
     }
 }
 
-impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     for core::ops::RangeToInclusive<Idx>
 {
     type SerType = Self;
@@ -276,11 +276,11 @@ impl<T: TypeHash> TypeHash for core::ops::Bound<T> {
     }
 }
 
-impl<T> ReprHash for core::ops::Bound<T> {
-    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+impl<T> AlignHash for core::ops::Bound<T> {
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl<T: SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::Bound<T> {
+impl<T: SerializeInner + TypeHash + AlignHash> SerializeInner for core::ops::Bound<T> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -347,14 +347,14 @@ impl<B: TypeHash, C: TypeHash> TypeHash for core::ops::ControlFlow<B, C> {
     }
 }
 
-impl<B: ReprHash, C: ReprHash> ReprHash for core::ops::ControlFlow<B, C> {
-    fn repr_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
-        B::repr_hash(hasher, &mut 0);
-        C::repr_hash(hasher, &mut 0);
+impl<B: AlignHash, C: AlignHash> AlignHash for core::ops::ControlFlow<B, C> {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        B::align_hash(hasher, &mut 0);
+        C::align_hash(hasher, &mut 0);
     }
 }
 
-impl<B: SerializeInner + TypeHash + ReprHash, C: SerializeInner + TypeHash + ReprHash>
+impl<B: SerializeInner + TypeHash + AlignHash, C: SerializeInner + TypeHash + AlignHash>
     SerializeInner for core::ops::ControlFlow<B, C>
 {
     type SerType = Self;

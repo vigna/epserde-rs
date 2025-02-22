@@ -27,13 +27,13 @@ impl<T: TypeHash> TypeHash for Box<[T]> {
     }
 }
 
-impl<T: ReprHash> ReprHash for Box<[T]> {
-    fn repr_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
-        T::repr_hash(hasher, &mut 0);
+impl<T: AlignHash> AlignHash for Box<[T]> {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        T::align_hash(hasher, &mut 0);
     }
 }
 
-impl<T: CopyType + SerializeInner + TypeHash + ReprHash> SerializeInner for Box<[T]>
+impl<T: CopyType + SerializeInner + TypeHash + AlignHash> SerializeInner for Box<[T]>
 where
     Box<[T]>: SerializeHelper<<T as CopyType>::Copy>,
 {

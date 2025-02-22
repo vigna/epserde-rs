@@ -28,12 +28,12 @@ impl<T: TypeHash, const N: usize> TypeHash for [T; N] {
     }
 }
 
-impl<T: ReprHash, const N: usize> ReprHash for [T; N] {
-    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+impl<T: AlignHash, const N: usize> AlignHash for [T; N] {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
         if N == 0 {
             return;
         }
-        T::repr_hash(hasher, offset_of);
+        T::align_hash(hasher, offset_of);
         *offset_of += (N - 1) * size_of::<T>();
     }
 }
@@ -44,7 +44,7 @@ impl<T: MaxSizeOf, const N: usize> MaxSizeOf for [T; N] {
     }
 }
 
-impl<T: CopyType + SerializeInner + TypeHash + ReprHash, const N: usize> SerializeInner for [T; N]
+impl<T: CopyType + SerializeInner + TypeHash + AlignHash, const N: usize> SerializeInner for [T; N]
 where
     [T; N]: SerializeHelper<<T as CopyType>::Copy>,
 {
@@ -56,7 +56,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + SerializeInner + TypeHash + ReprHash, const N: usize> SerializeHelper<Zero>
+impl<T: ZeroCopy + SerializeInner + TypeHash + AlignHash, const N: usize> SerializeHelper<Zero>
     for [T; N]
 {
     #[inline(always)]

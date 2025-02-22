@@ -33,13 +33,13 @@ impl<T: TypeHash> TypeHash for Vec<T> {
     }
 }
 
-impl<T: ReprHash> ReprHash for Vec<T> {
-    fn repr_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
-        T::repr_hash(hasher, &mut 0);
+impl<T: AlignHash> AlignHash for Vec<T> {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        T::align_hash(hasher, &mut 0);
     }
 }
 
-impl<T: CopyType + SerializeInner + TypeHash + ReprHash> SerializeInner for Vec<T>
+impl<T: CopyType + SerializeInner + TypeHash + AlignHash> SerializeInner for Vec<T>
 where
     Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
 {

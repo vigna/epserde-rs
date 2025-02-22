@@ -30,8 +30,8 @@ impl TypeHash for String {
     }
 }
 
-impl ReprHash for String {
-    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+impl AlignHash for String {
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
 impl TypeHash for Box<str> {
@@ -40,8 +40,8 @@ impl TypeHash for Box<str> {
     }
 }
 
-impl ReprHash for Box<str> {
-    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+impl AlignHash for Box<str> {
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
 impl TypeHash for str {
@@ -50,8 +50,8 @@ impl TypeHash for str {
     }
 }
 
-impl ReprHash for str {
-    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+impl AlignHash for str {
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
 impl SerializeInner for String {

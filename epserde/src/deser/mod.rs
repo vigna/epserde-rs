@@ -222,7 +222,7 @@ pub trait Deserialize: DeserializeInner {
 /// the user from modifying the methods in [`Deserialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait DeserializeInner: Sized + TypeHash + ReprHash {
+pub trait DeserializeInner: Sized + TypeHash + AlignHash {
     /// The deserialization type associated with this type. It can be
     /// retrieved conveniently with the alias [`DeserType`].
     type DeserType<'a>;
@@ -238,7 +238,7 @@ pub trait DeserializeInner: Sized + TypeHash + ReprHash {
 /// by the blanket implementation of [`crate::ser::Serialize`] and then delegates to
 /// [`DeserializeInner::_deserialize_full_inner`] or
 /// [`DeserializeInner::_deserialize_eps_inner`].
-impl<T: TypeHash + ReprHash + DeserializeInner> Deserialize for T {
+impl<T: TypeHash + AlignHash + DeserializeInner> Deserialize for T {
     fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self> {
         let mut backend = ReaderWithPos::new(backend);
         check_header::<Self>(&mut backend)?;
@@ -262,10 +262,10 @@ pub fn check_header<T: Deserialize>(backend: &mut impl ReadWithPos) -> Result<()
     T::type_hash(&mut type_hasher);
     let self_type_hash = type_hasher.finish();
 
-    let mut repr_hasher = xxhash_rust::xxh3::Xxh3::new();
+    let mut align_hasher = xxhash_rust::xxh3::Xxh3::new();
     let mut offset_of = 0;
-    T::repr_hash(&mut repr_hasher, &mut offset_of);
-    let self_repr_hash = repr_hasher.finish();
+    T::align_hash(&mut align_hasher, &mut offset_of);
+    let self_align_hash = align_hasher.finish();
 
     let magic = u64::_deserialize_full_inner(backend)?;
     match magic {
@@ -291,7 +291,7 @@ pub fn check_header<T: Deserialize>(backend: &mut impl ReadWithPos) -> Result<()
     };
 
     let ser_type_hash = u64::_deserialize_full_inner(backend)?;
-    let ser_repr_hash = u64::_deserialize_full_inner(backend)?;
+    let ser_align_hash = u64::_deserialize_full_inner(backend)?;
     let ser_type_name = String::_deserialize_full_inner(backend)?;
 
     if ser_type_hash != self_type_hash {
@@ -302,12 +302,12 @@ pub fn check_header<T: Deserialize>(backend: &mut impl ReadWithPos) -> Result<()
             expected: ser_type_hash,
         });
     }
-    if ser_repr_hash != self_repr_hash {
-        return Err(Error::WrongTypeReprHash {
+    if ser_align_hash != self_align_hash {
+        return Err(Error::WrongTypeAlignHash {
             got_type_name: self_type_name,
-            got: self_repr_hash,
+            got: self_align_hash,
             expected_type_name: ser_type_name,
-            expected: ser_repr_hash,
+            expected: ser_align_hash,
         });
     }
 
@@ -391,7 +391,7 @@ The serialized type is '{expected_type_name}' and the deserialized type is '{got
     /// deserialize a file with some zero-copy type that has different
     /// in-memory representations on the serialization arch and on the current one,
     /// usually because of alignment issues.
-    WrongTypeReprHash {
+    WrongTypeAlignHash {
         got_type_name: String,
         expected_type_name: String,
         expected: u64,
