@@ -4,10 +4,9 @@
 
 ### New
 
-* The file format has unfortunately changed. The ReprHash of arrays was wrong
-  and could have led to data corruption. We took this chance to fix a number of
-  ReprHash representation for deep-copy types that were not empty (as they
-  should have been).
+* The file format has unfortunately changed. The ReprHash (now AlignHash) of
+  arrays  was wrong and could have led to data corruption. We took this chance
+  to fix a number of AlignHash implementations.
 
 * The implementation for tuples was broken because it assumed that the memory
   layout would have been the same of the source layout. We now just support
