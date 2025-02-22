@@ -35,6 +35,10 @@ impl<T: TypeHash> TypeHash for Vec<T> {
 
 impl<T: ReprHash> ReprHash for Vec<T> {
     fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+        // TODO: this implemention should be empty, as all deep-copy types
+        // implementations should have an empty repr_hash implementation,
+        // and need not implement MaxSizeOf.
+        // We keep it temporarily to avoid breaking the file format.
         *offset_of = 0;
         T::repr_hash(hasher, offset_of);
     }
@@ -67,7 +71,7 @@ impl<T: DeepCopy + SerializeInner> SerializeHelper<Deep> for Vec<T> {
 }
 
 // This delegates to a private helper trait which we can specialize on in stable rust
-impl<T: CopyType + DeserializeInner + 'static> DeserializeInner for Vec<T>
+impl<T: CopyType + DeserializeInner> DeserializeInner for Vec<T>
 where
     Vec<T>: DeserializeHelper<<T as CopyType>::Copy, FullType = Vec<T>>,
 {
@@ -85,7 +89,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T> {
+impl<T: ZeroCopy + DeserializeInner> DeserializeHelper<Zero> for Vec<T> {
     type FullType = Self;
     type DeserType<'a> = &'a [T];
     #[inline(always)]
@@ -100,7 +104,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static> DeserializeHelper<Zero> for Vec<T
     }
 }
 
-impl<T: DeepCopy + DeserializeInner + 'static> DeserializeHelper<Deep> for Vec<T> {
+impl<T: DeepCopy + DeserializeInner> DeserializeHelper<Deep> for Vec<T> {
     type FullType = Self;
     type DeserType<'a> = Vec<<T as DeserializeInner>::DeserType<'a>>;
     #[inline(always)]

@@ -40,7 +40,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 ///
 /// It provides a convenience method [`Serialize::store`] that serializes
 /// the type to a file.
-pub trait Serialize: TypeHash + ReprHash {
+pub trait Serialize {
     /// Serialize the type using the given backend.
     fn serialize(&self, backend: &mut impl WriteNoStd) -> Result<usize> {
         let mut write_with_pos = WriterWithPos::new(backend);
@@ -111,7 +111,7 @@ pub trait SerializeInner {
 ///
 /// This implementation [writes a header](`write_header`) containing some hashes
 /// and debug information and then delegates to [WriteWithNames::write].
-impl<T: SerializeInner + TypeHash + ReprHash> Serialize for T {
+impl<T: SerializeInner> Serialize for T {
     /// Serialize the type using the given [`WriteWithNames`].
     fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // write the header using the serialized type, not the type itself

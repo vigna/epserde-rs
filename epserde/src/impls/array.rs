@@ -28,9 +28,13 @@ impl<T: TypeHash, const N: usize> TypeHash for [T; N] {
     }
 }
 
-impl<T: Sized, const N: usize> ReprHash for [T; N] {
+impl<T: ReprHash, const N: usize> ReprHash for [T; N] {
     fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        crate::traits::std_repr_hash::<Self>(hasher, offset_of)
+        if N == 0 {
+            return;
+        }
+        T::repr_hash(hasher, offset_of);        
+        *offset_of += (N - 1) * size_of::<T>();
     }
 }
 
@@ -40,7 +44,7 @@ impl<T: MaxSizeOf, const N: usize> MaxSizeOf for [T; N] {
     }
 }
 
-impl<T: CopyType + SerializeInner + TypeHash, const N: usize> SerializeInner for [T; N]
+impl<T: CopyType + SerializeInner + TypeHash + ReprHash, const N: usize> SerializeInner for [T; N]
 where
     [T; N]: SerializeHelper<<T as CopyType>::Copy>,
 {
@@ -52,7 +56,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + SerializeInner + TypeHash, const N: usize> SerializeHelper<Zero> for [T; N] {
+impl<T: ZeroCopy + SerializeInner + TypeHash + ReprHash, const N: usize> SerializeHelper<Zero> for [T; N] {
     #[inline(always)]
     fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         serialize_zero(backend, self)
@@ -69,7 +73,7 @@ impl<T: DeepCopy + SerializeInner, const N: usize> SerializeHelper<Deep> for [T;
     }
 }
 
-impl<T: CopyType + DeserializeInner + 'static, const N: usize> DeserializeInner for [T; N]
+impl<T: CopyType + DeserializeInner, const N: usize> DeserializeInner for [T; N]
 where
     [T; N]: DeserializeHelper<<T as CopyType>::Copy, FullType = [T; N]>,
 {
@@ -87,7 +91,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<Zero> for [T; N] {
+impl<T: ZeroCopy + DeserializeInner, const N: usize> DeserializeHelper<Zero> for [T; N] {
     type FullType = Self;
     type DeserType<'a> = &'a [T; N];
     #[inline(always)]
@@ -116,7 +120,7 @@ impl<T: ZeroCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper
     }
 }
 
-impl<T: DeepCopy + DeserializeInner + 'static, const N: usize> DeserializeHelper<Deep> for [T; N] {
+impl<T: DeepCopy + DeserializeInner, const N: usize> DeserializeHelper<Deep> for [T; N] {
     type FullType = Self;
     type DeserType<'a> = [<T as DeserializeInner>::DeserType<'a>; N];
     #[inline(always)]

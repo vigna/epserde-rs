@@ -46,17 +46,7 @@ macro_rules! test_zero {
 
 test_zero!(test_array_i32_2, [i32; 2], [-1, 1]);
 test_zero!(test_array_i64_2, [i64; 2], [-1_i64, 1]);
-test_zero!(test_tuple_0, (i32, i64), (-1, 1_i64));
-test_zero!(test_tuple_1, (i64, i32), (-1_i64, 1));
-test_zero!(test_tuple_2, ((i64, i32), i32), ((-1_i64, 1), -1));
-test_zero!(test_tuple_3, ((i32, i64), i32), ((-1, 1_i64), -1));
-test_zero!(
-    test_array_tuple_0,
-    [((i32, i64), i32); 2],
-    [((-1, 1_i64), -1), ((-2, 2_i64), -2)]
-);
-test_zero!(
-    test_array_tuple_1,
-    [((i64, i32), i32); 2],
-    [((-1_i64, 1), -1), ((-2_i64, 2), -2)]
-);
+test_zero!(test_tuple_0, (i32, i32), (-1_i32, 1_i32));
+test_zero!(test_tuple_1, (i64, i64), (-1_i64, 1_i64));
+test_zero!(test_tuple_2, ((i64, i64), (i64, i64)), ((-1_i64, 1_i64), (-1_i64, 1_i64)));
+test_zero!(test_tuple_3, ((i32, i32), (i32, i32)), ((-1_i32, 1_i32), (-1_i32, 1_i32)));

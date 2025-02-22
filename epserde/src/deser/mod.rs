@@ -47,7 +47,7 @@ pub type DeserType<'a, T> = <T as DeserializeInner>::DeserType<'a>;
 /// It provides several convenience methods to load or map into memory
 /// structures that have been previously serialized. See, for example,
 /// [`Deserialize::load_full`], [`Deserialize::load_mem`], and [`Deserialize::mmap`].
-pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
+pub trait Deserialize: DeserializeInner {
     /// Fully deserialize a structure of this type from the given backend.
     fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self>;
     /// ε-copy deserialize a structure of this type from the given backend.
@@ -222,7 +222,7 @@ pub trait Deserialize: TypeHash + ReprHash + DeserializeInner {
 /// the user from modifying the methods in [`Deserialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait DeserializeInner: Sized {
+pub trait DeserializeInner: Sized + TypeHash + ReprHash {
     /// The deserialization type associated with this type. It can be
     /// retrieved conveniently with the alias [`DeserType`].
     type DeserType<'a>;

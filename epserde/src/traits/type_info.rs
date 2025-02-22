@@ -14,6 +14,8 @@ Traits computing information about a type.
 use crate::pad_align_to;
 use core::hash::Hash;
 
+use super::ZeroCopy;
+
 /// Recursively compute a type hash for a type.
 ///
 /// [`TypeHash::type_hash`] is a recursive function that computes information
@@ -58,7 +60,7 @@ pub trait ReprHash {
 
 /// A function providing a reasonable default
 /// implementation of [`ReprHash::repr_hash`] for basic sized types.
-pub(crate) fn std_repr_hash<T>(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+pub(crate) fn std_repr_hash<T: ZeroCopy>(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
     let padding = pad_align_to(*offset_of, core::mem::align_of::<T>());
     padding.hash(hasher);
     core::mem::size_of::<T>().hash(hasher);

@@ -316,12 +316,16 @@ impl<T: TypeHash> TypeHash for Option<T> {
 
 impl<T: ReprHash> ReprHash for Option<T> {
     fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+        // TODO: this implemention should be empty, as all deep-copy types
+        // implementations should have an empty repr_hash implementation,
+        // and need not implement MaxSizeOf.
+        // We keep it temporarily to avoid breaking the file format.
         *offset_of = 0;
         T::repr_hash(hasher, offset_of);
     }
 }
 
-impl<T: SerializeInner + ReprHash + TypeHash> SerializeInner for Option<T> {
+impl<T: SerializeInner + TypeHash + ReprHash> SerializeInner for Option<T> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;

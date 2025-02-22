@@ -11,7 +11,7 @@ use epserde::prelude::*;
 use maligned::A16;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
-struct Data<A: DeepCopy + 'static> {
+struct Data<A: DeepCopy> {
     a: Vec<A>,
 }
 

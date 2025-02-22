@@ -13,7 +13,7 @@ use maligned::A16;
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone, Copy)]
 #[repr(C)]
 #[zero_copy]
-struct Data<A: ZeroCopy + 'static> {
+struct Data<A: ZeroCopy> {
     a: A,
 }
 

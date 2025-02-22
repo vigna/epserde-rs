@@ -14,40 +14,32 @@ use core::{
 };
 use std::collections::hash_map::DefaultHasher;
 
+// This implementation makes it possible to serialize
+// PhantomData<DefaultHasher>.
+
 impl TypeHash for DefaultHasher {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "std::hash::DefaultHasher".hash(hasher);
     }
 }
 
-impl ReprHash for DefaultHasher {
-    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        crate::traits::std_repr_hash::<Self>(hasher, offset_of)
-    }
-}
-
-impl MaxSizeOf for DefaultHasher {
-    fn max_size_of() -> usize {
-        core::mem::size_of::<Self>()
-    }
-}
-
 macro_rules! impl_ranges {
     ($ty:ident) => {
-        impl<Idx: CopyType> CopyType for core::ops::$ty<Idx> {
+        impl<Idx: ZeroCopy> CopyType for core::ops::$ty<Idx> {
             type Copy = Zero;
         }
 
-        impl<Idx: TypeHash> TypeHash for core::ops::$ty<Idx> {
+        impl<Idx: ZeroCopy + TypeHash> TypeHash for core::ops::$ty<Idx> {
             fn type_hash(hasher: &mut impl core::hash::Hasher) {
                 stringify!(core::ops::$ty).hash(hasher);
                 Idx::type_hash(hasher);
             }
         }
 
-        impl<Idx: ReprHash> ReprHash for core::ops::$ty<Idx> {
+        impl<Idx: ZeroCopy + ReprHash> ReprHash for core::ops::$ty<Idx> {
             fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-                crate::traits::std_repr_hash::<Self>(hasher, offset_of)
+                crate::traits::std_repr_hash::<Idx>(hasher, offset_of);
+                crate::traits::std_repr_hash::<Idx>(hasher, offset_of);
             }
         }
 
@@ -65,7 +57,30 @@ impl_ranges!(RangeInclusive);
 impl_ranges!(RangeTo);
 impl_ranges!(RangeToInclusive);
 
-impl<Idx: SerializeInner + ReprHash + TypeHash> SerializeInner for core::ops::Range<Idx> {
+
+// RangeFull is a zero-sized type, so it is always zero-copy.
+
+impl CopyType for core::ops::RangeFull {
+    type Copy = Zero;
+}
+
+impl TypeHash for core::ops::RangeFull {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        stringify!(core::ops::RangeFull).hash(hasher);
+    }
+}
+
+impl ReprHash for core::ops::RangeFull {
+    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+}
+
+impl MaxSizeOf for core::ops::RangeFull {
+    fn max_size_of() -> usize {
+        0
+    }
+}
+
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::Range<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -78,7 +93,7 @@ impl<Idx: SerializeInner + ReprHash + TypeHash> SerializeInner for core::ops::Ra
     }
 }
 
-impl<Idx: DeserializeInner> DeserializeInner for core::ops::Range<Idx> {
+impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::Range<Idx> {
     #[inline(always)]
     fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let start = Idx::_deserialize_full_inner(backend)?;
@@ -96,7 +111,7 @@ impl<Idx: DeserializeInner> DeserializeInner for core::ops::Range<Idx> {
     }
 }
 
-impl<Idx: SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::RangeFrom<Idx> {
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::RangeFrom<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -108,7 +123,7 @@ impl<Idx: SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::Ra
     }
 }
 
-impl<Idx: DeserializeInner> DeserializeInner for core::ops::RangeFrom<Idx> {
+impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeFrom<Idx> {
     #[inline(always)]
     fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let start = Idx::_deserialize_full_inner(backend)?;
@@ -124,7 +139,7 @@ impl<Idx: DeserializeInner> DeserializeInner for core::ops::RangeFrom<Idx> {
     }
 }
 
-impl<Idx: SerializeInner + ReprHash + TypeHash> SerializeInner for core::ops::RangeInclusive<Idx> {
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::RangeInclusive<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -138,7 +153,7 @@ impl<Idx: SerializeInner + ReprHash + TypeHash> SerializeInner for core::ops::Ra
     }
 }
 
-impl<Idx: DeserializeInner> DeserializeInner for core::ops::RangeInclusive<Idx> {
+impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeInclusive<Idx> {
     #[inline(always)]
     fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let start = Idx::_deserialize_full_inner(backend)?;
@@ -160,7 +175,7 @@ impl<Idx: DeserializeInner> DeserializeInner for core::ops::RangeInclusive<Idx> 
     }
 }
 
-impl<Idx: SerializeInner + ReprHash + TypeHash> SerializeInner for core::ops::RangeTo<Idx> {
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::RangeTo<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -172,7 +187,7 @@ impl<Idx: SerializeInner + ReprHash + TypeHash> SerializeInner for core::ops::Ra
     }
 }
 
-impl<Idx: DeserializeInner> DeserializeInner for core::ops::RangeTo<Idx> {
+impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeTo<Idx> {
     #[inline(always)]
     fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let end = Idx::_deserialize_full_inner(backend)?;
@@ -188,7 +203,7 @@ impl<Idx: DeserializeInner> DeserializeInner for core::ops::RangeTo<Idx> {
     }
 }
 
-impl<Idx: SerializeInner + ReprHash + TypeHash> SerializeInner
+impl<Idx: ZeroCopy + SerializeInner + TypeHash + ReprHash> SerializeInner
     for core::ops::RangeToInclusive<Idx>
 {
     type SerType = Self;
@@ -202,7 +217,7 @@ impl<Idx: SerializeInner + ReprHash + TypeHash> SerializeInner
     }
 }
 
-impl<Idx: DeserializeInner> DeserializeInner for core::ops::RangeToInclusive<Idx> {
+impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeToInclusive<Idx> {
     #[inline(always)]
     fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let end = Idx::_deserialize_full_inner(backend)?;
@@ -215,28 +230,6 @@ impl<Idx: DeserializeInner> DeserializeInner for core::ops::RangeToInclusive<Idx
     ) -> deser::Result<Self::DeserType<'a>> {
         let end = Idx::_deserialize_eps_inner(backend)?;
         Ok(..=end)
-    }
-}
-
-impl CopyType for core::ops::RangeFull {
-    type Copy = Zero;
-}
-
-impl TypeHash for core::ops::RangeFull {
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        stringify!(core::ops::RangeFull).hash(hasher);
-    }
-}
-
-impl ReprHash for core::ops::RangeFull {
-    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        crate::traits::std_repr_hash::<Self>(hasher, offset_of)
-    }
-}
-
-impl MaxSizeOf for core::ops::RangeFull {
-    fn max_size_of() -> usize {
-        core::mem::size_of::<Self>()
     }
 }
 
@@ -277,16 +270,7 @@ impl<T: TypeHash> TypeHash for core::ops::Bound<T> {
 }
 
 impl<T: ReprHash> ReprHash for core::ops::Bound<T> {
-    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        crate::traits::std_repr_hash::<Self>(hasher, offset_of);
-        T::repr_hash(hasher, offset_of);
-    }
-}
-
-impl<T: MaxSizeOf> MaxSizeOf for core::ops::Bound<T> {
-    fn max_size_of() -> usize {
-        core::mem::size_of::<Self>() - core::mem::size_of::<T>() + T::max_size_of()
-    }
+    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
 impl<T: SerializeInner + TypeHash + ReprHash> SerializeInner for core::ops::Bound<T> {
@@ -357,22 +341,10 @@ impl<B: TypeHash, C: TypeHash> TypeHash for core::ops::ControlFlow<B, C> {
 }
 
 impl<B: ReprHash, C: ReprHash> ReprHash for core::ops::ControlFlow<B, C> {
-    fn repr_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        crate::traits::std_repr_hash::<Self>(hasher, offset_of);
-        B::repr_hash(hasher, offset_of);
-        C::repr_hash(hasher, offset_of);
-    }
+    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl<B: MaxSizeOf, C: MaxSizeOf> MaxSizeOf for core::ops::ControlFlow<B, C> {
-    fn max_size_of() -> usize {
-        let b_max_size = B::max_size_of() - core::mem::size_of::<B>();
-        let c_max_size = C::max_size_of() - core::mem::size_of::<C>();
-        core::mem::size_of::<Self>() + b_max_size.max(c_max_size)
-    }
-}
-
-impl<B: SerializeInner + ReprHash + TypeHash, C: SerializeInner + ReprHash + TypeHash>
+impl<B: SerializeInner + TypeHash + ReprHash, C: SerializeInner + TypeHash + ReprHash>
     SerializeInner for core::ops::ControlFlow<B, C>
 {
     type SerType = Self;

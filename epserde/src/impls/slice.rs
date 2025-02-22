@@ -33,29 +33,11 @@ impl<T: TypeHash> TypeHash for [T] {
     }
 }
 
-impl<T> ReprHash for [T] {
-    #[inline(always)]
-    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
-}
-
 impl<T> CopyType for &[T] {
     type Copy = Deep;
 }
 
-impl<T: TypeHash> TypeHash for &[T] {
-    #[inline(always)]
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "&[]".hash(hasher);
-        T::type_hash(hasher);
-    }
-}
-
-impl<T> ReprHash for &[T] {
-    #[inline(always)]
-    fn repr_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
-}
-
-impl<T: SerializeInner + CopyType + TypeHash + ReprHash> SerializeInner for &[T]
+impl<T: CopyType + SerializeInner + TypeHash + ReprHash> SerializeInner for &[T]
 where
     Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
 {
