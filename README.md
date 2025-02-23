@@ -96,8 +96,10 @@ These are the main limitations you should be aware of before choosing to use
 - The structure you get by deserialization has exactly the same performance as
   the structure you serialized. This is not the case with [zerovec] or [rkiv].
 
-- You can serialize structures containing references to slices, and they will
-  be deserialized as if you had written a vector.
+- You can serialize structures containing references to slices, or even
+  exact-size iterators, and they will be deserialized as if you had written a
+  vector. It is thus possible to serialize structures larger than the available
+  memory.
 
 - You can deserialize from read-only supports, as all dynamic information
   generated at deserialization time is stored in newly allocated memory. This is
@@ -484,7 +486,7 @@ assert!(<Enum>::load_full(&file).is_err());
 
 ## Example: (Structures containing references to) slices
 
-For convinience, ε-serde can serialize references to slices, and will
+For convenience, ε-serde can serialize references to slices, and will
 deserialize them as if they were vectors. You must however be careful to
 deserialize with the correct type. For example,
 
@@ -531,6 +533,59 @@ let t: MemCase<Data<&[i32]>> = <Data<Vec<i32>>>::mmap(&file, Flags::empty())?;
 #     Ok(())
 # }
 ```
+
+## Example: (Structures containing) iterators
+
+ε-serde can serialize iterators returning references to a type. The resulting
+field can be deserialized as a vector. In this case we need to wrap the iterator
+in a [`SerIter`], as ε-serde cannot implement the serialization traits directly
+on [`Iterator`]. For example,
+
+```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use epserde::prelude::*;
+use epserde_derive::*;
+use std::slice::Iter;
+
+let v = vec![0, 1, 2, 3];
+// This is an iterator
+let i: Iter<'_, i32> = v.iter();
+// Serialize it by wrapping it in a SerIter
+let mut file = std::env::temp_dir();
+file.push("serialized9");
+SerIter::from(i).store(&file);
+// Load the serialized form in a buffer
+let b = std::fs::read(&file)?;
+
+// We must deserialize as a vector, even if we are getting back a reference
+let t: &[i32] = <Vec<i32>>::deserialize_eps(b.as_ref())?;
+let t: Vec<i32> = <Vec<i32>>::deserialize_full(
+        &mut std::fs::File::open(&file)?
+    )?;
+let t: MemCase<&[i32]> = <Vec<i32>>::mmap(&file, Flags::empty())?;
+
+// Within a structure
+#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
+struct Data<A> {
+    s: A,
+}
+
+let d = Data { s: SerIter::from(v.iter()) };
+// Serialize it
+d.store(&file);
+// Load the serialized form in a buffer
+let b = std::fs::read(&file)?;
+
+// We must deserialize the field as a vector, even if we are getting back a reference
+let t: Data<&[i32]> = <Data<Vec<i32>>>::deserialize_eps(b.as_ref())?;
+let t: Data<Vec<i32>> = <Data<Vec<i32>>>::deserialize_full(
+        &mut std::fs::File::open(&file)?
+    )?;
+let t: MemCase<Data<&[i32]>> = <Data<Vec<i32>>>::mmap(&file, Flags::empty())?;
+#     Ok(())
+# }
+```
+
 
 ## Example: `sux-rs`
 
@@ -661,3 +716,5 @@ European Union nor the Italian MUR can be held responsible for them.
 [`MemDbg`]: https://docs.rs/mem_dbg/latest/mem_dbg/trait.MemDbg.html
 [`MemSize`]: https://docs.rs/mem_dbg/latest/mem_dbg/trait.MemSize.html
 [`PhantomData`]: <https://doc.rust-lang.org/std/marker/struct.PhantomData.html>
+[`Iterator`]: <https://doc.rust-lang.org/std/iter/trait.Iterator.html>
+[`SerIter`]: <https://docs.rs/epserde/latest/epserde/impls/iter/struct.SerIter.html>

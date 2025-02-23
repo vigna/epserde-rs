@@ -56,7 +56,7 @@ fn main() {
     cursor.set_position(0);
     let _bytes_written = d.serialize(&mut cursor).unwrap();
 
-    // Do a full-copy deserializations
+    // Do a full-copy deserialization
     cursor.set_position(0);
     let full = <Data<Vec<i32>>>::deserialize_full(&mut cursor).unwrap();
     println!(
@@ -67,7 +67,7 @@ fn main() {
 
     println!();
 
-    // Do an ε-copy deserialization as, again, a slice
+    // Do an ε-copy deserialization
     let eps = <Data<Vec<i32>>>::deserialize_eps(cursor.as_bytes()).unwrap();
     println!(
         "ε-copy deserialization type: {}",
