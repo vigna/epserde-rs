@@ -222,7 +222,7 @@ pub trait Deserialize: DeserializeInner {
 /// the user from modifying the methods in [`Deserialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait DeserializeInner: Sized + TypeHash + AlignHash {
+pub trait DeserializeInner: Sized {
     /// The deserialization type associated with this type. It can be
     /// retrieved conveniently with the alias [`DeserType`].
     type DeserType<'a>;
@@ -255,7 +255,7 @@ impl<T: TypeHash + AlignHash + DeserializeInner> Deserialize for T {
 /// Common header check code for both ε-copy and full-copy deserialization.
 ///
 /// Must be kept in sync with [`crate::ser::write_header`].
-pub fn check_header<T: Deserialize>(backend: &mut impl ReadWithPos) -> Result<()> {
+pub fn check_header<T: Deserialize + TypeHash + AlignHash>(backend: &mut impl ReadWithPos) -> Result<()> {
     let self_type_name = core::any::type_name::<T>().to_string();
 
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
