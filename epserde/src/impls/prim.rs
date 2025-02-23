@@ -277,7 +277,7 @@ impl<T: ?Sized> AlignHash for PhantomData<T> {
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl<T: ?Sized + TypeHash> SerializeInner for PhantomData<T> {
+impl<T: ?Sized> SerializeInner for PhantomData<T> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -288,7 +288,7 @@ impl<T: ?Sized + TypeHash> SerializeInner for PhantomData<T> {
     }
 }
 
-impl<T: ?Sized + TypeHash> DeserializeInner for PhantomData<T> {
+impl<T: ?Sized> DeserializeInner for PhantomData<T> {
     #[inline(always)]
     fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomData::<T>)
