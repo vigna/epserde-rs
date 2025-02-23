@@ -24,21 +24,36 @@ pub fn check_zero_copy<V: SerializeInner>() {
     }
 }
 
-/// Serialize a zero-copy structure by writing its bytes properly [aligned](WriteWithNames::align).
+/// Serialize a zero-copy structure checking [that the type is actually
+/// zero-copy](SerializeInner::IS_ZERO_COPY) and [aligning the stream
+/// beforehand](WriteWithNames::align).
 ///
-/// Note that this method uses a single `write_all` call to write the entire structure.
-///
-/// Here we check [that the type is actually zero-copy](SerializeInner::IS_ZERO_COPY).
+/// This function makes the appropriate checks, write the necessary padding and
+/// then calls [`serialize_zero_unchecked`](serialize_zero_unchecked).
 pub fn serialize_zero<V: ZeroCopy + SerializeInner>(
     backend: &mut impl WriteWithNames,
     value: &V,
 ) -> ser::Result<()> {
     check_zero_copy::<V>();
+    backend.align::<V>()?;
+    serialize_zero_unchecked(backend, value)
+}
+
+/// Serialize a zero-copy structure without checking [that the type is actually
+/// zero-copy](SerializeInner::IS_ZERO_COPY) and without [aligning the
+/// stream](WriteWithNames::align).
+///
+/// Note that this method uses a single [`write_all`](std::io::Write::write_all)
+/// call to write the entire structure.
+#[inline(always)]
+pub fn serialize_zero_unchecked<V: ZeroCopy + SerializeInner>(
+    backend: &mut impl WriteWithNames,
+    value: &V,
+) -> ser::Result<()> {
     let buffer = unsafe {
         #[allow(clippy::manual_slice_size_calculation)]
         core::slice::from_raw_parts(value as *const V as *const u8, core::mem::size_of::<V>())
     };
-    backend.align::<V>()?;
     backend.write_bytes::<V>(buffer)
 }
 
