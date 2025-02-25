@@ -11,7 +11,9 @@ Implementations for (references to) slices.
 
 In theory all types serialized by ε-serde must not contain references. However,
 we provide a convenience implementation that serializes references to
-slices as vectors.
+slices as vectors. Moreover, we implement [`TypeHash`] and
+[`AlignHash`] for slices, so that they can be used with
+[`PhantomData`](std::marker::PhantomData).
 
 Note, however, that you must deserialize the slice as a vector,
 even when it appears a type parameter—see the example
@@ -39,31 +41,12 @@ impl<T: AlignHash> AlignHash for &[T] {
 
 impl<T: CopyType + SerializeInner + TypeHash + AlignHash> SerializeInner for &[T]
 where
-    for<'a> &'a [T]: SerializeHelper<<T as CopyType>::Copy>,
+    Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
 {
-    type SerType = Self;
+    type SerType = Vec<T>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        SerializeHelper::_serialize_inner(self, backend)
-    }
-}
-
-impl<T: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeHelper<Zero> for &[T] {
-    #[inline(always)]
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        // SAFETY: the fake vector we create is never used, and we forget it immediately
-        // after writing it to the backend.
-        let fake = unsafe { Vec::from_raw_parts(self.as_ptr() as *mut T, self.len(), self.len()) };
-        ser::SerializeInner::_serialize_inner(&fake, backend)?;
-        core::mem::forget(fake);
-        Ok(())
-    }
-}
-
-impl<T: DeepCopy + SerializeInner + TypeHash + AlignHash> SerializeHelper<Deep> for &[T] {
-    #[inline(always)]
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // SAFETY: the fake vector we create is never used, and we forget it immediately
         // after writing it to the backend.
         let fake = unsafe { Vec::from_raw_parts(self.as_ptr() as *mut T, self.len(), self.len()) };
