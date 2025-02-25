@@ -30,6 +30,7 @@ pub mod prelude {
     pub use crate::deser::MemCase;
     pub use crate::deser::ReadWithPos;
     pub use crate::deser::SliceWithPos;
+    pub use crate::impls::iter::SerIter;
     pub use crate::ser;
     pub use crate::ser::Serialize;
     pub use crate::ser::SerializeHelper;

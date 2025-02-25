@@ -1,12 +1,13 @@
 /*
- * SPDX-FileCopyrightText: 2023 Inria
- * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
+ * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/// Example showcasing the convenience serialization of references to slices.
-use epserde::prelude::*;
+use std::slice::Iter;
+
+/// Example showcasing the convenience serialization of iterators.
+use epserde::{impls::iter::SerIter, prelude::*};
 use maligned::A16;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
@@ -16,14 +17,14 @@ struct Data<A> {
 
 fn main() {
     let a = vec![0, 1, 2, 3];
-    // Turn it into a slice
-    let a: &[i32] = a.as_ref();
+    // Turn it into an interator
+    let i: Iter<'_, i32> = a.iter();
 
-    println!("Original type: {}", std::any::type_name::<&[i32]>());
+    println!("Original type: {}", std::any::type_name::<Iter<'_, i32>>());
 
     let mut cursor = <AlignedCursor<A16>>::new();
-    // Serialize the slice
-    let _bytes_written = a.serialize(&mut cursor).unwrap();
+    // Serialize the iterator
+    let _bytes_written = SerIter::from(i).serialize(&mut cursor).unwrap();
 
     // Do a full-copy deserialization as a vector
     cursor.set_position(0);
@@ -36,7 +37,7 @@ fn main() {
 
     println!();
 
-    // Do an ε-copy deserialization as, again, a slice
+    // Do an ε-copy deserialization as a slice
     let eps = <Vec<i32>>::deserialize_eps(cursor.as_bytes()).unwrap();
     println!(
         "ε-copy deserialization type: {}",
@@ -48,9 +49,15 @@ fn main() {
     println!();
 
     // Let's do with a structure
-    let d = Data { a };
+    let i: Iter<'_, i32> = a.iter();
+    let d: Data<SerIter<i32, Iter<'_, i32>>> = Data {
+        a: SerIter::from(i),
+    };
 
-    println!("Original type: {}", std::any::type_name::<Data<&[i32]>>());
+    println!(
+        "Original type: {}",
+        std::any::type_name::<Data<Data<SerIter<i32, Iter<'_, i32>>>>>()
+    );
 
     // Serialize the structure
     cursor.set_position(0);
