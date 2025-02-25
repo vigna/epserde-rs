@@ -95,7 +95,7 @@ struct CommonDeriveInput {
     generics_types: Vec<syn::Type>,
     /// A vector containing the identifiers of the generics.
     generics_names: Vec<proc_macro2::TokenStream>,
-    /// Same as `generics_name_vec`, but names are concatenated
+    /// Same as `generics_names`, but names are concatenated
     /// and separated by commas.
     concat_generics: proc_macro2::TokenStream,
     /// A vector containing the name of generics types, represented as strings.
@@ -369,69 +369,58 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 })
                 .collect::<Vec<_>>();
 
-            // We add to the deserialization where clause the bounds on the deserialization
-            // types of the fields derived from the bounds of the original types of the fields.
-            // TODO: we presently handle only inlined bounds, and not bounds in a where clause.
+            // If there are bounded type parameters which are fields of the
+            // struct, we need to impose the same bounds on the SerType and on
+            // the DeserType.
             derive_input.generics.params.iter().for_each(|param| {
                 if let GenericParam::Type(t) = param {
                     let ty = &t.ident;
 
-                    // Skip generics not involved in deserialization type substitution.
-                    if t.bounds.is_empty() || ! types_with_generics
-                        .iter()
-                        .any(|x| *ty == x.to_token_stream().to_string())
-                    {
-                        return;
+                    // We are just interested in types with bounds that are
+                    // types of fields of the struct.
+                    //
+                    // Note that types_with_generics contains also field types
+                    // *containing* a type parameter, but that just slows down
+                    // the search.
+                    if ! t.bounds.is_empty() &&
+                        types_with_generics.iter().any(|x| *ty == x.to_token_stream().to_string()) {
+
+                        // Add a lifetime so we express bounds on DeserType
+                        let mut lifetimes = Punctuated::new();
+                        lifetimes.push(GenericParam::Lifetime(LifetimeParam {
+                            attrs: vec![],
+                            lifetime: syn::Lifetime::new("'epserde_desertype", proc_macro2::Span::call_site()),
+                            colon_token: None,
+                            bounds: Punctuated::new(),
+                        }));
+                        // Add the type bounds to the DeserType
+                        where_clause_des
+                            .predicates
+                            .push(WherePredicate::Type(PredicateType {
+                                lifetimes: Some(BoundLifetimes {
+                                    for_token: token::For::default(),
+                                    lt_token: token::Lt::default(),
+                                    lifetimes,
+                                    gt_token: token::Gt::default(),
+                                }),
+                                bounded_ty: syn::parse_quote!(
+                                    <#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
+                                ),
+                                colon_token: token::Colon::default(),
+                                bounds: t.bounds.clone(),
+                        }));
+                        // Add the type bounds to the SerType
+                        where_clause_ser
+                            .predicates
+                            .push(WherePredicate::Type(PredicateType {
+                                lifetimes: None,
+                                bounded_ty: syn::parse_quote!(
+                                    <#ty as epserde::ser::SerializeInner>::SerType
+                                ),
+                                colon_token: token::Colon::default(),
+                                bounds: t.bounds.clone(),
+                        }));
                     }
-
-                    // add a lifetime so we express bounds on DeserType
-                    let mut lifetimes = Punctuated::new();
-                    lifetimes.push(GenericParam::Lifetime(LifetimeParam {
-                        attrs: vec![],
-                        lifetime: syn::Lifetime::new("'epserde_desertype", proc_macro2::Span::call_site()),
-                        colon_token: None,
-                        bounds: Punctuated::new(),
-                    }));
-                    // TODO: duplicate?
-                    // add that the DeserType is a DeserializeInner
-                    let mut bounds_des =  Punctuated::new();
-                    bounds_des.push(syn::parse_quote!(epserde::deser::DeserializeInner));
-                    where_clause_des
-                        .predicates
-                        .push(WherePredicate::Type(PredicateType {
-                            lifetimes: None,
-                            bounded_ty: syn::parse_quote!(
-                                #ty
-                            ),
-                            colon_token: token::Colon::default(),
-                            bounds: bounds_des,
-                        }));
-
-                    where_clause_des
-                        .predicates
-                        .push(WherePredicate::Type(PredicateType {
-                            lifetimes: Some(BoundLifetimes {
-                                for_token: token::For::default(),
-                                lt_token: token::Lt::default(),
-                                lifetimes,
-                                gt_token: token::Gt::default(),
-                            }),
-                            bounded_ty: syn::parse_quote!(
-                                <#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
-                            ),
-                            colon_token: token::Colon::default(),
-                            bounds: t.bounds.clone(),
-                        }));
-                    where_clause_ser
-                        .predicates
-                        .push(WherePredicate::Type(PredicateType {
-                            lifetimes: None,
-                            bounded_ty: syn::parse_quote!(
-                                <#ty as epserde::ser::SerializeInner>::SerType
-                            ),
-                            colon_token: token::Colon::default(),
-                            bounds: t.bounds.clone(),
-                        }));
                 }
             });
 
