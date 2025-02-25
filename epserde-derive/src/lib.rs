@@ -90,20 +90,20 @@ struct CommonDeriveInput {
     name: syn::Ident,
     /// The token stream to be used after `impl` in angle brackets. It contains
     /// the generic types, lifetimes, and constants, with their trait bounds.
-    generics: proc_macro2::TokenStream,
+    impl_generics: proc_macro2::TokenStream,
     /// A vector containing the [types](syn::Type) of the generics.
-    generics_type_vec: Vec<syn::Type>,
+    generics_types: Vec<syn::Type>,
     /// A vector containing the identifiers of the generics.
-    generics_name_vec: Vec<proc_macro2::TokenStream>,
+    generics_names: Vec<proc_macro2::TokenStream>,
     /// Same as `generics_name_vec`, but names are concatenated
     /// and separated by commas.
-    generics_names: proc_macro2::TokenStream,
+    concat_generics: proc_macro2::TokenStream,
     /// A vector containing the name of generics types, represented as strings.
     /// Used to include the identifiers of generic types into the type hash.
-    type_names_raw: Vec<String>,
+    generics_names_raw: Vec<String>,
     /// A vector containing the identifiers of the generic constants.
     /// Used to include the generic constant values into the type hash.
-    const_names_vec: Vec<syn::Ident>,
+    const_names: Vec<syn::Ident>,
     /// A vector containing the identifier of the generic constants, represented
     /// as strings. Used to include the identifiers of generic constants into
     /// the type hash.
@@ -116,21 +116,21 @@ impl CommonDeriveInput {
     /// be added to the generic types.
     fn new(input: DeriveInput, traits_to_add: Vec<syn::Path>) -> Self {
         let name = input.ident;
-        let mut generics = quote!();
-        let mut type_names_raw = vec![];
-        let mut generics_name_vec = vec![];
-        let mut generics_names = quote!();
-        let mut generics_type_vec: Vec<syn::Type> = vec![];
+        let mut impl_generics = quote!();
+        let mut generics_names_raw = vec![];
+        let mut generics_names = vec![];
+        let mut concat_generics = quote!();
+        let mut generics_types: Vec<syn::Type> = vec![];
 
-        let mut const_names_vec = vec![];
+        let mut const_names = vec![];
         let mut const_names_raw = vec![];
 
         if !input.generics.params.is_empty() {
             input.generics.params.into_iter().for_each(|x| {
                 match x {
                     syn::GenericParam::Type(mut t) => {
-                        generics_names.extend(t.ident.to_token_stream());
-                        type_names_raw.push(t.ident.to_string());
+                        concat_generics.extend(t.ident.to_token_stream());
+                        generics_names_raw.push(t.ident.to_string());
 
                         t.default = None;
                         for trait_to_add in traits_to_add.iter() {
@@ -141,40 +141,40 @@ impl CommonDeriveInput {
                                 path: trait_to_add.clone(),
                             }));
                         }
-                        generics.extend(quote!(#t,));
-                        generics_name_vec.push(t.ident.to_token_stream());
-                        generics_type_vec.push(syn::Type::Verbatim(t.ident.into_token_stream()));
+                        impl_generics.extend(quote!(#t,));
+                        generics_names.push(t.ident.to_token_stream());
+                        generics_types.push(syn::Type::Verbatim(t.ident.into_token_stream()));
                     }
                     syn::GenericParam::Lifetime(l) => {
-                        generics_names.extend(l.lifetime.to_token_stream());
+                        concat_generics.extend(l.lifetime.to_token_stream());
 
-                        generics.extend(quote!(#l,));
-                        generics_name_vec.push(l.lifetime.to_token_stream());
+                        impl_generics.extend(quote!(#l,));
+                        generics_names.push(l.lifetime.to_token_stream());
                     }
                     syn::GenericParam::Const(mut c) => {
-                        generics_names.extend(c.ident.to_token_stream());
+                        concat_generics.extend(c.ident.to_token_stream());
                         const_names_raw.push(c.ident.to_string());
 
                         c.default = None; // remove the defaults from the const generics
                                           // otherwise we can't use them in the impl generics
-                        generics.extend(quote!(#c,));
-                        generics_name_vec.push(c.ident.to_token_stream());
-                        const_names_vec.push(c.ident.clone());
+                        impl_generics.extend(quote!(#c,));
+                        generics_names.push(c.ident.to_token_stream());
+                        const_names.push(c.ident.clone());
                     }
                 };
-                generics_names.extend(quote!(,))
+                concat_generics.extend(quote!(,))
             });
         }
 
         Self {
             name,
-            generics,
-            generics_type_vec,
+            impl_generics,
+            generics_types,
+            concat_generics,
+            generics_names_raw,
             generics_names,
-            type_names_raw,
-            generics_name_vec,
             const_names_raw,
-            const_names_vec,
+            const_names,
         }
     }
 }
@@ -235,23 +235,23 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
     // Common values between serialize and deserialize
     let CommonDeriveInput {
         name,
+        concat_generics,
+        generics_names_raw,
         generics_names,
-        type_names_raw,
-        generics_name_vec,
-        generics,
-        generics_type_vec,
+        impl_generics,
+        generics_types,
         ..
     } = CommonDeriveInput::new(derive_input.clone(), vec![]);
 
     // Values for serialize (we add serialization bounds to generics)
     let CommonDeriveInput {
-        generics: generics_serialize,
+        impl_generics: generics_serialize,
         ..
     } = CommonDeriveInput::new(derive_input.clone(), vec![]);
 
     // Values for deserialize (we add deserialization bounds to generics)
     let CommonDeriveInput {
-        generics: generics_deserialize,
+        impl_generics: generics_deserialize,
         ..
     } = CommonDeriveInput::new(derive_input.clone(), vec![]);
 
@@ -259,12 +259,14 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
         Data::Struct(s) => {
             let mut fields_types = vec![];
             let mut fields_names = vec![];
-            let mut non_generic_fields = vec![];
-            let mut non_generic_types = vec![];
-            let mut generic_fields = vec![];
-            let mut generic_types = vec![];
+            let mut fields_without_generics = vec![];
+            let mut types_without_generics = vec![];
+            let mut fields_with_generics = vec![];
+            let mut types_with_generics = vec![];
 
-            // Scan the struct to find which fields are generics, and which are not.
+            // Scan the struct to find which fields contain a generic
+            // type (i.e., they are themselves of a generic type,
+            // or of a type contaning a generic type as a parameter).
             s.fields.iter().enumerate().for_each(|(field_idx, field)| {
                 let ty = &field.ty;
                 let field_name = field
@@ -273,12 +275,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     .map(|x| x.to_token_stream())
                     .unwrap_or_else(|| syn::Index::from(field_idx).to_token_stream());
 
-                if generics_type_vec.iter().any(|x| is_subtype(ty, x)) {
-                    generic_fields.push(field_name.clone());
-                    generic_types.push(ty);
+                if generics_types.iter().any(|x| is_subtype(ty, x)) {
+                    fields_with_generics.push(field_name.clone());
+                    types_with_generics.push(ty);
                 } else {
-                    non_generic_fields.push(field_name.clone());
-                    non_generic_types.push(ty);
+                    fields_without_generics.push(field_name.clone());
+                    types_without_generics.push(ty);
                 }
                 fields_types.push(ty);
                 fields_names.push(field_name);
@@ -290,7 +292,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
             s.fields.iter().for_each(|field| {
                 let ty = &field.ty;
-                if type_names_raw.contains(&ty.to_token_stream().to_string()) {
+                if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
                     methods.push(syn::parse_quote!(_deserialize_eps_inner));
                 } else {
                     methods.push(syn::parse_quote!(_deserialize_full_inner));
@@ -299,10 +301,10 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
             // Gather deserialization types of fields, as they are necessary to
             // derive the deserialization type.
-            let deser_type_generics = generics_name_vec
+            let deser_type_generics = generics_names
                 .iter()
                 .map(|ty| {
-                    if generic_types
+                    if types_with_generics
                         .iter()
                         .any(|x| x.to_token_stream().to_string() == ty.to_string())
                     {
@@ -353,10 +355,10 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
             // Map recursively type parameters to their SerType to generate this
             // type's SerType
-            let ser_type_generics = generics_name_vec
+            let ser_type_generics = generics_names
                 .iter()
                 .map(|ty| {
-                    if generic_types
+                    if types_with_generics
                         .iter()
                         .any(|x| x.to_token_stream().to_string() == ty.to_string())
                     {
@@ -375,7 +377,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     let ty = &t.ident;
 
                     // Skip generics not involved in deserialization type substitution.
-                    if t.bounds.is_empty() || ! generic_types
+                    if t.bounds.is_empty() || ! types_with_generics
                         .iter()
                         .any(|x| *ty == x.to_token_stream().to_string())
                     {
@@ -436,12 +438,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::CopyType for  #name<#generics_names> #where_clause {
+                    impl<#impl_generics> epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
                         type Copy = epserde::traits::Zero;
                     }
 
                     #[automatically_derived]
-                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_ser {
+                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
                         type SerType =  #name<#(#ser_type_generics),*>;
                         // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
@@ -463,7 +465,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#generics_names> #where_clause_des
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
                     {
                         fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
@@ -472,7 +474,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
 
-                        type DeserType<'epserde_desertype> = &'epserde_desertype #name<#generics_names>;
+                        type DeserType<'epserde_desertype> = &'epserde_desertype #name<#concat_generics>;
 
                         fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
@@ -485,12 +487,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::CopyType for  #name<#generics_names> #where_clause {
+                    impl<#impl_generics> epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
                         type Copy = epserde::traits::Deep;
                     }
 
                     #[automatically_derived]
-                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_ser {
+                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
                         type SerType =  #name<#(#ser_type_generics,)*>;
                         // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
@@ -512,7 +514,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#generics_names> #where_clause_des {
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
@@ -558,10 +560,10 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             let mut where_clause_des = where_clause.clone();
             let mut variant_full_des = Vec::new();
             let mut variant_eps_des = Vec::new();
-            let mut generic_types = Vec::new();
-            let mut generic_fields = Vec::new();
-            let mut non_generic_fields = Vec::new();
-            let mut non_generic_types = Vec::new();
+            let mut types_with_generics = Vec::new();
+            let mut fields_with_generics = Vec::new();
+            let mut fields_without_generics = Vec::new();
+            let mut types_without_generics = Vec::new();
             let mut fields_types = Vec::new();
             e.variants.iter().enumerate().for_each(|(variant_id, variant)| {
                 variants_names.push(variant.ident.to_token_stream());
@@ -583,12 +585,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .iter()
                         .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
                         .for_each(|(ident, ty)| {
-                            if generics_type_vec.iter().any(|x| is_subtype(ty, x)) {
-                                generic_fields.push(ident.to_token_stream());
-                                generic_types.push(ty.to_token_stream());
+                            if generics_types.iter().any(|x| is_subtype(ty, x)) {
+                                fields_with_generics.push(ident.to_token_stream());
+                                types_with_generics.push(ty.to_token_stream());
                             } else {
-                                non_generic_fields.push(ident.to_token_stream());
-                                non_generic_types.push(ty.to_token_stream());
+                                fields_without_generics.push(ident.to_token_stream());
+                                types_without_generics.push(ty.to_token_stream());
                             }
 
                             var_fields_names.push(ident.to_token_stream());
@@ -617,7 +619,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                     bounds: bounds_des,
                             }));
 
-                            if type_names_raw.contains(&ty.to_token_stream().to_string()) {
+                            if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
                                 methods.push(syn::parse_quote!(_deserialize_eps_inner));
                             } else {
                                 methods.push(syn::parse_quote!(_deserialize_full_inner));
@@ -658,12 +660,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .for_each(|(field_idx, unnamed)| {
                             let ty = &unnamed.ty;
                             let ident = syn::Index::from(field_idx);
-                            if generics_type_vec.iter().any(|x| is_subtype(ty, x)) {
-                                generic_fields.push(ident.to_token_stream());
-                                generic_types.push(ty.to_token_stream());
+                            if generics_types.iter().any(|x| is_subtype(ty, x)) {
+                                fields_with_generics.push(ident.to_token_stream());
+                                types_with_generics.push(ty.to_token_stream());
                             } else {
-                                non_generic_fields.push(ident.to_token_stream());
-                                non_generic_types.push(ty.to_token_stream());
+                                fields_without_generics.push(ident.to_token_stream());
+                                types_without_generics.push(ty.to_token_stream());
                             }
 
                             var_fields_names.push(syn::Ident::new(
@@ -698,7 +700,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                     bounds: bounds_des,
                             }));
 
-                            if type_names_raw.contains(&ty.to_token_stream().to_string()) {
+                            if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
                                 methods.push(syn::parse_quote!(_deserialize_eps_inner));
                             } else {
                                 methods.push(syn::parse_quote!(_deserialize_full_inner));
@@ -733,10 +735,10 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
             // Gather deserialization types of fields,
             // which are necessary to derive the deserialization type.
-            let deser_type_generics = generics_name_vec
+            let deser_type_generics = generics_names
                 .iter()
                 .map(|ty| {
-                    if generic_types
+                    if types_with_generics
                         .iter()
                         .any(|x| x.to_token_stream().to_string() == ty.to_string())
                     {
@@ -746,10 +748,10 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
                 })
                 .collect::<Vec<_>>();
-            let ser_type_generics = generics_name_vec
+            let ser_type_generics = generics_names
                 .iter()
                 .map(|ty| {
-                    if generic_types
+                    if types_with_generics
                         .iter()
                         .any(|x| x.to_token_stream().to_string() == ty.to_string())
                     {
@@ -764,11 +766,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::CopyType for  #name<#generics_names> #where_clause {
+                    impl<#impl_generics> epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
                         type Copy = epserde::traits::Zero;
                     }
                     #[automatically_derived]
-                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_ser {
+                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
                         type SerType =  #name<#(#ser_type_generics,)*>;
 
                         // Compute whether the type could be zero copy
@@ -790,14 +792,14 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#generics_names> #where_clause_des {
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
                             epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
 
-                        type DeserType<'epserde_desertype> = &'epserde_desertype #name<#generics_names>;
+                        type DeserType<'epserde_desertype> = &'epserde_desertype #name<#concat_generics>;
 
                         fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
@@ -810,11 +812,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::CopyType for  #name<#generics_names> #where_clause {
+                    impl<#impl_generics> epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
                         type Copy = epserde::traits::Deep;
                     }
                     #[automatically_derived]
-                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#generics_names> #where_clause_ser {
+                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
                         type SerType =  #name<#(#ser_type_generics,)*>;
 
                         // Compute whether the type could be zero copy
@@ -837,7 +839,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#generics_names> #where_clause_des {
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
@@ -938,10 +940,10 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
 
     let CommonDeriveInput {
         name,
-        generics,
-        generics_names,
-        generics_type_vec,
-        const_names_vec,
+        impl_generics,
+        concat_generics,
+        generics_types,
+        const_names,
         const_names_raw,
         ..
     } = CommonDeriveInput::new(input.clone(), vec![]);
@@ -962,7 +964,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             // Compute which fields types are super-types of the generic parameters
             s.fields.iter().for_each(|field| {
                 let ty = &field.ty;
-                if generics_type_vec.iter().any(|x| is_subtype(ty, x)) {
+                if generics_types.iter().any(|x| is_subtype(ty, x)) {
                     generic_types.push(ty.clone());
                 }
             });
@@ -1003,7 +1005,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause_typehash {
+                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_typehash {
 
                         #[inline(always)]
                         fn type_hash(
@@ -1014,7 +1016,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             "ZeroCopy".hash(hasher);
                             // Hash the values of generic constants
                             #(
-                                #const_names_vec.hash(hasher);
+                                #const_names.hash(hasher);
                             )*
                             // Hash the identifiers of generic constants
                             #(
@@ -1032,7 +1034,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::AlignHash for #name<#generics_names> #where_clause_align_hash{
+                    impl<#impl_generics> epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash{
                         #[inline(always)]
                         fn align_hash(
                             hasher: &mut impl core::hash::Hasher,
@@ -1056,7 +1058,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::MaxSizeOf for #name<#generics_names> #where_clause_maxsizeof{
+                    impl<#impl_generics> epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_maxsizeof{
                         #[inline(always)]
                         fn max_size_of() -> usize {
                             let mut max_size_of = std::mem::align_of::<Self>();
@@ -1073,7 +1075,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause_typehash{
+                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_typehash{
 
                         #[inline(always)]
                         fn type_hash(
@@ -1085,7 +1087,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             "DeepCopy".hash(hasher);
                             // Hash the values of generic constants
                             #(
-                                #const_names_vec.hash(hasher);
+                                #const_names.hash(hasher);
                             )*
                             // Hash the identifiers of generic constants
                             #(
@@ -1103,7 +1105,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::AlignHash for #name<#generics_names> #where_clause_align_hash {
+                    impl<#impl_generics> epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
                         #[inline(always)]
                         fn align_hash(
                             hasher: &mut impl core::hash::Hasher,
@@ -1162,7 +1164,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                                         }
                                     }
                                 ]);
-                                if generics_type_vec.iter().any(|x| is_subtype(&ty, x)) {
+                                if generics_types.iter().any(|x| is_subtype(&ty, x)) {
                                     generic_types.push(ty);
                                 }
                             });
@@ -1189,7 +1191,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                                         }
                                     }
                                 ]);
-                                if generics_type_vec.iter().any(|x| is_subtype(ty, x)) {
+                                if generics_types.iter().any(|x| is_subtype(ty, x)) {
                                     generic_types.push(ty.clone());
                                 }
                             });
@@ -1217,7 +1219,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause_typehash {
+                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_typehash {
 
                         #[inline(always)]
                         fn type_hash(
@@ -1228,7 +1230,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             "ZeroCopy".hash(hasher);
                             // Hash the values of generic constants
                             #(
-                                #const_names_vec.hash(hasher);
+                                #const_names.hash(hasher);
                             )*
                             // Hash the identifiers of generic constants
                             #(
@@ -1242,7 +1244,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::AlignHash for #name<#generics_names> #where_clause_align_hash {
+                    impl<#impl_generics> epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
                         #[inline(always)]
                         fn align_hash(
                             hasher: &mut impl core::hash::Hasher,
@@ -1265,7 +1267,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::MaxSizeOf for #name<#generics_names> #where_clause_maxsizeof{
+                    impl<#impl_generics> epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_maxsizeof{
                         #[inline(always)]
                         fn max_size_of() -> usize {
                             let mut max_size_of = std::mem::align_of::<Self>();
@@ -1279,7 +1281,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#generics> epserde::traits::TypeHash for #name<#generics_names> #where_clause_typehash{
+                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_typehash{
 
                         #[inline(always)]
                         fn type_hash(
@@ -1291,7 +1293,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             "DeepCopy".hash(hasher);
                             // Hash the values of generic constants
                             #(
-                                #const_names_vec.hash(hasher);
+                                #const_names.hash(hasher);
                             )*
                             // Hash the identifiers of generic constants
                             #(
@@ -1305,7 +1307,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
 
-                    impl<#generics> epserde::traits::AlignHash for #name<#generics_names> #where_clause_align_hash {
+                    impl<#impl_generics> epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
                         #[inline(always)]
                         fn align_hash(
                             hasher: &mut impl core::hash::Hasher,

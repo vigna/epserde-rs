@@ -88,7 +88,8 @@ impl<
     #[inline(always)]
     fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         check_zero_copy::<T>();
-
+        // This code must be kept aligned with that of Vec<T> for zero-copy
+        // types
         let mut iter = self.0.borrow_mut();
         let len = iter.len();
         backend.write("len", &len)?;
@@ -101,7 +102,7 @@ impl<
         }
 
         if c != len {
-            Err(ser::Error::WriteError)
+            Err(ser::Error::IteratorLengthMismatch { actual: c, expected: len })
         } else {
             Ok(())
         }
@@ -117,7 +118,8 @@ impl<
     #[inline(always)]
     fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         check_mismatch::<T>();
-
+        // This code must be kept aligned with that of Vec<T> for deep-copy
+        // types
         let mut iter = self.0.borrow_mut();
         let len = iter.len();
         backend.write("len", &len)?;
@@ -129,9 +131,10 @@ impl<
         }
 
         if c != len {
-            Err(ser::Error::WriteError)
+            Err(ser::Error::IteratorLengthMismatch { actual: c, expected: len })
         } else {
             Ok(())
         }
     }
 }
+

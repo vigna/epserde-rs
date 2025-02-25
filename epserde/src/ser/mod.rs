@@ -76,8 +76,7 @@ pub trait Serialize {
 /// to separate the user-facing [`Serialize`] trait from the low-level
 /// serialization mechanism of [`SerializeInner::_serialize_inner`]. Moreover,
 /// it makes it possible to behave slighly differently at the top
-/// of the recursion tree (e.g., to write the endianness marker), and to prevent
-/// the user from modifying the methods in [`Serialize`].
+/// of the recursion tree (e.g., to write the endianness marker).
 ///
 /// The user should not implement this trait directly, but rather derive it.
 pub trait SerializeInner {
@@ -161,6 +160,9 @@ pub enum Error {
     WriteError,
     /// [`Serialize::store`] could not open the provided file.
     FileOpenError(std::io::Error),
+    /// The declared length of an iterator did not match
+    /// the actual length.
+    IteratorLengthMismatch { actual: usize, expected: usize },
 }
 
 impl std::error::Error for Error {}
@@ -176,6 +178,11 @@ impl core::fmt::Display for Error {
                     error
                 )
             }
+            Self::IteratorLengthMismatch { actual, expected } => write!(
+                f,
+                "Iterator length mismatch during ε-serde serialization: expected {} items, got {}",
+                expected, actual
+            ),
         }
     }
 }

@@ -14,6 +14,11 @@
 //!
 //! To circumvent this problem, you can define a tuple newtype with a `repr(C)`
 //! attribute.
+//! 
+//! Note that because of this limitation the standard technique of aggregating
+//! types in tuples to reduce the number of
+//! [`PhantomData`](core::marker::PhantomData) marker should be avoided, unless
+//! they are all [`ZeroCopy`].
 
 use crate::prelude::*;
 use core::hash::Hash;
