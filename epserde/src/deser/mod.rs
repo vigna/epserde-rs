@@ -385,8 +385,9 @@ The serialized type is '{expected_type_name}' and the deserialized type is '{got
         got: u64,
     },
     #[error(
-r#"Wrong type repr hash. Expected: 0x{expected:016x} Actual: 0x{got:016x}.
+r#"Wrong alignment hash. Expected: 0x{expected:016x} Actual: 0x{got:016x}.
 You might be trying to deserialize a file that was serialized on an architecture with different alignment requirements, or some of the fields of the type have changed their copy type (zero or deep).
+You might also be trying to deserialize a tuple of mixed zero-copy types, which is no longer supported since 0.8.0, or to deserialize an array, whose alignment hash has been fixed in 0.8.0. 
 The serialized type is '{expected_type_name}' and the deserialized type is '{got_type_name}'."#
     )]
     /// The type representation hash is wrong. Probabliy the user is trying to

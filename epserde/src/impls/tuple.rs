@@ -14,24 +14,22 @@
 //!
 //! To circumvent this problem, you can define a tuple newtype with a `repr(C)`
 //! attribute.
-//! 
-//! Note that because of this limitation the standard technique of aggregating
-//! types in tuples to reduce the number of
-//! [`PhantomData`](core::marker::PhantomData) marker should be avoided, unless
-//! they are all [`ZeroCopy`].
+//!
+//! We also provide a [`TypeHash`] implementation for tuples of up to 12
+//! elements to help with the idiom `PhantomData<(T1, T2, …)>`.
+//!
+//! Note that up to ε-serde 0.7.0 we provided an erroneous implementation for
+//! mixed zero-copy types. If you serialized a structure using such a tuple,
+//! it will be no longer deserializable.
 
 use crate::prelude::*;
 use core::hash::Hash;
 use deser::*;
 use ser::*;
 
-macro_rules! impl_tuples {
+macro_rules! impl_type_hash {
     ($($t:ident),*) => {
-        impl<T: ZeroCopy> CopyType for ($($t,)*)  {
-            type Copy = Zero;
-		}
-
-		impl<T: TypeHash> TypeHash for ($($t,)*)
+		impl<$($t: TypeHash,)*> TypeHash for ($($t,)*)
         {
             #[inline(always)]
             fn type_hash(
@@ -43,6 +41,14 @@ macro_rules! impl_tuples {
                 )*
             }
         }
+    }
+}
+
+macro_rules! impl_tuples {
+    ($($t:ident),*) => {
+        impl<T: ZeroCopy> CopyType for ($($t,)*)  {
+            type Copy = Zero;
+		}
 
 		impl<T: AlignHash> AlignHash for ($($t,)*)
         {
@@ -107,3 +113,16 @@ macro_rules! impl_tuples_muncher {
 }
 
 impl_tuples_muncher!(T, T, T, T, T, T, T, T, T, T, T, T);
+
+macro_rules! impl_type_hash_muncher {
+    ($ty:ident, $($t:ident),*) => {
+        impl_type_hash!($ty, $($t),*);
+        impl_type_hash_muncher!($($t),*);
+    };
+    ($ty:ident) => {
+        impl_type_hash!($ty);
+    };
+    () => {};
+}
+
+impl_type_hash_muncher!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);

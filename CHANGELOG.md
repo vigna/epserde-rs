@@ -4,14 +4,18 @@
 
 ### New
 
-* The file format has unfortunately changed. The ReprHash (now AlignHash) of
-  arrays  was wrong and could have led to data corruption. We took this chance
-  to fix a number of AlignHash implementations.
+* The ReprHash (now AlignHash) of arrays was wrong and could have led to data
+  corruption. As a result, some serialized file might return an alignment
+  error.
 
 * The implementation for tuples was broken because it assumed that the memory
   layout would have been the same of the source layout. We now just support
-  tuples of zero-copy identical types up to size 12. For the other cases, it is
-  necessary to create a `repr(C)` tuple newtype.
+  tuples of zero-copy identical types up to size 12, and `TypeHash` for generic
+  tuples up to size 12 to help with the idiom `PhantomData<(T, U)>`. For the
+  other cases, it is necessary to create a `repr(C)` tuple newtype. Note that up
+  to ε-serde 0.7.0 we provided an erroneous implementation for mixed zero-copy
+  types. If you serialized a structure using such a tuple, it will be no longer
+  deserializable.
 
 ## [0.7.0] - 2025-02-18
 

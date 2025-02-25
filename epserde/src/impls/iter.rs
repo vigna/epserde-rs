@@ -102,7 +102,10 @@ impl<
         }
 
         if c != len {
-            Err(ser::Error::IteratorLengthMismatch { actual: c, expected: len })
+            Err(ser::Error::IteratorLengthMismatch {
+                actual: c,
+                expected: len,
+            })
         } else {
             Ok(())
         }
@@ -131,10 +134,12 @@ impl<
         }
 
         if c != len {
-            Err(ser::Error::IteratorLengthMismatch { actual: c, expected: len })
+            Err(ser::Error::IteratorLengthMismatch {
+                actual: c,
+                expected: len,
+            })
         } else {
             Ok(())
         }
     }
 }
-
