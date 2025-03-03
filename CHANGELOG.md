@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.8.0] - 2025-02-22
+## [0.8.0] - 2025-03-03
 
 ### New
 
@@ -16,6 +16,10 @@
   to ε-serde 0.7.0 we provided an erroneous implementation for mixed zero-copy
   types. If you serialized a structure using such a tuple, it will be no longer
   deserializable.
+
+* You can now serialize exact-size iterators that will be deserialized as
+  vectors, making it possible to save incrementally structures larger
+  than the available memory.
 
 ## [0.7.0] - 2025-02-18
 
