@@ -97,34 +97,45 @@ fn test_wrong_endianess() {
     <i8>::type_hash(&mut type_hasher);
     let i8_hash = type_hasher.finish();
 
-    let err = <i8>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes()));
-    if let Err(deser::Error::WrongTypeHash {
-        got_type_name,
-        got,
-        expected,
-        expected_type_name,
-    }) = err
-    {
-        assert_eq!(got_type_name, "i8");
-        assert_eq!(got, i8_hash);
-        assert_eq!(expected, usize_type_hash);
-        assert_eq!(expected_type_name, "usize");
+    let result = <i8>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes()));
+    if let Err(err) = result {
+        eprintln!("{err}");
+        if let deser::Error::WrongTypeHash {
+            ser_type_name,
+            ser_type_hash,
+            self_type_name,
+            self_type_hash,
+        } = err
+        {
+            assert_eq!(ser_type_name, "usize");
+            assert_eq!(ser_type_hash, usize_type_hash);
+            assert_eq!(self_type_name, "i8");   
+            assert_eq!(self_type_hash, i8_hash);
+        } else {
+            panic!("wrong error type: {:?}", err);
+        }
     } else {
-        panic!("wrong error type: {:?}", err);
+        panic!("No error: {:?}", err);
     }
-    let err = <i8>::deserialize_eps(cursor.as_bytes());
-    if let Err(deser::Error::WrongTypeHash {
-        got_type_name,
-        got,
-        expected,
-        expected_type_name,
-    }) = err
-    {
-        assert_eq!(got_type_name, "i8");
-        assert_eq!(got, i8_hash);
-        assert_eq!(expected, usize_type_hash);
-        assert_eq!(expected_type_name, "usize");
+
+    let result = <i8>::deserialize_eps(cursor.as_bytes());
+    if let Err(err) = result {
+        eprintln!("{err}");
+        if let deser::Error::WrongTypeHash {
+            ser_type_name,
+            ser_type_hash,
+            self_type_name,
+            self_type_hash,
+        } = err
+        {
+            assert_eq!(ser_type_name, "usize");
+            assert_eq!(ser_type_hash, usize_type_hash);
+            assert_eq!(self_type_name, "i8");   
+            assert_eq!(self_type_hash, i8_hash);
+        } else {
+            panic!("wrong error type: {:?}", err);
+        }
     } else {
-        panic!("wrong error type: {:?}", err);
+        panic!("No error: {:?}", err);
     }
 }

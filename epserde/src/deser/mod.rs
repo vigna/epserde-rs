@@ -259,7 +259,6 @@ pub fn check_header<T: Deserialize + TypeHash + AlignHash>(
     backend: &mut impl ReadWithPos,
 ) -> Result<()> {
     let self_type_name = core::any::type_name::<T>().to_string();
-
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
     T::type_hash(&mut type_hasher);
     let self_type_hash = type_hasher.finish();
@@ -298,18 +297,18 @@ pub fn check_header<T: Deserialize + TypeHash + AlignHash>(
 
     if ser_type_hash != self_type_hash {
         return Err(Error::WrongTypeHash {
-            got_type_name: self_type_name,
-            got: self_type_hash,
-            expected_type_name: ser_type_name,
-            expected: ser_type_hash,
+            self_type_name,
+            self_type_hash,
+            ser_type_name,
+            ser_type_hash,
         });
     }
     if ser_align_hash != self_align_hash {
-        return Err(Error::WrongTypeAlignHash {
-            got_type_name: self_type_name,
-            got: self_align_hash,
-            expected_type_name: ser_type_name,
-            expected: ser_align_hash,
+        return Err(Error::WrongAlignHash {
+            self_type_name,
+            self_align_hash,
+            ser_type_name,
+            ser_align_hash,
         });
     }
 
@@ -360,10 +359,10 @@ pub enum Error {
     /// so we might be missing features.
     MinorVersionMismatch(u16),
     #[error("The file was serialized on an architecture where a usize has size {0}, but on the current architecture it has size {size}.", size = core::mem::size_of::<usize>())]
-    /// The the `pointer_width` of the serialized file is different from the
-    /// `pointer_width` of the current architecture.
-    /// For example, the file was serialized on a 64-bit machine and we are trying to
-    /// deserialize it on a 32-bit machine.
+    /// The pointer width of the serialized file is different from the pointer
+    /// width of the current architecture. For example, the file was serialized
+    /// on a 64-bit machine and we are trying to deserialize it on a 32-bit
+    /// machine.
     UsizeSizeMismatch(usize),
     #[error("Wrong magic cookie 0x{0:016x}. The byte stream does not come from ε-serde.")]
     /// The magic coookie is wrong. The byte sequence does not come from ε-serde.
@@ -372,32 +371,45 @@ pub enum Error {
     /// A tag is wrong (e.g., for [`Option`]).
     InvalidTag(usize),
     #[error(
-        r#"Wrong type hash. Expected: 0x{expected:016x} Actual: 0x{got:016x}.
-You are trying to deserialize a file with the wrong type.
-The serialized type is '{expected_type_name}' and the deserialized type is '{got_type_name}'."#
+        r#"Wrong type hash: actual = 0x{ser_type_hash:016x}, expected = 0x{self_type_hash:016x}.
+You are trying to deserialize a file with the wrong type. The serialized type is '{ser_type_name}', 
+but the type on which the deserialization method was invoked is '{self_type_name}'."#
     )]
     /// The type hash is wrong. Probably the user is trying to deserialize a
     /// file with the wrong type.
     WrongTypeHash {
-        got_type_name: String,
-        expected_type_name: String,
-        expected: u64,
-        got: u64,
+        // The name of the type that was serialized.
+        ser_type_name: String,
+        // The [`TypeHash`] of the type that was serialized.
+        ser_type_hash: u64,
+        // The name of the type on which the deserialization method was called.
+        self_type_name: String,
+        // The [`TypeHash`] of the type on which the deserialization method was called.
+        self_type_hash: u64,
     },
     #[error(
-r#"Wrong alignment hash. Expected: 0x{expected:016x} Actual: 0x{got:016x}.
-You might be trying to deserialize a file that was serialized on an architecture with different alignment requirements, or some of the fields of the type have changed their copy type (zero or deep).
-You might also be trying to deserialize a tuple of mixed zero-copy types, which is no longer supported since 0.8.0, or to deserialize an array, whose alignment hash has been fixed in 0.8.0. 
-The serialized type is '{expected_type_name}' and the deserialized type is '{got_type_name}'."#
+r#"Wrong alignment hash: actual = 0x{ser_align_hash:016x}, expected = 0x{self_align_hash:016x}.
+You might be trying to deserialize a file that was serialized on an architecture 
+with different alignment requirements, or some of the fields of the type 
+might have changed their copy type (zero or deep). You might also be trying to deserialize a 
+tuple of mixed zero-copy types, which is no longer supported since 0.8.0, or to 
+deserialize an array, whose alignment hash has been fixed in 0.8.0. 
+The serialized type is '{ser_type_name}',  but the type on which the the deserialization
+method was invoked is '{self_type_name}'."#
     )]
     /// The type representation hash is wrong. Probabliy the user is trying to
     /// deserialize a file with some zero-copy type that has different
     /// in-memory representations on the serialization arch and on the current one,
-    /// usually because of alignment issues.
-    WrongTypeAlignHash {
-        got_type_name: String,
-        expected_type_name: String,
-        expected: u64,
-        got: u64,
+    /// usually because of alignment issues. There are also some backward-compatibility
+    /// issues discussed in the error message.
+    WrongAlignHash {
+        // The name of the type that was serialized.
+        ser_type_name: String,
+        // The [`AlignHash`] of the type that was serialized.
+        ser_align_hash: u64,
+        // The name of the type on which the deserialization method was called.
+        self_type_name: String,
+        // The [`AlignHash`] of the type on which the deserialization method was called.
+        self_align_hash: u64,
     },
 }
