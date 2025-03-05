@@ -109,7 +109,7 @@ fn test_wrong_endianess() {
         {
             assert_eq!(ser_type_name, "usize");
             assert_eq!(ser_type_hash, usize_type_hash);
-            assert_eq!(self_type_name, "i8");   
+            assert_eq!(self_type_name, "i8");
             assert_eq!(self_type_hash, i8_hash);
         } else {
             panic!("wrong error type: {:?}", err);
@@ -130,7 +130,7 @@ fn test_wrong_endianess() {
         {
             assert_eq!(ser_type_name, "usize");
             assert_eq!(ser_type_hash, usize_type_hash);
-            assert_eq!(self_type_name, "i8");   
+            assert_eq!(self_type_name, "i8");
             assert_eq!(self_type_hash, i8_hash);
         } else {
             panic!("wrong error type: {:?}", err);
