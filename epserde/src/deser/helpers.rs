@@ -18,7 +18,9 @@ use crate::traits::*;
 use core::mem::MaybeUninit;
 
 /// Full-copy deserialize a zero-copy structure.
-pub fn deserialize_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> deser::Result<T> {
+pub unsafe fn deserialize_full_zero<T: ZeroCopy>(
+    backend: &mut impl ReadWithPos,
+) -> deser::Result<T> {
     backend.align::<T>()?;
     unsafe {
         #[allow(clippy::uninit_assumed_init)]
@@ -36,7 +38,7 @@ pub fn deserialize_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> des
 ///
 /// Note that this method uses a single [`ReadNoStd::read_exact`]
 /// call to read the entire vector.
-pub fn deserialize_full_vec_zero<T: DeserializeInner + ZeroCopy>(
+pub unsafe fn deserialize_full_vec_zero<T: DeserializeInner + ZeroCopy>(
     backend: &mut impl ReadWithPos,
 ) -> deser::Result<Vec<T>> {
     let len = usize::_deserialize_full_inner(backend)?;
@@ -67,7 +69,7 @@ pub fn deserialize_full_vec_deep<T: DeserializeInner + DeepCopy>(
 
 /// ε-copy deserialize a reference to a zero-copy structure
 /// backed by the `data` field of `backend`.
-pub fn deserialize_eps_zero<'a, T: ZeroCopy>(
+pub unsafe fn deserialize_eps_zero<'a, T: ZeroCopy>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<&'a T> {
     let bytes = core::mem::size_of::<T>();
@@ -88,7 +90,7 @@ pub fn deserialize_eps_zero<'a, T: ZeroCopy>(
 
 /// ε-copy deserialize a reference to a slice of zero-copy structures
 /// backed by the `data` field of `backend`.
-pub fn deserialize_eps_slice_zero<'a, T: ZeroCopy>(
+pub unsafe fn deserialize_eps_slice_zero<'a, T: ZeroCopy>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<&'a [T]> {
     let len = usize::_deserialize_full_inner(backend)?;

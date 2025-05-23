@@ -454,13 +454,13 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
+                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
                     {
                         fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
                             use epserde::deser::DeserializeInner;
-                            epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
+                            unsafe { epserde::deser::helpers::deserialize_full_zero::<Self>(backend) }
                         }
 
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#concat_generics>;
@@ -469,7 +469,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                         ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
                         {
-                            epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
+                            unsafe { epserde::deser::helpers::deserialize_eps_zero::<Self>(backend) }
                         }
                     }
                 }
@@ -503,7 +503,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
@@ -781,11 +781,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
-                            epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
+                            unsafe { epserde::deser::helpers::deserialize_full_zero::<Self>(backend) }
                         }
 
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#concat_generics>;
@@ -794,7 +794,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                         ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
                         {
-                            epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
+                            unsafe { epserde::deser::helpers::deserialize_eps_zero::<Self>(backend) }
                         }
                     }
                 }
@@ -828,7 +828,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {

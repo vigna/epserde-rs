@@ -1,10 +1,16 @@
 # Change Log
 
-## [0.8.1] - 
+## [0.9.0] -
+
+### Changed
+
+* `DeserializeInner` is now an unsafe trait, and all deserialization helper
+  methods handling zero-copy types are also unsafe. This change is necessary
+  because such methods can deserialize uninhabited types.
 
 ### Fixed
 
-* ε-deserializing slices of zero-width zero-copy types now works.
+* ε-copy deserializing slices of zero-width zero-copy types now works.
 
 ## [0.8.0] - 2025-03-03
 

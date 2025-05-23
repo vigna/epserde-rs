@@ -222,7 +222,7 @@ pub trait Deserialize: DeserializeInner {
 /// the user from modifying the methods in [`Deserialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait DeserializeInner: Sized {
+pub unsafe trait DeserializeInner: Sized {
     /// The deserialization type associated with this type. It can be
     /// retrieved conveniently with the alias [`DeserType`].
     type DeserType<'a>;
@@ -318,7 +318,7 @@ pub fn check_header<T: Deserialize + TypeHash + AlignHash>(
 /// A helper trait that makes it possible to implement differently
 /// deserialization for [`crate::traits::ZeroCopy`] and [`crate::traits::DeepCopy`] types.
 /// See [`crate::traits::CopyType`] for more information.
-pub trait DeserializeHelper<T: CopySelector> {
+pub unsafe trait DeserializeHelper<T: CopySelector> {
     type FullType;
     type DeserType<'a>;
 

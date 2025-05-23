@@ -75,7 +75,7 @@ impl<T: DeepCopy + SerializeInner, const N: usize> SerializeHelper<Deep> for [T;
     }
 }
 
-impl<T: CopyType + DeserializeInner, const N: usize> DeserializeInner for [T; N]
+unsafe impl<T: CopyType + DeserializeInner, const N: usize> DeserializeInner for [T; N]
 where
     [T; N]: DeserializeHelper<<T as CopyType>::Copy, FullType = [T; N]>,
 {
@@ -93,7 +93,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + DeserializeInner, const N: usize> DeserializeHelper<Zero> for [T; N] {
+unsafe impl<T: ZeroCopy + DeserializeInner, const N: usize> DeserializeHelper<Zero> for [T; N] {
     type FullType = Self;
     type DeserType<'a> = &'a [T; N];
     #[inline(always)]
@@ -122,7 +122,7 @@ impl<T: ZeroCopy + DeserializeInner, const N: usize> DeserializeHelper<Zero> for
     }
 }
 
-impl<T: DeepCopy + DeserializeInner, const N: usize> DeserializeHelper<Deep> for [T; N] {
+unsafe impl<T: DeepCopy + DeserializeInner, const N: usize> DeserializeHelper<Deep> for [T; N] {
     type FullType = Self;
     type DeserType<'a> = [<T as DeserializeInner>::DeserType<'a>; N];
     #[inline(always)]
