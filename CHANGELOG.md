@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.8.1] - 
+
+### Fixed
+
+* ε-deserializing slices of zero-width zero-copy types now works.
+
 ## [0.8.0] - 2025-03-03
 
 ### New

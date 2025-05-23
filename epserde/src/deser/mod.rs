@@ -113,7 +113,7 @@ pub trait Deserialize: DeserializeInner {
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_ref().unwrap() };
         let s = Self::deserialize_eps(mem)?;
-        // write the deserialized struct in the memcase
+        // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(s);
         }
@@ -217,7 +217,7 @@ pub trait Deserialize: DeserializeInner {
 /// to separate the user-facing [`Deserialize`] trait from the low-level
 /// deserialization mechanisms of [`DeserializeInner::_deserialize_full_inner`]
 /// and [`DeserializeInner::_deserialize_eps_inner`]. Moreover,
-/// it makes it possible to behave slighly differently at the top
+/// it makes it possible to behave slightly differently at the top
 /// of the recursion tree (e.g., to check the endianness marker), and to prevent
 /// the user from modifying the methods in [`Deserialize`].
 ///
@@ -338,7 +338,7 @@ pub enum Error {
     #[error("Read error during ε-serde deserialization")]
     /// The underlying reader returned an error.
     ReadError,
-    /// The file is from ε-serde but the endianess is wrong.
+    /// The file is from ε-serde but the endianness is wrong.
     #[cfg_attr(
         target_endian = "big",
         error("The current arch is big-endian but the data is little-endian.")
@@ -365,7 +365,7 @@ pub enum Error {
     /// machine.
     UsizeSizeMismatch(usize),
     #[error("Wrong magic cookie 0x{0:016x}. The byte stream does not come from ε-serde.")]
-    /// The magic coookie is wrong. The byte sequence does not come from ε-serde.
+    /// The magic cookie is wrong. The byte sequence does not come from ε-serde.
     MagicCookieError(u64),
     #[error("Invalid tag: 0x{0:02x}")]
     /// A tag is wrong (e.g., for [`Option`]).
@@ -397,7 +397,7 @@ deserialize an array, whose alignment hash has been fixed in 0.8.0.
 The serialized type is '{ser_type_name}',  but the type on which the the deserialization
 method was invoked is '{self_type_name}'."#
     )]
-    /// The type representation hash is wrong. Probabliy the user is trying to
+    /// The type representation hash is wrong. Probably the user is trying to
     /// deserialize a file with some zero-copy type that has different
     /// in-memory representations on the serialization arch and on the current one,
     /// usually because of alignment issues. There are also some backward-compatibility

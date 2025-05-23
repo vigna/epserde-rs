@@ -93,6 +93,12 @@ pub fn deserialize_eps_slice_zero<'a, T: ZeroCopy>(
 ) -> deser::Result<&'a [T]> {
     let len = usize::_deserialize_full_inner(backend)?;
     let bytes = len * core::mem::size_of::<T>();
+    if core::mem::size_of::<T>() == 0 {
+        // SAFETY: T is zero-sized and `assume_init` is safe.
+        #[allow(invalid_value)]
+        #[allow(clippy::uninit_assumed_init)]
+        return Ok(unsafe { std::slice::from_raw_parts(MaybeUninit::uninit().assume_init(), len) });
+    }
     backend.align::<T>()?;
     let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<T>() };
     debug_assert!(pre.is_empty());

@@ -10,7 +10,7 @@ use epserde::TypeInfo;
 use maligned::A16;
 
 #[test]
-/// Test that we can serialize and desertialize a PhantomData
+/// Test that we can serialize and deserialize a PhantomData
 /// This should be a NOOP
 fn test_phantom() {
     // Create a new value to serialize
@@ -132,4 +132,23 @@ fn test_only_phantom() {
     cursor.set_position(0);
     let eps = <OnlyPhantom<ZeroCopyType>>::deserialize_eps(cursor.as_bytes()).unwrap();
     assert_eq!(obj.a, eps.a);
+
+    // Zero copy needs a zero-copy type, even if inside a PhantomData
+    let vec = vec![<OnlyPhantom<ZeroCopyType>>::default(); 10];
+
+    let mut cursor = <AlignedCursor<A16>>::new();
+    // Serialize
+    let _bytes_written = vec.serialize(&mut cursor).unwrap();
+
+    // Do a full-copy deserialization
+    cursor.set_position(0);
+    let zero = <Vec<OnlyPhantom<ZeroCopyType>>>::deserialize_full(&mut cursor).unwrap();
+    assert_eq!(vec, zero);
+
+    println!();
+
+    // Do an ε-copy deserialization
+    cursor.set_position(0);
+    let eps = <Vec<OnlyPhantom<ZeroCopyType>>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    assert_eq!(vec, eps);
 }
