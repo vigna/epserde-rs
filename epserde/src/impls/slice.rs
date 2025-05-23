@@ -21,12 +21,15 @@ in the [crate-level documentation](crate).
 
 */
 
+use core::hash::Hash;
+
 use crate::prelude::*;
 use ser::*;
 
 impl<T: TypeHash> TypeHash for [T] {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        Vec::<T>::type_hash(hasher);
+        "[]".hash(hasher);
+        T::type_hash(hasher);
     }
 }
 
