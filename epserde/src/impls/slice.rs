@@ -24,6 +24,12 @@ in the [crate-level documentation](crate).
 use crate::prelude::*;
 use ser::*;
 
+impl<T: TypeHash> TypeHash for [T] {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        Vec::<T>::type_hash(hasher);
+    }
+}
+
 impl<T> CopyType for &[T] {
     type Copy = Deep;
 }
@@ -33,6 +39,7 @@ impl<T: TypeHash> TypeHash for &[T] {
         Vec::<T>::type_hash(hasher);
     }
 }
+
 impl<T: AlignHash> AlignHash for &[T] {
     fn align_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
         Vec::<T>::align_hash(hasher, offset_of);
