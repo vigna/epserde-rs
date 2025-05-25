@@ -23,7 +23,6 @@ pub unsafe fn deserialize_full_zero<T: ZeroCopy>(
 ) -> deser::Result<T> {
     backend.align::<T>()?;
     unsafe {
-        #[allow(clippy::uninit_assumed_init)]
         let mut buf: MaybeUninit<T> = MaybeUninit::uninit();
         let slice = core::slice::from_raw_parts_mut(
             &mut buf as *mut MaybeUninit<T> as *mut u8,

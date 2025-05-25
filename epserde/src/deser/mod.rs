@@ -130,7 +130,6 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// Requires the `mmap` feature.
     #[cfg(feature = "mmap")]
-    #[allow(clippy::uninit_vec)]
     fn load_mmap<'a>(
         path: impl AsRef<Path>,
         flags: Flags,
@@ -177,7 +176,6 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// Requires the `mmap` feature.
     #[cfg(feature = "mmap")]
-    #[allow(clippy::uninit_vec)]
     fn mmap<'a>(
         path: impl AsRef<Path>,
         flags: Flags,
