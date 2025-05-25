@@ -51,7 +51,6 @@ pub fn serialize_zero_unchecked<V: ZeroCopy + SerializeInner>(
     value: &V,
 ) -> ser::Result<()> {
     let buffer = unsafe {
-        #[allow(clippy::manual_slice_size_calculation)]
         core::slice::from_raw_parts(value as *const V as *const u8, core::mem::size_of::<V>())
     };
     backend.write_bytes::<V>(buffer)
@@ -72,10 +71,8 @@ pub fn serialize_slice_zero<V: SerializeInner + ZeroCopy>(
 
     let len = data.len();
     backend.write("len", &len)?;
-    let buffer = unsafe {
-        #[allow(clippy::manual_slice_size_calculation)]
-        core::slice::from_raw_parts(data.as_ptr() as *const u8, len * core::mem::size_of::<V>())
-    };
+    let num_bytes = core::mem::size_of_val(data);
+    let buffer = unsafe { core::slice::from_raw_parts(data.as_ptr() as *const u8, num_bytes) };
     backend.align::<V>()?;
     backend.write_bytes::<V>(buffer)
 }
