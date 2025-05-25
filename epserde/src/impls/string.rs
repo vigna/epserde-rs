@@ -77,7 +77,10 @@ unsafe impl DeserializeInner for String {
     ) -> deser::Result<Self::DeserType<'a>> {
         let slice = unsafe { deserialize_eps_slice_zero(backend) }?;
         // SAFETY: Actually this is unsafe if the data we read is not valid UTF-8
-        Ok(unsafe { str::from_utf8_unchecked(slice) })
+        Ok(unsafe {
+            #[allow(clippy::transmute_bytes_to_str)]
+            core::mem::transmute::<&'_ [u8], &'_ str>(slice)
+        })
     }
 }
 
