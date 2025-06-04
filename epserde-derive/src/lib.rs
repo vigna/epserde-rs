@@ -266,7 +266,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
             // Scan the struct to find which fields contain a generic
             // type (i.e., they are themselves of a generic type,
-            // or of a type contaning a generic type as a parameter).
+            // or of a type containing a generic type as a parameter).
             s.fields.iter().enumerate().for_each(|(field_idx, field)| {
                 let ty = &field.ty;
                 let field_name = field
