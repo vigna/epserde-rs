@@ -61,7 +61,7 @@ fn is_subtype(ty: &syn::Type, sub_type: &syn::Type) -> bool {
                             syn::GenericArgument::Lifetime(_) => false,
                             syn::GenericArgument::AssocConst(_) => false,
                             syn::GenericArgument::Constraint(_) => todo!(),
-                            _ => unimplemented!("Non exaustive"),
+                            _ => unimplemented!("Non exhaustive"),
                         })
                     }
                     syn::PathArguments::Parenthesized(_) => todo!(),
@@ -74,13 +74,13 @@ fn is_subtype(ty: &syn::Type, sub_type: &syn::Type) -> bool {
             syn::TypeParamBound::Verbatim(ty) => {
                 ty.to_string() == sub_type.to_token_stream().to_string()
             }
-            _ => unimplemented!("Non exaustive"),
+            _ => unimplemented!("Non exhaustive"),
         }),
         syn::Type::Infer(_) => {
             unimplemented!("We cannot check the covariance of a type to be inferred")
         }
         syn::Type::Macro(_) => unimplemented!("We cannot check the covariance of a macro type"),
-        _ => unimplemented!("Non exaustive"),
+        _ => unimplemented!("Non exhaustive"),
     }
 }
 
@@ -224,11 +224,11 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
 /// If you do not specify `zero_copy`, the macro assumes your structure is deep-copy.
 /// However, if you have a structure that could be zero-copy, but has no attribute,
 /// a warning will be issued every time you serialize. The warning can be silenced adding
-/// the explicity attribute `deep_copy`.
+/// the explicit attribute `deep_copy`.
 #[proc_macro_derive(Epserde, attributes(zero_copy, deep_copy))]
 pub fn epserde_derive(input: TokenStream) -> TokenStream {
     // Cloning input for type hash
-    let input_for_typehash = input.clone();
+    let input_for_type_hash = input.clone();
     let derive_input = parse_macro_input!(input as DeriveInput);
     let (is_repr_c, is_zero_copy, is_deep_copy) = check_attrs(&derive_input);
 
@@ -454,7 +454,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
                     {
                         fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
@@ -503,7 +503,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
@@ -781,7 +781,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
 
                     #[automatically_derived]
-                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
@@ -828,7 +828,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
@@ -864,34 +864,34 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
     let mut out: TokenStream = out.into();
     // automatically derive type hash
-    out.extend(epserde_type_hash(input_for_typehash));
+    out.extend(epserde_type_hash(input_for_type_hash));
     out
 }
 
-fn type_repr_maxsizeof_where_clauses(
+fn type_repr_max_size_of_where_clauses(
     where_clause: &WhereClause,
     generic_types: &[syn::Type],
 ) -> (WhereClause, WhereClause, WhereClause) {
-    let mut bounds_typehash = Punctuated::new();
-    bounds_typehash.push(syn::parse_quote!(epserde::traits::TypeHash));
-    let mut where_clause_typehash = where_clause.clone();
+    let mut bounds_type_hash = Punctuated::new();
+    bounds_type_hash.push(syn::parse_quote!(epserde::traits::TypeHash));
+    let mut where_clause_type_hash = where_clause.clone();
 
     let mut bounds_align_hash = Punctuated::new();
     bounds_align_hash.push(syn::parse_quote!(epserde::traits::AlignHash));
     let mut where_clause_align_hash = where_clause.clone();
 
-    let mut bounds_maxsizeof = Punctuated::new();
-    bounds_maxsizeof.push(syn::parse_quote!(epserde::traits::MaxSizeOf));
-    let mut where_clause_maxsizeof = where_clause.clone();
+    let mut bounds_max_size_of = Punctuated::new();
+    bounds_max_size_of.push(syn::parse_quote!(epserde::traits::MaxSizeOf));
+    let mut where_clause_max_size_of = where_clause.clone();
 
     generic_types.iter().for_each(|ty| {
-        where_clause_typehash
+        where_clause_type_hash
             .predicates
             .push(WherePredicate::Type(PredicateType {
                 lifetimes: None,
                 bounded_ty: ty.clone(),
                 colon_token: token::Colon::default(),
-                bounds: bounds_typehash.clone(),
+                bounds: bounds_type_hash.clone(),
             }));
         where_clause_align_hash
             .predicates
@@ -901,19 +901,19 @@ fn type_repr_maxsizeof_where_clauses(
                 colon_token: token::Colon::default(),
                 bounds: bounds_align_hash.clone(),
             }));
-        where_clause_maxsizeof
+        where_clause_max_size_of
             .predicates
             .push(WherePredicate::Type(PredicateType {
                 lifetimes: None,
                 bounded_ty: ty.clone(),
                 colon_token: token::Colon::default(),
-                bounds: bounds_maxsizeof.clone(),
+                bounds: bounds_max_size_of.clone(),
             }));
     });
     (
-        where_clause_typehash,
+        where_clause_type_hash,
         where_clause_align_hash,
-        where_clause_maxsizeof,
+        where_clause_max_size_of,
     )
 }
 
@@ -958,8 +958,8 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                 }
             });
 
-            let (where_clause_typehash, where_clause_align_hash, where_clause_maxsizeof) =
-                type_repr_maxsizeof_where_clauses(&where_clause, &generic_types);
+            let (where_clause_type_hash, where_clause_align_hash, where_clause_max_size_of) =
+                type_repr_max_size_of_where_clauses(&where_clause, &generic_types);
 
             let fields_names = s
                 .fields
@@ -994,7 +994,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_typehash {
+                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash {
 
                         #[inline(always)]
                         fn type_hash(
@@ -1047,7 +1047,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_maxsizeof{
+                    impl<#impl_generics> epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_max_size_of{
                         #[inline(always)]
                         fn max_size_of() -> usize {
                             let mut max_size_of = std::mem::align_of::<Self>();
@@ -1064,7 +1064,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_typehash{
+                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash{
 
                         #[inline(always)]
                         fn type_hash(
@@ -1202,13 +1202,13 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                 .map(|x| x.meta.require_list().unwrap().tokens.to_string())
                 .collect::<Vec<_>>();
 
-            let (where_clause_typehash, where_clause_align_hash, where_clause_maxsizeof) =
-                type_repr_maxsizeof_where_clauses(&where_clause, &generic_types);
+            let (where_clause_type_hash, where_clause_align_hash, where_clause_max_size_of) =
+                type_repr_max_size_of_where_clauses(&where_clause, &generic_types);
 
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_typehash {
+                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash {
 
                         #[inline(always)]
                         fn type_hash(
@@ -1256,7 +1256,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_maxsizeof{
+                    impl<#impl_generics> epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_max_size_of{
                         #[inline(always)]
                         fn max_size_of() -> usize {
                             let mut max_size_of = std::mem::align_of::<Self>();
@@ -1270,7 +1270,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_typehash{
+                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash{
 
                         #[inline(always)]
                         fn type_hash(

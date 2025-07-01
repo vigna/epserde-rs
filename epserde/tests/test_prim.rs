@@ -79,7 +79,7 @@ test_nonzero!(NonZeroU32, test_nonzero_u32);
 test_nonzero!(NonZeroU64, test_nonzero_u64);
 test_nonzero!(NonZeroU128, test_nonzero_u128);
 test_nonzero!(NonZeroUsize, test_nonzero_usize);
-test_nonzero!(NonZeroI8, testnonzero_i8);
+test_nonzero!(NonZeroI8, test_nonzero_i8);
 test_nonzero!(NonZeroI16, test_nonzero_i16);
 test_nonzero!(NonZeroI32, test_nonzero_i32);
 test_nonzero!(NonZeroI64, test_nonzero_i64);

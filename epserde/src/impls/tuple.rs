@@ -87,7 +87,7 @@ macro_rules! impl_tuples {
             }
         }
 
-		unsafe impl<T: ZeroCopy + TypeHash + AlignHash> DeserializeInner for ($($t,)*) {
+		impl<T: ZeroCopy + TypeHash + AlignHash> DeserializeInner for ($($t,)*) {
             type DeserType<'a> = &'a ($($t,)*);
             fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
                 unsafe { deserialize_full_zero::<($($t,)*)>(backend) }

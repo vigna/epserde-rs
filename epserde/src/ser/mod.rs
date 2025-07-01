@@ -122,7 +122,7 @@ pub trait Serialize {
 /// Inner trait to implement serialization of a type. This trait exists
 /// to separate the user-facing [`Serialize`] trait from the low-level
 /// serialization mechanism of [`SerializeInner::_serialize_inner`]. Moreover,
-/// it makes it possible to behave slighly differently at the top
+/// it makes it possible to behave slightly differently at the top
 /// of the recursion tree (e.g., to write the endianness marker).
 ///
 /// The user should not implement this trait directly, but rather derive it.
