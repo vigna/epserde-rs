@@ -69,20 +69,20 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](DeserializeInner).
+    /// See the [trait documentation](Deserialize).
     unsafe fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self>;
     /// ε-copy deserialize a structure of this type from the given backend.
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](DeserializeInner).
+    /// See the [trait documentation](Deserialize).
     unsafe fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
 
     /// Convenience method to fully deserialize from a file.
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](DeserializeInner).
+    /// See the [trait documentation](Deserialize).
     unsafe fn load_full(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
         let mut buf_reader = BufReader::new(file);
@@ -165,7 +165,7 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](DeserializeInner).
+    /// See the [trait documentation](Deserialize).
     #[cfg(feature = "mmap")]
     unsafe fn load_mmap<'a>(
         path: impl AsRef<Path>,
@@ -215,7 +215,7 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](DeserializeInner).
+    /// See the [trait documentation](Deserialize).
     #[cfg(feature = "mmap")]
     unsafe fn mmap<'a>(
         path: impl AsRef<Path>,
