@@ -53,7 +53,7 @@ pub trait WriteWithNames: WriteWithPos + Sized {
     /// Other implementations might use the name information (e.g., [`SchemaWriter`]),
     /// but they must in the end delegate to [`SerializeInner::_serialize_inner`].
     fn write<V: SerializeInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
-        value._serialize_inner(self)
+        unsafe { value._serialize_inner(self) }
     }
 
     /// Write the memory representation of a (slice of a) zero-copy type.
@@ -216,7 +216,7 @@ impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
         let pos = self.pos();
 
         let len = self.schema.0.len();
-        value._serialize_inner(self)?;
+        unsafe { value._serialize_inner(self)? };
 
         // This is slightly inefficient because we have to shift
         // the whole vector, but it's not a big deal and it keeps

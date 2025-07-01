@@ -74,7 +74,7 @@ where
     type SerType = Vec<T>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         SerializeHelper::_serialize_inner(self, backend)
     }
 }
@@ -86,7 +86,7 @@ impl<
     > SerializeHelper<Zero> for SerIter<'a, T, I>
 {
     #[inline(always)]
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         check_zero_copy::<T>();
         // This code must be kept aligned with that of Vec<T> for zero-copy
         // types
@@ -119,7 +119,7 @@ impl<
     > SerializeHelper<Deep> for SerIter<'a, T, I>
 {
     #[inline(always)]
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         check_mismatch::<T>();
         // This code must be kept aligned with that of Vec<T> for deep-copy
         // types

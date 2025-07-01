@@ -60,24 +60,24 @@ impl SerializeInner for String {
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         serialize_slice_zero(backend, self.as_bytes())
     }
 }
 
 impl DeserializeInner for String {
-    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        let slice = unsafe { deserialize_full_vec_zero(backend) }?;
+    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        let slice = deserialize_full_vec_zero(backend)?;
         Ok(String::from_utf8(slice).unwrap())
     }
     type DeserType<'a> = &'a str;
     #[inline(always)]
-    fn _deserialize_eps_inner<'a>(
+    unsafe fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let slice = unsafe { deserialize_eps_slice_zero(backend) }?;
+        let slice = deserialize_eps_slice_zero(backend)?;
         // SAFETY: Actually this is unsafe if the data we read is not valid UTF-8
-        Ok(unsafe {
+        Ok({
             #[allow(clippy::transmute_bytes_to_str)]
             core::mem::transmute::<&'_ [u8], &'_ str>(slice)
         })
@@ -94,19 +94,19 @@ impl SerializeInner for Box<str> {
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         serialize_slice_zero(backend, self.as_bytes())
     }
 }
 
 impl DeserializeInner for Box<str> {
     #[inline(always)]
-    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(String::_deserialize_full_inner(backend)?.into_boxed_str())
     }
     type DeserType<'a> = &'a str;
     #[inline(always)]
-    fn _deserialize_eps_inner<'a>(
+    unsafe fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         String::_deserialize_eps_inner(backend)

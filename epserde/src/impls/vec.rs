@@ -46,21 +46,21 @@ where
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         SerializeHelper::_serialize_inner(self, backend)
     }
 }
 
 impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Vec<T> {
     #[inline(always)]
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         serialize_slice_zero(backend, self.as_slice())
     }
 }
 
 impl<T: DeepCopy + SerializeInner> SerializeHelper<Deep> for Vec<T> {
     #[inline(always)]
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         serialize_slice_deep(backend, self.as_slice())
     }
 }
@@ -72,12 +72,12 @@ where
 {
     type DeserType<'a> = <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
     #[inline(always)]
-    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_inner_impl(backend)
     }
 
     #[inline(always)]
-    fn _deserialize_eps_inner<'a>(
+    unsafe fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>> {
         <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_eps_inner_impl(backend)
@@ -88,14 +88,14 @@ impl<T: ZeroCopy + DeserializeInner> DeserializeHelper<Zero> for Vec<T> {
     type FullType = Self;
     type DeserType<'a> = &'a [T];
     #[inline(always)]
-    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        unsafe { deserialize_full_vec_zero(backend) }
+    unsafe fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        deserialize_full_vec_zero(backend)
     }
     #[inline(always)]
-    fn _deserialize_eps_inner_impl<'a>(
+    unsafe fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
-        unsafe { deserialize_eps_slice_zero(backend) }
+        deserialize_eps_slice_zero(backend)
     }
 }
 
@@ -103,11 +103,11 @@ impl<T: DeepCopy + DeserializeInner> DeserializeHelper<Deep> for Vec<T> {
     type FullType = Self;
     type DeserType<'a> = Vec<<T as DeserializeInner>::DeserType<'a>>;
     #[inline(always)]
-    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+    unsafe fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         deserialize_full_vec_deep::<T>(backend)
     }
     #[inline(always)]
-    fn _deserialize_eps_inner_impl<'a>(
+    unsafe fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
         deserialize_eps_vec_deep::<T>(backend)

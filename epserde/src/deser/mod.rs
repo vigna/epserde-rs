@@ -98,7 +98,7 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](DeserializeInner).
+    /// See the [trait documentation](Deserialize).
     unsafe fn load_mem<'a>(
         path: impl AsRef<Path>,
     ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
@@ -265,9 +265,18 @@ pub trait DeserializeInner: Sized {
     /// The deserialization type associated with this type. It can be
     /// retrieved conveniently with the alias [`DeserType`].
     type DeserType<'a>;
-    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> Result<Self>;
 
-    fn _deserialize_eps_inner<'a>(backend: &mut SliceWithPos<'a>) -> Result<Self::DeserType<'a>>;
+    /// # Safety
+    ///
+    /// See the documentation of [`Deserialize`].
+    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> Result<Self>;
+
+    /// # Safety
+    ///
+    /// See the documentation of [`Deserialize`].
+    unsafe fn _deserialize_eps_inner<'a>(
+        backend: &mut SliceWithPos<'a>,
+    ) -> Result<Self::DeserType<'a>>;
 }
 
 /// Blanket implementation that prevents the user from overwriting the
@@ -278,12 +287,18 @@ pub trait DeserializeInner: Sized {
 /// [`DeserializeInner::_deserialize_full_inner`] or
 /// [`DeserializeInner::_deserialize_eps_inner`].
 impl<T: TypeHash + AlignHash + DeserializeInner> Deserialize for T {
+    /// # Safety
+    ///
+    /// See the documentation of [`Deserialize`].
     unsafe fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self> {
         let mut backend = ReaderWithPos::new(backend);
         check_header::<Self>(&mut backend)?;
         Self::_deserialize_full_inner(&mut backend)
     }
 
+    /// # Safety
+    ///
+    /// See the documentation of [`Deserialize`].
     unsafe fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
         let mut backend = SliceWithPos::new(backend);
         check_header::<Self>(&mut backend)?;
@@ -307,32 +322,32 @@ pub fn check_header<T: Deserialize + TypeHash + AlignHash>(
     T::align_hash(&mut align_hasher, &mut offset_of);
     let self_align_hash = align_hasher.finish();
 
-    let magic = u64::_deserialize_full_inner(backend)?;
+    let magic = unsafe { u64::_deserialize_full_inner(backend)? };
     match magic {
         MAGIC => Ok(()),
         MAGIC_REV => Err(Error::EndiannessError),
         magic => Err(Error::MagicCookieError(magic)),
     }?;
 
-    let major = u16::_deserialize_full_inner(backend)?;
+    let major = unsafe { u16::_deserialize_full_inner(backend)? };
     if major != VERSION.0 {
         return Err(Error::MajorVersionMismatch(major));
     }
-    let minor = u16::_deserialize_full_inner(backend)?;
+    let minor = unsafe { u16::_deserialize_full_inner(backend)? };
     if minor > VERSION.1 {
         return Err(Error::MinorVersionMismatch(minor));
     };
 
-    let usize_size = u8::_deserialize_full_inner(backend)?;
+    let usize_size = unsafe { u8::_deserialize_full_inner(backend)? };
     let usize_size = usize_size as usize;
     let native_usize_size = core::mem::size_of::<usize>();
     if usize_size != native_usize_size {
         return Err(Error::UsizeSizeMismatch(usize_size));
     };
 
-    let ser_type_hash = u64::_deserialize_full_inner(backend)?;
-    let ser_align_hash = u64::_deserialize_full_inner(backend)?;
-    let ser_type_name = String::_deserialize_full_inner(backend)?;
+    let ser_type_hash = unsafe { u64::_deserialize_full_inner(backend)? };
+    let ser_align_hash = unsafe { u64::_deserialize_full_inner(backend)? };
+    let ser_type_name = unsafe { String::_deserialize_full_inner(backend)? };
 
     if ser_type_hash != self_type_hash {
         return Err(Error::WrongTypeHash {
@@ -361,9 +376,17 @@ pub trait DeserializeHelper<T: CopySelector> {
     type FullType;
     type DeserType<'a>;
 
-    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> Result<Self::FullType>;
+    /// # Safety
+    ///
+    /// See the documentation of [`Deserialize`].
+    unsafe fn _deserialize_full_inner_impl(
+        backend: &mut impl ReadWithPos,
+    ) -> Result<Self::FullType>;
 
-    fn _deserialize_eps_inner_impl<'a>(
+    /// # Safety
+    ///
+    /// See the documentation of [`Deserialize`].
+    unsafe fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> Result<Self::DeserType<'a>>;
 }

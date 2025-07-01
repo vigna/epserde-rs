@@ -443,7 +443,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         const ZERO_COPY_MISMATCH: bool = false;
 
                         #[inline(always)]
-                        fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
+                        unsafe fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
                             // No-op code that however checks that all fields are zero-copy.
                             fn test<T: epserde::traits::ZeroCopy>() {}
                             #(
@@ -456,20 +456,20 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     #[automatically_derived]
                     impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
                     {
-                        fn _deserialize_full_inner(
+                        unsafe fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
                             use epserde::deser::DeserializeInner;
-                            unsafe { epserde::deser::helpers::deserialize_full_zero::<Self>(backend) }
+                            epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
 
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#concat_generics>;
 
-                        fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
+                        unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                         ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
                         {
-                            unsafe { epserde::deser::helpers::deserialize_eps_zero::<Self>(backend) }
+                            epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
                         }
                     }
                 }
@@ -493,7 +493,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
 
                         #[inline(always)]
-                        fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
+                        unsafe fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
                             epserde::ser::helpers::check_mismatch::<Self>();
                             #(
                                 backend.write(stringify!(#fields_names), &self.#fields_names)?;
@@ -504,20 +504,20 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     #[automatically_derived]
                     impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
-                        fn _deserialize_full_inner(
+                        unsafe fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
                             use epserde::deser::DeserializeInner;
                             Ok(#name{
                                 #(
-                                    #fields_names: <#fields_types>::_deserialize_full_inner(backend)?,
+                                    #fields_names: unsafe { <#fields_types>::_deserialize_full_inner(backend)? },
                                 )*
                             })
                         }
 
                         type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
 
-                        fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
+                        unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                         ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
                         {
@@ -627,12 +627,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     });
                     variant_full_des.push(quote! {
                         #(
-                            #var_fields_names: <#var_fields_types>::_deserialize_full_inner(backend)?,
+                            #var_fields_names: unsafe { <#var_fields_types>::_deserialize_full_inner(backend)? },
                         )*
                     });
                     variant_eps_des.push(quote! {
                         #(
-                            #var_fields_names: <#var_fields_types>::#methods(backend)?,
+                            #var_fields_names: unsafe { <#var_fields_types>::#methods(backend)? },
                         )*
                     });
                 }
@@ -711,12 +711,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     });
                     variant_full_des.push(quote! {
                         #(
-                            #var_fields_vars    : <#var_fields_types>::_deserialize_full_inner(backend)?,
+                            #var_fields_vars    : unsafe { <#var_fields_types>::_deserialize_full_inner(backend)? },
                         )*
                     });
                     variant_eps_des.push(quote! {
                         #(
-                            #var_fields_vars    : <#var_fields_types>::#methods(backend)?,
+                            #var_fields_vars    : unsafe { <#var_fields_types>::#methods(backend)? },
                         )*
                     });
                 }
@@ -770,7 +770,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         // The type is declared as zero copy, so a fortiori there is no mismatch.
                         const ZERO_COPY_MISMATCH: bool = false;
                         #[inline(always)]
-                        fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
+                        unsafe fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
                             // No-op code that however checks that all fields are zero-copy.
                             fn test<T: epserde::traits::ZeroCopy>() {}
                             #(
@@ -782,19 +782,19 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     #[automatically_derived]
                     impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
-                        fn _deserialize_full_inner(
+                        unsafe fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
-                            unsafe { epserde::deser::helpers::deserialize_full_zero::<Self>(backend) }
+                            epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
 
                         type DeserType<'epserde_desertype> = &'epserde_desertype #name<#concat_generics>;
 
-                        fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
+                        unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                         ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
                         {
-                            unsafe { epserde::deser::helpers::deserialize_eps_zero::<Self>(backend) }
+                            epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
                         }
                     }
                 }
@@ -817,7 +817,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         // and the attribute `deep_copy` is missing.
                         const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
                         #[inline(always)]
-                        fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
+                        unsafe fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
                             epserde::ser::helpers::check_mismatch::<Self>();
                             match self {
                                 #(
@@ -829,11 +829,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
                     #[automatically_derived]
                     impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
-                        fn _deserialize_full_inner(
+                        unsafe fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
                             use epserde::deser::DeserializeInner;
-                            match usize::_deserialize_full_inner(backend)? {
+                            match unsafe { usize::_deserialize_full_inner(backend)? } {
                                 #(
                                     #tag => Ok(Self::#variants_names{ #variant_full_des }),
                                 )*
@@ -843,12 +843,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
 
-                        fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
+                        unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                         ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
                         {
                             use epserde::deser::DeserializeInner;
-                            match usize::_deserialize_full_inner(backend)? {
+                            match unsafe { usize::_deserialize_full_inner(backend)? } {
                                 #(
                                     #tag => Ok(Self::DeserType::<'_>::#variants_names{ #variant_eps_des }),
                                 )*

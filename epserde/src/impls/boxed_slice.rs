@@ -40,21 +40,21 @@ where
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         SerializeHelper::_serialize_inner(self, backend)
     }
 }
 
 impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Box<[T]> {
     #[inline(always)]
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         serialize_slice_zero(backend, self)
     }
 }
 
 impl<T: DeepCopy + SerializeInner> SerializeHelper<Deep> for Box<[T]> {
     #[inline(always)]
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         serialize_slice_deep(backend, self)
     }
 }
@@ -66,14 +66,14 @@ where
 {
     type DeserType<'a> = <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
     #[inline(always)]
-    fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_inner_impl(
             backend,
         )
     }
 
     #[inline(always)]
-    fn _deserialize_eps_inner<'a>(
+    unsafe fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>> {
         <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_eps_inner_impl(backend)
@@ -84,14 +84,14 @@ impl<T: ZeroCopy + DeserializeInner> DeserializeHelper<Zero> for Box<[T]> {
     type FullType = Self;
     type DeserType<'a> = &'a [T];
     #[inline(always)]
-    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        Ok(unsafe { deserialize_full_vec_zero::<T>(backend) }?.into_boxed_slice())
+    unsafe fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        Ok(deserialize_full_vec_zero::<T>(backend)?.into_boxed_slice())
     }
     #[inline(always)]
-    fn _deserialize_eps_inner_impl<'a>(
+    unsafe fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
-        unsafe { deserialize_eps_slice_zero(backend) }
+        deserialize_eps_slice_zero(backend)
     }
 }
 
@@ -99,11 +99,11 @@ impl<T: DeepCopy + DeserializeInner> DeserializeHelper<Deep> for Box<[T]> {
     type FullType = Self;
     type DeserType<'a> = Box<[<T as DeserializeInner>::DeserType<'a>]>;
     #[inline(always)]
-    fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+    unsafe fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(deserialize_full_vec_deep(backend)?.into_boxed_slice())
     }
     #[inline(always)]
-    fn _deserialize_eps_inner_impl<'a>(
+    unsafe fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
         Ok(deserialize_eps_vec_deep::<T>(backend)?.into_boxed_slice())

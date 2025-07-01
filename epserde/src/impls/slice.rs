@@ -56,10 +56,10 @@ where
     type SerType = Vec<T>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> Result<()> {
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // SAFETY: the fake vector we create is never used, and we forget it immediately
         // after writing it to the backend.
-        let fake = unsafe { Vec::from_raw_parts(self.as_ptr() as *mut T, self.len(), self.len()) };
+        let fake = Vec::from_raw_parts(self.as_ptr() as *mut T, self.len(), self.len());
         ser::SerializeInner::_serialize_inner(&fake, backend)?;
         core::mem::forget(fake);
         Ok(())

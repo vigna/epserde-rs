@@ -149,7 +149,11 @@ pub trait SerializeInner {
     const ZERO_COPY_MISMATCH: bool;
 
     /// Serialize this structure using the given backend.
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> Result<()>;
+    ///
+    /// # Safety
+    ///
+    /// See the documentation of [`Serialize`].
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> Result<()>;
 }
 
 /// Blanket implementation that prevents the user from overwriting the
@@ -161,7 +165,6 @@ impl<T: SerializeInner> Serialize for T
 where
     <T as SerializeInner>::SerType: TypeHash + AlignHash,
 {
-    /// Serialize the type using the given [`WriteWithNames`].
     unsafe fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // write the header using the serialized type, not the type itself
         // this is done so that you can serialize types with reference to slices
@@ -193,11 +196,14 @@ pub fn write_header<T: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) 
     backend.write("TYPE_NAME", &core::any::type_name::<T>().to_string())
 }
 
-/// A helper trait that makes it possible to implement differently
-/// serialization for [`crate::traits::ZeroCopy`] and [`crate::traits::DeepCopy`] types.
-/// See [`crate::traits::CopyType`] for more information.
+/// A helper trait that makes it possible to implement differently serialization
+/// for [`crate::traits::ZeroCopy`] and [`crate::traits::DeepCopy`] types. See
+/// [`crate::traits::CopyType`] for more information.
 pub trait SerializeHelper<T: CopySelector> {
-    fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> Result<()>;
+    /// # Safety
+    ///
+    /// See the documentation of [`Serialize`].
+    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> Result<()>;
 }
 
 #[derive(Debug)]

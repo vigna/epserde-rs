@@ -66,10 +66,10 @@ pub unsafe fn deserialize_full_vec_zero<T: DeserializeInner + ZeroCopy>(
 pub fn deserialize_full_vec_deep<T: DeserializeInner + DeepCopy>(
     backend: &mut impl ReadWithPos,
 ) -> deser::Result<Vec<T>> {
-    let len = usize::_deserialize_full_inner(backend)?;
+    let len = unsafe { usize::_deserialize_full_inner(backend)? };
     let mut res = Vec::with_capacity(len);
     for _ in 0..len {
-        res.push(T::_deserialize_full_inner(backend)?);
+        res.push(unsafe { T::_deserialize_full_inner(backend)? });
     }
     Ok(res)
 }
@@ -128,10 +128,10 @@ pub unsafe fn deserialize_eps_slice_zero<'a, T: ZeroCopy>(
 pub fn deserialize_eps_vec_deep<'a, T: DeepCopy + DeserializeInner>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<Vec<<T as DeserializeInner>::DeserType<'a>>> {
-    let len = usize::_deserialize_full_inner(backend)?;
+    let len = unsafe { usize::_deserialize_full_inner(backend)? };
     let mut res = Vec::with_capacity(len);
     for _ in 0..len {
-        res.push(T::_deserialize_eps_inner(backend)?);
+        res.push(unsafe { T::_deserialize_eps_inner(backend)? });
     }
     Ok(res)
 }
