@@ -15,14 +15,14 @@ where
         let mut v = vec![];
         let mut cursor = std::io::Cursor::new(&mut v);
 
-        let mut schema = s.serialize_with_schema(&mut cursor).unwrap();
+        let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
         schema.0.sort_by_key(|a| a.offset);
 
         cursor.set_position(0);
-        let full_copy = <T>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+        let full_copy = unsafe { <T>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
         assert_eq!(s, full_copy);
 
-        let full_copy = <T>::deserialize_eps(&v).unwrap();
+        let full_copy = unsafe { <T>::deserialize_eps(&v).unwrap() };
         assert_eq!(full_copy, s);
 
         let _ = schema.to_csv();
@@ -31,13 +31,13 @@ where
     {
         let mut v = vec![];
         let mut cursor = std::io::Cursor::new(&mut v);
-        s.serialize(&mut cursor).unwrap();
+        unsafe { s.serialize(&mut cursor).unwrap() };
 
         cursor.set_position(0);
-        let full_copy = <T>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+        let full_copy = unsafe { <T>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
         assert_eq!(s, full_copy);
 
-        let full_copy = <T>::deserialize_eps(&v).unwrap();
+        let full_copy = unsafe { <T>::deserialize_eps(&v).unwrap() };
         assert_eq!(full_copy, s);
     }
 }

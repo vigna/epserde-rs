@@ -39,20 +39,20 @@ fn test_max_size_of_align() {
     let x = MyStruct { u: 0x89 };
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = x.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { x.serialize(&mut cursor).unwrap() };
 
     // Do an ε-copy deserialization
-    let eps = <MyStruct>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { <MyStruct>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(x, *eps);
 
     // Create a new value to serialize
     let x = MyStruct2 { u: 0x89 };
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = x.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { x.serialize(&mut cursor).unwrap() };
 
     // Do an ε-copy deserialization
-    let eps = <MyStruct2>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { <MyStruct2>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(x, *eps);
 
     // Create a new value to serialize
@@ -60,9 +60,9 @@ fn test_max_size_of_align() {
     // We need a higher alignment
     let mut cursor = <AlignedCursor<A64>>::new();
     // Serialize
-    let _bytes_written = x.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { x.serialize(&mut cursor).unwrap() };
 
     // Do an ε-copy deserialization
-    let eps = <MyStruct64>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { <MyStruct64>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(x, *eps);
 }

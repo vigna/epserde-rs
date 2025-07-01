@@ -17,17 +17,17 @@ fn test_phantom() {
     let obj = PhantomData::<usize>;
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = obj.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = <PhantomData<usize>>::deserialize_full(&mut cursor).unwrap();
+    let full = unsafe { <PhantomData<usize>>::deserialize_full(&mut cursor).unwrap() };
     assert_eq!(obj, full);
 
     println!();
 
     // Do an ε-copy deserialization
-    let eps = <PhantomData<usize>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { <PhantomData<usize>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(obj, eps);
 }
 
@@ -49,18 +49,19 @@ fn test_not_serializable_in_phantom() {
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = obj.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = <DataFull<NotSerializableType>>::deserialize_full(&mut cursor).unwrap();
+    let full = unsafe { <DataFull<NotSerializableType>>::deserialize_full(&mut cursor).unwrap() };
     assert_eq!(obj, full);
 
     println!();
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let eps = <DataFull<NotSerializableType>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps =
+        unsafe { <DataFull<NotSerializableType>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(obj.a, eps.a);
 }
 
@@ -86,18 +87,18 @@ fn test_phantom_zero_copy() {
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = obj.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let zero = <DataZero<ZeroCopyType>>::deserialize_full(&mut cursor).unwrap();
+    let zero = unsafe { <DataZero<ZeroCopyType>>::deserialize_full(&mut cursor).unwrap() };
     assert_eq!(obj, zero);
 
     println!();
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let eps = <DataZero<ZeroCopyType>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { <DataZero<ZeroCopyType>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(obj.a, eps.a);
 }
 
@@ -119,18 +120,18 @@ fn test_only_phantom() {
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = obj.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let zero = <OnlyPhantom<ZeroCopyType>>::deserialize_full(&mut cursor).unwrap();
+    let zero = unsafe { <OnlyPhantom<ZeroCopyType>>::deserialize_full(&mut cursor).unwrap() };
     assert_eq!(obj, zero);
 
     println!();
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let eps = <OnlyPhantom<ZeroCopyType>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { <OnlyPhantom<ZeroCopyType>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(obj.a, eps.a);
 
     // Zero copy needs a zero-copy type, even if inside a PhantomData
@@ -138,17 +139,18 @@ fn test_only_phantom() {
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = vec.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { vec.serialize(&mut cursor).unwrap() };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let zero = <Vec<OnlyPhantom<ZeroCopyType>>>::deserialize_full(&mut cursor).unwrap();
+    let zero = unsafe { <Vec<OnlyPhantom<ZeroCopyType>>>::deserialize_full(&mut cursor).unwrap() };
     assert_eq!(vec, zero);
 
     println!();
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let eps = <Vec<OnlyPhantom<ZeroCopyType>>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps =
+        unsafe { <Vec<OnlyPhantom<ZeroCopyType>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(vec, eps);
 }

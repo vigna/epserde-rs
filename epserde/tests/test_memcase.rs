@@ -34,45 +34,45 @@ fn test_mem_case() {
         test: -0xbadf00d,
     };
     // Serialize
-    person.store("test.bin").unwrap();
+    unsafe { person.store("test.bin").unwrap() };
 
-    let res = Person::load_mem("test.bin").unwrap();
+    let res = unsafe { Person::load_mem("test.bin").unwrap() };
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
-    let res = Person::load_mmap("test.bin", Flags::empty()).unwrap();
+    let res = unsafe { Person::load_mmap("test.bin", Flags::empty()).unwrap() };
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
-    let res = Person::load_mem("test.bin").unwrap();
+    let res = unsafe { Person::load_mem("test.bin").unwrap() };
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
-    let res = Person::load_full("test.bin").unwrap();
+    let res = unsafe { Person::load_full("test.bin").unwrap() };
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
-    let res = Person::mmap("test.bin", Flags::empty()).unwrap();
+    let res = unsafe { Person::mmap("test.bin", Flags::empty()).unwrap() };
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
-    let res = Person::mmap("test.bin", Flags::TRANSPARENT_HUGE_PAGES).unwrap();
+    let res = unsafe { Person::mmap("test.bin", Flags::TRANSPARENT_HUGE_PAGES).unwrap() };
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
-    let res = Person::mmap("test.bin", Flags::empty()).unwrap();
+    let res = unsafe { Person::mmap("test.bin", Flags::empty()).unwrap() };
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);

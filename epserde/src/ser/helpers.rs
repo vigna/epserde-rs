@@ -29,7 +29,7 @@ pub fn check_zero_copy<V: SerializeInner>() {
 /// beforehand](WriteWithNames::align).
 ///
 /// This function makes the appropriate checks, write the necessary padding and
-/// then calls [`serialize_zero_unchecked`](serialize_zero_unchecked).
+/// then calls [`serialize_zero_unchecked`].
 pub fn serialize_zero<V: ZeroCopy + SerializeInner>(
     backend: &mut impl WriteWithNames,
     value: &V,

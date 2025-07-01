@@ -23,11 +23,11 @@ fn main() {
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize the slice
-    let _bytes_written = a.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { a.serialize(&mut cursor).unwrap() };
 
     // Do a full-copy deserialization as a vector
     cursor.set_position(0);
-    let full = <Vec<i32>>::deserialize_full(&mut cursor).unwrap();
+    let full = unsafe { <Vec<i32>>::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Vec<i32>>(),
@@ -37,7 +37,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization as, again, a slice
-    let eps = <Vec<i32>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { <Vec<i32>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<Vec<i32> as DeserializeInner>::DeserType<'_>>(),
@@ -54,11 +54,11 @@ fn main() {
 
     // Serialize the structure
     cursor.set_position(0);
-    let _bytes_written = d.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { d.serialize(&mut cursor).unwrap() };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = <Data<Vec<i32>>>::deserialize_full(&mut cursor).unwrap();
+    let full = unsafe { <Data<Vec<i32>>>::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Data<Vec<i32>>>(),
@@ -68,7 +68,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = <Data<Vec<i32>>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { <Data<Vec<i32>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<Data<Vec<i32>> as DeserializeInner>::DeserType<'_>>(),

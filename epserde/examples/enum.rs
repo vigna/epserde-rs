@@ -26,11 +26,11 @@ fn main() {
     let a: Data = Data::A;
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = a.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { a.serialize(&mut cursor).unwrap() };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = <Data>::deserialize_full(&mut cursor).unwrap();
+    let full = unsafe { <Data>::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Data>(),
@@ -40,7 +40,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = <Data>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { <Data>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<Data as DeserializeInner>::DeserType<'_>>(),
@@ -52,7 +52,7 @@ fn main() {
     let a: Data<Vec<usize>> = Data::A;
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = a.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { a.serialize(&mut cursor).unwrap() };
 
     println!();
 
@@ -62,8 +62,7 @@ fn main() {
     // Data::A because the default value of the parameter
     // is different from the one we used.
     cursor.set_position(0);
-    println!(
-        "Error in full-copy deserialization: {}",
+    println!("Error in full-copy deserialization: {}", unsafe {
         <Data>::deserialize_full(&mut cursor).err().unwrap()
-    );
+    });
 }

@@ -46,15 +46,44 @@ pub type DeserType<'a, T> = <T as DeserializeInner>::DeserType<'a>;
 ///
 /// It provides several convenience methods to load or map into memory
 /// structures that have been previously serialized. See, for example,
-/// [`Deserialize::load_full`], [`Deserialize::load_mem`], and [`Deserialize::mmap`].
+/// [`Deserialize::load_full`], [`Deserialize::load_mem`], and
+/// [`Deserialize::mmap`].
+///
+/// # Safety
+///
+/// All deserialization methods are unsafe.
+///
+/// - No validation is performed on zero-copy types. For example, by altering a
+///   serialized form you can deserialize a vector of
+///   [`NonZeroUsize`](core::num::NonZeroUsize) containing zeros.
+/// - The code assume that the [`read_exact`](ReadNoStd::read_exact) method of
+///   the backend does not read the buffer. If the method reads the buffer, it
+///   will cause undefined behavior. This is a general issue with Rust as the
+///   I/O traits were written before [`MaybeUninit`] was stabilized.
+/// - Malicious [`TypeHash`]/[`AlignHash`] implementations maybe lead to read
+///   incompatible structures using the same code, or cause undefined behavior
+///   by loading data with an incorrect alignment.
+/// - Memory-mapped files might be modified externally.
 pub trait Deserialize: DeserializeInner {
     /// Fully deserialize a structure of this type from the given backend.
-    fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self>;
+    ///
+    /// # Safety
+    ///
+    /// See the [trait documentation](DeserializeInner).
+    unsafe fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self>;
     /// ε-copy deserialize a structure of this type from the given backend.
-    fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
+    ///
+    /// # Safety
+    ///
+    /// See the [trait documentation](DeserializeInner).
+    unsafe fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
 
     /// Convenience method to fully deserialize from a file.
-    fn load_full(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+    ///
+    /// # Safety
+    ///
+    /// See the [trait documentation](DeserializeInner).
+    unsafe fn load_full(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
         let mut buf_reader = BufReader::new(file);
         Self::deserialize_full(&mut buf_reader).map_err(|e| e.into())
@@ -66,7 +95,11 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// The allocated memory will have [`MemoryAlignment`] as alignment: types with
     /// a higher alignment requirement will cause an [alignment error](`Error::AlignmentError`).
-    fn load_mem<'a>(
+    ///
+    /// # Safety
+    ///
+    /// See the [trait documentation](DeserializeInner).
+    unsafe fn load_mem<'a>(
         path: impl AsRef<Path>,
     ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
         let align_to = align_of::<MemoryAlignment>();
@@ -129,8 +162,12 @@ pub trait Deserialize: DeserializeInner {
     /// just pass `Flags::empty()`.
     ///
     /// Requires the `mmap` feature.
+    ///
+    /// # Safety
+    ///
+    /// See the [trait documentation](DeserializeInner).
     #[cfg(feature = "mmap")]
-    fn load_mmap<'a>(
+    unsafe fn load_mmap<'a>(
         path: impl AsRef<Path>,
         flags: Flags,
     ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
@@ -175,8 +212,12 @@ pub trait Deserialize: DeserializeInner {
     /// just pass `Flags::empty()`.
     ///
     /// Requires the `mmap` feature.
+    ///
+    /// # Safety
+    ///
+    /// See the [trait documentation](DeserializeInner).
     #[cfg(feature = "mmap")]
-    fn mmap<'a>(
+    unsafe fn mmap<'a>(
         path: impl AsRef<Path>,
         flags: Flags,
     ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
@@ -237,13 +278,13 @@ pub unsafe trait DeserializeInner: Sized {
 /// [`DeserializeInner::_deserialize_full_inner`] or
 /// [`DeserializeInner::_deserialize_eps_inner`].
 impl<T: TypeHash + AlignHash + DeserializeInner> Deserialize for T {
-    fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self> {
+    unsafe fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self> {
         let mut backend = ReaderWithPos::new(backend);
         check_header::<Self>(&mut backend)?;
         Self::_deserialize_full_inner(&mut backend)
     }
 
-    fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
+    unsafe fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
         let mut backend = SliceWithPos::new(backend);
         check_header::<Self>(&mut backend)?;
         Self::_deserialize_eps_inner(&mut backend)

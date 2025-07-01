@@ -15,23 +15,23 @@ macro_rules! impl_test {
         let mut v = vec![];
         let mut cursor = std::io::Cursor::new(&mut v);
 
-        let _ = $data.serialize_with_schema(&mut cursor).unwrap();
+        let _ = unsafe { $data.serialize_with_schema(&mut cursor).unwrap() };
 
-        let full_copy = <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
         assert_eq!($data, full_copy);
 
-        let eps_copy = <$ty>::deserialize_eps(&v).unwrap();
+        let eps_copy = unsafe { <$ty>::deserialize_eps(&v).unwrap() };
         assert_eq!($data, eps_copy);
     }
     {
         let mut v = vec![];
         let mut cursor = std::io::Cursor::new(&mut v);
-        $data.serialize(&mut cursor).unwrap();
+        unsafe { $data.serialize(&mut cursor).unwrap() };
 
-        let full_copy = <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
         assert_eq!($data, full_copy);
 
-        let eps_copy = <$ty>::deserialize_eps(&v).unwrap();
+        let eps_copy = unsafe { <$ty>::deserialize_eps(&v).unwrap() };
         assert_eq!($data, eps_copy);
     }};
 }
@@ -116,14 +116,15 @@ fn test_string() {
             let mut v = vec![];
             let mut cursor = std::io::Cursor::new(&mut v);
 
-            let mut schema = s.serialize_with_schema(&mut cursor).unwrap();
+            let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
             schema.0.sort_by_key(|a| a.offset);
 
             cursor.set_position(0);
-            let full_copy = <String>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+            let full_copy =
+                unsafe { <String>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
             assert_eq!(s, full_copy);
 
-            let full_copy = <String>::deserialize_eps(&v).unwrap();
+            let full_copy = unsafe { <String>::deserialize_eps(&v).unwrap() };
             assert_eq!(s.as_str(), full_copy);
 
             let _ = schema.to_csv();
@@ -132,13 +133,14 @@ fn test_string() {
         {
             let mut v = vec![];
             let mut cursor = std::io::Cursor::new(&mut v);
-            s.serialize(&mut cursor).unwrap();
+            unsafe { s.serialize(&mut cursor).unwrap() };
 
             cursor.set_position(0);
-            let full_copy = <String>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+            let full_copy =
+                unsafe { <String>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
             assert_eq!(s, full_copy);
 
-            let full_copy = <String>::deserialize_eps(&v).unwrap();
+            let full_copy = unsafe { <String>::deserialize_eps(&v).unwrap() };
             assert_eq!(s.as_str(), full_copy);
         }
     }
@@ -152,26 +154,28 @@ fn test_box_str() {
             let mut v = vec![];
             let mut cursor = std::io::Cursor::new(&mut v);
 
-            let mut schema = s.serialize_with_schema(&mut cursor).unwrap();
+            let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
             schema.0.sort_by_key(|a| a.offset);
 
             cursor.set_position(0);
-            let full_copy = <Box<str>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+            let full_copy =
+                unsafe { <Box<str>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
             assert_eq!(s, full_copy);
 
-            let full_copy = <Box<str>>::deserialize_eps(&v).unwrap();
+            let full_copy = unsafe { <Box<str>>::deserialize_eps(&v).unwrap() };
             assert_eq!(s.as_ref(), full_copy);
         }
         {
             let mut v = vec![];
             let mut cursor = std::io::Cursor::new(&mut v);
-            s.serialize(&mut cursor).unwrap();
+            unsafe { s.serialize(&mut cursor).unwrap() };
 
             cursor.set_position(0);
-            let full_copy = <Box<str>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap();
+            let full_copy =
+                unsafe { <Box<str>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
             assert_eq!(s, full_copy);
 
-            let full_copy = <Box<str>>::deserialize_eps(&v).unwrap();
+            let full_copy = unsafe { <Box<str>>::deserialize_eps(&v).unwrap() };
             assert_eq!(s.as_ref(), full_copy);
         }
     }

@@ -36,7 +36,7 @@ fn test_fake_zero() {
             },
         };
         // This must panic.
-        let _ = a.serialize(&mut cursor);
+        let _ = unsafe { a.serialize(&mut cursor) };
     });
     assert!(result.is_err());
 }

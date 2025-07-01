@@ -41,7 +41,7 @@ fn main() {
     // deserialization safely
     let mut file = std::fs::File::create("test.bin").unwrap();
     // Serialize
-    let _bytes_written = s.serialize(&mut file).unwrap();
+    let _bytes_written = unsafe { s.serialize(&mut file).unwrap() };
 
     drop(file);
 
@@ -49,7 +49,7 @@ fn main() {
 
     // Do a full-copy deserialization
 
-    let full = Struct::deserialize_full(&mut file).unwrap();
+    let full = unsafe { Struct::deserialize_full(&mut file).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Struct>(),
@@ -61,7 +61,7 @@ fn main() {
 
     // Do an ε-copy deserialization
     let file = std::fs::read("test.bin").unwrap();
-    let eps = Struct::deserialize_eps(&file).unwrap();
+    let eps = unsafe { Struct::deserialize_eps(&file).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<Struct as DeserializeInner>::DeserType<'_>>(),

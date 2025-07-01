@@ -34,15 +34,50 @@ pub use write::*;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-/// Main serialization trait. It is separated from [`SerializeInner`] to
-/// avoid that the user modify its behavior, and hide internal serialization
-/// methods.
+/// Main serialization trait. It is separated from [`SerializeInner`] to avoid
+/// that the user modify its behavior, and hide internal serialization methods.
 ///
-/// It provides a convenience method [`Serialize::store`] that serializes
-/// the type to a file.
+/// It provides a convenience method [`Serialize::store`] that serializes the
+/// type to a file.
+///
+/// # Safety
+///
+/// All serialization methods are unsafe as they write padding bytes.
+/// Serializing to such a vector and accessing such bytes will lead to undefined
+/// behavior as padding bytes are uninitialized.
+///
+/// For example, this code reads a portion of the stack:
+///
+/// ```ignore
+/// use epserde::{ser::Serialize, Epserde};
+///
+/// #[repr(C)]
+/// #[repr(align(1024))]
+/// #[derive(Epserde, Clone, Copy, Debug, PartialEq)]
+/// #[zero_copy]
+///
+/// struct Example(u8);
+///
+/// let value = [Example(0), Example(1)];
+///
+/// let mut bytes = vec![];
+/// unsafe { value.serialize(&mut bytes).unwrap(); }
+///
+/// for chunk in bytes.chunks(8) {
+///     println!("{:016x}", u64::from_ne_bytes(chunk.try_into().unwrap()));
+/// }
+/// ```
+///
+/// If you are concerned about this issue, you must organize your structures so
+/// that they do not contain any padding (e.g., by creating explicit padding
+/// bytes).
 pub trait Serialize {
     /// Serialize the type using the given backend.
-    fn serialize(&self, backend: &mut impl WriteNoStd) -> Result<usize> {
+    ///
+    /// # Safety
+    ///
+    /// See the [trait documentation](SerializeInner).
+    unsafe fn serialize(&self, backend: &mut impl WriteNoStd) -> Result<usize> {
         let mut write_with_pos = WriterWithPos::new(backend);
         self.serialize_on_field_write(&mut write_with_pos)?;
         Ok(write_with_pos.pos())
@@ -53,7 +88,11 @@ pub trait Serialize {
     ///
     /// This method is mainly useful for debugging and to check cross-language
     /// interoperability.
-    fn serialize_with_schema(&self, backend: &mut impl WriteNoStd) -> Result<Schema> {
+    ///
+    /// # Safety
+    ///
+    /// See the [trait documentation](SerializeInner).
+    unsafe fn serialize_with_schema(&self, backend: &mut impl WriteNoStd) -> Result<Schema> {
         let mut writer_with_pos = WriterWithPos::new(backend);
         let mut schema_writer = SchemaWriter::new(&mut writer_with_pos);
         self.serialize_on_field_write(&mut schema_writer)?;
@@ -61,10 +100,18 @@ pub trait Serialize {
     }
 
     /// Serialize the type using the given [`WriteWithNames`].
-    fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()>;
+    ///
+    /// # Safety
+    ///
+    /// See the [trait documentation](SerializeInner).
+    unsafe fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()>;
 
     /// Convenience method to serialize to a file.
-    fn store(&self, path: impl AsRef<Path>) -> Result<()> {
+    ///
+    /// # Safety
+    ///
+    /// See the [trait documentation](SerializeInner).
+    unsafe fn store(&self, path: impl AsRef<Path>) -> Result<()> {
         let file = std::fs::File::create(path).map_err(Error::FileOpenError)?;
         let mut buf_writer = BufWriter::new(file);
         self.serialize(&mut buf_writer)?;
@@ -115,7 +162,7 @@ where
     <T as SerializeInner>::SerType: TypeHash + AlignHash,
 {
     /// Serialize the type using the given [`WriteWithNames`].
-    fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
+    unsafe fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // write the header using the serialized type, not the type itself
         // this is done so that you can serialize types with reference to slices
         // that can then be deserialized as vectors.

@@ -22,14 +22,14 @@ fn main() {
     };
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let schema = data.serialize_with_schema(&mut cursor).unwrap();
+    let schema = unsafe { data.serialize_with_schema(&mut cursor).unwrap() };
 
     // Show the schema
     println!("{}", schema.debug(cursor.as_bytes()));
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = <Data<i32>>::deserialize_full(&mut cursor).unwrap();
+    let full = unsafe { <Data<i32>>::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Data<i32>>(),
@@ -39,7 +39,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = <Data<i32>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { <Data<i32>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<Data<i32> as DeserializeInner>::DeserType<'_>>(),

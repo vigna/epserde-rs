@@ -23,11 +23,11 @@ fn main() {
     };
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = data.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { data.serialize(&mut cursor).unwrap() };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = StringData::deserialize_full(&mut cursor).unwrap();
+    let full = unsafe { StringData::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<StringData>(),
@@ -37,7 +37,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = StringData::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { StringData::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<StringData as DeserializeInner>::DeserType<'_>>(),

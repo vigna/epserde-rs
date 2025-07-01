@@ -40,11 +40,11 @@ fn main() {
     };
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = person.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { person.serialize(&mut cursor).unwrap() };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = Struct::deserialize_full(&mut cursor).unwrap();
+    let full = unsafe { Struct::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Struct>(),
@@ -55,7 +55,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = Struct::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { Struct::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<Struct as DeserializeInner>::DeserType<'_>>(),

@@ -4,6 +4,8 @@
 
 ### Changed
 
+* All serialization and deserialization methods are now unsafe.
+
 * `DeserializeInner` is now an unsafe trait, and all deserialization helper
   methods handling zero-copy types are also unsafe. This change is necessary
   because such methods can deserialize uninhabited types.

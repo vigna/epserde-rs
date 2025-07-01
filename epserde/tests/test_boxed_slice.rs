@@ -23,11 +23,11 @@ struct B<C: PartialEq> {
 fn test_boxed_slices() -> Result<()> {
     let a = vec![1, 2, 3, 4].into_boxed_slice();
     let mut cursor = <AlignedCursor<A16>>::new();
-    a.serialize(&mut cursor)?;
+    unsafe { a.serialize(&mut cursor)? };
     cursor.set_position(0);
-    let b = Box::<[i32]>::deserialize_full(&mut cursor)?;
+    let b = unsafe { Box::<[i32]>::deserialize_full(&mut cursor)? };
     assert_eq!(a, b);
-    let b = Box::<[i32]>::deserialize_eps(cursor.as_bytes())?;
+    let b = unsafe { Box::<[i32]>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(b, a.as_ref());
 
     cursor.set_position(0);
@@ -35,16 +35,16 @@ fn test_boxed_slices() -> Result<()> {
         a: vec![0, 1, 2, 3].into_boxed_slice(),
         b: [1, 2, 3],
     };
-    d.serialize(&mut cursor)?;
+    unsafe { d.serialize(&mut cursor)? };
     cursor.set_position(0);
-    let e = Data::<Box<[i32]>>::deserialize_full(&mut cursor)?;
+    let e = unsafe { Data::<Box<[i32]>>::deserialize_full(&mut cursor)? };
     assert_eq!(e, d);
 
     cursor.set_position(0);
     let d = Data { a, b: [1, 2, 3] };
-    d.serialize(&mut cursor)?;
+    unsafe { d.serialize(&mut cursor)? };
     cursor.set_position(0);
-    let e = Data::<Box<[i32]>>::deserialize_eps(cursor.as_bytes())?;
+    let e = unsafe { Data::<Box<[i32]>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(e.a, d.a.as_ref());
     Ok(())
 }

@@ -14,11 +14,11 @@ fn main() {
 
     let a = [1_usize; 100];
     let mut cursor = <AlignedCursor<A16>>::new(); // Serialize
-    let _bytes_written = a.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { a.serialize(&mut cursor).unwrap() };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = <[usize; 100]>::deserialize_full(&mut cursor).unwrap();
+    let full = unsafe { <[usize; 100]>::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<[usize; 100]>(),
@@ -28,7 +28,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization (which will be a zero-copy deserialization)
-    let eps = <[usize; 100]>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { <[usize; 100]>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<[usize; 100] as DeserializeInner>::DeserType<'_>>(),

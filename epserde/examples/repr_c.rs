@@ -33,11 +33,11 @@ fn main() {
     };
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = point.serialize(&mut cursor).unwrap();
+    let _bytes_written = unsafe { point.serialize(&mut cursor).unwrap() };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = <Object<Vec<Point>>>::deserialize_full(&mut cursor).unwrap();
+    let full = unsafe { <Object<Vec<Point>>>::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Object<Vec<Point>>>(),
@@ -48,7 +48,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = <Object<Vec<Point>>>::deserialize_eps(cursor.as_bytes()).unwrap();
+    let eps = unsafe { <Object<Vec<Point>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<Object<Vec<Point>> as DeserializeInner>::DeserType<'_>>(),
