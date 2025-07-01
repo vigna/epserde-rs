@@ -370,7 +370,8 @@ pub enum Error {
     InvalidTag(usize),
     #[error(
         r#"Wrong type hash: actual = 0x{ser_type_hash:016x}, expected = 0x{self_type_hash:016x}.
-You are trying to deserialize a file with the wrong type. The serialized type is '{ser_type_name}', 
+You are trying to deserialize a file with the wrong type. You might also be trying to deserialize
+a structure containing tuples that was serialized before 0.9.0. The serialized type is '{ser_type_name}', 
 but the type on which the deserialization method was invoked is '{self_type_name}'."#
     )]
     /// The type hash is wrong. Probably the user is trying to deserialize a

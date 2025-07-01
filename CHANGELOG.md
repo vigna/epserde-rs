@@ -8,6 +8,9 @@
   methods handling zero-copy types are also unsafe. This change is necessary
   because such methods can deserialize uninhabited types.
 
+* The `TypeHash` of tuples has changed as it was ambiguous. If you
+  serialized a structure using tuples, it will be no longer deserializable.
+
 ### Fixed
 
 * ε-copy deserializing slices of zero-width zero-copy types now works.

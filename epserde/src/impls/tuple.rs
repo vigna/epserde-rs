@@ -35,10 +35,11 @@ macro_rules! impl_type_hash {
             fn type_hash(
                 hasher: &mut impl core::hash::Hasher,
             ) {
-                "()".hash(hasher);
+                "(".hash(hasher);
                 $(
                     <$t>::type_hash(hasher);
                 )*
+                ")".hash(hasher);
             }
         }
     }
