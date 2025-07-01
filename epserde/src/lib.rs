@@ -44,7 +44,7 @@ pub mod prelude {
 /// (Major, Minor) version of the file format, this follows semantic versioning
 pub const VERSION: (u16, u16) = (1, 1);
 
-/// Magic cookie, also used as endianess marker.
+/// Magic cookie, also used as endian ess marker.
 pub const MAGIC: u64 = u64::from_ne_bytes(*b"epserde ");
 /// What we will read if the endianness is mismatched.
 pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());

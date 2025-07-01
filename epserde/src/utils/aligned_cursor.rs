@@ -95,6 +95,17 @@ impl<T: Alignment> AlignedCursor<T> {
     pub fn set_position(&mut self, pos: usize) {
         self.pos = pos;
     }
+
+    /// Set the length of this cursor.
+    ///
+    /// The underlying vector will be enlarged if necessary.
+    pub fn set_len(&mut self, len: usize) {
+        if len > self.vec.len() * std::mem::size_of::<T>() {
+            self.vec
+                .resize(len.div_ceil(std::mem::size_of::<T>()), T::default());
+        }
+        self.len = len;
+    }
 }
 
 impl<T: Alignment> Default for AlignedCursor<T> {

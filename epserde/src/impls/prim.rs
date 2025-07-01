@@ -80,9 +80,9 @@ macro_rules! impl_prim_ser_des {
                 backend: &mut SliceWithPos<'a>,
             ) -> deser::Result<Self::DeserType<'a>> {
                 let res = <$ty>::from_ne_bytes(
-                        backend.data[..size_of::<$ty>()]
-                            .try_into()
-                            .unwrap());
+                        backend.data.get(..size_of::<$ty>()).ok_or(deser::Error::ReadError)?
+                            .try_into().unwrap(),
+                    );
 
                 backend.skip(size_of::<$ty>());
                 Ok(res)
@@ -122,7 +122,7 @@ macro_rules! impl_nonzero_ser_des {
                 backend: &mut SliceWithPos<'a>,
             ) -> deser::Result<Self::DeserType<'a>> {
                 let res = <$ty as NonZero>::BaseType::from_ne_bytes(
-                        backend.data[..size_of::<$ty>()]
+                        backend.data.get(..size_of::<$ty>()).ok_or(deser::Error::ReadError)?
                             .try_into()
                             .unwrap()).try_into().unwrap();
 

@@ -12,6 +12,9 @@
 
 * ε-copy deserializing slices of zero-width zero-copy types now works.
 
+* ε-copy deserialization of primitive types will return an error on EOF
+  instead of panicking.
+
 ## [0.8.0] - 2025-03-03
 
 ### New

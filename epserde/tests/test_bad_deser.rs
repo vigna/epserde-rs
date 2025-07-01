@@ -11,7 +11,7 @@ use maligned::A16;
 use xxhash_rust::xxh3::Xxh3;
 
 #[test]
-fn test_wrong_endianess() {
+fn test_wrong_endianness() {
     let data = 1337_usize;
 
     let mut cursor = <AlignedCursor<A16>>::new();
@@ -20,7 +20,7 @@ fn test_wrong_endianess() {
     println!("{}", schema.debug(cursor.as_bytes()));
     println!("{:02x?}", cursor.as_bytes());
 
-    // set the reversed endianess
+    // set the reversed endianness
     cursor.as_bytes_mut()[0..8].copy_from_slice(&MAGIC_REV.to_ne_bytes());
 
     let err = <usize>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes()));
@@ -138,4 +138,18 @@ fn test_wrong_endianess() {
     } else {
         panic!("No error: {:?}", err);
     }
+}
+
+#[test]
+fn test_error_at_eof() {
+    let data = 1337_usize;
+
+    let mut cursor = <AlignedCursor<A16>>::new();
+
+    data.serialize(&mut cursor).unwrap();
+    cursor.set_len(cursor.position() - 1);
+    let err = <usize>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes()));
+    assert!(err.is_err());
+    let err = <usize>::deserialize_eps(cursor.as_bytes());
+    assert!(err.is_err());
 }
