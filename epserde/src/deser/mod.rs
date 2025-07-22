@@ -165,7 +165,7 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Deserialize).
+    /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
     unsafe fn load_mmap<'a>(
         path: impl AsRef<Path>,
@@ -215,7 +215,7 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Deserialize).
+    /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
     unsafe fn mmap<'a>(
         path: impl AsRef<Path>,
