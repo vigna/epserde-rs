@@ -6,6 +6,7 @@
 
 use core::marker::PhantomData;
 use epserde::prelude::*;
+use epserde::PhantomDeserData;
 use epserde::TypeInfo;
 use maligned::A16;
 
@@ -153,4 +154,44 @@ fn test_only_phantom() {
     let eps =
         unsafe { <Vec<OnlyPhantom<ZeroCopyType>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(vec, eps);
+}
+
+#[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
+struct DataWithPhantomDeserData<T> {
+    data: T,
+    // This will deserialize to PhantomData<T::DeserType<'a>>
+    phantom: PhantomDeserData<PhantomData<T>>,
+}
+
+/// Test that PhantomDeserData works correctly with generic types that are transformed during deserialization.
+#[test]
+fn test_deser_phantom() {
+    // Create a structure where T is Vec<i32>, which will be transformed to &[i32] during eps deserialization
+    let obj = DataWithPhantomDeserData {
+        data: vec![1, 2, 3, 4],
+        phantom: PhantomDeserData::new(),
+    };
+
+    let mut cursor = <AlignedCursor<A16>>::new();
+    // Serialize
+    let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
+
+    // Do a full-copy deserialization
+    cursor.set_position(0);
+    let full =
+        unsafe { <DataWithPhantomDeserData<Vec<i32>>>::deserialize_full(&mut cursor).unwrap() };
+    assert_eq!(obj, full);
+
+    // Do an ε-copy deserialization
+    cursor.set_position(0);
+    let eps = unsafe {
+        <DataWithPhantomDeserData<Vec<i32>>>::deserialize_eps(cursor.as_bytes()).unwrap()
+    };
+
+    // The data field should be transformed from Vec<i32> to &[i32]
+    assert_eq!(obj.data.as_slice(), eps.data);
+
+    // The phantom field should be PhantomData<&[i32]> (the DeserType of Vec<i32>)
+    // We can't directly compare PhantomData types, but we can verify the deserialization worked
+    let _phantom_check: PhantomDeserData<PhantomData<&[i32]>> = eps.phantom;
 }

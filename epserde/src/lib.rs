@@ -11,8 +11,16 @@
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 extern crate alloc;
 
+use core::{hash::Hash, marker::PhantomData};
+
 #[cfg(feature = "derive")]
 pub use epserde_derive::{Epserde, TypeInfo};
+
+use crate::{
+    deser::{DeserializeInner, ReadWithPos, SliceWithPos},
+    ser::{SerializeInner, WriteWithNames},
+    traits::{AlignHash, CopyType, MaxSizeOf, TypeHash, Zero},
+};
 
 pub mod deser;
 pub mod impls;
@@ -53,6 +61,63 @@ pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
 /// number such that `((value + pad_align_to(value, align_to) & (align_to - 1) == 0`.
 pub fn pad_align_to(value: usize, align_to: usize) -> usize {
     value.wrapping_neg() & (align_to - 1)
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PhantomDeserData<T: ?Sized>(PhantomData<T>);
+
+impl<T: ?Sized> PhantomDeserData<T> {
+    pub fn new() -> Self {
+        PhantomDeserData(PhantomData)
+    }
+}
+
+impl<T: ?Sized> CopyType for PhantomDeserData<T> {
+    type Copy = Zero;
+}
+
+impl<T: ?Sized> MaxSizeOf for PhantomDeserData<T> {
+    fn max_size_of() -> usize {
+        0
+    }
+}
+
+impl<T: ?Sized + TypeHash> TypeHash for PhantomDeserData<T> {
+    #[inline(always)]
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "PhantomDeserData".hash(hasher);
+        T::type_hash(hasher);
+    }
+}
+
+impl<T: ?Sized> AlignHash for PhantomDeserData<T> {
+    #[inline(always)]
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+}
+
+impl<T: ?Sized> SerializeInner for PhantomDeserData<T> {
+    type SerType = Self;
+    const IS_ZERO_COPY: bool = true;
+    const ZERO_COPY_MISMATCH: bool = false;
+
+    #[inline(always)]
+    unsafe fn _serialize_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        Ok(())
+    }
+}
+
+impl<T: ?Sized + DeserializeInner> DeserializeInner for PhantomDeserData<T> {
+    #[inline(always)]
+    unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        Ok(PhantomDeserData(PhantomData))
+    }
+    type DeserType<'a> = PhantomDeserData<T::DeserType<'a>>;
+    #[inline(always)]
+    unsafe fn _deserialize_eps_inner<'a>(
+        _backend: &mut SliceWithPos<'a>,
+    ) -> deser::Result<Self::DeserType<'a>> {
+        Ok(PhantomDeserData(PhantomData))
+    }
 }
 
 #[test]

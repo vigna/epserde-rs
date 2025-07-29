@@ -291,8 +291,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             let mut methods: Vec<proc_macro2::TokenStream> = vec![];
 
             s.fields.iter().for_each(|field| {
-                let ty = &field.ty;
-                if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                let ty = &field.ty.to_token_stream().to_string();
+                if generics_names_raw.contains(ty) || ty.starts_with("PhantomDeserData") {
                     methods.push(syn::parse_quote!(_deserialize_eps_inner));
                 } else {
                     methods.push(syn::parse_quote!(_deserialize_full_inner));
