@@ -16,6 +16,7 @@ use super::{read::*, DeserializeInner};
 use crate::deser;
 use crate::traits::*;
 use core::mem::MaybeUninit;
+use core::ptr::NonNull;
 
 /// Full-copy deserialize a zero-copy structure.
 ///
@@ -85,10 +86,10 @@ pub unsafe fn deserialize_eps_zero<'a, T: ZeroCopy>(
 ) -> deser::Result<&'a T> {
     let bytes = core::mem::size_of::<T>();
     if bytes == 0 {
-        // SAFETY: T is zero-sized and `assume_init` is safe.
+        // SAFETY: T is zero-sized (see the from_raw_parts docs)
         #[allow(invalid_value)]
         #[allow(clippy::uninit_assumed_init)]
-        return Ok(unsafe { MaybeUninit::uninit().assume_init() });
+        return Ok(unsafe { NonNull::<T>::dangling().as_ref() });
     }
     backend.align::<T>()?;
     let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<T>() };
@@ -111,10 +112,10 @@ pub unsafe fn deserialize_eps_slice_zero<'a, T: ZeroCopy>(
     let len = usize::_deserialize_full_inner(backend)?;
     let bytes = len * core::mem::size_of::<T>();
     if core::mem::size_of::<T>() == 0 {
-        // SAFETY: T is zero-sized and `assume_init` is safe.
+        // SAFETY: T is zero-sized (see the from_raw_parts docs)
         #[allow(invalid_value)]
         #[allow(clippy::uninit_assumed_init)]
-        return Ok(unsafe { std::slice::from_raw_parts(MaybeUninit::uninit().assume_init(), len) });
+        return Ok(unsafe { std::slice::from_raw_parts(NonNull::dangling().as_ref(), len) });
     }
     backend.align::<T>()?;
     let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<T>() };
