@@ -396,30 +396,35 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     if ! t.bounds.is_empty() &&
                         types_with_generics.iter().any(|x| *ty == x.to_token_stream().to_string()) {
 
-                        // Add a lifetime so we express bounds on DeserType
-                        let mut lifetimes = Punctuated::new();
-                        lifetimes.push(GenericParam::Lifetime(LifetimeParam {
-                            attrs: vec![],
-                            lifetime: syn::Lifetime::new("'epserde_desertype", proc_macro2::Span::call_site()),
-                            colon_token: None,
-                            bounds: Punctuated::new(),
-                        }));
-                        // Add the type bounds to the DeserType
-                        where_clause_des
-                            .predicates
-                            .push(WherePredicate::Type(PredicateType {
-                                lifetimes: Some(BoundLifetimes {
-                                    for_token: token::For::default(),
-                                    lt_token: token::Lt::default(),
-                                    lifetimes,
-                                    gt_token: token::Gt::default(),
-                                }),
-                                bounded_ty: syn::parse_quote!(
-                                    <#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
-                                ),
-                                colon_token: token::Colon::default(),
-                                bounds: t.bounds.clone(),
-                        }));
+                        // In zero-copy types we do not need to add bounds to
+                        // DeserTypes, as generics are not replaced with their
+                        // DeserType.
+                        if ! is_zero_copy {    
+                            let mut lifetimes = Punctuated::new();
+                            // Add a lifetime so we express bounds on DeserType
+                            lifetimes.push(GenericParam::Lifetime(LifetimeParam {
+                                attrs: vec![],
+                                lifetime: syn::Lifetime::new("'epserde_desertype", proc_macro2::Span::call_site()),
+                                colon_token: None,
+                                bounds: Punctuated::new(),
+                            }));
+                            // Add the type bounds to the DeserType
+                            where_clause_des
+                                .predicates
+                                .push(WherePredicate::Type(PredicateType {
+                                    lifetimes: Some(BoundLifetimes {
+                                        for_token: token::For::default(),
+                                        lt_token: token::Lt::default(),
+                                        lifetimes,
+                                        gt_token: token::Gt::default(),
+                                    }),
+                                    bounded_ty: syn::parse_quote!(
+                                        <#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
+                                    ),
+                                    colon_token: token::Colon::default(),
+                                    bounds: t.bounds.clone(),
+                            }));
+                        }
                         // Add the type bounds to the SerType
                         where_clause_ser
                             .predicates

@@ -232,5 +232,5 @@ fn test_deser_phantom_zero_copy() {
 
     // The phantom field should be PhantomDeserData<&[i32]> (the DeserType of Vec<i32>)
     // We can't directly compare PhantomData types, but we can verify the deserialization worked
-    let _phantom_check: PhantomDeserData<&[i32]> = eps.phantom;
+    let _phantom_check: PhantomDeserData<[i32; 4]> = eps.phantom;
 }
