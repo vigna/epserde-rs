@@ -64,13 +64,7 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PhantomDeserData<T: ?Sized>(PhantomData<T>);
-
-impl<T: ?Sized> PhantomDeserData<T> {
-    pub fn new() -> Self {
-        PhantomDeserData(PhantomData)
-    }
-}
+pub struct PhantomDeserData<T: ?Sized>(pub PhantomData<T>);
 
 impl<T: ?Sized + DeserializeInner> PhantomDeserData<T> {
     #[inline(always)]
