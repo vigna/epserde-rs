@@ -210,6 +210,16 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     (is_repr_c, is_zero_copy, is_deep_copy)
 }
 
+/// Check if a type is PhantomDeserData
+fn is_phantom_deser_data(ty: &syn::Type) -> bool {
+    if let syn::Type::Path(type_path) = ty {
+        if let Some(segment) = type_path.path.segments.last() {
+            return segment.ident == "PhantomDeserData";
+        }
+    }
+    false
+}
+
 /// Generate an ε-serde implementation for custom types.
 ///
 /// It generates implementations for the traits `CopyType`,
@@ -291,10 +301,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             let mut methods: Vec<proc_macro2::TokenStream> = vec![];
 
             s.fields.iter().for_each(|field| {
-                let ty = &field.ty.to_token_stream().to_string();
-                if ty.starts_with("PhantomDeserData") {
+                if is_phantom_deser_data(&field.ty) {
                     methods.push(syn::parse_quote!(_deserialize_eps_inner_special));
-                } else if generics_names_raw.contains(ty) {
+                } else if generics_names_raw.contains(&field.ty.to_token_stream().to_string()) {
                     methods.push(syn::parse_quote!(_deserialize_eps_inner));
                 } else {
                     methods.push(syn::parse_quote!(_deserialize_full_inner));
@@ -610,11 +619,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                     bounds: bounds_des,
                             }));
 
-                            // TODO don't do just string comparison
-                            let ty = ty.to_token_stream().to_string();
-                            if ty.starts_with("PhantomDeserData") {
+                            if is_phantom_deser_data(&ty) {
                                 methods.push(syn::parse_quote!(_deserialize_eps_inner_special));
-                            } else if generics_names_raw.contains(&ty) {
+                            } else if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
                                 methods.push(syn::parse_quote!(_deserialize_eps_inner));
                             } else {
                                 methods.push(syn::parse_quote!(_deserialize_full_inner));
