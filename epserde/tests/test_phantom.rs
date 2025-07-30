@@ -160,7 +160,7 @@ fn test_only_phantom() {
 struct DataWithPhantomDeserData<T> {
     data: T,
     // This will deserialize to PhantomData<T::DeserType<'a>>
-    phantom: PhantomDeserData<PhantomData<T>>,
+    phantom: PhantomDeserData<T>,
 }
 
 /// Test that PhantomDeserData works correctly with generic types that are transformed during deserialization.
@@ -193,5 +193,5 @@ fn test_deser_phantom() {
 
     // The phantom field should be PhantomData<&[i32]> (the DeserType of Vec<i32>)
     // We can't directly compare PhantomData types, but we can verify the deserialization worked
-    let _phantom_check: PhantomDeserData<PhantomData<&[i32]>> = eps.phantom;
+    let _phantom_check: PhantomDeserData<&[i32]> = eps.phantom;
 }

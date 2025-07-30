@@ -11,7 +11,7 @@
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 extern crate alloc;
 
-use core::{hash::Hash, marker::PhantomData};
+use core::{hash::Hash, marker::PhantomData, mem::transmute};
 
 #[cfg(feature = "derive")]
 pub use epserde_derive::{Epserde, TypeInfo};
@@ -69,6 +69,21 @@ pub struct PhantomDeserData<T: ?Sized>(PhantomData<T>);
 impl<T: ?Sized> PhantomDeserData<T> {
     pub fn new() -> Self {
         PhantomDeserData(PhantomData)
+    }
+}
+
+impl<T: ?Sized + DeserializeInner> PhantomDeserData<T> {
+    #[inline(always)]
+    pub unsafe fn _deserialize_eps_inner_special<'a>(
+        _backend: &mut SliceWithPos<'a>,
+    ) -> deser::Result<PhantomDeserData<T::DeserType<'a>>> {
+        // SAFETY: types are zero-length
+        Ok(unsafe {
+            transmute::<
+                <PhantomDeserData<T> as DeserializeInner>::DeserType<'a>,
+                PhantomDeserData<T::DeserType<'a>>,
+            >(PhantomDeserData(PhantomData))
+        })
     }
 }
 

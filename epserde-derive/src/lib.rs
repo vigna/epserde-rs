@@ -292,7 +292,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
             s.fields.iter().for_each(|field| {
                 let ty = &field.ty.to_token_stream().to_string();
-                if generics_names_raw.contains(ty) || ty.starts_with("PhantomDeserData") {
+                if ty.starts_with("PhantomDeserData") {
+                    methods.push(syn::parse_quote!(_deserialize_eps_inner_special));
+                } else if generics_names_raw.contains(ty) {
                     methods.push(syn::parse_quote!(_deserialize_eps_inner));
                 } else {
                     methods.push(syn::parse_quote!(_deserialize_full_inner));
@@ -608,7 +610,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                     bounds: bounds_des,
                             }));
 
-                            if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                            // TODO don't do just string comparison
+                            let ty = ty.to_token_stream().to_string();
+                            if ty.starts_with("PhantomDeserData") {
+                                methods.push(syn::parse_quote!(_deserialize_eps_inner_special));
+                            } else if generics_names_raw.contains(&ty) {
                                 methods.push(syn::parse_quote!(_deserialize_eps_inner));
                             } else {
                                 methods.push(syn::parse_quote!(_deserialize_full_inner));
