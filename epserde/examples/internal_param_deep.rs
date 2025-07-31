@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/// Example of an internal parameter of a deep-copy structure, which
-/// is left untouched, but needs some decoration to be used.
+/// Example of a deep-copy internal parameter, which is left untouched, but
+/// needs some decoration to be used.
 use epserde::prelude::*;
 use maligned::A16;
 

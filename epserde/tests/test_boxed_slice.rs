@@ -14,10 +14,11 @@ struct Data<A: PartialEq = usize, const Q: usize = 3> {
     b: [i32; Q],
 }
 
-#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+/*#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct B<C: PartialEq> {
     c: C,
 }
+*/
 
 #[test]
 fn test_boxed_slices() -> Result<()> {

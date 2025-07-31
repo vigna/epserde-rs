@@ -8,8 +8,8 @@
 use epserde::prelude::*;
 use maligned::A16;
 
-/// Example of an internal parameter of a zero-copy structure,
-/// which is left untouched, but needs some decoration to be used.
+/// Example of a zero-copy internal parameter, which is left untouched, but
+/// needs some decoration to be used.
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A: ZeroCopy> {
     a: Vec<A>,
