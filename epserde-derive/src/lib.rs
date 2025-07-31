@@ -393,40 +393,40 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     // Note that types_with_generics contains also field types
                     // *containing* a type parameter, but that just slows down
                     // the search.
-                    if ! t.bounds.is_empty() &&
+                    //
+                    // In zero-copy types we do not need to add bounds to
+                    // the associated SerType/DeserType, as generics are not
+                    // replaced with their SerType/DeserType.
+                    if  ! is_zero_copy && ! t.bounds.is_empty() &&
                         types_with_generics.iter().any(|x| *ty == x.to_token_stream().to_string()) {
 
-                        // In zero-copy types we do not need to add bounds to
-                        // DeserTypes, as generics are not replaced with their
-                        // DeserType.
-                        if ! is_zero_copy {    
-                            let mut lifetimes = Punctuated::new();
-                            // Add a lifetime so we express bounds on DeserType
-                            lifetimes.push(GenericParam::Lifetime(LifetimeParam {
-                                attrs: vec![],
-                                lifetime: syn::Lifetime::new("'epserde_desertype", proc_macro2::Span::call_site()),
-                                colon_token: None,
-                                bounds: Punctuated::new(),
-                            }));
-                            // Add the type bounds to the DeserType
-                            where_clause_des
-                                .predicates
-                                .push(WherePredicate::Type(PredicateType {
-                                    lifetimes: Some(BoundLifetimes {
-                                        for_token: token::For::default(),
-                                        lt_token: token::Lt::default(),
-                                        lifetimes,
-                                        gt_token: token::Gt::default(),
-                                    }),
-                                    bounded_ty: syn::parse_quote!(
-                                        <#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
-                                    ),
-                                    colon_token: token::Colon::default(),
-                                    bounds: t.bounds.clone(),
-                            }));
-                        }
+                        let mut lifetimes = Punctuated::new();
+                        // Add a lifetime so we express bounds on DeserType
+                        lifetimes.push(GenericParam::Lifetime(LifetimeParam {
+                            attrs: vec![],
+                            lifetime: syn::Lifetime::new("'epserde_desertype", proc_macro2::Span::call_site()),
+                            colon_token: None,
+                            bounds: Punctuated::new(),
+                        }));
+                        // Add the type bounds to the DeserType
+                        where_clause_des
+                            .predicates
+                            .push(WherePredicate::Type(PredicateType {
+                                lifetimes: Some(BoundLifetimes {
+                                    for_token: token::For::default(),
+                                    lt_token: token::Lt::default(),
+                                    lifetimes,
+                                    gt_token: token::Gt::default(),
+                                }),
+                                bounded_ty: syn::parse_quote!(
+                                    <#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
+                                ),
+                                colon_token: token::Colon::default(),
+                                bounds: t.bounds.clone(),
+                        }));
+                    
                         // Add the type bounds to the SerType
-                        if ! is_zero_copy{where_clause_ser
+                        where_clause_ser
                             .predicates
                             .push(WherePredicate::Type(PredicateType {
                                 lifetimes: None,
@@ -435,7 +435,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                 ),
                                 colon_token: token::Colon::default(),
                                 bounds: t.bounds.clone(),
-                        }));}
+                        }));
                     }
                 }
             });
