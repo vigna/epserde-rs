@@ -643,11 +643,14 @@ The same happens if you deserialize a zero-copy struct containing a single field
 of primitive type.
 
 Deep-copy types instead are serialized and deserialized recursively, field by
-field. The basic idea in ε-serde is that *if a field has a type that is a
-parameter, during ε-copy deserialization the type will be replaced with its
-deserialization type*. Since the deserialization type is defined recursively,
-replacement can happen at any depth level. For example, a field of type `A =
-Vec<Vec<Vec<usize>>>` will be deserialized as a `A = Vec<Vec<&[usize]>>`.
+field. The basic idea in ε-serde is that *if the type of a field is a parameter,
+during ε-copy deserialization the type will be replaced with its deserialization
+type*. Since the deserialization type is defined recursively, replacement can
+happen at any depth level. For example, a field of type `A =
+Vec<Vec<Vec<usize>>>` will be deserialized as a `A = Vec<Vec<&[usize]>>`. Note,
+however, that field types are not replaced if they are not type parameters: a
+field of type `Vec<T>` will always be deserialized as a `Vec<T>`, even if `T` is
+[`ZeroCopy`].
 
 This approach makes it possible to write ε-serde-aware structures that hide from
 the user the substitution. A good example is the `BitFieldVec` structure from
