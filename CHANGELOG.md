@@ -20,6 +20,12 @@
 * ε-copy deserialization of primitive types will return an error on EOF
   instead of panicking.
 
+* Since the beginning, associated (de)serialization types of zero-copy
+  types where built by the derive code using associated (de)serialization
+  types of their generic type parameters, but this is not correct and does
+  not always work, as the associated (de)serialization type of zero-copy
+  type is just `Self`.
+
 ## [0.8.0] - 2025-03-03
 
 ### New
