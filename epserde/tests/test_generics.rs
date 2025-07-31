@@ -136,3 +136,10 @@ fn test_types_zero_copy_param() {
     let _test: <ZeroCopyParam<[i32; 4]> as DeserializeInner>::DeserType<'_> =
         &ZeroCopyParam { data: [1, 2, 3, 4] };
 }
+
+// Check that bounds are proparagated to associated
+// (de)serialization types.
+#[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone)]
+enum DeepCopyEnumParam<T: ZeroCopy> {
+    A(T),
+}
