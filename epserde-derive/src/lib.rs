@@ -210,6 +210,16 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     (is_repr_c, is_zero_copy, is_deep_copy)
 }
 
+/// Check if a type is PhantomDeserData
+fn is_phantom_deser_data(ty: &syn::Type) -> bool {
+    if let syn::Type::Path(type_path) = ty {
+        if let Some(segment) = type_path.path.segments.last() {
+            return segment.ident == "PhantomDeserData";
+        }
+    }
+    false
+}
+
 /// Generate an ε-serde implementation for custom types.
 ///
 /// It generates implementations for the traits `CopyType`,
@@ -291,8 +301,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             let mut methods: Vec<proc_macro2::TokenStream> = vec![];
 
             s.fields.iter().for_each(|field| {
-                let ty = &field.ty;
-                if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                if is_phantom_deser_data(&field.ty) {
+                    methods.push(syn::parse_quote!(_deserialize_eps_inner_special));
+                } else if generics_names_raw.contains(&field.ty.to_token_stream().to_string()) {
                     methods.push(syn::parse_quote!(_deserialize_eps_inner));
                 } else {
                     methods.push(syn::parse_quote!(_deserialize_full_inner));
@@ -369,62 +380,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 })
                 .collect::<Vec<_>>();
 
-            // If there are bounded type parameters which are fields of the
-            // struct, we need to impose the same bounds on the SerType and on
-            // the DeserType.
-            derive_input.generics.params.iter().for_each(|param| {
-                if let GenericParam::Type(t) = param {
-                    let ty = &t.ident;
-
-                    // We are just interested in types with bounds that are
-                    // types of fields of the struct.
-                    //
-                    // Note that types_with_generics contains also field types
-                    // *containing* a type parameter, but that just slows down
-                    // the search.
-                    if ! t.bounds.is_empty() &&
-                        types_with_generics.iter().any(|x| *ty == x.to_token_stream().to_string()) {
-
-                        // Add a lifetime so we express bounds on DeserType
-                        let mut lifetimes = Punctuated::new();
-                        lifetimes.push(GenericParam::Lifetime(LifetimeParam {
-                            attrs: vec![],
-                            lifetime: syn::Lifetime::new("'epserde_desertype", proc_macro2::Span::call_site()),
-                            colon_token: None,
-                            bounds: Punctuated::new(),
-                        }));
-                        // Add the type bounds to the DeserType
-                        where_clause_des
-                            .predicates
-                            .push(WherePredicate::Type(PredicateType {
-                                lifetimes: Some(BoundLifetimes {
-                                    for_token: token::For::default(),
-                                    lt_token: token::Lt::default(),
-                                    lifetimes,
-                                    gt_token: token::Gt::default(),
-                                }),
-                                bounded_ty: syn::parse_quote!(
-                                    <#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
-                                ),
-                                colon_token: token::Colon::default(),
-                                bounds: t.bounds.clone(),
-                        }));
-                        // Add the type bounds to the SerType
-                        where_clause_ser
-                            .predicates
-                            .push(WherePredicate::Type(PredicateType {
-                                lifetimes: None,
-                                bounded_ty: syn::parse_quote!(
-                                    <#ty as epserde::ser::SerializeInner>::SerType
-                                ),
-                                colon_token: token::Colon::default(),
-                                bounds: t.bounds.clone(),
-                        }));
-                    }
-                }
-            });
-
             if is_zero_copy {
+                // In zero-copy types we do not need to add bounds to
+                // the associated SerType/DeserType, as generics are not
+                // replaced with their SerType/DeserType.
+
                 quote! {
                     #[automatically_derived]
                     impl<#impl_generics> epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
@@ -433,7 +393,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     #[automatically_derived]
                     impl<#generics_serialize> epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
-                        type SerType =  #name<#(#ser_type_generics),*>;
+                        type SerType = Self;
                         // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
                             && <#fields_types>::IS_ZERO_COPY
@@ -463,7 +423,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
 
-                        type DeserType<'epserde_desertype> = &'epserde_desertype #name<#concat_generics>;
+                        type DeserType<'epserde_desertype> = &'epserde_desertype Self;
 
                         unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
@@ -474,6 +434,62 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
                 }
             } else {
+                // If there are bounded type parameters which are fields of the
+                // struct, we need to impose the same bounds on the SerType and on
+                // the DeserType.
+                derive_input.generics.params.iter().for_each(|param| {
+                    if let GenericParam::Type(t) = param {
+                        let ty = &t.ident;
+
+                        // We are just interested in types with bounds that are
+                        // types of fields of the struct.
+                        //
+                        // Note that types_with_generics contains also field types
+                        // *containing* a type parameter, but that just slows down
+                        // the search.
+                        if ! t.bounds.is_empty() &&
+                            types_with_generics.iter().any(|x| *ty == x.to_token_stream().to_string()) {
+
+                            let mut lifetimes = Punctuated::new();
+                            // Add a lifetime so we express bounds on DeserType
+                            lifetimes.push(GenericParam::Lifetime(LifetimeParam {
+                                attrs: vec![],
+                                lifetime: syn::Lifetime::new("'epserde_desertype", proc_macro2::Span::call_site()),
+                                colon_token: None,
+                                bounds: Punctuated::new(),
+                            }));
+                            // Add the type bounds to the DeserType
+                            where_clause_des
+                                .predicates
+                                .push(WherePredicate::Type(PredicateType {
+                                    lifetimes: Some(BoundLifetimes {
+                                        for_token: token::For::default(),
+                                        lt_token: token::Lt::default(),
+                                        lifetimes,
+                                        gt_token: token::Gt::default(),
+                                    }),
+                                    bounded_ty: syn::parse_quote!(
+                                        <#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
+                                    ),
+                                    colon_token: token::Colon::default(),
+                                    bounds: t.bounds.clone(),
+                            }));
+
+                            // Add the type bounds to the SerType
+                            where_clause_ser
+                                .predicates
+                                .push(WherePredicate::Type(PredicateType {
+                                    lifetimes: None,
+                                    bounded_ty: syn::parse_quote!(
+                                        <#ty as epserde::ser::SerializeInner>::SerType
+                                    ),
+                                    colon_token: token::Colon::default(),
+                                    bounds: t.bounds.clone(),
+                            }));
+                        }
+                    }
+                });
+
                 quote! {
                     #[automatically_derived]
                     impl<#impl_generics> epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
@@ -608,7 +624,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                     bounds: bounds_des,
                             }));
 
-                            if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+                            if is_phantom_deser_data(&ty) {
+                                methods.push(syn::parse_quote!(_deserialize_eps_inner_special));
+                            } else if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
                                 methods.push(syn::parse_quote!(_deserialize_eps_inner));
                             } else {
                                 methods.push(syn::parse_quote!(_deserialize_full_inner));
@@ -760,7 +778,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
                     #[automatically_derived]
                     impl<#generics_serialize> epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
-                        type SerType =  #name<#(#ser_type_generics,)*>;
+                        type SerType = Self;
 
                         // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
@@ -788,7 +806,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
 
-                        type DeserType<'epserde_desertype> = &'epserde_desertype #name<#concat_generics>;
+                        type DeserType<'epserde_desertype> = &'epserde_desertype Self;
 
                         unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
@@ -799,6 +817,62 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
                 }
             } else {
+                // If there are bounded type parameters which are fields of the
+                // struct, we need to impose the same bounds on the SerType and on
+                // the DeserType.
+                derive_input.generics.params.iter().for_each(|param| {
+                    if let GenericParam::Type(t) = param {
+                        let ty = &t.ident;
+
+                        // We are just interested in types with bounds that are
+                        // types of fields of the struct.
+                        //
+                        // Note that types_with_generics contains also field types
+                        // *containing* a type parameter, but that just slows down
+                        // the search.
+                        if ! t.bounds.is_empty() &&
+                            types_with_generics.iter().any(|x| *ty == x.to_token_stream().to_string()) {
+
+                            let mut lifetimes = Punctuated::new();
+                            // Add a lifetime so we express bounds on DeserType
+                            lifetimes.push(GenericParam::Lifetime(LifetimeParam {
+                                attrs: vec![],
+                                lifetime: syn::Lifetime::new("'epserde_desertype", proc_macro2::Span::call_site()),
+                                colon_token: None,
+                                bounds: Punctuated::new(),
+                            }));
+                            // Add the type bounds to the DeserType
+                            where_clause_des
+                                .predicates
+                                .push(WherePredicate::Type(PredicateType {
+                                    lifetimes: Some(BoundLifetimes {
+                                        for_token: token::For::default(),
+                                        lt_token: token::Lt::default(),
+                                        lifetimes,
+                                        gt_token: token::Gt::default(),
+                                    }),
+                                    bounded_ty: syn::parse_quote!(
+                                        <#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
+                                    ),
+                                    colon_token: token::Colon::default(),
+                                    bounds: t.bounds.clone(),
+                            }));
+
+                            // Add the type bounds to the SerType
+                            where_clause_ser
+                                .predicates
+                                .push(WherePredicate::Type(PredicateType {
+                                    lifetimes: None,
+                                    bounded_ty: syn::parse_quote!(
+                                        <#ty as epserde::ser::SerializeInner>::SerType
+                                    ),
+                                    colon_token: token::Colon::default(),
+                                    bounds: t.bounds.clone(),
+                            }));
+                        }
+                    }
+                });
+
                 quote! {
                     #[automatically_derived]
                     impl<#impl_generics> epserde::traits::CopyType for  #name<#concat_generics> #where_clause {

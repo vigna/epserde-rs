@@ -101,3 +101,45 @@ fn test_consts() {
     let eps = unsafe { <Data3<12>>::deserialize_eps(cursor.as_bytes()) };
     assert!(eps.is_err());
 }
+
+#[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
+struct DeepCopyParam<T> {
+    data: T,
+}
+
+#[test]
+fn test_types_deep_copy_param() {
+    let _test_usize: <DeepCopyParam<usize> as SerializeInner>::SerType = DeepCopyParam { data: 0 };
+    let _test: <DeepCopyParam<usize> as DeserializeInner>::DeserType<'_> =
+        DeepCopyParam { data: 0 };
+    let _test_array: <DeepCopyParam<[i32; 4]> as SerializeInner>::SerType =
+        DeepCopyParam { data: [1, 2, 3, 4] };
+    let _test: <DeepCopyParam<[i32; 4]> as DeserializeInner>::DeserType<'_> = DeepCopyParam {
+        data: &[1, 2, 3, 4],
+    };
+}
+
+#[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
+#[repr(C)]
+#[zero_copy]
+struct ZeroCopyParam<T: ZeroCopy> {
+    data: T,
+}
+
+#[test]
+fn test_types_zero_copy_param() {
+    let _test_usize: <ZeroCopyParam<usize> as SerializeInner>::SerType = ZeroCopyParam { data: 0 };
+    let _test: <ZeroCopyParam<usize> as DeserializeInner>::DeserType<'_> =
+        &ZeroCopyParam { data: 0 };
+    let _test_array: <ZeroCopyParam<[i32; 4]> as SerializeInner>::SerType =
+        ZeroCopyParam { data: [1, 2, 3, 4] };
+    let _test: <ZeroCopyParam<[i32; 4]> as DeserializeInner>::DeserType<'_> =
+        &ZeroCopyParam { data: [1, 2, 3, 4] };
+}
+
+// Check that bounds are proparagated to associated
+// (de)serialization types.
+#[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone)]
+enum DeepCopyEnumParam<T: ZeroCopy> {
+    A(T),
+}
