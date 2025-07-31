@@ -137,8 +137,8 @@ fn test_types_zero_copy_param() {
         &ZeroCopyParam { data: [1, 2, 3, 4] };
 }
 
-// Check that bounds are proparagated to associated
-// (de)serialization types.
+// Check that bounds are propagated to associated (de)serialization types.
+#[allow(dead_code)]
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone)]
 enum DeepCopyEnumParam<T: ZeroCopy> {
     A(T),
