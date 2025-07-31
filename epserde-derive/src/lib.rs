@@ -426,7 +426,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             }));
                         }
                         // Add the type bounds to the SerType
-                        where_clause_ser
+                        if ! is_zero_copy{where_clause_ser
                             .predicates
                             .push(WherePredicate::Type(PredicateType {
                                 lifetimes: None,
@@ -435,7 +435,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                 ),
                                 colon_token: token::Colon::default(),
                                 bounds: t.bounds.clone(),
-                        }));
+                        }));}
                     }
                 }
             });
