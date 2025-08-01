@@ -108,7 +108,7 @@ These are the main limitations you should be aware of before choosing to use
   generated at deserialization time is stored in newly allocated memory. This is
   not the case with [Abomonation].
 
-## Example: Zero copy of standard types
+## Example: Zero-copy of standard types
 
 Let us start with the simplest case: data that can be zero-copy deserialized. In
 this case, we serialize an array of a thousand zeros, and get back a reference
@@ -664,6 +664,17 @@ the hood because `BitFieldVec` is ε-serde-aware, and in fact you will not even
 notice the difference if you access both versions using the trait
 `BitFieldSlice`.
 
+## [`PhantomData`]
+
+[`PhantomData`] undergoes a special treatment: its type parameter `T` does not
+have to be (de)serializable or sized—it is sufficient that it implements
+[`TypeHash`]. Moreover, `T` is not replaced with its associated
+(de)serialization type.
+
+There might be corner cases in which `T` appears both as a parameter of
+[`PhantomData`] and as a type parameter of a field of a type. In this case, you
+can use [`PhantomDeserData`] instead of [`PhantomData`].
+
 ## MemDbg / MemSize
 
 All ε-serde structures implement the [`MemDbg`] and [`MemSize`] traits.
@@ -723,3 +734,4 @@ European Union nor the Italian MUR can be held responsible for them.
 [`PhantomData`]: <https://doc.rust-lang.org/std/marker/struct.PhantomData.html>
 [`Iterator`]: <https://doc.rust-lang.org/std/iter/trait.Iterator.html>
 [`SerIter`]: <https://docs.rs/epserde/latest/epserde/impls/iter/struct.SerIter.html>
+[`PhantomDeserData`]: <https://docs.rs/epserde/latest/epserde/struct.PhantomDeserData.html>

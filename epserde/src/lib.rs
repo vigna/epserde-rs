@@ -45,6 +45,7 @@ pub mod prelude {
     pub use crate::ser::SerializeInner;
     pub use crate::traits::*;
     pub use crate::utils::*;
+    pub use crate::PhantomDeserData;
     #[cfg(feature = "derive")]
     pub use epserde_derive::Epserde;
 }
@@ -63,6 +64,37 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
     value.wrapping_neg() & (align_to - 1)
 }
 
+/// A type semantically equivalent to [`PhantomData`], but whose type parameter
+/// is replaced with its associated deserialization type.
+///
+/// In some case, you might find yourself with a deep-copy type that has a type
+/// parameter `T` appearing both in a field and in a [`PhantomData`]. In this
+/// case, the type will not compile, as in its associated deserialization type
+/// `T` will be replaced by `T::DeserType`, but the [`PhantomData`] field will
+/// still contain `T`. To fix this issue, you can use [`PhantomDeserData`]
+/// instead.
+///
+/// # Examples
+///
+/// This code will not compile:
+/// ```compile_fail
+/// use epserde::prelude::*;
+/// #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
+/// struct Data<T> {
+///     data: T,
+///     phantom: PhantomData<T>,
+/// }
+/// ```
+///
+/// This code, instead, will compile:
+/// ```
+/// use epserde::prelude::*;
+/// #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
+/// struct Data<T> {
+///     data: T,
+///     phantom: PhantomDeserData<T>,
+/// }
+/// ```
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PhantomDeserData<T: ?Sized>(pub PhantomData<T>);
 

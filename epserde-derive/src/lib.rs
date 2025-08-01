@@ -793,6 +793,10 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             let tag = (0..variants.len()).collect::<Vec<_>>();
 
             if is_zero_copy {
+                // In zero-copy types we do not need to add bounds to
+                // the associated SerType/DeserType, as generics are not
+                // replaced with their SerType/DeserType.
+
                 quote! {
                     #[automatically_derived]
                     impl<#impl_generics> epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
