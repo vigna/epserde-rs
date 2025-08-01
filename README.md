@@ -650,7 +650,9 @@ happen at any depth level. For example, a field of type `A =
 Vec<Vec<Vec<usize>>>` will be deserialized as a `A = Vec<Vec<&[usize]>>`. Note,
 however, that field types are not replaced if they are not type parameters: a
 field of type `Vec<T>` will always be deserialized as a `Vec<T>`, even if `T` is
-[`ZeroCopy`].
+[`ZeroCopy`]. In particular, you cannot have `T` both as the type of a field and
+as a type parameter of another field (but see the exception below for
+[`PhantomData`]).
 
 This approach makes it possible to write ε-serde-aware structures that hide from
 the user the substitution. A good example is the `BitFieldVec` structure from
@@ -668,8 +670,7 @@ notice the difference if you access both versions using the trait
 
 [`PhantomData`] undergoes a special treatment: its type parameter `T` does not
 have to be (de)serializable or sized—it is sufficient that it implements
-[`TypeHash`]. Moreover, `T` is not replaced with its associated
-(de)serialization type.
+[`TypeHash`].
 
 There might be corner cases in which `T` appears both as a parameter of
 [`PhantomData`] and as a type parameter of a field of a type. In this case, you
