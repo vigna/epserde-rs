@@ -5,7 +5,7 @@
  */
 
 use bitflags::bitflags;
-use core::{mem::size_of, ops::Deref};
+use core::{borrow::Borrow, mem::size_of, ops::Deref};
 use maligned::A64;
 use mem_dbg::{MemDbg, MemSize};
 
@@ -135,6 +135,12 @@ impl<S> Deref for MemCase<S> {
 impl<S> AsRef<S> for MemCase<S> {
     #[inline(always)]
     fn as_ref(&self) -> &S {
+        &self.0
+    }
+}
+
+impl<S> Borrow<S> for MemCase<S> {
+    fn borrow(&self) -> &S {
         &self.0
     }
 }
