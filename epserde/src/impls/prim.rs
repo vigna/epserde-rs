@@ -67,7 +67,7 @@ macro_rules! impl_prim_ser_des {
             }
         }
 
-		impl DeserializeInner for $ty {
+		unsafe impl DeserializeInner for $ty {
             #[inline(always)]
             unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
                 let mut buf = [0; size_of::<$ty>()];
@@ -109,7 +109,7 @@ macro_rules! impl_nonzero_ser_des {
             }
         }
 
-		impl DeserializeInner for $ty {
+		unsafe impl DeserializeInner for $ty {
             #[inline(always)]
             unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
                 let mut buf = [0; size_of::<$ty>()];
@@ -179,7 +179,7 @@ impl SerializeInner for bool {
     }
 }
 
-impl DeserializeInner for bool {
+unsafe impl DeserializeInner for bool {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<bool> {
         Ok(u8::_deserialize_full_inner(backend)? != 0)
@@ -208,7 +208,7 @@ impl SerializeInner for char {
     }
 }
 
-impl DeserializeInner for char {
+unsafe impl DeserializeInner for char {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(char::from_u32(u32::_deserialize_full_inner(backend)?).unwrap())
@@ -235,7 +235,7 @@ impl SerializeInner for () {
     }
 }
 
-impl DeserializeInner for () {
+unsafe impl DeserializeInner for () {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(())
@@ -288,7 +288,7 @@ impl<T: ?Sized> SerializeInner for PhantomData<T> {
     }
 }
 
-impl<T: ?Sized> DeserializeInner for PhantomData<T> {
+unsafe impl<T: ?Sized> DeserializeInner for PhantomData<T> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomData::<T>)
@@ -339,7 +339,7 @@ impl<T: SerializeInner + TypeHash + AlignHash> SerializeInner for Option<T> {
     }
 }
 
-impl<T: DeserializeInner> DeserializeInner for Option<T> {
+unsafe impl<T: DeserializeInner> DeserializeInner for Option<T> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let tag = u8::_deserialize_full_inner(backend)?;

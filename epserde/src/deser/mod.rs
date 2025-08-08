@@ -64,6 +64,8 @@ pub type DeserType<'a, T> = <T as DeserializeInner>::DeserType<'a>;
 ///   incompatible structures using the same code, or cause undefined behavior
 ///   by loading data with an incorrect alignment.
 /// - Memory-mapped files might be modified externally.
+/// - [`Self::DeserType`] must be covariant (ie. behave like a structure,
+///   not a closure with a generic argument)
 pub trait Deserialize: DeserializeInner {
     /// Fully deserialize a structure of this type from the given backend.
     ///
@@ -253,7 +255,11 @@ pub trait Deserialize: DeserializeInner {
 /// the user from modifying the methods in [`Deserialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait DeserializeInner: Sized {
+///
+/// # Safety
+///
+/// See [`Deserialize`]
+pub unsafe trait DeserializeInner: Sized {
     /// The deserialization type associated with this type. It can be
     /// retrieved conveniently with the alias [`DeserType`].
     type DeserType<'a>;

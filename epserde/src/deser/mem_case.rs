@@ -139,7 +139,6 @@ impl<'a, S: DeserializeInner> MemCase<'a, S> {
     pub fn borrow<'this>(&'this self) -> &'this <S as DeserializeInner>::DeserType<'this> {
         // SAFETY: 'a outlives 'this, and <S as DeserializeInner>::DeserType is required to be
         // covariant (ie. it's a normal structure and not, say, a closure with 'this as argument)
-        // TODO: document in DeserializeInner that its DeserType must be covariant
         unsafe {
             core::mem::transmute::<
                 &'this <S as DeserializeInner>::DeserType<'a>,
