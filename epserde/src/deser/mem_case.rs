@@ -4,8 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use crate::DeserializeInner;
 use bitflags::bitflags;
-use core::{mem::size_of, ops::Deref};
+use core::{fmt, mem::size_of};
 use maligned::A64;
 use mem_dbg::{MemDbg, MemSize};
 
@@ -111,36 +112,42 @@ impl MemBackend {
 /// wrapped type, using the no-op [`None`](`MemBackend#variant.None`) variant
 /// of [`MemBackend`], so a structure can be [encased](MemCase::encase)
 /// almost transparently.
-#[derive(Debug, MemDbg, MemSize)]
-pub struct MemCase<S>(pub(crate) S, pub(crate) MemBackend);
+#[derive(MemDbg, MemSize)]
+pub struct MemCase<'a, S: DeserializeInner>(
+    pub(crate) <S as DeserializeInner>::DeserType<'a>,
+    pub(crate) MemBackend,
+);
 
-impl<S> MemCase<S> {
+impl<'a, S: DeserializeInner> fmt::Debug for MemCase<'a, S>
+where
+    <S as DeserializeInner>::DeserType<'a>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("MemBackend")
+            .field(&self.0)
+            .field(&self.1)
+            .finish()
+    }
+}
+
+impl<'a, S: DeserializeInner> MemCase<'a, S> {
     /// Encases a data structure in a [`MemCase`] with no backend.
-    pub fn encase(s: S) -> MemCase<S> {
+    pub fn encase(s: <S as DeserializeInner>::DeserType<'a>) -> Self {
         MemCase(s, MemBackend::None)
     }
-}
 
-unsafe impl<S: Send> Send for MemCase<S> {}
-unsafe impl<S: Sync> Sync for MemCase<S> {}
-
-impl<S> Deref for MemCase<S> {
-    type Target = S;
-    #[inline(always)]
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    pub fn borrow<'this>(&'this self) -> &'this <S as DeserializeInner>::DeserType<'this> {
+        // SAFETY: 'a outlives 'this, and <S as DeserializeInner>::DeserType is required to be
+        // covariant (ie. it's a normal structure and not, say, a closure with 'this as argument)
+        // TODO: document in DeserializeInner that its DeserType must be covariant
+        unsafe {
+            core::mem::transmute::<
+                &'this <S as DeserializeInner>::DeserType<'a>,
+                &'this <S as DeserializeInner>::DeserType<'this>,
+            >(&self.0)
+        }
     }
 }
 
-impl<S> AsRef<S> for MemCase<S> {
-    #[inline(always)]
-    fn as_ref(&self) -> &S {
-        &self.0
-    }
-}
-
-impl<S: Send + Sync> From<S> for MemCase<S> {
-    fn from(s: S) -> Self {
-        MemCase::encase(s)
-    }
-}
+unsafe impl<'a, S: DeserializeInner + Send> Send for MemCase<'a, S> {}
+unsafe impl<'a, S: DeserializeInner + Sync> Sync for MemCase<'a, S> {}
