@@ -113,14 +113,14 @@ impl MemBackend {
 /// of [`MemBackend`], so a structure can be [encased](MemCase::encase)
 /// almost transparently.
 #[derive(MemDbg, MemSize)]
-pub struct MemCase<'a, S: DeserializeInner>(
-    pub(crate) <S as DeserializeInner>::DeserType<'a>,
+pub struct MemCase<S: DeserializeInner>(
+    pub(crate) <S as DeserializeInner>::DeserType<'static>,
     pub(crate) MemBackend,
 );
 
-impl<'a, S: DeserializeInner> fmt::Debug for MemCase<'a, S>
+impl<S: DeserializeInner> fmt::Debug for MemCase<S>
 where
-    <S as DeserializeInner>::DeserType<'a>: fmt::Debug,
+    <S as DeserializeInner>::DeserType<'static>: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("MemBackend")
@@ -130,23 +130,23 @@ where
     }
 }
 
-impl<'a, S: DeserializeInner> MemCase<'a, S> {
+impl<S: DeserializeInner> MemCase<S> {
     /// Encases a data structure in a [`MemCase`] with no backend.
-    pub fn encase(s: <S as DeserializeInner>::DeserType<'a>) -> Self {
+    pub fn encase(s: <S as DeserializeInner>::DeserType<'static>) -> Self {
         MemCase(s, MemBackend::None)
     }
 
     pub fn borrow<'this>(&'this self) -> &'this <S as DeserializeInner>::DeserType<'this> {
-        // SAFETY: 'a outlives 'this, and <S as DeserializeInner>::DeserType is required to be
+        // SAFETY: 'static outlives 'this, and <S as DeserializeInner>::DeserType is required to be
         // covariant (ie. it's a normal structure and not, say, a closure with 'this as argument)
         unsafe {
             core::mem::transmute::<
-                &'this <S as DeserializeInner>::DeserType<'a>,
+                &'this <S as DeserializeInner>::DeserType<'static>,
                 &'this <S as DeserializeInner>::DeserType<'this>,
             >(&self.0)
         }
     }
 }
 
-unsafe impl<'a, S: DeserializeInner + Send> Send for MemCase<'a, S> {}
-unsafe impl<'a, S: DeserializeInner + Sync> Sync for MemCase<'a, S> {}
+unsafe impl<S: DeserializeInner + Send> Send for MemCase<S> {}
+unsafe impl<S: DeserializeInner + Sync> Sync for MemCase<S> {}
