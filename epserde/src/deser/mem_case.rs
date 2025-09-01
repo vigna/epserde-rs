@@ -5,7 +5,7 @@
  */
 
 use bitflags::bitflags;
-use core::{mem::size_of, ops::Deref};
+use core::{marker::PhantomData, mem::size_of, ops::Deref};
 use maligned::A64;
 use mem_dbg::{MemDbg, MemSize};
 
@@ -101,6 +101,10 @@ impl MemBackend {
 /// it was deserialized from. [`MemCase`] instances can not be cloned, but references
 /// to such instances can be shared freely.
 ///
+/// The lifetime parameter `'a` represents the lifetime of the memory backing the data structure.
+/// For owned memory (heap-allocated or mmap), this is typically `'static`.
+/// For borrowed memory, this ties the `MemCase` to the lifetime of the source.
+///
 /// [`MemCase`] implements [`Deref`] and [`AsRef`] to the
 /// wrapped type, so it can be used almost transparently and
 /// with no performance cost. However,
@@ -112,19 +116,24 @@ impl MemBackend {
 /// of [`MemBackend`], so a structure can be [encased](MemCase::encase)
 /// almost transparently.
 #[derive(Debug, MemDbg, MemSize)]
-pub struct MemCase<S>(pub(crate) S, pub(crate) MemBackend);
+pub struct MemCase<'a, S>(
+    pub(crate) S,
+    pub(crate) MemBackend,
+    pub(crate) PhantomData<&'a ()>,
+);
 
-impl<S> MemCase<S> {
+impl<'a, S> MemCase<'a, S> {
     /// Encases a data structure in a [`MemCase`] with no backend.
-    pub fn encase(s: S) -> MemCase<S> {
-        MemCase(s, MemBackend::None)
+    /// Uses 'static lifetime since there's no external memory dependency.
+    pub fn encase(s: S) -> MemCase<'static, S> {
+        MemCase(s, MemBackend::None, PhantomData)
     }
 }
 
-unsafe impl<S: Send> Send for MemCase<S> {}
-unsafe impl<S: Sync> Sync for MemCase<S> {}
+unsafe impl<'a, S: Send> Send for MemCase<'a, S> {}
+unsafe impl<'a, S: Sync> Sync for MemCase<'a, S> {}
 
-impl<S> Deref for MemCase<S> {
+impl<'a, S> Deref for MemCase<'a, S> {
     type Target = S;
     #[inline(always)]
     fn deref(&self) -> &Self::Target {
@@ -132,14 +141,14 @@ impl<S> Deref for MemCase<S> {
     }
 }
 
-impl<S> AsRef<S> for MemCase<S> {
+impl<'a, S> AsRef<S> for MemCase<'a, S> {
     #[inline(always)]
     fn as_ref(&self) -> &S {
         &self.0
     }
 }
 
-impl<S: Send + Sync> From<S> for MemCase<S> {
+impl<S: Send + Sync> From<S> for MemCase<'static, S> {
     fn from(s: S) -> Self {
         MemCase::encase(s)
     }

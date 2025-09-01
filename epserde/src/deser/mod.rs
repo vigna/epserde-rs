@@ -19,6 +19,7 @@ which is automatically derived with `#[derive(Deserialize)]`.
 
 use crate::traits::*;
 use crate::{MAGIC, MAGIC_REV, VERSION};
+use core::marker::PhantomData;
 use core::mem::align_of;
 use core::ptr::addr_of_mut;
 use core::{hash::Hasher, mem::MaybeUninit};
@@ -99,9 +100,9 @@ pub trait Deserialize: DeserializeInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
-    unsafe fn load_mem<'a>(
+    unsafe fn load_mem(
         path: impl AsRef<Path>,
-    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
+    ) -> anyhow::Result<MemCase<'static, <Self as DeserializeInner>::DeserType<'static>>> {
         let align_to = align_of::<MemoryAlignment>();
         if align_of::<Self>() > align_to {
             return Err(Error::AlignmentError.into());
@@ -111,8 +112,9 @@ pub trait Deserialize: DeserializeInner {
         // Round up to u128 size
         let capacity = file_len + crate::pad_align_to(file_len, align_to);
 
-        let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
-            MaybeUninit::uninit();
+        let mut uninit: MaybeUninit<
+            MemCase<'static, <Self as DeserializeInner>::DeserType<'static>>,
+        > = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
         // SAFETY: the entire vector will be filled with data read from the file,
@@ -143,6 +145,10 @@ pub trait Deserialize: DeserializeInner {
         unsafe {
             addr_of_mut!((*ptr).1).write(backend);
         }
+        // store the PhantomData
+        unsafe {
+            addr_of_mut!((*ptr).2).write(PhantomData);
+        }
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_ref().unwrap() };
         let s = Self::deserialize_eps(mem)?;
@@ -167,16 +173,17 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
-    unsafe fn load_mmap<'a>(
+    unsafe fn load_mmap(
         path: impl AsRef<Path>,
         flags: Flags,
-    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
+    ) -> anyhow::Result<MemCase<'static, <Self as DeserializeInner>::DeserType<'static>>> {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let mut file = std::fs::File::open(path)?;
         let capacity = file_len + crate::pad_align_to(file_len, 16);
 
-        let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
-            MaybeUninit::uninit();
+        let mut uninit: MaybeUninit<
+            MemCase<'static, <Self as DeserializeInner>::DeserType<'static>>,
+        > = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
         let mut mmap = mmap_rs::MmapOptions::new(capacity)?
@@ -192,6 +199,10 @@ pub trait Deserialize: DeserializeInner {
         // store the backend inside the MemCase
         unsafe {
             addr_of_mut!((*ptr).1).write(backend);
+        }
+        // store the PhantomData
+        unsafe {
+            addr_of_mut!((*ptr).2).write(PhantomData);
         }
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_ref().unwrap() };
@@ -217,15 +228,16 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
-    unsafe fn mmap<'a>(
+    unsafe fn mmap(
         path: impl AsRef<Path>,
         flags: Flags,
-    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
+    ) -> anyhow::Result<MemCase<'static, <Self as DeserializeInner>::DeserType<'static>>> {
         let file_len = path.as_ref().metadata()?.len();
         let file = std::fs::File::open(path)?;
 
-        let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
-            MaybeUninit::uninit();
+        let mut uninit: MaybeUninit<
+            MemCase<'static, <Self as DeserializeInner>::DeserType<'static>>,
+        > = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
         let mmap = unsafe {
@@ -238,6 +250,10 @@ pub trait Deserialize: DeserializeInner {
         // store the backend inside the MemCase
         unsafe {
             addr_of_mut!((*ptr).1).write(MemBackend::Mmap(mmap));
+        }
+        // store the PhantomData
+        unsafe {
+            addr_of_mut!((*ptr).2).write(PhantomData);
         }
 
         let mmap = unsafe { (*ptr).1.as_ref().unwrap() };

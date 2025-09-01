@@ -81,3 +81,53 @@ fn test_mem_case() {
     // cleanup the file
     std::fs::remove_file("test.bin").unwrap();
 }
+
+#[cfg(feature = "mmap")]
+#[test]
+fn test_memcase_lifetime_safety() {
+    let v = vec![0u64, 10, 20, 30, 40];
+    let path = std::path::PathBuf::from("/tmp/test_lifetime_safety.vector");
+
+    // Serialize
+    unsafe { v.store(&path) }.expect("Could not write vector");
+
+    // Memory map the vector
+    let memcase =
+        unsafe { <Vec<u64>>::mmap(&path, Flags::RANDOM_ACCESS) }.expect("Could not mmap vector");
+
+    // This should work - borrowing within the same scope
+    {
+        let slice: &[u64] = &*memcase;
+        assert_eq!(slice, &[0u64, 10, 20, 30, 40]);
+    }
+
+    // The following code would NOT compile due to lifetime constraints:
+    // let slice: &[u64] = &*memcase;
+    // drop(memcase);
+    // println!("{:?}", slice); // <- This would be a compile error
+
+    // Clean up
+    std::fs::remove_file(&path).ok();
+}
+
+#[cfg(feature = "mmap")]
+#[test]
+fn test_memcase_deref_still_works() {
+    let v = vec![1u32, 2, 3, 4, 5];
+    let path = std::path::PathBuf::from("/tmp/test_deref_works.vector");
+
+    // Serialize
+    unsafe { v.store(&path) }.expect("Could not write vector");
+
+    // Memory map
+    let memcase =
+        unsafe { <Vec<u32>>::mmap(&path, Flags::RANDOM_ACCESS) }.expect("Could not mmap vector");
+
+    // Deref should still work for immediate use
+    assert_eq!(*memcase, &[1u32, 2, 3, 4, 5]);
+    assert_eq!(memcase.len(), 5);
+    assert_eq!(memcase[0], 1);
+
+    // Clean up
+    std::fs::remove_file(&path).ok();
+}
