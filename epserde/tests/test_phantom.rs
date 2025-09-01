@@ -32,7 +32,7 @@ fn test_phantom() {
     assert_eq!(obj, eps);
 }
 
-#[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Clone, Default)]
 struct DataFull<D> {
     a: usize,
     b: PhantomData<D>,
@@ -66,7 +66,7 @@ fn test_not_serializable_in_phantom() {
     assert_eq!(obj.a, eps.a);
 }
 
-#[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Yokeable, Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
 #[repr(C)]
 #[zero_copy]
 struct DataZero<A: Default + ZeroCopy> {
@@ -74,7 +74,7 @@ struct DataZero<A: Default + ZeroCopy> {
     b: PhantomData<A>,
 }
 
-#[derive(Epserde, Debug, Copy, PartialEq, Eq, Clone, Default)]
+#[derive(Yokeable, Epserde, Debug, Copy, PartialEq, Eq, Clone, Default)]
 #[repr(C)]
 #[zero_copy]
 struct ZeroCopyType;
@@ -103,7 +103,7 @@ fn test_phantom_zero_copy() {
     assert_eq!(obj.a, eps.a);
 }
 
-#[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Yokeable, Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
 #[repr(C)]
 #[zero_copy]
 struct OnlyPhantom<A: Default + ZeroCopy> {
@@ -155,7 +155,7 @@ fn test_only_phantom() {
     assert_eq!(vec, eps);
 }
 
-#[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Clone, Default)]
 struct DataWithPhantomDeserData<T> {
     data: T,
     phantom: PhantomDeserData<T>,
@@ -194,7 +194,7 @@ fn test_deser_phantom_deep_copy() {
     let _phantom_check: PhantomDeserData<&[i32]> = eps.phantom;
 }
 
-#[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Yokeable, Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
 #[repr(C)]
 #[zero_copy]
 struct DataZeroWithPhantomDeserData<T: ZeroCopy> {

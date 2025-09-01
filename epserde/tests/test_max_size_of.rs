@@ -6,7 +6,7 @@
 
 use epserde::prelude::*;
 use maligned::{A16, A64};
-#[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Yokeable, Epserde, Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 #[repr(align(32))]
 #[repr(align(64))] // The max wins
@@ -15,7 +15,7 @@ struct MyStruct64 {
     u: u32,
 }
 
-#[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Yokeable, Epserde, Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 #[repr(align(2))]
 #[zero_copy]
@@ -23,7 +23,7 @@ struct MyStruct2 {
     u: u32,
 }
 
-#[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Yokeable, Epserde, Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 #[zero_copy]
 struct MyStruct {

@@ -103,7 +103,7 @@ pub trait Deserialize: DeserializeInner {
         path: impl AsRef<Path>,
     ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>>
     where
-        for<'a> <Self as DeserializeInner>::DeserType<'a>: Yokeable<'a>;
+        for<'a> <Self as DeserializeInner>::DeserType<'static>: Yokeable<'a>;
 
     /// Load a file into `mmap()`-allocated memory and ε-deserialize a data structure from it,
     /// returning a [`Yoke`] containing the data structure and the
@@ -123,7 +123,7 @@ pub trait Deserialize: DeserializeInner {
         flags: Flags,
     ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>>
     where
-        for<'a> <Self as DeserializeInner>::DeserType<'a>: Yokeable<'a>;
+        for<'a> <Self as DeserializeInner>::DeserType<'static>: Yokeable<'a>;
 
     /// Memory map a file and ε-deserialize a data structure from it,
     /// returning a [`Yoke`] containing the data structure and the
@@ -143,7 +143,7 @@ pub trait Deserialize: DeserializeInner {
         flags: Flags,
     ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>>
     where
-        for<'a> <Self as DeserializeInner>::DeserType<'a>: Yokeable<'a>;
+        for<'a> <Self as DeserializeInner>::DeserType<'static>: Yokeable<'a>;
 }
 
 /// Inner trait to implement deserialization of a type. This trait exists
@@ -201,7 +201,10 @@ impl<T: TypeHash + AlignHash + DeserializeInner> Deserialize for T {
 
     unsafe fn load_mem(
         path: impl AsRef<Path>,
-    ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>> {
+    ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>>
+    where
+        for<'a> <Self as DeserializeInner>::DeserType<'static>: Yokeable<'a>,
+    {
         let align_to = align_of::<MemoryAlignment>();
         if align_of::<Self>() > align_to {
             return Err(Error::AlignmentError.into());
@@ -235,14 +238,18 @@ impl<T: TypeHash + AlignHash + DeserializeInner> Deserialize for T {
         // SAFETY: the vector is aligned to 16 bytes.
         let backend = MemBackend::Memory(aligned_vec.into_boxed_slice());
 
-        Yoke::try_attach_to_cart(backend, |bytes| Self::deserialize_eps(bytes)).map_err(|e| e.into())
+        Yoke::try_attach_to_cart(backend, |bytes| Self::deserialize_eps(bytes))
+            .map_err(|e| e.into())
     }
 
     #[cfg(feature = "mmap")]
     unsafe fn load_mmap(
         path: impl AsRef<Path>,
         flags: Flags,
-    ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>> {
+    ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>>
+    where
+        for<'a> <Self as DeserializeInner>::DeserType<'static>: Yokeable<'a>,
+    {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let mut file = std::fs::File::open(path)?;
         let capacity = file_len + crate::pad_align_to(file_len, 16);
@@ -257,14 +264,18 @@ impl<T: TypeHash + AlignHash + DeserializeInner> Deserialize for T {
 
         let backend = MemBackend::Mmap(mmap.make_read_only().map_err(|(_, err)| err)?);
 
-        Yoke::try_attach_to_cart(backend, |bytes| Self::deserialize_eps(bytes)).map_err(|e| e.into())
+        Yoke::try_attach_to_cart(backend, |bytes| Self::deserialize_eps(bytes))
+            .map_err(|e| e.into())
     }
 
     #[cfg(feature = "mmap")]
     unsafe fn mmap(
         path: impl AsRef<Path>,
         flags: Flags,
-    ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>> {
+    ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>>
+    where
+        for<'a> <Self as DeserializeInner>::DeserType<'static>: Yokeable<'a>,
+    {
         let file_len = path.as_ref().metadata()?.len();
         let file = std::fs::File::open(path)?;
 
@@ -276,7 +287,8 @@ impl<T: TypeHash + AlignHash + DeserializeInner> Deserialize for T {
         };
 
         let backend = MemBackend::Mmap(mmap);
-        Yoke::try_attach_to_cart(backend, |bytes| Self::deserialize_eps(bytes)).map_err(|e| e.into())
+        Yoke::try_attach_to_cart(backend, |bytes| Self::deserialize_eps(bytes))
+            .map_err(|e| e.into())
     }
 }
 

@@ -10,14 +10,14 @@
 /// type is a parameter. We also serialize on file.
 use epserde::prelude::*;
 
-#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct StructParam<A, B> {
     a: A,
     b: B,
     test: isize,
 }
 
-#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A> {
     a: A,
     /// This is a field whose type is not a parameter,

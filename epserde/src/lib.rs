@@ -37,7 +37,6 @@ pub mod prelude {
     pub use crate::deser::ReadWithPos;
     pub use crate::deser::SliceWithPos;
     pub use crate::impls::iter::SerIter;
-    pub use yoke::Yoke;
     pub use crate::ser;
     pub use crate::ser::Serialize;
     pub use crate::ser::SerializeHelper;
@@ -47,6 +46,7 @@ pub mod prelude {
     pub use crate::PhantomDeserData;
     #[cfg(feature = "derive")]
     pub use epserde_derive::Epserde;
+    pub use yoke::Yoke;
 }
 
 /// (Major, Minor) version of the file format, this follows semantic versioning
@@ -78,7 +78,7 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
 /// This code will not compile:
 /// ```compile_fail
 /// use epserde::prelude::*;
-/// #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
+/// #[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Clone, Default)]
 /// struct Data<T> {
 ///     data: T,
 ///     phantom: PhantomData<T>,
@@ -88,7 +88,7 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
 /// This code, instead, will compile:
 /// ```
 /// use epserde::prelude::*;
-/// #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
+/// #[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Clone, Default)]
 /// struct Data<T> {
 ///     data: T,
 ///     phantom: PhantomDeserData<T>,

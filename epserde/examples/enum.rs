@@ -11,7 +11,7 @@
 use epserde::prelude::*;
 use maligned::A16;
 
-#[derive(Epserde, Debug, Clone, Copy)]
+#[derive(Yokeable, Epserde, Debug, Clone, Copy)]
 enum Data<T = Vec<i32>> {
     A,                        // Unit type
     B { a: usize, b: usize }, // Struct variant with two fields

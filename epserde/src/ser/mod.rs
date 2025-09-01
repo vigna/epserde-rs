@@ -53,7 +53,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 ///
 /// #[repr(C)]
 /// #[repr(align(1024))]
-/// #[derive(Epserde, Clone, Copy, Debug, PartialEq)]
+/// #[derive(Yokeable, Epserde, Clone, Copy, Debug, PartialEq)]
 /// #[zero_copy]
 ///
 /// struct Example(u8);

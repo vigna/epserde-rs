@@ -7,7 +7,7 @@
 use epserde::prelude::*;
 use maligned::A16;
 use std::marker::PhantomData;
-#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+#[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data<A: PartialEq = usize, const Q: usize = 3> {
     a: A,
     b: [i32; Q],
@@ -37,7 +37,7 @@ fn test_inner_param_full() {
     assert_eq!(person.b, eps.b);
 }
 
-#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+#[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data2<P, B> {
     a: B,
     // this should be ignored, but contains `P` in the type name so it might
@@ -69,7 +69,7 @@ fn test_inner_param_eps() {
     assert_eq!(data.a, eps.a);
 }
 
-#[derive(Epserde, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Clone, Copy)]
 #[zero_copy]
 #[repr(C)]
 struct Data3<const N: usize = 10>;
@@ -102,7 +102,7 @@ fn test_consts() {
     assert!(eps.is_err());
 }
 
-#[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Yokeable, Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
 struct DeepCopyParam<T> {
     data: T,
 }
@@ -119,7 +119,7 @@ fn test_types_deep_copy_param() {
     };
 }
 
-#[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Yokeable, Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
 #[repr(C)]
 #[zero_copy]
 struct ZeroCopyParam<T: ZeroCopy> {
@@ -139,7 +139,7 @@ fn test_types_zero_copy_param() {
 
 // Check that bounds are propagated to associated (de)serialization types.
 #[allow(dead_code)]
-#[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone)]
+#[derive(Yokeable, Epserde, Copy, Debug, PartialEq, Eq, Clone)]
 enum DeepCopyEnumParam<T: ZeroCopy> {
     A(T),
 }

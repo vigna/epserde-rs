@@ -10,7 +10,7 @@
 use epserde::prelude::*;
 use maligned::A16;
 
-#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone, Copy)]
+#[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Default, Clone, Copy)]
 #[repr(C)]
 #[zero_copy]
 struct Data {

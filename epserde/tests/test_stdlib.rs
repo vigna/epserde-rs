@@ -46,7 +46,7 @@ where
 fn test_range() {
     test_generic::<std::ops::Range<i32>>(0..10);
 
-    #[derive(Epserde, PartialEq, Debug)]
+    #[derive(Yokeable, Epserde, PartialEq, Debug)]
     struct Data(std::ops::Range<i32>);
     test_generic(Data(0..10));
 }

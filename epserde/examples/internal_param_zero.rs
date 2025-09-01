@@ -10,7 +10,7 @@ use maligned::A16;
 
 /// Example of a zero-copy internal parameter, which is left untouched, but
 /// needs some decoration to be used.
-#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A: ZeroCopy> {
     a: Vec<A>,
 }

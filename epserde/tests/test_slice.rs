@@ -8,7 +8,7 @@ use anyhow::Result;
 use epserde::prelude::*;
 use maligned::A16;
 
-#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+#[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data<A: PartialEq = usize, const Q: usize = 3> {
     a: A,
     b: [i32; Q],

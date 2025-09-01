@@ -7,14 +7,14 @@
 use epserde::prelude::*;
 
 use yoke::Yokeable;
-#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone, Yokeable)]
+#[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Default, Clone, Yokeable)]
 struct PersonVec<A, B> {
     a: A,
     b: B,
     test: isize,
 }
 
-#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone, Yokeable)]
+#[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Default, Clone, Yokeable)]
 struct Data<A> {
     a: A,
     b: Vec<i32>,

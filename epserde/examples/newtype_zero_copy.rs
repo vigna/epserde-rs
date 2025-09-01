@@ -12,7 +12,7 @@
 use epserde::prelude::*;
 use maligned::A16;
 
-#[derive(Epserde, Copy, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Yokeable, Epserde, Copy, Debug, PartialEq, Eq, Default, Clone)]
 #[repr(C)]
 #[zero_copy]
 struct USize(usize);

@@ -10,7 +10,7 @@
 use epserde::prelude::*;
 use maligned::A16;
 
-#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
+#[derive(Yokeable, Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A: DeepCopy> {
     a: Vec<A>,
 }

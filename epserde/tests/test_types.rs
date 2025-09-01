@@ -139,7 +139,7 @@ fn test_vec_vec_array_array_usize() {
 
 #[test]
 fn test_struct_deep() {
-    #[derive(Epserde, Copy, Clone, Debug, PartialEq)]
+    #[derive(Yokeable, Epserde, Copy, Clone, Debug, PartialEq)]
     struct Struct {
         a: usize,
         b: usize,
@@ -161,7 +161,7 @@ fn test_struct_deep() {
 
 #[test]
 fn test_struct_zero() {
-    #[derive(Epserde, Copy, Clone, Debug, PartialEq)]
+    #[derive(Yokeable, Epserde, Copy, Clone, Debug, PartialEq)]
     #[repr(C)]
     #[zero_copy]
     struct Struct {
@@ -185,7 +185,7 @@ fn test_struct_zero() {
 
 #[test]
 fn test_tuple_struct_deep() {
-    #[derive(Epserde, Copy, Clone, Debug, PartialEq)]
+    #[derive(Yokeable, Epserde, Copy, Clone, Debug, PartialEq)]
     struct Tuple(usize, usize, i32);
     let a = Tuple(0, 1, 2);
     let mut cursor = <AlignedCursor<A16>>::new();
@@ -202,7 +202,7 @@ fn test_tuple_struct_deep() {
 
 #[test]
 fn test_tuple_struct_zero() {
-    #[derive(Epserde, Copy, Clone, Debug, PartialEq)]
+    #[derive(Yokeable, Epserde, Copy, Clone, Debug, PartialEq)]
     #[repr(C)]
     #[zero_copy]
     struct Tuple(usize, usize, i32);
@@ -221,7 +221,7 @@ fn test_tuple_struct_zero() {
 
 #[test]
 fn test_enum_deep() {
-    #[derive(Epserde, Clone, Debug, PartialEq)]
+    #[derive(Yokeable, Epserde, Clone, Debug, PartialEq)]
     enum Data<V = Vec<usize>> {
         A,
         B(u64),
@@ -292,7 +292,7 @@ fn test_enum_deep() {
 
 #[test]
 fn test_enum_zero() {
-    #[derive(Epserde, Clone, Copy, Debug, PartialEq)]
+    #[derive(Yokeable, Epserde, Clone, Copy, Debug, PartialEq)]
     #[repr(C)]
     #[zero_copy]
     enum Data {
