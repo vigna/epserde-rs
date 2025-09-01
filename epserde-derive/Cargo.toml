@@ -2,6 +2,7 @@
 name = "epserde-derive"
 authors = [
 	"Tommaso Fontana <tommaso.fontana.96@gmail.com>",
+	"Valentin Lorentz <vlorentz@softwareheritage.org>",
 	"Sebastiano Vigna <sebastiano.vigna@unimi.it>",
 ]
 description = "Procedural macros for ε-serde"

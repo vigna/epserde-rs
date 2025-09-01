@@ -136,7 +136,7 @@ impl<S: DeserializeInner> MemCase<S> {
         MemCase(s, MemBackend::None)
     }
 
-    pub fn borrow<'this>(&'this self) -> &'this <S as DeserializeInner>::DeserType<'this> {
+    pub fn get<'this>(&'this self) -> &'this <S as DeserializeInner>::DeserType<'this> {
         // SAFETY: 'static outlives 'this, and <S as DeserializeInner>::DeserType is required to be
         // covariant (ie. it's a normal structure and not, say, a closure with 'this as argument)
         unsafe {

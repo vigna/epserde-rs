@@ -648,7 +648,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                     bounds: bounds_des,
                             }));
 
-                            if is_phantom_deser_data(&ty) {
+                            if is_phantom_deser_data(ty) {
                                 methods.push(syn::parse_quote!(_deserialize_eps_inner_special));
                             } else if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
                                 methods.push(syn::parse_quote!(_deserialize_eps_inner));

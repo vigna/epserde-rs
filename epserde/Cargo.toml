@@ -2,6 +2,7 @@
 name = "epserde"
 authors = [
 	"Tommaso Fontana <tommaso.fontana.96@gmail.com>",
+	"Valentin Lorentz <vlorentz@softwareheritage.org>",
 	"Sebastiano Vigna <sebastiano.vigna@unimi.it>",
 ]
 description = "ε-serde is an ε-copy (i.e., almost zero-copy) serialization/deserialization framework"

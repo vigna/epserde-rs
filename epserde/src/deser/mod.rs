@@ -166,10 +166,7 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
-    unsafe fn load_mmap(
-        path: impl AsRef<Path>,
-        flags: Flags,
-    ) -> anyhow::Result<MemCase<Self>> {
+    unsafe fn load_mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let mut file = std::fs::File::open(path)?;
         let capacity = file_len + crate::pad_align_to(file_len, 16);
@@ -246,22 +243,23 @@ pub trait Deserialize: DeserializeInner {
     }
 }
 
-/// Inner trait to implement deserialization of a type. This trait exists
-/// to separate the user-facing [`Deserialize`] trait from the low-level
+#[allow(clippy::missing_safety_doc)] // Clippy bug
+/// Inner trait to implement deserialization of a type. This trait exists to
+/// separate the user-facing [`Deserialize`] trait from the low-level
 /// deserialization mechanisms of [`DeserializeInner::_deserialize_full_inner`]
-/// and [`DeserializeInner::_deserialize_eps_inner`]. Moreover,
-/// it makes it possible to behave slightly differently at the top
-/// of the recursion tree (e.g., to check the endianness marker), and to prevent
-/// the user from modifying the methods in [`Deserialize`].
+/// and [`DeserializeInner::_deserialize_eps_inner`]. Moreover, it makes it
+/// possible to behave slightly differently at the top of the recursion tree
+/// (e.g., to check the endianness marker), and to prevent the user from
+/// modifying the methods in [`Deserialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
 ///
 /// # Safety
 ///
-/// See [`Deserialize`]
+/// See [`Deserialize`].
 pub unsafe trait DeserializeInner: Sized {
-    /// The deserialization type associated with this type. It can be
-    /// retrieved conveniently with the alias [`DeserType`].
+    /// The deserialization type associated with this type. It can be retrieved
+    /// conveniently with the alias [`DeserType`].
     type DeserType<'a>;
 
     /// # Safety

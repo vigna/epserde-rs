@@ -2,6 +2,20 @@
 
 ## [0.9.0] -
 
+### New
+
+* Major disruptive change: `MemCase` does not implement `Deref` and `AsRef`
+  anymore, as such implementations led to undefined behavior. Instead, `MemCase`
+  provides a `get` method that returns a reference to the deserialized type,
+  similarly to the `Yoke` crate. This is a major change as all code using
+  `MemCase` must be updated. In particular, accessing the underlying structure
+  requires a call do `get`, similarly to what happens with the `Borrow` and
+  `AsRef` traits, and it is no longer possible to pass a `MemCase` as type
+  parameter when the trait bound is `Deref` or `AsRef` to the underlying type.
+  For the same reason, `DeserializeInner` is now unsafe as it requires
+  explicitly that the associated deserialization type is covariant (again,
+  similarly to the `Yokeable` trait in the `Yoke` crate).
+
 ### Changed
 
 * All serialization and deserialization methods are now unsafe.

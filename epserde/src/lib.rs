@@ -74,6 +74,8 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
 /// still contain `T`. To fix this issue, you can use [`PhantomDeserData`]
 /// instead.
 ///
+/// Note that `T` must be sized.
+///
 /// # Examples
 ///
 /// This code will not compile:
@@ -98,7 +100,13 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PhantomDeserData<T: ?Sized>(pub PhantomData<T>);
 
-impl<T: ?Sized + DeserializeInner> PhantomDeserData<T> {
+impl<T: DeserializeInner> PhantomDeserData<T> {
+    /// A custom deserialization method for [`PhantomDeserData`] that transmutes
+    /// the inner type.
+    ///
+    /// # Safety
+    ///
+    /// See [`DeserializeInner::_deserialize_eps_inner`].
     #[inline(always)]
     pub unsafe fn _deserialize_eps_inner_special<'a>(
         _backend: &mut SliceWithPos<'a>,
@@ -147,7 +155,7 @@ impl<T: ?Sized> SerializeInner for PhantomDeserData<T> {
     }
 }
 
-unsafe impl<T: ?Sized + DeserializeInner> DeserializeInner for PhantomDeserData<T> {
+unsafe impl<T: DeserializeInner> DeserializeInner for PhantomDeserData<T> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomDeserData(PhantomData))
