@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::DeserializeInner;
+use crate::{deser::CovariantDowncast, DeserializeInner};
 use bitflags::bitflags;
 use core::{fmt, mem::size_of};
 use maligned::A64;
@@ -113,12 +113,11 @@ impl MemBackend {
 /// of [`MemBackend`], so a structure can be [encased](MemCase::encase)
 /// almost transparently.
 #[derive(MemDbg, MemSize)]
-pub struct MemCase<S: DeserializeInner>(
-    pub(crate) <S as DeserializeInner>::DeserType<'static>,
-    pub(crate) MemBackend,
-);
+pub struct MemCase<S>(pub(crate) S, pub(crate) MemBackend)
+where
+    for<'a> S: CovariantDowncast<'a>;
 
-impl<S: DeserializeInner> fmt::Debug for MemCase<S>
+/*impl<S: DeserializeInner> fmt::Debug for MemCase<S>
 where
     <S as DeserializeInner>::DeserType<'static>: fmt::Debug,
 {
@@ -128,25 +127,21 @@ where
             .field(&self.1)
             .finish()
     }
-}
+}*/
 
-impl<S: DeserializeInner> MemCase<S> {
+impl<S> MemCase<S>
+where
+    for<'a> S: CovariantDowncast<'a>,
+{
     /// Encases a data structure in a [`MemCase`] with no backend.
-    pub fn encase(s: <S as DeserializeInner>::DeserType<'static>) -> Self {
+    pub fn encase(s: S) -> Self {
         MemCase(s, MemBackend::None)
     }
 
-    pub fn get<'this>(&'this self) -> &'this <S as DeserializeInner>::DeserType<'this> {
-        // SAFETY: 'static outlives 'this, and <S as DeserializeInner>::DeserType is required to be
-        // covariant (ie. it's a normal structure and not, say, a closure with 'this as argument)
-        unsafe {
-            core::mem::transmute::<
-                &'this <S as DeserializeInner>::DeserType<'static>,
-                &'this <S as DeserializeInner>::DeserType<'this>,
-            >(&self.0)
-        }
+    pub fn get(&self) -> &<S as CovariantDowncast<'_>>::Output {
+        self.0.downcast()
     }
 }
 
-unsafe impl<S: DeserializeInner + Send> Send for MemCase<S> {}
-unsafe impl<S: DeserializeInner + Sync> Sync for MemCase<S> {}
+unsafe impl<S: DeserializeInner + Send> Send for MemCase<S> where for<'a> S: CovariantDowncast<'a> {}
+unsafe impl<S: DeserializeInner + Sync> Sync for MemCase<S> where for<'a> S: CovariantDowncast<'a> {}

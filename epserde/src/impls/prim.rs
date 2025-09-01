@@ -67,6 +67,13 @@ macro_rules! impl_prim_ser_des {
             }
         }
 
+        unsafe impl<'a> CovariantDowncast<'a> for $ty {
+            type Output = Self;
+            fn downcast(&'a self) -> &'a Self {
+                self
+            }
+        }
+
 		unsafe impl DeserializeInner for $ty {
             #[inline(always)]
             unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {

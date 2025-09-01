@@ -65,6 +65,13 @@ impl SerializeInner for String {
     }
 }
 
+unsafe impl<'a> CovariantDowncast<'a> for String {
+    type Output = Self;
+    fn downcast(&'a self) -> &'a Self {
+        self
+    }
+}
+
 unsafe impl DeserializeInner for String {
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let slice = deserialize_full_vec_zero(backend)?;
