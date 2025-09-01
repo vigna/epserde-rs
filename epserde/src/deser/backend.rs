@@ -5,9 +5,10 @@
  */
 
 use bitflags::bitflags;
-use core::{mem::size_of, ops::Deref};
+use core::mem::size_of;
 use maligned::A64;
 use mem_dbg::{MemDbg, MemSize};
+use std::ops::Deref;
 
 bitflags! {
     /// Flags for [`map`] and [`load_mmap`].
@@ -62,7 +63,7 @@ impl Flags {
 /// The [alignment](maligned::Alignment) by the [`Memory`](MemBackend::Memory) variant of [`MemBackend`].
 pub type MemoryAlignment = A64;
 
-/// Possible backends of a [`MemCase`]. The `None` variant is used when the data structure is
+/// Possible backends of a [`Yoke`]. The `None` variant is used when the data structure is
 /// created in memory; the `Memory` variant is used when the data structure is deserialized
 /// from a file loaded into a heap-allocated memory region; the `Mmap` variant is used when
 /// the data structure is deserialized from a `mmap()`-based region, either coming from
@@ -70,77 +71,31 @@ pub type MemoryAlignment = A64;
 #[derive(Debug, MemDbg, MemSize)]
 pub enum MemBackend {
     /// No backend. The data structure is a standard Rust data structure.
-    /// This variant is returned by [`MemCase::encase`].
     None,
     /// The backend is a heap-allocated in a memory region aligned to 16 bytes.
-    /// This variant is returned by [`crate::deser::Deserialize::load_mem`].
     Memory(Box<[MemoryAlignment]>),
     /// The backend is the result to a call to `mmap()`.
-    /// This variant is returned by [`crate::deser::Deserialize::load_mmap`] and [`crate::deser::Deserialize::mmap`].
     #[cfg(feature = "mmap")]
     Mmap(mmap_rs::Mmap),
 }
 
-impl MemBackend {
-    pub fn as_ref(&self) -> Option<&[u8]> {
+impl Deref for MemBackend {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
         match self {
-            MemBackend::None => None,
-            MemBackend::Memory(mem) => Some(unsafe {
+            MemBackend::None => &[],
+            MemBackend::Memory(mem) => unsafe {
                 core::slice::from_raw_parts(
-                    mem.as_ptr() as *const MemoryAlignment as *const u8,
+                    mem.as_ptr() as *const u8,
                     mem.len() * size_of::<MemoryAlignment>(),
                 )
-            }),
+            },
             #[cfg(feature = "mmap")]
-            MemBackend::Mmap(mmap) => Some(mmap),
+            MemBackend::Mmap(mmap) => mmap,
         }
     }
 }
 
-/// A wrapper keeping together an immutable structure and the memory
-/// it was deserialized from. [`MemCase`] instances can not be cloned, but references
-/// to such instances can be shared freely.
-///
-/// [`MemCase`] implements [`Deref`] and [`AsRef`] to the
-/// wrapped type, so it can be used almost transparently and
-/// with no performance cost. However,
-/// if you need to use a memory-mapped structure as a field in
-/// a struct and you want to avoid `dyn`, you will have
-/// to use [`MemCase`] as the type of the field.
-/// [`MemCase`] implements [`From`] for the
-/// wrapped type, using the no-op [`None`](`MemBackend#variant.None`) variant
-/// of [`MemBackend`], so a structure can be [encased](MemCase::encase)
-/// almost transparently.
-#[derive(Debug, MemDbg, MemSize)]
-pub struct MemCase<S>(pub(crate) S, pub(crate) MemBackend);
-
-impl<S> MemCase<S> {
-    /// Encases a data structure in a [`MemCase`] with no backend.
-    pub fn encase(s: S) -> MemCase<S> {
-        MemCase(s, MemBackend::None)
-    }
-}
-
-unsafe impl<S: Send> Send for MemCase<S> {}
-unsafe impl<S: Sync> Sync for MemCase<S> {}
-
-impl<S> Deref for MemCase<S> {
-    type Target = S;
-    #[inline(always)]
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<S> AsRef<S> for MemCase<S> {
-    #[inline(always)]
-    fn as_ref(&self) -> &S {
-        &self.0
-    }
-}
-
-impl<S: Send + Sync> From<S> for MemCase<S> {
-    fn from(s: S) -> Self {
-        MemCase::encase(s)
-    }
-}
+// This is safe because the only method on `StableDeref` is `deref`, which
+// is already implemented for `MemBackend` and is stable.
+unsafe impl stable_deref_trait::StableDeref for MemBackend {}

@@ -19,15 +19,15 @@ which is automatically derived with `#[derive(Deserialize)]`.
 
 use crate::traits::*;
 use crate::{MAGIC, MAGIC_REV, VERSION};
+use core::hash::Hasher;
 use core::mem::align_of;
-use core::ptr::addr_of_mut;
-use core::{hash::Hasher, mem::MaybeUninit};
 use std::{io::BufReader, path::Path};
+use yoke::{Yoke, Yokeable};
 
+pub mod backend;
+pub use backend::*;
 pub mod helpers;
 pub use helpers::*;
-pub mod mem_case;
-pub use mem_case::*;
 pub mod read;
 pub use read::*;
 pub mod reader_with_pos;
@@ -90,7 +90,7 @@ pub trait Deserialize: DeserializeInner {
     }
 
     /// Load a file into heap-allocated memory and ε-deserialize a data structure from it,
-    /// returning a [`MemCase`] containing the data structure and the
+    /// returning a [`Yoke`] containing the data structure and the
     /// memory. Excess bytes are zeroed out.
     ///
     /// The allocated memory will have [`MemoryAlignment`] as alignment: types with
@@ -99,63 +99,14 @@ pub trait Deserialize: DeserializeInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
-    unsafe fn load_mem<'a>(
+    unsafe fn load_mem(
         path: impl AsRef<Path>,
-    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
-        let align_to = align_of::<MemoryAlignment>();
-        if align_of::<Self>() > align_to {
-            return Err(Error::AlignmentError.into());
-        }
-        let file_len = path.as_ref().metadata()?.len() as usize;
-        let mut file = std::fs::File::open(path)?;
-        // Round up to u128 size
-        let capacity = file_len + crate::pad_align_to(file_len, align_to);
-
-        let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
-            MaybeUninit::uninit();
-        let ptr = uninit.as_mut_ptr();
-
-        // SAFETY: the entire vector will be filled with data read from the file,
-        // or with zeroes if the file is shorter than the vector.
-        #[allow(invalid_value)]
-        let mut aligned_vec = unsafe {
-            <Vec<MemoryAlignment>>::from_raw_parts(
-                std::alloc::alloc(std::alloc::Layout::from_size_align(capacity, align_to)?)
-                    as *mut MemoryAlignment,
-                capacity / align_to,
-                capacity / align_to,
-            )
-        };
-
-        let bytes = unsafe {
-            core::slice::from_raw_parts_mut(aligned_vec.as_mut_ptr() as *mut u8, capacity)
-        };
-
-        file.read_exact(&mut bytes[..file_len])?;
-        // Fixes the last few bytes to guarantee zero-extension semantics
-        // for bit vectors and full-vector initialization.
-        bytes[file_len..].fill(0);
-
-        // SAFETY: the vector is aligned to 16 bytes.
-        let backend = MemBackend::Memory(aligned_vec.into_boxed_slice());
-
-        // store the backend inside the MemCase
-        unsafe {
-            addr_of_mut!((*ptr).1).write(backend);
-        }
-        // deserialize the data structure
-        let mem = unsafe { (*ptr).1.as_ref().unwrap() };
-        let s = Self::deserialize_eps(mem)?;
-        // write the deserialized struct in the MemCase
-        unsafe {
-            addr_of_mut!((*ptr).0).write(s);
-        }
-        // finish init
-        Ok(unsafe { uninit.assume_init() })
-    }
+    ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>>
+    where
+        for<'a> <Self as DeserializeInner>::DeserType<'a>: Yokeable<'a>;
 
     /// Load a file into `mmap()`-allocated memory and ε-deserialize a data structure from it,
-    /// returning a [`MemCase`] containing the data structure and the
+    /// returning a [`Yoke`] containing the data structure and the
     /// memory. Excess bytes are zeroed out.
     ///
     /// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
@@ -167,45 +118,15 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
-    unsafe fn load_mmap<'a>(
+    unsafe fn load_mmap(
         path: impl AsRef<Path>,
         flags: Flags,
-    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
-        let file_len = path.as_ref().metadata()?.len() as usize;
-        let mut file = std::fs::File::open(path)?;
-        let capacity = file_len + crate::pad_align_to(file_len, 16);
-
-        let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
-            MaybeUninit::uninit();
-        let ptr = uninit.as_mut_ptr();
-
-        let mut mmap = mmap_rs::MmapOptions::new(capacity)?
-            .with_flags(flags.mmap_flags())
-            .map_mut()?;
-        file.read_exact(&mut mmap[..file_len])?;
-        // Fixes the last few bytes to guarantee zero-extension semantics
-        // for bit vectors.
-        mmap[file_len..].fill(0);
-
-        let backend = MemBackend::Mmap(mmap.make_read_only().map_err(|(_, err)| err)?);
-
-        // store the backend inside the MemCase
-        unsafe {
-            addr_of_mut!((*ptr).1).write(backend);
-        }
-        // deserialize the data structure
-        let mem = unsafe { (*ptr).1.as_ref().unwrap() };
-        let s = Self::deserialize_eps(mem)?;
-        // write the deserialized struct in the MemCase
-        unsafe {
-            addr_of_mut!((*ptr).0).write(s);
-        }
-        // finish init
-        Ok(unsafe { uninit.assume_init() })
-    }
+    ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>>
+    where
+        for<'a> <Self as DeserializeInner>::DeserType<'a>: Yokeable<'a>;
 
     /// Memory map a file and ε-deserialize a data structure from it,
-    /// returning a [`MemCase`] containing the data structure and the
+    /// returning a [`Yoke`] containing the data structure and the
     /// memory mapping.
     ///
     /// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
@@ -217,39 +138,12 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
-    unsafe fn mmap<'a>(
+    unsafe fn mmap(
         path: impl AsRef<Path>,
         flags: Flags,
-    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
-        let file_len = path.as_ref().metadata()?.len();
-        let file = std::fs::File::open(path)?;
-
-        let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
-            MaybeUninit::uninit();
-        let ptr = uninit.as_mut_ptr();
-
-        let mmap = unsafe {
-            mmap_rs::MmapOptions::new(file_len as _)?
-                .with_flags(flags.mmap_flags())
-                .with_file(&file, 0)
-                .map()?
-        };
-
-        // store the backend inside the MemCase
-        unsafe {
-            addr_of_mut!((*ptr).1).write(MemBackend::Mmap(mmap));
-        }
-
-        let mmap = unsafe { (*ptr).1.as_ref().unwrap() };
-        // deserialize the data structure
-        let s = Self::deserialize_eps(mmap)?;
-        // write the deserialized struct in the MemCase
-        unsafe {
-            addr_of_mut!((*ptr).0).write(s);
-        }
-        // finish init
-        Ok(unsafe { uninit.assume_init() })
-    }
+    ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>>
+    where
+        for<'a> <Self as DeserializeInner>::DeserType<'a>: Yokeable<'a>;
 }
 
 /// Inner trait to implement deserialization of a type. This trait exists
@@ -303,6 +197,86 @@ impl<T: TypeHash + AlignHash + DeserializeInner> Deserialize for T {
         let mut backend = SliceWithPos::new(backend);
         check_header::<Self>(&mut backend)?;
         Self::_deserialize_eps_inner(&mut backend)
+    }
+
+    unsafe fn load_mem(
+        path: impl AsRef<Path>,
+    ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>> {
+        let align_to = align_of::<MemoryAlignment>();
+        if align_of::<Self>() > align_to {
+            return Err(Error::AlignmentError.into());
+        }
+        let file_len = path.as_ref().metadata()?.len() as usize;
+        let mut file = std::fs::File::open(path)?;
+        // Round up to u128 size
+        let capacity = file_len + crate::pad_align_to(file_len, align_to);
+
+        // SAFETY: the entire vector will be filled with data read from the file,
+        // or with zeroes if the file is shorter than the vector.
+        #[allow(invalid_value)]
+        let mut aligned_vec = unsafe {
+            <Vec<MemoryAlignment>>::from_raw_parts(
+                std::alloc::alloc(std::alloc::Layout::from_size_align(capacity, align_to)?)
+                    as *mut MemoryAlignment,
+                capacity / align_to,
+                capacity / align_to,
+            )
+        };
+
+        let bytes = unsafe {
+            core::slice::from_raw_parts_mut(aligned_vec.as_mut_ptr() as *mut u8, capacity)
+        };
+
+        file.read_exact(&mut bytes[..file_len])?;
+        // Fixes the last few bytes to guarantee zero-extension semantics
+        // for bit vectors and full-vector initialization.
+        bytes[file_len..].fill(0);
+
+        // SAFETY: the vector is aligned to 16 bytes.
+        let backend = MemBackend::Memory(aligned_vec.into_boxed_slice());
+
+        Yoke::try_attach_to_cart(backend, |bytes| Self::deserialize_eps(bytes)).map_err(|e| e.into())
+    }
+
+    #[cfg(feature = "mmap")]
+    unsafe fn load_mmap(
+        path: impl AsRef<Path>,
+        flags: Flags,
+    ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>> {
+        let file_len = path.as_ref().metadata()?.len() as usize;
+        let mut file = std::fs::File::open(path)?;
+        let capacity = file_len + crate::pad_align_to(file_len, 16);
+
+        let mut mmap = mmap_rs::MmapOptions::new(capacity)?
+            .with_flags(flags.mmap_flags())
+            .map_mut()?;
+        file.read_exact(&mut mmap[..file_len])?;
+        // Fixes the last few bytes to guarantee zero-extension semantics
+        // for bit vectors.
+        mmap[file_len..].fill(0);
+
+        let backend = MemBackend::Mmap(mmap.make_read_only().map_err(|(_, err)| err)?);
+
+        Yoke::try_attach_to_cart(backend, |bytes| Self::deserialize_eps(bytes)).map_err(|e| e.into())
+    }
+
+    #[cfg(feature = "mmap")]
+    unsafe fn mmap(
+        path: impl AsRef<Path>,
+        flags: Flags,
+    ) -> anyhow::Result<Yoke<<Self as DeserializeInner>::DeserType<'static>, MemBackend>> {
+        let file_len = path.as_ref().metadata()?.len();
+        let file = std::fs::File::open(path)?;
+
+        let mmap = unsafe {
+            mmap_rs::MmapOptions::new(file_len as _)?
+                .with_flags(flags.mmap_flags())
+                .with_file(&file, 0)
+                .map()?
+        };
+
+        let backend = MemBackend::Mmap(mmap);
+        Yoke::try_attach_to_cart(backend, |bytes| Self::deserialize_eps(bytes)).map_err(|e| e.into())
     }
 }
 

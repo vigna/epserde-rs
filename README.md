@@ -39,7 +39,7 @@ structure, as references are resolved at deserialization time.
 
 We provide procedural macros implementing serialization and deserialization
 methods, basic (de)serialization for primitive types, vectors, etc., convenience
-memory-mapping methods based on [mmap_rs], and a [`MemCase`] structure that
+memory-mapping methods based on [mmap_rs], and a [`Yoke`] structure that
 couples a deserialized structure with its backend (e.g., a slice of memory or a
 memory-mapped region).
 
@@ -48,7 +48,7 @@ memory-mapped region).
 Tommaso Fontana, while working at INRIA under the supervision of Stefano
 Zacchiroli, came up with the basic idea for ε-serde, that is, replacing
 structures with equivalent references. The code was developed jointly with
-Sebastiano Vigna, who came up with the [`MemCase`] and the
+Sebastiano Vigna, who came up with the [`Yoke`] and the
 [`ZeroCopy`]/[`DeepCopy`] logic.
 
 ## Cons
@@ -74,12 +74,14 @@ These are the main limitations you should be aware of before choosing to use
   underlying serialized support (e.g., a memory-mapped region); hence the need for
   a lifetime. If you need to store the deserialized structure in a field of a new
   structure you will need to couple permanently the deserialized structure with
-  its serialized support, which is obtained by putting it in a [`MemCase`] using
+  its serialized support, which is obtained by putting it in a [`Yoke`] using
   the convenience methods [`Deserialize::load_mem`], [`Deserialize::load_mmap`],
-  and [`Deserialize::mmap`]. A [`MemCase`] will deref to its contained type, so it
-  can be used transparently as long as fields and methods are concerned, but if
+  and [`Deserialize::mmap`]. A [`Yoke`] will not deref to its contained type, so you
+  will have to use [`Yoke::get`] to access the data. If
   your original type is `T` the field of the new structure will have to be of type
-  `MemCase<DeserType<'static, T>>`, not `T`.
+  `Yoke<DeserType<'static, T>>`, not `T`.
+
+- To be able to use [`Yoke`], your type must derive [`yoke::Yokeable`].
 
 - No validation or padding cleaning is performed on zero-copy types. If you plan
   to serialize data and distribute it, you must take care of these issues.
@@ -149,16 +151,16 @@ assert_eq!(s, t);
 // In this case we map the data structure into memory
 //
 // Note: requires the `mmap` feature.
-let u: MemCase<&[usize; 1000]> = 
+let u: Yoke<&'static [usize; 1000], _> =
     unsafe { <[usize; 1000]>::mmap(&file, Flags::empty())? };
 
-assert_eq!(s, **u);
+assert_eq!(s, *u.get());
 
-// When using a MemCase, the lifetime of the derived deserialization type is 'static
-let u: MemCase<DeserType<'static, [usize; 1000]>> = 
+// When using a Yoke, the lifetime of the derived deserialization type is 'static
+let u: Yoke<DeserType<'static, [usize; 1000]>, _> =
     unsafe { <[usize; 1000]>::mmap(&file, Flags::empty())? };
 
-assert_eq!(s, **u);
+assert_eq!(s, *u.get());
 #     Ok(())
 # }
 ```
@@ -166,15 +168,15 @@ assert_eq!(s, **u);
 Note how we serialize an array, but we deserialize a reference. The reference
 points inside `b`, so there is no copy performed. The call to
 [`deserialize_full`] creates a new array instead. The third call maps the data
-structure into memory and returns a [`MemCase`] that can be used transparently
-as a reference to the array; moreover, the [`MemCase`] can be passed to other
+structure into memory and returns a [`Yoke`] that can be used transparently
+as a reference to the array; moreover, the [`Yoke`] can be passed to other
 functions or stored in a structure field, as it contains both the structure and
 the memory-mapped region that supports it.
 
 The type alias [`DeserType`] can be used to derive the deserialized type
 associated with a type. It contains a lifetime, which is the lifetime of the
 memory region containing the serialized data. When deserializing into a
-[`MemCase`], however, the lifetime is `'static`, as [`MemCase`] is an owned
+[`Yoke`], however, the lifetime is `'static`, as [`Yoke`] is an owned
 type.
 
 ## Examples: ε-copy of standard structures
@@ -210,9 +212,9 @@ let t: Vec<usize> =
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let u: MemCase<DeserType<'static, Vec<usize>>> = 
+let u: Yoke<DeserType<'static, Vec<usize>>, _> =
     unsafe { <Vec<usize>>::mmap(&file, Flags::empty())? };
-assert_eq!(s, **u);
+assert_eq!(s, *u.get());
 #     Ok(())
 # }
 ```
@@ -269,9 +271,9 @@ let t: Vec<Data> =
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let u: MemCase<DeserType<'static, Vec<Data>>> = 
+let u: Yoke<DeserType<'static, Vec<Data>>, _> =
     unsafe { <Vec<Data>>::mmap(&file, Flags::empty())? };
-assert_eq!(s, **u);
+assert_eq!(s, *u.get());
 #     Ok(())
 # }
 ```
@@ -321,10 +323,10 @@ let t: MyStruct<Vec<isize>> =
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let u: MemCase<MyStruct<&[isize]>> = 
+let u: Yoke<MyStruct<&'static [isize]>, _> =
     unsafe { <MyStruct<Vec<isize>>>::mmap(&file, Flags::empty())? };
-assert_eq!(s.id, u.id);
-assert_eq!(s.data, u.data.as_ref());
+assert_eq!(s.id, u.get().id);
+assert_eq!(s.data, u.get().data.as_ref());
 #     Ok(())
 # }
 ```
@@ -373,9 +375,9 @@ assert_eq!(s.sum(), t.sum());
 let t = unsafe { <MyStruct>::mmap(&file, Flags::empty())? };
 
 // t works transparently as a MyStructParam<&[isize]>
-assert_eq!(s.id, t.id);
-assert_eq!(s.data, t.data.as_ref());
-assert_eq!(s.sum(), t.sum());
+assert_eq!(s.id, t.get().id);
+assert_eq!(s.data, t.get().data.as_ref());
+assert_eq!(s.sum(), t.get().sum());
 #     Ok(())
 # }
 ```
@@ -513,7 +515,7 @@ let t: &[i32] = unsafe { <Vec<i32>>::deserialize_eps(b.as_ref())? };
 let t: Vec<i32> = unsafe { <Vec<i32>>::deserialize_full(
         &mut std::fs::File::open(&file)?
     )? };
-let t: MemCase<&[i32]> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
+let t: Yoke<&'static [i32], _> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
 
 // Within a structure
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
@@ -532,7 +534,7 @@ let t: Data<&[i32]> = unsafe { <Data<Vec<i32>>>::deserialize_eps(b.as_ref())? };
 let t: Data<Vec<i32>> = unsafe { <Data<Vec<i32>>>::deserialize_full(
         &mut std::fs::File::open(&file)?
     )? };
-let t: MemCase<Data<&[i32]>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
+let t: Yoke<Data<&'static [i32]>, _> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
 #     Ok(())
 # }
 ```
@@ -565,7 +567,7 @@ let t: &[i32] = unsafe { <Vec<i32>>::deserialize_eps(b.as_ref())? };
 let t: Vec<i32> = unsafe { <Vec<i32>>::deserialize_full(
         &mut std::fs::File::open(&file)?
     )? };
-let t: MemCase<&[i32]> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
+let t: Yoke<&'static [i32], _> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
 
 // Within a structure
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
@@ -584,7 +586,7 @@ let t: Data<&[i32]> = unsafe { <Data<Vec<i32>>>::deserialize_eps(b.as_ref())? };
 let t: Data<Vec<i32>> = unsafe { <Data<Vec<i32>>>::deserialize_full(
         &mut std::fs::File::open(&file)?
     )? };
-let t: MemCase<Data<&[i32]>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
+let t: Yoke<Data<&'static [i32]>, _> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
 #     Ok(())
 # }
 ```
@@ -704,7 +706,9 @@ Views and opinions expressed are however those of the authors only and do not
 necessarily reflect those of the European Union or the Italian MUR. Neither the
 European Union nor the Italian MUR can be held responsible for them.
 
-[`MemCase`]: <https://docs.rs/epserde/latest/epserde/deser/mem_case/struct.MemCase.html>
+[`Yoke`]: <https://docs.rs/yoke/latest/yoke/struct.Yoke.html>
+[`Yoke::get`]: <https://docs.rs/yoke/latest/yoke/struct.Yoke.html#method.get>
+[`yoke::Yokeable`]: <https://docs.rs/yoke/latest/yoke/trait.Yokeable.html>
 [`ZeroCopy`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.ZeroCopy.html>
 [`DeepCopy`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.DeepCopy.html>
 [`CopyType`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html>

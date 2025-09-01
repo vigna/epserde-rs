@@ -24,6 +24,8 @@ thiserror = "2.0.11"
 sealed = "0.6.0"
 maligned = "0.2.1"
 common_traits = "0.11.2"
+yoke = { version = "0.8.0", features = ["derive"] }
+stable_deref_trait = "1.2.0"
 mem_dbg = { version = "0.3.0", features = [
 	"maligned",
 	"derive",

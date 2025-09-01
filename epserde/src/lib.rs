@@ -34,11 +34,10 @@ pub mod prelude {
     pub use crate::deser::Deserialize;
     pub use crate::deser::DeserializeHelper;
     pub use crate::deser::DeserializeInner;
-    pub use crate::deser::Flags;
-    pub use crate::deser::MemCase;
     pub use crate::deser::ReadWithPos;
     pub use crate::deser::SliceWithPos;
     pub use crate::impls::iter::SerIter;
+    pub use yoke::Yoke;
     pub use crate::ser;
     pub use crate::ser::Serialize;
     pub use crate::ser::SerializeHelper;

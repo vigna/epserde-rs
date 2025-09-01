@@ -560,7 +560,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
                         {
                             use epserde::deser::DeserializeInner;
-                            Ok(#name{
+                            Ok(#name {
                                 #(
                                     #fields_names: <#fields_types>::#methods(backend)?,
                                 )*
