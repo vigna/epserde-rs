@@ -76,14 +76,12 @@ These are the main limitations you should be aware of before choosing to use
   structure you will need to couple permanently the deserialized structure with
   its serialized support, which is obtained by putting it in a [`MemCase`] using
   the convenience methods [`Deserialize::load_mem`], [`Deserialize::load_mmap`],
-  and [`Deserialize::mmap`]. A [`MemCase`] will deref to its contained type, so it
-  can be used transparently as long as fields and methods are concerned, but if
-  your original type is `T` the field of the new structure will have to be of type
-  `MemCase<DeserType<'static, T>>`, not `T`.
+  and [`Deserialize::mmap`]. A [`MemCase`] provides a method that yields references
+  to the deserialized type associated to its contained type.
 
 - No validation or padding cleaning is performed on zero-copy types. If you plan
   to serialize data and distribute it, you must take care of these issues.
-  
+
 ## Pros
 
 - Almost instant deserialization with minimal allocation provided that you
@@ -140,7 +138,7 @@ let t: DeserType<'_, [usize; 1000]> =
 assert_eq!(s, *t);
 
 // This is a traditional deserialization instead
-let t: [usize; 1000] = 
+let t: [usize; 1000] =
     unsafe { <[usize; 1000]>::deserialize_full(
         &mut std::fs::File::open(&file)?
     )? };
@@ -149,16 +147,10 @@ assert_eq!(s, t);
 // In this case we map the data structure into memory
 //
 // Note: requires the `mmap` feature.
-let u: MemCase<&[usize; 1000]> = 
+let u: MemCase<[usize; 1000]> =
     unsafe { <[usize; 1000]>::mmap(&file, Flags::empty())? };
 
-assert_eq!(s, **u);
-
-// When using a MemCase, the lifetime of the derived deserialization type is 'static
-let u: MemCase<DeserType<'static, [usize; 1000]>> = 
-    unsafe { <[usize; 1000]>::mmap(&file, Flags::empty())? };
-
-assert_eq!(s, **u);
+assert_eq!(s, **u.borrow());
 #     Ok(())
 # }
 ```
@@ -166,8 +158,8 @@ assert_eq!(s, **u);
 Note how we serialize an array, but we deserialize a reference. The reference
 points inside `b`, so there is no copy performed. The call to
 [`deserialize_full`] creates a new array instead. The third call maps the data
-structure into memory and returns a [`MemCase`] that can be used transparently
-as a reference to the array; moreover, the [`MemCase`] can be passed to other
+structure into memory and returns a [`MemCase`] that can be used to get
+a reference to the array; moreover, the [`MemCase`] can be passed to other
 functions or stored in a structure field, as it contains both the structure and
 the memory-mapped region that supports it.
 
@@ -205,14 +197,14 @@ let t: DeserType<'_, Vec<usize>> =
 assert_eq!(s, *t);
 
 // This is a traditional deserialization instead
-let t: Vec<usize> = 
+let t: Vec<usize> =
     unsafe { <Vec<usize>>::load_full(&file)? };
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let u: MemCase<DeserType<'static, Vec<usize>>> = 
+let u: MemCase<Vec<usize>> =
     unsafe { <Vec<usize>>::mmap(&file, Flags::empty())? };
-assert_eq!(s, **u);
+assert_eq!(s, **u.borrow());
 #     Ok(())
 # }
 ```
@@ -264,14 +256,14 @@ let t: DeserType<'_, Vec<Data>> =
 assert_eq!(s, *t);
 
 // This is a traditional deserialization instead
-let t: Vec<Data> = 
+let t: Vec<Data> =
     unsafe { <Vec<Data>>::load_full(&file)? };
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let u: MemCase<DeserType<'static, Vec<Data>>> = 
+let u: MemCase<Vec<Data>> =
     unsafe { <Vec<Data>>::mmap(&file, Flags::empty())? };
-assert_eq!(s, **u);
+assert_eq!(s, **u.borrow());
 #     Ok(())
 # }
 ```
@@ -309,20 +301,21 @@ unsafe { s.store(&file) };
 let b = std::fs::read(&file)?;
 
 // The type of t will be inferred--it is shown here only for clarity
-let t: MyStruct<&[isize]> = 
+let t: MyStruct<&[isize]> =
     unsafe { <MyStruct<Vec<isize>>>::deserialize_eps(b.as_ref())? };
 
 assert_eq!(s.id, t.id);
 assert_eq!(s.data, Vec::from(t.data));
 
 // This is a traditional deserialization instead
-let t: MyStruct<Vec<isize>> = 
+let t: MyStruct<Vec<isize>> =
     unsafe { <MyStruct<Vec<isize>>>::load_full(&file)? };
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let u: MemCase<MyStruct<&[isize]>> = 
+let u: MemCase<MyStruct<Vec<isize>>> =
     unsafe { <MyStruct<Vec<isize>>>::mmap(&file, Flags::empty())? };
+let u: &MyStruct<&[isize]> = u.borrow();
 assert_eq!(s.id, u.id);
 assert_eq!(s.data, u.data.as_ref());
 #     Ok(())
@@ -371,8 +364,9 @@ let t = unsafe { MyStruct::deserialize_eps(b.as_ref())? };
 assert_eq!(s.sum(), t.sum());
 
 let t = unsafe { <MyStruct>::mmap(&file, Flags::empty())? };
+let t: &MyStructParam<&[isize]> = t.borrow();
 
-// t works transparently as a MyStructParam<&[isize]>
+// t works transparently as a &MyStructParam<&[isize]>
 assert_eq!(s.id, t.id);
 assert_eq!(s.data, t.data.as_ref());
 assert_eq!(s.sum(), t.sum());
@@ -407,7 +401,7 @@ unsafe { s.store(&file) };
 let b = std::fs::read(&file)?;
 
 // The type of t is unchanged
-let t: MyStruct<Vec<isize>> = 
+let t: MyStruct<Vec<isize>> =
     unsafe { <MyStruct<Vec<isize>>>::deserialize_eps(b.as_ref())? };
 #     Ok(())
 # }
@@ -445,7 +439,7 @@ unsafe { s.store(&file) };
 let b = std::fs::read(&file)?;
 
 // The type of t is unchanged
-let t: &MyStruct<i32> = 
+let t: &MyStruct<i32> =
     unsafe { <MyStruct<i32>>::deserialize_eps(b.as_ref())? };
 #     Ok(())
 # }
@@ -480,7 +474,7 @@ let e = Enum::B(vec![0, 1, 2, 3]);
 let mut file = std::env::temp_dir();
 file.push("serialized7");
 unsafe { e.store(&file) };
-// Deserializing using just Enum will fail, as the type parameter 
+// Deserializing using just Enum will fail, as the type parameter
 // by default is Vec<usize>
 assert!(unsafe { <Enum>::load_full(&file) }.is_err());
 #     Ok(())
@@ -513,7 +507,7 @@ let t: &[i32] = unsafe { <Vec<i32>>::deserialize_eps(b.as_ref())? };
 let t: Vec<i32> = unsafe { <Vec<i32>>::deserialize_full(
         &mut std::fs::File::open(&file)?
     )? };
-let t: MemCase<&[i32]> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
+let t: MemCase<Vec<i32>> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
 
 // Within a structure
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
@@ -532,7 +526,7 @@ let t: Data<&[i32]> = unsafe { <Data<Vec<i32>>>::deserialize_eps(b.as_ref())? };
 let t: Data<Vec<i32>> = unsafe { <Data<Vec<i32>>>::deserialize_full(
         &mut std::fs::File::open(&file)?
     )? };
-let t: MemCase<Data<&[i32]>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
+let t: MemCase<Data<Vec<i32>>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
 #     Ok(())
 # }
 ```
@@ -565,7 +559,7 @@ let t: &[i32] = unsafe { <Vec<i32>>::deserialize_eps(b.as_ref())? };
 let t: Vec<i32> = unsafe { <Vec<i32>>::deserialize_full(
         &mut std::fs::File::open(&file)?
     )? };
-let t: MemCase<&[i32]> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
+let t: MemCase<Vec<i32>> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
 
 // Within a structure
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
@@ -584,7 +578,7 @@ let t: Data<&[i32]> = unsafe { <Data<Vec<i32>>>::deserialize_eps(b.as_ref())? };
 let t: Data<Vec<i32>> = unsafe { <Data<Vec<i32>>>::deserialize_full(
         &mut std::fs::File::open(&file)?
     )? };
-let t: MemCase<Data<&[i32]>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
+let t: MemCase<Data<Vec<i32>>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
 #     Ok(())
 # }
 ```

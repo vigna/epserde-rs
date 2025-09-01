@@ -37,18 +37,21 @@ fn test_mem_case() {
     unsafe { person.store("test.bin").unwrap() };
 
     let res = unsafe { Person::load_mem("test.bin").unwrap() };
+    let res = res.borrow();
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
     let res = unsafe { Person::load_mmap("test.bin", Flags::empty()).unwrap() };
+    let res = res.borrow();
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
     let res = unsafe { Person::load_mem("test.bin").unwrap() };
+    let res = res.borrow();
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
@@ -61,18 +64,21 @@ fn test_mem_case() {
     assert_eq!(person.b.b, res.b.b);
 
     let res = unsafe { Person::mmap("test.bin", Flags::empty()).unwrap() };
+    let res = res.borrow();
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
     let res = unsafe { Person::mmap("test.bin", Flags::TRANSPARENT_HUGE_PAGES).unwrap() };
+    let res = res.borrow();
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
     let res = unsafe { Person::mmap("test.bin", Flags::empty()).unwrap() };
+    let res = res.borrow();
     assert_eq!(person.test, res.test);
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);

@@ -64,6 +64,8 @@ pub type DeserType<'a, T> = <T as DeserializeInner>::DeserType<'a>;
 ///   incompatible structures using the same code, or cause undefined behavior
 ///   by loading data with an incorrect alignment.
 /// - Memory-mapped files might be modified externally.
+/// - [`Self::DeserType`] must be covariant (ie. behave like a structure,
+///   not a closure with a generic argument)
 pub trait Deserialize: DeserializeInner {
     /// Fully deserialize a structure of this type from the given backend.
     ///
@@ -99,9 +101,7 @@ pub trait Deserialize: DeserializeInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
-    unsafe fn load_mem<'a>(
-        path: impl AsRef<Path>,
-    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
+    unsafe fn load_mem(path: impl AsRef<Path>) -> anyhow::Result<MemCase<Self>> {
         let align_to = align_of::<MemoryAlignment>();
         if align_of::<Self>() > align_to {
             return Err(Error::AlignmentError.into());
@@ -111,8 +111,7 @@ pub trait Deserialize: DeserializeInner {
         // Round up to u128 size
         let capacity = file_len + crate::pad_align_to(file_len, align_to);
 
-        let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
-            MaybeUninit::uninit();
+        let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
         // SAFETY: the entire vector will be filled with data read from the file,
@@ -167,16 +166,15 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
-    unsafe fn load_mmap<'a>(
+    unsafe fn load_mmap(
         path: impl AsRef<Path>,
         flags: Flags,
-    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
+    ) -> anyhow::Result<MemCase<Self>> {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let mut file = std::fs::File::open(path)?;
         let capacity = file_len + crate::pad_align_to(file_len, 16);
 
-        let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
-            MaybeUninit::uninit();
+        let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
         let mut mmap = mmap_rs::MmapOptions::new(capacity)?
@@ -217,15 +215,11 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
-    unsafe fn mmap<'a>(
-        path: impl AsRef<Path>,
-        flags: Flags,
-    ) -> anyhow::Result<MemCase<<Self as DeserializeInner>::DeserType<'a>>> {
+    unsafe fn mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
         let file_len = path.as_ref().metadata()?.len();
         let file = std::fs::File::open(path)?;
 
-        let mut uninit: MaybeUninit<MemCase<<Self as DeserializeInner>::DeserType<'_>>> =
-            MaybeUninit::uninit();
+        let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
         let mmap = unsafe {
@@ -261,7 +255,11 @@ pub trait Deserialize: DeserializeInner {
 /// the user from modifying the methods in [`Deserialize`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait DeserializeInner: Sized {
+///
+/// # Safety
+///
+/// See [`Deserialize`]
+pub unsafe trait DeserializeInner: Sized {
     /// The deserialization type associated with this type. It can be
     /// retrieved conveniently with the alias [`DeserType`].
     type DeserType<'a>;

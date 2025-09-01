@@ -65,7 +65,7 @@ impl SerializeInner for String {
     }
 }
 
-impl DeserializeInner for String {
+unsafe impl DeserializeInner for String {
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let slice = deserialize_full_vec_zero(backend)?;
         Ok(String::from_utf8(slice).unwrap())
@@ -99,7 +99,7 @@ impl SerializeInner for Box<str> {
     }
 }
 
-impl DeserializeInner for Box<str> {
+unsafe impl DeserializeInner for Box<str> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(String::_deserialize_full_inner(backend)?.into_boxed_str())
