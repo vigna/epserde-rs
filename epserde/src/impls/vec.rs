@@ -84,6 +84,13 @@ where
     }
 }
 
+unsafe impl<'a, T: ZeroCopy + DeserializeInner> CovariantDowncast<'a, Vec<T>> for &'static [T] {
+    type Output = &'a [T];
+    fn downcast(&'a self) -> &'a Self::Output {
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
 impl<T: ZeroCopy + DeserializeInner> DeserializeHelper<Zero> for Vec<T> {
     type FullType = Self;
     type DeserType<'a> = &'a [T];

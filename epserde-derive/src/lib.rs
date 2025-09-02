@@ -543,10 +543,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     // SAFETY: &'epserde_desertype Self is covariant
                     #[automatically_derived]
-                    unsafe impl<'__downcast_lifetime, #generics_deserialize> epserde::deser::CovariantDowncast<'__downcast_lifetime>
+                    unsafe impl<'__downcast_lifetime, #generics_deserialize> epserde::deser::CovariantDowncast<'__downcast_lifetime, #name<#concat_generics>>
                         for <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'static>
                     where
                         #name<#concat_generics>: epserde::deser::DeserializeInner,
+                        <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'static>: '__downcast_lifetime,
+                        <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'__downcast_lifetime>: '__downcast_lifetime,
                     {
                         type Output = <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'__downcast_lifetime>;
 
@@ -931,10 +933,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     // SAFETY: &'epserde_desertype Self is covariant
                     #[automatically_derived]
-                    unsafe impl<'__downcast_lifetime, #generics_deserialize> epserde::deser::CovariantDowncast<'__downcast_lifetime>
+                    unsafe impl<'__downcast_lifetime, #generics_deserialize> epserde::deser::CovariantDowncast<'__downcast_lifetime, #name<#concat_generics>>
                         for <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'static>
                     where
                         #name<#concat_generics>: epserde::deser::DeserializeInner,
+                        <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'__downcast_lifetime>: '__downcast_lifetime,
+                        <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'static>: '__downcast_lifetime,
                     {
                         type Output = <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'__downcast_lifetime>;
 

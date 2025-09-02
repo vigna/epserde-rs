@@ -6,7 +6,7 @@
 
 use crate::{deser::CovariantDowncast, DeserializeInner};
 use bitflags::bitflags;
-use core::{fmt, mem::size_of};
+use core::{fmt, marker::PhantomData, mem::size_of};
 use maligned::A64;
 use mem_dbg::{MemDbg, MemSize};
 
@@ -113,9 +113,9 @@ impl MemBackend {
 /// of [`MemBackend`], so a structure can be [encased](MemCase::encase)
 /// almost transparently.
 #[derive(MemDbg, MemSize)]
-pub struct MemCase<S>(pub(crate) S, pub(crate) MemBackend)
+pub struct MemCase<T, S>(pub(crate) S, pub(crate) MemBackend, PhantomData<T>)
 where
-    for<'a> S: CovariantDowncast<'a>;
+    for<'a> S: CovariantDowncast<'a, T>;
 
 /*impl<S: DeserializeInner> fmt::Debug for MemCase<S>
 where
@@ -129,19 +129,19 @@ where
     }
 }*/
 
-impl<S> MemCase<S>
+impl<T, S> MemCase<T, S>
 where
-    for<'a> S: CovariantDowncast<'a>,
+    for<'a> S: CovariantDowncast<'a, T>,
 {
     /// Encases a data structure in a [`MemCase`] with no backend.
     pub fn encase(s: S) -> Self {
-        MemCase(s, MemBackend::None)
+        MemCase(s, MemBackend::None, PhantomData)
     }
 
-    pub fn get(&self) -> &<S as CovariantDowncast<'_>>::Output {
+    pub fn get(&self) -> &<S as CovariantDowncast<'_, T>>::Output {
         self.0.downcast()
     }
 }
 
-unsafe impl<S: DeserializeInner + Send> Send for MemCase<S> where for<'a> S: CovariantDowncast<'a> {}
-unsafe impl<S: DeserializeInner + Sync> Sync for MemCase<S> where for<'a> S: CovariantDowncast<'a> {}
+unsafe impl<T, S: Send> Send for MemCase<T, S> where for<'a> S: CovariantDowncast<'a, T> {}
+unsafe impl<T, S: Sync> Sync for MemCase<T, S> where for<'a> S: CovariantDowncast<'a, T> {}

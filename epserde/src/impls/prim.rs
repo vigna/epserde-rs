@@ -67,7 +67,7 @@ macro_rules! impl_prim_ser_des {
             }
         }
 
-        unsafe impl<'a> CovariantDowncast<'a> for $ty {
+        unsafe impl<'a> CovariantDowncast<'a, $ty> for $ty {
             type Output = Self;
             fn downcast(&'a self) -> &'a Self {
                 self

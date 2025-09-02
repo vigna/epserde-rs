@@ -149,7 +149,7 @@ assert_eq!(s, t);
 // In this case we map the data structure into memory
 //
 // Note: requires the `mmap` feature.
-let u: MemCase<[usize; 1000]> =
+let u: MemCase<[usize; 1000], DeserType<'static, [usize; 1000]>> =
     unsafe { <[usize; 1000]>::mmap(&file, Flags::empty())? };
 
 assert_eq!(s, **u.get());
@@ -204,7 +204,7 @@ let t: Vec<usize> =
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let u: MemCase<Vec<usize>> =
+let u: MemCase<Vec<usize>, DeserType<'static, Vec<usize>>> =
     unsafe { <Vec<usize>>::mmap(&file, Flags::empty())? };
 assert_eq!(s, **u.get());
 #     Ok(())
@@ -263,7 +263,7 @@ let t: Vec<Data> =
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let u: MemCase<Vec<Data>> =
+let u: MemCase<Vec<Data>, DeserType<'static, Vec<Data>>> =
     unsafe { <Vec<Data>>::mmap(&file, Flags::empty())? };
 assert_eq!(s, **u.get());
 #     Ok(())
@@ -315,7 +315,7 @@ let t: MyStruct<Vec<isize>> =
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-let u: MemCase<MyStruct<Vec<isize>>> =
+let u: MemCase<MyStruct<Vec<isize>>, DeserType<'static, MyStruct<Vec<isize>>>> =
     unsafe { <MyStruct<Vec<isize>>>::mmap(&file, Flags::empty())? };
 let u: &MyStruct<&[isize]> = u.get();
 assert_eq!(s.id, u.id);
@@ -509,7 +509,7 @@ let t: &[i32] = unsafe { <Vec<i32>>::deserialize_eps(b.as_ref())? };
 let t: Vec<i32> = unsafe { <Vec<i32>>::deserialize_full(
         &mut std::fs::File::open(&file)?
     )? };
-let t: MemCase<Vec<i32>> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
+let t: MemCase<Vec<i32>, DeserType<'static, Vec<i32>>> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
 
 // Within a structure
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
@@ -528,7 +528,7 @@ let t: Data<&[i32]> = unsafe { <Data<Vec<i32>>>::deserialize_eps(b.as_ref())? };
 let t: Data<Vec<i32>> = unsafe { <Data<Vec<i32>>>::deserialize_full(
         &mut std::fs::File::open(&file)?
     )? };
-let t: MemCase<Data<Vec<i32>>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
+let t: MemCase<Data<Vec<i32>>, DeserType<'static, Data<Vec<i32>>>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
 #     Ok(())
 # }
 ```
@@ -561,7 +561,7 @@ let t: &[i32] = unsafe { <Vec<i32>>::deserialize_eps(b.as_ref())? };
 let t: Vec<i32> = unsafe { <Vec<i32>>::deserialize_full(
         &mut std::fs::File::open(&file)?
     )? };
-let t: MemCase<Vec<i32>> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
+let t: MemCase<Vec<i32>, DeserType<'static, Vec<i32>>> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
 
 // Within a structure
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
@@ -580,7 +580,7 @@ let t: Data<&[i32]> = unsafe { <Data<Vec<i32>>>::deserialize_eps(b.as_ref())? };
 let t: Data<Vec<i32>> = unsafe { <Data<Vec<i32>>>::deserialize_full(
         &mut std::fs::File::open(&file)?
     )? };
-let t: MemCase<Data<Vec<i32>>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
+let t: MemCase<Data<Vec<i32>>, DeserType<'static, Data<Vec<i32>>>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
 #     Ok(())
 # }
 ```

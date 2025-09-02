@@ -65,7 +65,7 @@ impl SerializeInner for String {
     }
 }
 
-unsafe impl<'a> CovariantDowncast<'a> for String {
+unsafe impl<'a> CovariantDowncast<'a, String> for String {
     type Output = Self;
     fn downcast(&'a self) -> &'a Self {
         self
