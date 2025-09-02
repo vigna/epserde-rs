@@ -9,6 +9,7 @@ use epserde::prelude::*;
 use epserde::PhantomDeserData;
 use epserde::TypeInfo;
 use maligned::A16;
+use std::io::Cursor;
 
 #[test]
 /// Test that we can serialize and deserialize a PhantomData
@@ -233,4 +234,15 @@ fn test_deser_phantom_zero_copy() {
     // The phantom field should be PhantomDeserData<&[i32]> (the DeserType of Vec<i32>)
     // We can't directly compare PhantomData types, but we can verify the deserialization worked
     let _phantom_check: PhantomDeserData<[i32; 4]> = eps.phantom;
+}
+
+#[test]
+fn test_covariant_downcast() {
+    let mut buffer = Vec::new();
+    let phantom = PhantomDeserData::<usize>(PhantomData);
+    unsafe { phantom.serialize(&mut buffer).unwrap() };
+
+    let cursor = Cursor::new(&buffer);
+    let mem_case = unsafe { PhantomDeserData::<usize>::read_mem(cursor, buffer.len()).unwrap() };
+    assert_eq!(phantom, *mem_case.get());
 }

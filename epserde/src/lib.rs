@@ -17,7 +17,7 @@ use core::{hash::Hash, marker::PhantomData, mem::transmute};
 pub use epserde_derive::{Epserde, TypeInfo};
 
 use crate::{
-    deser::{DeserializeInner, ReadWithPos, SliceWithPos},
+    deser::{CovariantDowncast, DeserializeInner, ReadWithPos, SliceWithPos},
     ser::{SerializeInner, WriteWithNames},
     traits::{AlignHash, CopyType, MaxSizeOf, TypeHash, Zero},
 };
@@ -155,7 +155,7 @@ impl<T: ?Sized> SerializeInner for PhantomDeserData<T> {
     }
 }
 
-unsafe impl<T: DeserializeInner> DeserializeInner for PhantomDeserData<T> {
+impl<T: DeserializeInner> DeserializeInner for PhantomDeserData<T> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomDeserData(PhantomData))
@@ -166,6 +166,17 @@ unsafe impl<T: DeserializeInner> DeserializeInner for PhantomDeserData<T> {
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         Ok(PhantomDeserData(PhantomData))
+    }
+}
+
+unsafe impl<'a, T: DeserializeInner> CovariantDowncast<'a, PhantomDeserData<T>>
+    for PhantomDeserData<T::DeserType<'static>>
+where
+    PhantomDeserData<T::DeserType<'a>>: 'a,
+{
+    type Output = PhantomDeserData<T::DeserType<'a>>;
+    fn downcast(&'a self) -> &'a Self::Output {
+        unsafe { transmute(self) }
     }
 }
 

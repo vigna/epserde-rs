@@ -4,11 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{deser::CovariantDowncast, DeserializeInner};
+use crate::deser::{CovariantDowncast, DeserializeInner};
 use bitflags::bitflags;
-use core::{fmt, marker::PhantomData, mem::size_of};
+use core::{marker::PhantomData, mem::size_of};
 use maligned::A64;
 use mem_dbg::{MemDbg, MemSize};
+use std::fmt;
 
 bitflags! {
     /// Flags for [`map`] and [`load_mmap`].
@@ -98,28 +99,26 @@ impl MemBackend {
     }
 }
 
-/// A wrapper keeping together an immutable structure and the memory
-/// it was deserialized from. [`MemCase`] instances can not be cloned, but references
-/// to such instances can be shared freely.
+/// A wrapper keeping together an immutable structure and the memory it was
+/// deserialized from.
 ///
-/// [`MemCase`] implements [`Deref`] and [`AsRef`] to the
-/// wrapped type, so it can be used almost transparently and
-/// with no performance cost. However,
-/// if you need to use a memory-mapped structure as a field in
-/// a struct and you want to avoid `dyn`, you will have
-/// to use [`MemCase`] as the type of the field.
-/// [`MemCase`] implements [`From`] for the
-/// wrapped type, using the no-op [`None`](`MemBackend#variant.None`) variant
-/// of [`MemBackend`], so a structure can be [encased](MemCase::encase)
-/// almost transparently.
+/// [`MemCase`] instances can not be cloned, but references to such instances
+/// can be shared freely. Access to the underlying data structure is provided by
+/// the [`get`](MemCase::get) method.
+///
+/// If you need to use a memory-mapped structure as a field in a struct and you
+/// want to avoid `dyn`, you will have to use [`MemCase`] as the type of the
+/// field. [`MemCase`] implements [`From`] for the wrapped type, using the no-op
+/// [`None`](`MemBackend#variant.None`) variant of [`MemBackend`], so a
+/// structure can be [encased](MemCase::encase) almost transparently.
 #[derive(MemDbg, MemSize)]
 pub struct MemCase<T, S>(pub(crate) S, pub(crate) MemBackend, PhantomData<T>)
 where
     for<'a> S: CovariantDowncast<'a, T>;
 
-/*impl<S: DeserializeInner> fmt::Debug for MemCase<S>
+impl<T, S: DeserializeInner + fmt::Debug> fmt::Debug for MemCase<T, S>
 where
-    <S as DeserializeInner>::DeserType<'static>: fmt::Debug,
+    for<'a> S: CovariantDowncast<'a, T>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("MemBackend")
@@ -127,7 +126,7 @@ where
             .field(&self.1)
             .finish()
     }
-}*/
+}
 
 impl<T, S> MemCase<T, S>
 where

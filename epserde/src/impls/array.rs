@@ -75,7 +75,7 @@ impl<T: DeepCopy + SerializeInner, const N: usize> SerializeHelper<Deep> for [T;
     }
 }
 
-unsafe impl<T: CopyType + DeserializeInner, const N: usize> DeserializeInner for [T; N]
+impl<T: CopyType + DeserializeInner, const N: usize> DeserializeInner for [T; N]
 where
     [T; N]: DeserializeHelper<<T as CopyType>::Copy, FullType = [T; N]>,
 {

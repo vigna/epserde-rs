@@ -486,7 +486,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     // SAFETY: &'epserde_desertype Self is covariant
                     #[automatically_derived]
-                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
                     {
                         type DeserType<'epserde_desertype> = &'epserde_desertype Self;
 
@@ -561,7 +561,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     // SAFETY: #name is a struct, so it is covariant
                     #[automatically_derived]
-                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
 
                         unsafe fn _deserialize_full_inner(
@@ -847,7 +847,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     // SAFETY: &'epserde_desertype Self is covariant
                     #[automatically_derived]
-                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         type DeserType<'epserde_desertype> = &'epserde_desertype Self;
 
                         unsafe fn _deserialize_full_inner(
@@ -902,7 +902,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
                     // SAFETY: #name is an enum, so it is covariant
                     #[automatically_derived]
-                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
 
                         unsafe fn _deserialize_full_inner(

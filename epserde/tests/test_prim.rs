@@ -9,6 +9,7 @@ use core::num::{
     NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
 };
 use epserde::prelude::*;
+use std::io::Cursor;
 
 macro_rules! impl_test {
     ($data:expr, $ty:ty) => {{
@@ -147,6 +148,17 @@ fn test_string() {
 }
 
 #[test]
+fn test_string_covariant_downcast() {
+    let mut buffer = Vec::new();
+    let string = "abc\0\x0a🔥\u{0d2bdf}".to_string();
+    unsafe { string.serialize(&mut buffer).unwrap() };
+
+    let cursor = Cursor::new(&buffer);
+    let mem_case = unsafe { String::read_mem(cursor, buffer.len()).unwrap() };
+    assert_eq!(string, *mem_case.get());
+}
+
+#[test]
 fn test_box_str() {
     for test_str in TEST_STRS {
         let s = test_str.to_string().into_boxed_str();
@@ -179,4 +191,15 @@ fn test_box_str() {
             assert_eq!(s.as_ref(), full_copy);
         }
     }
+}
+
+#[test]
+fn test_box_str_covariant_downcast() {
+    let mut buffer = Vec::new();
+    let box_str = "abc\0\x0a🔥\u{0d2bdf}".to_string().into_boxed_str();
+    unsafe { box_str.serialize(&mut buffer).unwrap() };
+
+    let cursor = Cursor::new(&buffer);
+    let mem_case = unsafe { Box::<str>::read_mem(cursor, buffer.len()).unwrap() };
+    assert_eq!(box_str.as_ref(), *mem_case.get());
 }

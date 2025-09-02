@@ -66,7 +66,7 @@ impl<T: DeepCopy + SerializeInner> SerializeHelper<Deep> for Vec<T> {
 }
 
 // This delegates to a private helper trait which we can specialize on in stable rust
-unsafe impl<T: CopyType + DeserializeInner> DeserializeInner for Vec<T>
+impl<T: CopyType + DeserializeInner> DeserializeInner for Vec<T>
 where
     Vec<T>: DeserializeHelper<<T as CopyType>::Copy, FullType = Vec<T>>,
 {

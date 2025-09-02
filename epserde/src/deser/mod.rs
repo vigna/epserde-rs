@@ -105,18 +105,41 @@ pub trait Deserialize: DeserializeInner {
         Self::deserialize_full(&mut buf_reader).map_err(|e| e.into())
     }
 
-    /// Load a file into heap-allocated memory and ε-deserialize a data structure from it,
-    /// returning a [`MemCase`] containing the data structure and the
-    /// memory. Excess bytes are zeroed out.
+    /// Read data from a reader into heap-allocated memory and ε-deserialize a
+    /// data structure from it, returning a [`MemCase`] containing the data
+    /// structure and the memory. Excess bytes are zeroed out.
     ///
-    /// The allocated memory will have [`MemoryAlignment`] as alignment: types with
-    /// a higher alignment requirement will cause an [alignment error](`Error::AlignmentError`).
+    /// This is a more generic version of [`load_mem`](Self::load_mem) that
+    /// accepts any [`Read`](std::io::Read) implementation instead of just file
+    /// paths.
+    ///
+    /// The allocated memory will have [`MemoryAlignment`] as alignment: types
+    /// with a higher alignment requirement will cause an [alignment
+    /// error](`Error::AlignmentError`).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use epserde::prelude::*;
+    /// # use std::io::Cursor;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let data = vec![1, 2, 3, 4, 5];
+    /// let mut buffer = Vec::new();
+    /// unsafe { data.serialize(&mut buffer)? };
+    ///
+    /// let cursor = Cursor::new(&buffer);
+    /// let mem_case = unsafe { <Vec<i32>>::read_mem(cursor, buffer.len())? };
+    /// assert_eq!(data, **mem_case.get());
+    /// # Ok(())
+    /// # }
+    /// ```
     ///
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
-    unsafe fn load_mem(
-        path: impl AsRef<Path>,
+    unsafe fn read_mem(
+        mut read: impl std::io::Read,
+        size: usize,
     ) -> anyhow::Result<MemCase<Self, DeserType<'static, Self>>>
     where
         for<'a> DeserType<'static, Self>: CovariantDowncast<'a, Self>,
@@ -125,17 +148,15 @@ pub trait Deserialize: DeserializeInner {
         if align_of::<Self>() > align_to {
             return Err(Error::AlignmentError.into());
         }
-        let file_len = path.as_ref().metadata()?.len() as usize;
-        let mut file = std::fs::File::open(path)?;
         // Round up to u128 size
-        let capacity = file_len + crate::pad_align_to(file_len, align_to);
+        let capacity = size + crate::pad_align_to(size, align_to);
 
         let mut uninit: MaybeUninit<MemCase<Self, DeserType<'static, Self>>> =
             MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
-        // SAFETY: the entire vector will be filled with data read from the file,
-        // or with zeroes if the file is shorter than the vector.
+        // SAFETY: the entire vector will be filled with data read from the reader,
+        // or with zeroes if the reader provides less data than expected.
         #[allow(invalid_value)]
         let mut aligned_vec = unsafe {
             <Vec<MemoryAlignment>>::from_raw_parts(
@@ -150,10 +171,10 @@ pub trait Deserialize: DeserializeInner {
             core::slice::from_raw_parts_mut(aligned_vec.as_mut_ptr() as *mut u8, capacity)
         };
 
-        file.read_exact(&mut bytes[..file_len])?;
+        read.read_exact(&mut bytes[..size])?;
         // Fixes the last few bytes to guarantee zero-extension semantics
         // for bit vectors and full-vector initialization.
-        bytes[file_len..].fill(0);
+        bytes[size..].fill(0);
 
         // SAFETY: the vector is aligned to 16 bytes.
         let backend = MemBackend::Memory(aligned_vec.into_boxed_slice());
@@ -173,29 +194,75 @@ pub trait Deserialize: DeserializeInner {
         Ok(unsafe { uninit.assume_init() })
     }
 
-    /// Load a file into `mmap()`-allocated memory and ε-deserialize a data structure from it,
-    /// returning a [`MemCase`] containing the data structure and the
-    /// memory. Excess bytes are zeroed out.
+    /// Load a file into heap-allocated memory and ε-deserialize a data
+    /// structure from it, returning a [`MemCase`] containing the data structure
+    /// and the memory. Excess bytes are zeroed out.
     ///
-    /// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
-    /// just pass `Flags::empty()`.
+    /// The allocated memory will have [`MemoryAlignment`] as alignment: types
+    /// with a higher alignment requirement will cause an [alignment
+    /// error](`Error::AlignmentError`).
     ///
-    /// Requires the `mmap` feature.
+    /// For a version using a generic [`Read`], see
+    /// [`read_mem`](Self::read_mem).
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
-    #[cfg(feature = "mmap")]
-    unsafe fn load_mmap(
+    /// See the [trait documentation](Deserialize).
+    unsafe fn load_mem(
         path: impl AsRef<Path>,
-        flags: Flags,
     ) -> anyhow::Result<MemCase<Self, DeserType<'static, Self>>>
     where
         for<'a> DeserType<'static, Self>: CovariantDowncast<'a, Self>,
     {
         let file_len = path.as_ref().metadata()?.len() as usize;
-        let mut file = std::fs::File::open(path)?;
-        let capacity = file_len + crate::pad_align_to(file_len, 16);
+        let file = std::fs::File::open(path)?;
+        Self::read_mem(file, file_len)
+    }
+
+    /// Read data from a reader into `mmap()`-allocated memory and ε-deserialize
+    /// a data structure from it, returning a [`MemCase`] containing the data
+    /// structure and the memory. Excess bytes are zeroed out.
+    ///
+    /// This is a more generic version of [`load_mmap`](Self::load_mmap) that
+    /// accepts any [`Read`](std::io::Read) implementation instead of just file
+    /// paths.
+    ///
+    /// The behavior of `mmap()` can be modified by passing some [`Flags`];
+    /// otherwise, just pass `Flags::empty()`.
+    ///
+    /// Requires the `mmap` feature.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # #[cfg(feature = "mmap")]
+    /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use epserde::prelude::*;
+    /// # use std::io::Cursor;
+    /// let data = vec![1, 2, 3, 4, 5];
+    /// let mut buffer = Vec::new();
+    /// unsafe { data.serialize(&mut buffer)? };
+    ///
+    /// let cursor = Cursor::new(&buffer);
+    /// let mmap_case = unsafe { <Vec<i32>>::read_mmap(cursor, buffer.len(), Flags::empty())? };
+    /// assert_eq!(data, **mmap_case.get());
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Safety
+    ///
+    /// See the [trait documentation](Deserialize).
+    #[cfg(feature = "mmap")]
+    unsafe fn read_mmap(
+        mut read: impl std::io::Read,
+        size: usize,
+        flags: Flags,
+    ) -> anyhow::Result<MemCase<Self, DeserType<'static, Self>>>
+    where
+        for<'a> DeserType<'static, Self>: CovariantDowncast<'a, Self>,
+    {
+        let capacity = size + crate::pad_align_to(size, 16);
 
         let mut uninit: MaybeUninit<MemCase<Self, DeserType<'static, Self>>> =
             MaybeUninit::uninit();
@@ -204,10 +271,10 @@ pub trait Deserialize: DeserializeInner {
         let mut mmap = mmap_rs::MmapOptions::new(capacity)?
             .with_flags(flags.mmap_flags())
             .map_mut()?;
-        file.read_exact(&mut mmap[..file_len])?;
+        read.read_exact(&mut mmap[..size])?;
         // Fixes the last few bytes to guarantee zero-extension semantics
         // for bit vectors.
-        mmap[file_len..].fill(0);
+        mmap[size..].fill(0);
 
         let backend = MemBackend::Mmap(mmap.make_read_only().map_err(|(_, err)| err)?);
 
@@ -226,18 +293,44 @@ pub trait Deserialize: DeserializeInner {
         Ok(unsafe { uninit.assume_init() })
     }
 
-    /// Memory map a file and ε-deserialize a data structure from it,
-    /// returning a [`MemCase`] containing the data structure and the
-    /// memory mapping.
+    /// Load a file into `mmap()`-allocated memory and ε-deserialize a data
+    /// structure from it, returning a [`MemCase`] containing the data structure
+    /// and the memory. Excess bytes are zeroed out.
     ///
-    /// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
-    /// just pass `Flags::empty()`.
+    /// The behavior of `mmap()` can be modified by passing some [`Flags`];
+    /// otherwise, just pass `Flags::empty()`.
     ///
     /// Requires the `mmap` feature.
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
+    /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s
+    /// documentation](mmap_rs::MmapOptions::with_file).
+    #[cfg(feature = "mmap")]
+    unsafe fn load_mmap(
+        path: impl AsRef<Path>,
+        flags: Flags,
+    ) -> anyhow::Result<MemCase<Self, DeserType<'static, Self>>>
+    where
+        for<'a> DeserType<'static, Self>: CovariantDowncast<'a, Self>,
+    {
+        let file_len = path.as_ref().metadata()?.len() as usize;
+        let file = std::fs::File::open(path)?;
+        Self::read_mmap(file, file_len, flags)
+    }
+
+    /// Memory map a file and ε-deserialize a data structure from it, returning
+    /// a [`MemCase`] containing the data structure and the memory mapping.
+    ///
+    /// The behavior of `mmap()` can be modified by passing some [`Flags`];
+    /// otherwise, just pass `Flags::empty()`.
+    ///
+    /// Requires the `mmap` feature.
+    ///
+    /// # Safety
+    ///
+    /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s
+    /// documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
     unsafe fn mmap(
         path: impl AsRef<Path>,
@@ -291,7 +384,7 @@ pub trait Deserialize: DeserializeInner {
 /// # Safety
 ///
 /// See [`Deserialize`].
-pub unsafe trait DeserializeInner: Sized {
+pub trait DeserializeInner: Sized {
     /// The deserialization type associated with this type. It can be retrieved
     /// conveniently with the alias [`DeserType`].
     type DeserType<'a>;

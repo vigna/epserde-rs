@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use std::io::Cursor;
+
 use anyhow::Result;
 use epserde::prelude::*;
 use maligned::A16;
@@ -42,4 +44,15 @@ fn test_boxed_slices() -> Result<()> {
     let e = unsafe { Data::<Box<[i32]>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(e.a, d.a.as_ref());
     Ok(())
+}
+
+#[test]
+fn test_covariant_downcast() {
+    let mut buffer = Vec::new();
+    let boxed_slice = vec![0, 1, 2, 3].into_boxed_slice();
+    unsafe { boxed_slice.serialize(&mut buffer).unwrap() };
+
+    let cursor = Cursor::new(&buffer);
+    let mem_case = unsafe { Box::<[i32]>::read_mem(cursor, buffer.len()).unwrap() };
+    assert_eq!(boxed_slice.as_ref(), *mem_case.get());
 }
