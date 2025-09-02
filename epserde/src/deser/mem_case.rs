@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::deser::{CovariantDowncast, DeserializeInner};
+use crate::deser::CovariantDowncast;
 use bitflags::bitflags;
 use core::{marker::PhantomData, mem::size_of};
 use maligned::A64;
@@ -116,7 +116,7 @@ pub struct MemCase<T, S>(pub(crate) S, pub(crate) MemBackend, PhantomData<T>)
 where
     for<'a> S: CovariantDowncast<'a, T>;
 
-impl<T, S: DeserializeInner + fmt::Debug> fmt::Debug for MemCase<T, S>
+impl<T, S: fmt::Debug> fmt::Debug for MemCase<T, S>
 where
     for<'a> S: CovariantDowncast<'a, T>,
 {
