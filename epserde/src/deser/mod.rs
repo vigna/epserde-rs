@@ -41,18 +41,15 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub type DeserType<'a, T> = <T as DeserializeInner>::DeserType<'a>;
 
 pub unsafe trait CovariantDowncast<'a, T: ?Sized> {
-    type Output: 'a
-    where
-        Self: 'a;
+    type Output: 'a + ?Sized;
+
     fn downcast(&'a self) -> &'a Self::Output;
 }
 
-unsafe impl<'a, T: ?Sized> CovariantDowncast<'a, T> for &'static T {
-    type Output
-        = Self
-    where
-        Self: 'a;
-    fn downcast(&'a self) -> &'a Self {
+unsafe impl<'a, T: 'static + ?Sized> CovariantDowncast<'a, T> for &'static T {
+    type Output = Self;
+
+    fn downcast(&'a self) -> &'a Self::Output {
         self
     }
 }

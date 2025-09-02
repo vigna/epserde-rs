@@ -65,13 +65,6 @@ impl SerializeInner for String {
     }
 }
 
-unsafe impl<'a> CovariantDowncast<'a, String> for String {
-    type Output = Self;
-    fn downcast(&'a self) -> &'a Self {
-        self
-    }
-}
-
 unsafe impl DeserializeInner for String {
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let slice = deserialize_full_vec_zero(backend)?;
@@ -88,6 +81,13 @@ unsafe impl DeserializeInner for String {
             #[allow(clippy::transmute_bytes_to_str)]
             core::mem::transmute::<&'_ [u8], &'_ str>(slice)
         })
+    }
+}
+
+unsafe impl<'a> CovariantDowncast<'a, String> for &'static str {
+    type Output = &'a str;
+    fn downcast(&'a self) -> &'a Self::Output {
+        unsafe { std::mem::transmute(self) }
     }
 }
 
@@ -117,5 +117,12 @@ unsafe impl DeserializeInner for Box<str> {
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         String::_deserialize_eps_inner(backend)
+    }
+}
+
+unsafe impl<'a> CovariantDowncast<'a, Box<str>> for &'static str {
+    type Output = &'a str;
+    fn downcast(&'a self) -> &'a Self::Output {
+        unsafe { std::mem::transmute(self) }
     }
 }
