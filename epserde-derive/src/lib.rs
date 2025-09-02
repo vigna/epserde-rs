@@ -547,7 +547,6 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         for <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'static>
                     where
                         #name<#concat_generics>: epserde::deser::DeserializeInner,
-                        <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'static>: '__downcast_lifetime,
                         <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'__downcast_lifetime>: '__downcast_lifetime,
                     {
                         type Output = <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'__downcast_lifetime>;
@@ -938,7 +937,6 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     where
                         #name<#concat_generics>: epserde::deser::DeserializeInner,
                         <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'__downcast_lifetime>: '__downcast_lifetime,
-                        <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'static>: '__downcast_lifetime,
                     {
                         type Output = <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'__downcast_lifetime>;
 

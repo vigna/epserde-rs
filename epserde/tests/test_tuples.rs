@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use std::io::Cursor;
+
 use epserde::prelude::*;
 use maligned::A16;
 
@@ -56,3 +58,14 @@ test_zero!(
     ((i32, i32), (i32, i32)),
     ((-1_i32, 1_i32), (-1_i32, 1_i32))
 );
+
+#[test]
+fn test_covariant_downcast() {
+    let mut buffer = Vec::new();
+    let tuple = (0, 0);
+    unsafe { tuple.serialize(&mut buffer).unwrap() };
+
+    let cursor = Cursor::new(&buffer);
+    let mem_case = unsafe { <(i32, i32)>::read_mem(cursor, buffer.len()).unwrap() };
+    assert_eq!(&tuple, *mem_case.get());
+}

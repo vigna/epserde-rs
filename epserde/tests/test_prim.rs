@@ -203,3 +203,51 @@ fn test_box_str_covariant_downcast() {
     let mem_case = unsafe { Box::<str>::read_mem(cursor, buffer.len()).unwrap() };
     assert_eq!(box_str.as_ref(), *mem_case.get());
 }
+
+#[test]
+fn test_option() {
+    for s in [None, Some(0)] {
+        {
+            let mut v = vec![];
+            let mut cursor = std::io::Cursor::new(&mut v);
+
+            let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
+            schema.0.sort_by_key(|a| a.offset);
+
+            cursor.set_position(0);
+            let full_copy =
+                unsafe { <Option<i32>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
+            assert_eq!(s, full_copy);
+
+            let full_copy = unsafe { <Option<i32>>::deserialize_eps(&v).unwrap() };
+            assert_eq!(s, full_copy);
+
+            let _ = schema.to_csv();
+            let _ = schema.debug(&v);
+        }
+        {
+            let mut v = vec![];
+            let mut cursor = std::io::Cursor::new(&mut v);
+            unsafe { s.serialize(&mut cursor).unwrap() };
+
+            cursor.set_position(0);
+            let full_copy =
+                unsafe { <Option<i32>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
+            assert_eq!(s, full_copy);
+
+            let full_copy = unsafe { <Option<i32>>::deserialize_eps(&v).unwrap() };
+            assert_eq!(s, full_copy);
+        }
+    }
+}
+
+#[test]
+fn test_option_covariant_downcast() {
+    let mut buffer = Vec::new();
+    let option = Option::<usize>::None;
+    unsafe { option.serialize(&mut buffer).unwrap() };
+
+    let cursor = Cursor::new(&buffer);
+    let mem_case = unsafe { Option::<usize>::read_mem(cursor, buffer.len()).unwrap() };
+    assert_eq!(option, *mem_case.get());
+}

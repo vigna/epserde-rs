@@ -309,6 +309,16 @@ impl<T: ?Sized> DeserializeInner for PhantomData<T> {
     }
 }
 
+unsafe impl<'a, T: ?Sized> CovariantDowncast<'a, PhantomData<T>> for PhantomData<T>
+where
+    T: 'a,
+{
+    type Output = PhantomData<T>;
+    fn downcast(&'a self) -> &'a Self::Output {
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
 // Options are deep-copy types serialized as a one-byte tag (0 for None, 1 for Some) followed, in case, by the value.
 
 impl<T> CopyType for Option<T> {
@@ -367,5 +377,16 @@ impl<T: DeserializeInner> DeserializeInner for Option<T> {
             1 => Ok(Some(T::_deserialize_eps_inner(backend)?)),
             _ => Err(deser::Error::InvalidTag(backend.data[0] as usize)),
         }
+    }
+}
+
+unsafe impl<'a, T: DeserializeInner> CovariantDowncast<'a, Option<T>>
+    for Option<T::DeserType<'static>>
+where
+    Option<T::DeserType<'a>>: 'a,
+{
+    type Output = Option<T::DeserType<'a>>;
+    fn downcast(&'a self) -> &'a Self::Output {
+        unsafe { std::mem::transmute(self) }
     }
 }

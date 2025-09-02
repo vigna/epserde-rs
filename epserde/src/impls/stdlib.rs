@@ -7,10 +7,10 @@
 //! Implementation of traits for struts from the std library
 use ser::WriteWithNames;
 
-use crate::prelude::*;
+use crate::{deser::CovariantDowncast, prelude::*};
 use core::{
     hash::Hash,
-    ops::{Bound, RangeBounds},
+    ops::{Bound, ControlFlow, RangeBounds},
 };
 use std::collections::hash_map::DefaultHasher;
 
@@ -48,6 +48,17 @@ macro_rules! impl_ranges {
                 core::mem::size_of::<Self>()
             }
         }
+
+        unsafe impl<'a, Idx: DeserializeInner> CovariantDowncast<'a, core::ops::$ty<Idx>>
+            for core::ops::$ty<Idx::DeserType<'static>>
+        where
+            core::ops::$ty<Idx::DeserType<'a>>: 'a,
+        {
+            type Output = core::ops::$ty<Idx::DeserType<'a>>;
+            fn downcast(&'a self) -> &'a Self::Output {
+                unsafe { std::mem::transmute(self) }
+            }
+        }
     };
 }
 
@@ -76,6 +87,13 @@ impl AlignHash for core::ops::RangeFull {
 impl MaxSizeOf for core::ops::RangeFull {
     fn max_size_of() -> usize {
         0
+    }
+}
+
+unsafe impl<'a> CovariantDowncast<'a, core::ops::RangeFull> for core::ops::RangeFull {
+    type Output = Self;
+    fn downcast(&'a self) -> &'a Self::Output {
+        self
     }
 }
 
@@ -335,19 +353,19 @@ impl<T: DeserializeInner> DeserializeInner for core::ops::Bound<T> {
     }
 }
 
-impl<B: CopyType, C: CopyType> CopyType for core::ops::ControlFlow<B, C> {
+impl<B: CopyType, C: CopyType> CopyType for ControlFlow<B, C> {
     type Copy = Deep;
 }
 
-impl<B: TypeHash, C: TypeHash> TypeHash for core::ops::ControlFlow<B, C> {
+impl<B: TypeHash, C: TypeHash> TypeHash for ControlFlow<B, C> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        stringify!(core::ops::ControlFlow).hash(hasher);
+        stringify!(ControlFlow).hash(hasher);
         B::type_hash(hasher);
         C::type_hash(hasher);
     }
 }
 
-impl<B: AlignHash, C: AlignHash> AlignHash for core::ops::ControlFlow<B, C> {
+impl<B: AlignHash, C: AlignHash> AlignHash for ControlFlow<B, C> {
     fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
         B::align_hash(hasher, &mut 0);
         C::align_hash(hasher, &mut 0);
@@ -355,7 +373,7 @@ impl<B: AlignHash, C: AlignHash> AlignHash for core::ops::ControlFlow<B, C> {
 }
 
 impl<B: SerializeInner + TypeHash + AlignHash, C: SerializeInner + TypeHash + AlignHash>
-    SerializeInner for core::ops::ControlFlow<B, C>
+    SerializeInner for ControlFlow<B, C>
 {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
@@ -364,11 +382,11 @@ impl<B: SerializeInner + TypeHash + AlignHash, C: SerializeInner + TypeHash + Al
     #[inline(always)]
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
-            core::ops::ControlFlow::Break(br) => {
+            ControlFlow::Break(br) => {
                 backend.write("Tag", &0_u8)?;
                 backend.write("Break", br)
             }
-            core::ops::ControlFlow::Continue(val) => {
+            ControlFlow::Continue(val) => {
                 backend.write("Tag", &1_u8)?;
                 backend.write("Continue", val)
             }
@@ -376,37 +394,38 @@ impl<B: SerializeInner + TypeHash + AlignHash, C: SerializeInner + TypeHash + Al
     }
 }
 
-impl<B: DeserializeInner, C: DeserializeInner> DeserializeInner for core::ops::ControlFlow<B, C> {
+impl<B: DeserializeInner, C: DeserializeInner> DeserializeInner for ControlFlow<B, C> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let tag = u8::_deserialize_full_inner(backend)?;
         match tag {
-            1 => Ok(core::ops::ControlFlow::Break(B::_deserialize_full_inner(
-                backend,
-            )?)),
-            2 => Ok(core::ops::ControlFlow::Continue(
-                C::_deserialize_full_inner(backend)?,
-            )),
+            1 => Ok(ControlFlow::Break(B::_deserialize_full_inner(backend)?)),
+            2 => Ok(ControlFlow::Continue(C::_deserialize_full_inner(backend)?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
-    type DeserType<'a> = core::ops::ControlFlow<
-        <B as DeserializeInner>::DeserType<'a>,
-        <C as DeserializeInner>::DeserType<'a>,
-    >;
+    type DeserType<'a> =
+        ControlFlow<<B as DeserializeInner>::DeserType<'a>, <C as DeserializeInner>::DeserType<'a>>;
     #[inline(always)]
     unsafe fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let tag = u8::_deserialize_full_inner(backend)?;
         match tag {
-            1 => Ok(core::ops::ControlFlow::Break(B::_deserialize_eps_inner(
-                backend,
-            )?)),
-            2 => Ok(core::ops::ControlFlow::Continue(C::_deserialize_eps_inner(
-                backend,
-            )?)),
+            1 => Ok(ControlFlow::Break(B::_deserialize_eps_inner(backend)?)),
+            2 => Ok(ControlFlow::Continue(C::_deserialize_eps_inner(backend)?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
+    }
+}
+
+unsafe impl<'a, B: DeserializeInner, C: DeserializeInner> CovariantDowncast<'a, ControlFlow<B, C>>
+    for ControlFlow<B::DeserType<'static>, C::DeserType<'static>>
+where
+    ControlFlow<B::DeserType<'a>, C::DeserType<'a>>: 'a,
+{
+    type Output = ControlFlow<B::DeserType<'a>, C::DeserType<'a>>;
+    fn downcast(&'a self) -> &'a Self::Output {
+        unsafe { std::mem::transmute(self) }
     }
 }

@@ -156,6 +156,17 @@ fn test_only_phantom() {
     assert_eq!(vec, eps);
 }
 
+#[test]
+fn test_phantom_covariant_downcast() {
+    let mut buffer = Vec::new();
+    let phantom = PhantomData::<usize>;
+    unsafe { phantom.serialize(&mut buffer).unwrap() };
+
+    let cursor = Cursor::new(&buffer);
+    let mem_case = unsafe { PhantomData::<usize>::read_mem(cursor, buffer.len()).unwrap() };
+    assert_eq!(phantom, *mem_case.get());
+}
+
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
 struct DataWithPhantomDeserData<T> {
     data: T,
@@ -237,7 +248,7 @@ fn test_deser_phantom_zero_copy() {
 }
 
 #[test]
-fn test_covariant_downcast() {
+fn test_deser_phantom_covariant_downcast() {
     let mut buffer = Vec::new();
     let phantom = PhantomDeserData::<usize>(PhantomData);
     unsafe { phantom.serialize(&mut buffer).unwrap() };
