@@ -113,14 +113,11 @@ impl MemBackend {
 /// of [`MemBackend`], so a structure can be [encased](MemCase::encase)
 /// almost transparently.
 #[derive(MemDbg, MemSize)]
-pub struct MemCase<S: DeserializeInner>(
-    pub(crate) <S as DeserializeInner>::DeserType<'static>,
-    pub(crate) MemBackend,
-);
+pub struct MemCase<S, const OWNED: bool>(pub(crate) S, pub(crate) MemBackend);
 
-impl<S: DeserializeInner> fmt::Debug for MemCase<S>
+impl<S, const OWNED: bool> fmt::Debug for MemCase<S, OWNED>
 where
-    <S as DeserializeInner>::DeserType<'static>: fmt::Debug,
+    S: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("MemBackend")
@@ -130,23 +127,24 @@ where
     }
 }
 
-impl<S: DeserializeInner> MemCase<S> {
+impl<S: DeserializeInner> MemCase<S, true> {
     /// Encases a data structure in a [`MemCase`] with no backend.
-    pub fn encase(s: <S as DeserializeInner>::DeserType<'static>) -> Self {
+    pub fn encase(s: S) -> Self {
         MemCase(s, MemBackend::None)
     }
 
-    pub fn get<'this>(&'this self) -> &'this <S as DeserializeInner>::DeserType<'this> {
-        // SAFETY: 'static outlives 'this, and <S as DeserializeInner>::DeserType is required to be
-        // covariant (ie. it's a normal structure and not, say, a closure with 'this as argument)
-        unsafe {
-            core::mem::transmute::<
-                &'this <S as DeserializeInner>::DeserType<'static>,
-                &'this <S as DeserializeInner>::DeserType<'this>,
-            >(&self.0)
-        }
+    pub fn get<'this>(&'this self) -> &'this S {
+        &self.0
     }
 }
 
-unsafe impl<S: DeserializeInner + Send> Send for MemCase<S> {}
-unsafe impl<S: DeserializeInner + Sync> Sync for MemCase<S> {}
+impl<S: DeserializeInner> MemCase<S::DeserType<'static>, false> {
+    pub fn get<'this>(&'this self) -> &'this <S as DeserializeInner>::DeserType<'this> {
+        // SAFETY: 'static outlives 'this, and <S as DeserializeInner>::DeserType is required to be
+        // covariant (ie. it's a normal structure and not, say, a closure with 'this as argument)
+        unsafe { core::mem::transmute(&self.0) }
+    }
+}
+
+unsafe impl<S: DeserializeInner + Send, const OWNED: bool> Send for MemCase<S, OWNED> {}
+unsafe impl<S: DeserializeInner + Sync, const OWNED: bool> Sync for MemCase<S, OWNED> {}
