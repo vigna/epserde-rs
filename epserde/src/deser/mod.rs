@@ -40,17 +40,19 @@ pub type Result<T> = core::result::Result<T, Error>;
 /// A shorthand for the [deserialized type associated with a type](DeserializeInner::DeserType).
 pub type DeserType<'a, T> = <T as DeserializeInner>::DeserType<'a>;
 
-pub unsafe trait CovariantDowncast<'a, T: ?Sized> {
+pub unsafe trait CovariantDowncast<'a> {
+    type Input;
     type Output: 'a + ?Sized;
 
-    fn downcast(&'a self) -> &'a Self::Output;
+    fn downcast(input: &'a Self::Input) -> &'a Self::Output;
 }
 
-unsafe impl<'a, T: 'static + ?Sized> CovariantDowncast<'a, T> for &'static T {
+unsafe impl<'a, T: 'static + ?Sized> CovariantDowncast<'a> for &'static T {
+    type Input = Self;
     type Output = Self;
 
-    fn downcast(&'a self) -> &'a Self::Output {
-        self
+    fn downcast(input: &'a Self::Input) -> &'a Self::Output {
+        input
     }
 }
 
@@ -137,12 +139,9 @@ pub trait Deserialize: DeserializeInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
-    unsafe fn read_mem(
-        mut read: impl std::io::Read,
-        size: usize,
-    ) -> anyhow::Result<MemCase<Self, DeserType<'static, Self>>>
+    unsafe fn read_mem(mut read: impl std::io::Read, size: usize) -> anyhow::Result<MemCase<Self>>
     where
-        for<'a> DeserType<'static, Self>: CovariantDowncast<'a, Self>,
+        for<'a> Self: CovariantDowncast<'a, Input = Self::DeserType<'static>>,
     {
         let align_to = align_of::<MemoryAlignment>();
         if align_of::<Self>() > align_to {
@@ -151,8 +150,7 @@ pub trait Deserialize: DeserializeInner {
         // Round up to u128 size
         let capacity = size + crate::pad_align_to(size, align_to);
 
-        let mut uninit: MaybeUninit<MemCase<Self, DeserType<'static, Self>>> =
-            MaybeUninit::uninit();
+        let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
         // SAFETY: the entire vector will be filled with data read from the reader,
@@ -208,11 +206,10 @@ pub trait Deserialize: DeserializeInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
-    unsafe fn load_mem(
-        path: impl AsRef<Path>,
-    ) -> anyhow::Result<MemCase<Self, DeserType<'static, Self>>>
+    unsafe fn load_mem(path: impl AsRef<Path>) -> anyhow::Result<MemCase<Self>>
     where
-        for<'a> DeserType<'static, Self>: CovariantDowncast<'a, Self>,
+        for<'a> Self: CovariantDowncast<'a>,
+        for<'a> Self: CovariantDowncast<'a, Input = Self::DeserType<'static>>,
     {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let file = std::fs::File::open(path)?;
@@ -258,14 +255,14 @@ pub trait Deserialize: DeserializeInner {
         mut read: impl std::io::Read,
         size: usize,
         flags: Flags,
-    ) -> anyhow::Result<MemCase<Self, DeserType<'static, Self>>>
+    ) -> anyhow::Result<MemCase<Self>>
     where
-        for<'a> DeserType<'static, Self>: CovariantDowncast<'a, Self>,
+        for<'a> Self: CovariantDowncast<'a>,
+        for<'a> Self: CovariantDowncast<'a, Input = Self::DeserType<'static>>,
     {
         let capacity = size + crate::pad_align_to(size, 16);
 
-        let mut uninit: MaybeUninit<MemCase<Self, DeserType<'static, Self>>> =
-            MaybeUninit::uninit();
+        let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
         let mut mmap = mmap_rs::MmapOptions::new(capacity)?
@@ -307,12 +304,10 @@ pub trait Deserialize: DeserializeInner {
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s
     /// documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
-    unsafe fn load_mmap(
-        path: impl AsRef<Path>,
-        flags: Flags,
-    ) -> anyhow::Result<MemCase<Self, DeserType<'static, Self>>>
+    unsafe fn load_mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>>
     where
-        for<'a> DeserType<'static, Self>: CovariantDowncast<'a, Self>,
+        for<'a> Self: CovariantDowncast<'a>,
+        for<'a> Self: CovariantDowncast<'a, Input = Self::DeserType<'static>>,
     {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let file = std::fs::File::open(path)?;
@@ -332,18 +327,15 @@ pub trait Deserialize: DeserializeInner {
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s
     /// documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
-    unsafe fn mmap(
-        path: impl AsRef<Path>,
-        flags: Flags,
-    ) -> anyhow::Result<MemCase<Self, DeserType<'static, Self>>>
+    unsafe fn mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>>
     where
-        for<'a> DeserType<'static, Self>: CovariantDowncast<'a, Self>,
+        for<'a> Self: CovariantDowncast<'a>,
+        for<'a> Self: CovariantDowncast<'a, Input = Self::DeserType<'static>>,
     {
         let file_len = path.as_ref().metadata()?.len();
         let file = std::fs::File::open(path)?;
 
-        let mut uninit: MaybeUninit<MemCase<Self, DeserType<'static, Self>>> =
-            MaybeUninit::uninit();
+        let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
         let mmap = unsafe {

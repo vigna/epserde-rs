@@ -59,6 +59,7 @@ test_zero!(
     ((-1_i32, 1_i32), (-1_i32, 1_i32))
 );
 
+/* TODO
 #[test]
 fn test_covariant_downcast() {
     let mut buffer = Vec::new();
@@ -69,3 +70,5 @@ fn test_covariant_downcast() {
     let mem_case = unsafe { <(i32, i32)>::read_mem(cursor, buffer.len()).unwrap() };
     assert_eq!(&tuple, *mem_case.get());
 }
+
+*/

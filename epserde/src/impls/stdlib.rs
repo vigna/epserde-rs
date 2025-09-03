@@ -49,14 +49,14 @@ macro_rules! impl_ranges {
             }
         }
 
-        unsafe impl<'a, Idx: DeserializeInner> CovariantDowncast<'a, core::ops::$ty<Idx>>
-            for core::ops::$ty<Idx::DeserType<'static>>
+        unsafe impl<'a, Idx: DeserializeInner> CovariantDowncast<'a> for core::ops::$ty<Idx>
         where
             core::ops::$ty<Idx::DeserType<'a>>: 'a,
         {
+            type Input = core::ops::$ty<Idx::DeserType<'static>>;
             type Output = core::ops::$ty<Idx::DeserType<'a>>;
-            fn downcast(&'a self) -> &'a Self::Output {
-                unsafe { std::mem::transmute(self) }
+            fn downcast(input: &'a Self::Input) -> &'a Self::Output {
+                unsafe { std::mem::transmute(input) }
             }
         }
     };
@@ -90,10 +90,11 @@ impl MaxSizeOf for core::ops::RangeFull {
     }
 }
 
-unsafe impl<'a> CovariantDowncast<'a, core::ops::RangeFull> for core::ops::RangeFull {
+unsafe impl<'a> CovariantDowncast<'a> for core::ops::RangeFull {
+    type Input = Self;
     type Output = Self;
-    fn downcast(&'a self) -> &'a Self::Output {
-        self
+    fn downcast(input: &'a Self::Input) -> &'a Self::Output {
+        input
     }
 }
 
@@ -419,13 +420,15 @@ impl<B: DeserializeInner, C: DeserializeInner> DeserializeInner for ControlFlow<
     }
 }
 
-unsafe impl<'a, B: DeserializeInner, C: DeserializeInner> CovariantDowncast<'a, ControlFlow<B, C>>
-    for ControlFlow<B::DeserType<'static>, C::DeserType<'static>>
+unsafe impl<'a, B: DeserializeInner, C: DeserializeInner> CovariantDowncast<'a>
+    for ControlFlow<B, C>
 where
     ControlFlow<B::DeserType<'a>, C::DeserType<'a>>: 'a,
 {
+    type Input = ControlFlow<B::DeserType<'static>, C::DeserType<'static>>;
     type Output = ControlFlow<B::DeserType<'a>, C::DeserType<'a>>;
-    fn downcast(&'a self) -> &'a Self::Output {
-        unsafe { std::mem::transmute(self) }
+
+    fn downcast(input: &'a Self::Input) -> &'a Self::Output {
+        unsafe { std::mem::transmute(input) }
     }
 }

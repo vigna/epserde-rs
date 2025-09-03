@@ -84,10 +84,11 @@ impl DeserializeInner for String {
     }
 }
 
-unsafe impl<'a> CovariantDowncast<'a, String> for &'static str {
+unsafe impl<'a> CovariantDowncast<'a> for String {
+    type Input = &'static str;
     type Output = &'a str;
-    fn downcast(&'a self) -> &'a Self::Output {
-        unsafe { std::mem::transmute(self) }
+    fn downcast(input: &'a Self::Input) -> &'a Self::Output {
+        input
     }
 }
 
@@ -120,9 +121,10 @@ impl DeserializeInner for Box<str> {
     }
 }
 
-unsafe impl<'a> CovariantDowncast<'a, Box<str>> for &'static str {
+unsafe impl<'a> CovariantDowncast<'a> for Box<str> {
+    type Input = &'static str;
     type Output = &'a str;
-    fn downcast(&'a self) -> &'a Self::Output {
-        unsafe { std::mem::transmute(self) }
+    fn downcast(input: &'a Self::Input) -> &'a Self::Output {
+        input
     }
 }

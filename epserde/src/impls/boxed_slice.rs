@@ -80,10 +80,11 @@ where
     }
 }
 
-unsafe impl<'a, T: ZeroCopy + DeserializeInner> CovariantDowncast<'a, Box<[T]>> for &'static [T] {
+unsafe impl<'a, T: ZeroCopy + DeserializeInner> CovariantDowncast<'a> for Box<[T]> {
+    type Input = &'static [T];
     type Output = &'a [T];
-    fn downcast(&'a self) -> &'a Self::Output {
-        unsafe { std::mem::transmute(self) }
+    fn downcast(input: &'a Self::Input) -> &'a Self::Output {
+        input
     }
 }
 

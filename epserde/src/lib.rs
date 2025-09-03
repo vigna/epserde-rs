@@ -169,14 +169,14 @@ impl<T: DeserializeInner> DeserializeInner for PhantomDeserData<T> {
     }
 }
 
-unsafe impl<'a, T: DeserializeInner> CovariantDowncast<'a, PhantomDeserData<T>>
-    for PhantomDeserData<T::DeserType<'static>>
+unsafe impl<'a, T: DeserializeInner> CovariantDowncast<'a> for PhantomDeserData<T>
 where
     PhantomDeserData<T::DeserType<'a>>: 'a,
 {
+    type Input = PhantomDeserData<T::DeserType<'static>>;
     type Output = PhantomDeserData<T::DeserType<'a>>;
-    fn downcast(&'a self) -> &'a Self::Output {
-        unsafe { transmute(self) }
+    fn downcast(input: &'a Self::Input) -> &'a Self::Output {
+        unsafe { transmute(input) }
     }
 }
 

@@ -67,10 +67,11 @@ macro_rules! impl_prim_ser_des {
             }
         }
 
-        unsafe impl<'a> CovariantDowncast<'a, $ty> for $ty {
+        unsafe impl<'a> CovariantDowncast<'a> for $ty {
+            type Input = Self;
             type Output = Self;
-            fn downcast(&'a self) -> &'a Self {
-                self
+            fn downcast(input: &'a Self::Input) -> &'a Self::Output {
+                input
             }
         }
 
@@ -309,13 +310,14 @@ impl<T: ?Sized> DeserializeInner for PhantomData<T> {
     }
 }
 
-unsafe impl<'a, T: ?Sized> CovariantDowncast<'a, PhantomData<T>> for PhantomData<T>
+unsafe impl<'a, T: ?Sized> CovariantDowncast<'a> for PhantomData<T>
 where
     T: 'a,
 {
-    type Output = PhantomData<T>;
-    fn downcast(&'a self) -> &'a Self::Output {
-        unsafe { std::mem::transmute(self) }
+    type Input = Self;
+    type Output = Self;
+    fn downcast(input: &'a Self::Input) -> &'a Self::Output {
+        input
     }
 }
 
@@ -380,13 +382,13 @@ impl<T: DeserializeInner> DeserializeInner for Option<T> {
     }
 }
 
-unsafe impl<'a, T: DeserializeInner> CovariantDowncast<'a, Option<T>>
-    for Option<T::DeserType<'static>>
+unsafe impl<'a, T: DeserializeInner> CovariantDowncast<'a> for Option<T>
 where
     Option<T::DeserType<'a>>: 'a,
 {
+    type Input = Option<T::DeserType<'static>>;
     type Output = Option<T::DeserType<'a>>;
-    fn downcast(&'a self) -> &'a Self::Output {
-        unsafe { std::mem::transmute(self) }
+    fn downcast(input: &'a Self::Input) -> &'a Self::Output {
+        unsafe { std::mem::transmute(input) }
     }
 }

@@ -6,10 +6,9 @@
 
 use crate::deser::CovariantDowncast;
 use bitflags::bitflags;
-use core::{marker::PhantomData, mem::size_of};
+use core::mem::size_of;
 use maligned::A64;
 use mem_dbg::{MemDbg, MemSize};
-use std::fmt;
 
 bitflags! {
     /// Flags for [`map`] and [`load_mmap`].
@@ -112,13 +111,17 @@ impl MemBackend {
 /// [`None`](`MemBackend#variant.None`) variant of [`MemBackend`], so a
 /// structure can be [encased](MemCase::encase) almost transparently.
 #[derive(MemDbg, MemSize)]
-pub struct MemCase<T, S>(pub(crate) S, pub(crate) MemBackend, PhantomData<T>)
+pub struct MemCase<S>(
+    pub(crate) <S as CovariantDowncast<'static>>::Input,
+    pub(crate) MemBackend,
+)
 where
-    for<'a> S: CovariantDowncast<'a, T>;
+    for<'a> S: CovariantDowncast<'a>;
 
-impl<T, S: fmt::Debug> fmt::Debug for MemCase<T, S>
+/*
+impl<<S as CovariantDowncast<'static>>::Input: fmt::Debug> fmt::Debug for MemCase<S>
 where
-    for<'a> S: CovariantDowncast<'a, T>,
+    for<'a> S: CovariantDowncast<'a>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("MemBackend")
@@ -127,20 +130,25 @@ where
             .finish()
     }
 }
+*/
 
-impl<T, S> MemCase<T, S>
+impl<S> MemCase<S>
 where
-    for<'a> S: CovariantDowncast<'a, T>,
+    for<'a> S: CovariantDowncast<'a>,
 {
     /// Encases a data structure in a [`MemCase`] with no backend.
-    pub fn encase(s: S) -> Self {
-        MemCase(s, MemBackend::None, PhantomData)
+    pub fn encase(s: <S as CovariantDowncast<'static>>::Input) -> Self {
+        MemCase(s, MemBackend::None)
     }
 
-    pub fn get(&self) -> &<S as CovariantDowncast<'_, T>>::Output {
-        self.0.downcast()
+    pub fn get<'a>(&'a self) -> &'a <S as CovariantDowncast<'a>>::Output {
+        // SAFETY: CovariantDowncast guarantees that the type is covariant in its lifetime parameter,
+        // so we can safely transmute from 'static to 'a
+        let input_ref: &'a <S as CovariantDowncast<'a>>::Input =
+            unsafe { std::mem::transmute(&self.0) };
+        <S as CovariantDowncast<'a>>::downcast(input_ref)
     }
 }
 
-unsafe impl<T, S: Send> Send for MemCase<T, S> where for<'a> S: CovariantDowncast<'a, T> {}
-unsafe impl<T, S: Sync> Sync for MemCase<T, S> where for<'a> S: CovariantDowncast<'a, T> {}
+unsafe impl<S: Send> Send for MemCase<S> where for<'a> S: CovariantDowncast<'a> {}
+unsafe impl<S: Sync> Sync for MemCase<S> where for<'a> S: CovariantDowncast<'a> {}

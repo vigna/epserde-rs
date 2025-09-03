@@ -543,17 +543,18 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     // SAFETY: &'epserde_desertype Self is covariant
                     #[automatically_derived]
-                    unsafe impl<'__downcast_lifetime, #generics_deserialize> epserde::deser::CovariantDowncast<'__downcast_lifetime, #name<#concat_generics>>
-                        for <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'static>
+                    unsafe impl<'__downcast_lifetime, #generics_deserialize> epserde::deser::CovariantDowncast<'__downcast_lifetime>
+                        for #name<#concat_generics>
                     where
                         #name<#concat_generics>: epserde::deser::DeserializeInner,
                         <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'__downcast_lifetime>: '__downcast_lifetime,
                     {
+                        type Input = <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'static>;
                         type Output = <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'__downcast_lifetime>;
 
-                        fn downcast(&'__downcast_lifetime self) -> &'__downcast_lifetime Self::Output {
+                        fn downcast(input: &'__downcast_lifetime Self::Input) -> &'__downcast_lifetime Self::Output {
                             unsafe {
-                                core::mem::transmute(self)
+                                core::mem::transmute(input)
                             }
                         }
                     }
@@ -932,17 +933,18 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     // SAFETY: &'epserde_desertype Self is covariant
                     #[automatically_derived]
-                    unsafe impl<'__downcast_lifetime, #generics_deserialize> epserde::deser::CovariantDowncast<'__downcast_lifetime, #name<#concat_generics>>
-                        for <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'static>
+                    unsafe impl<'__downcast_lifetime, #generics_deserialize> epserde::deser::CovariantDowncast<'__downcast_lifetime>
+                        for #name<#concat_generics>
                     where
                         #name<#concat_generics>: epserde::deser::DeserializeInner,
                         <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'__downcast_lifetime>: '__downcast_lifetime,
                     {
+                        type Input = <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'static>;
                         type Output = <#name<#concat_generics> as epserde::deser::DeserializeInner>::DeserType<'__downcast_lifetime>;
 
-                        fn downcast(&'__downcast_lifetime self) -> &'__downcast_lifetime Self::Output {
+                        fn downcast(input: &'__downcast_lifetime Self::Input) -> &'__downcast_lifetime Self::Output {
                             unsafe {
-                                core::mem::transmute(self)
+                                core::mem::transmute(input)
                             }
                         }
                     }
