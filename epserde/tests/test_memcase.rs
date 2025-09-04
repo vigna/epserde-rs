@@ -14,6 +14,12 @@ struct PersonVec<A, B> {
     test: isize,
 }
 
+impl<A, B> PersonVec<A, B> {
+    pub fn get_test(&self) -> isize {
+        self.test
+    }
+}
+
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A> {
     a: A,
@@ -40,6 +46,7 @@ fn test_mem_case() {
     let res = unsafe { Person::load_mem("test.bin").unwrap() };
     let res = res.get();
     assert_eq!(person.test, res.test);
+    assert_eq!(person.test, res.get_test());
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
@@ -47,6 +54,7 @@ fn test_mem_case() {
     let res = unsafe { Person::load_mmap("test.bin", Flags::empty()).unwrap() };
     let res = res.get();
     assert_eq!(person.test, res.test);
+    assert_eq!(person.test, res.get_test());
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
@@ -54,12 +62,14 @@ fn test_mem_case() {
     let res = unsafe { Person::load_mem("test.bin").unwrap() };
     let res = res.get();
     assert_eq!(person.test, res.test);
+    assert_eq!(person.test, res.get_test());
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
 
     let res = unsafe { Person::load_full("test.bin").unwrap() };
     assert_eq!(person.test, res.test);
+    assert_eq!(person.test, res.get_test());
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
@@ -67,6 +77,7 @@ fn test_mem_case() {
     let res = unsafe { Person::mmap("test.bin", Flags::empty()).unwrap() };
     let res = res.get();
     assert_eq!(person.test, res.test);
+    assert_eq!(person.test, res.get_test());
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
@@ -74,6 +85,7 @@ fn test_mem_case() {
     let res = unsafe { Person::mmap("test.bin", Flags::TRANSPARENT_HUGE_PAGES).unwrap() };
     let res = res.get();
     assert_eq!(person.test, res.test);
+    assert_eq!(person.test, res.get_test());
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
@@ -81,6 +93,7 @@ fn test_mem_case() {
     let res = unsafe { Person::mmap("test.bin", Flags::empty()).unwrap() };
     let res = res.get();
     assert_eq!(person.test, res.test);
+    assert_eq!(person.test, res.get_test());
     assert_eq!(person.a, res.a);
     assert_eq!(person.b.a, res.b.a);
     assert_eq!(person.b.b, res.b.b);
