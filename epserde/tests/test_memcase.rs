@@ -5,6 +5,7 @@
  */
 
 use epserde::prelude::*;
+use std::io::Cursor;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct PersonVec<A, B> {
@@ -86,4 +87,54 @@ fn test_mem_case() {
 
     // cleanup the file
     std::fs::remove_file("test.bin").unwrap();
+}
+
+#[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
+struct TestData {
+    values: Vec<i32>,
+    count: usize,
+}
+
+#[test]
+fn test_read_mem() {
+    // Create test data
+    let data = TestData {
+        values: vec![1, 2, 3, 4, 5],
+        count: 42,
+    };
+
+    // Serialize to a buffer
+    let mut buffer = Vec::new();
+    unsafe { data.serialize(&mut buffer).unwrap() };
+
+    // Test read_mem with a Cursor (implements Read)
+    let cursor = Cursor::new(&buffer);
+    let mem_case = unsafe { TestData::read_mem(cursor, buffer.len()).unwrap() };
+    let deserialized = mem_case.get();
+
+    assert_eq!(data.values, deserialized.values);
+    assert_eq!(data.count, deserialized.count);
+}
+
+#[cfg(feature = "mmap")]
+#[test]
+fn test_read_mmap() {
+    // Create test data
+
+    let data = TestData {
+        values: vec![10, 20, 30, 40, 50],
+        count: 123,
+    };
+
+    // Serialize to a buffer
+    let mut buffer = Vec::new();
+    unsafe { data.serialize(&mut buffer).unwrap() };
+
+    // Test read_mmap with a Cursor (implements Read)
+    let cursor = Cursor::new(&buffer);
+    let mmap_case = unsafe { TestData::read_mmap(cursor, buffer.len(), Flags::empty()).unwrap() };
+    let deserialized = mmap_case.get();
+
+    assert_eq!(data.values, deserialized.values);
+    assert_eq!(data.count, deserialized.count);
 }
