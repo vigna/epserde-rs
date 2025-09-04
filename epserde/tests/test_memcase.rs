@@ -44,7 +44,7 @@ fn test_mem_case() {
     unsafe { person.store("test.bin").unwrap() };
 
     let res = unsafe { Person::load_mem("test.bin").unwrap() };
-    let res = res.get();
+    let res = res.uncase();
     assert_eq!(person.test, res.test);
     assert_eq!(person.test, res.get_test());
     assert_eq!(person.a, res.a);
@@ -52,7 +52,7 @@ fn test_mem_case() {
     assert_eq!(person.b.b, res.b.b);
 
     let res = unsafe { Person::load_mmap("test.bin", Flags::empty()).unwrap() };
-    let res = res.get();
+    let res = res.uncase();
     assert_eq!(person.test, res.test);
     assert_eq!(person.test, res.get_test());
     assert_eq!(person.a, res.a);
@@ -60,7 +60,7 @@ fn test_mem_case() {
     assert_eq!(person.b.b, res.b.b);
 
     let res = unsafe { Person::load_mem("test.bin").unwrap() };
-    let res = res.get();
+    let res = res.uncase();
     assert_eq!(person.test, res.test);
     assert_eq!(person.test, res.get_test());
     assert_eq!(person.a, res.a);
@@ -75,7 +75,7 @@ fn test_mem_case() {
     assert_eq!(person.b.b, res.b.b);
 
     let res = unsafe { Person::mmap("test.bin", Flags::empty()).unwrap() };
-    let res = res.get();
+    let res = res.uncase();
     assert_eq!(person.test, res.test);
     assert_eq!(person.test, res.get_test());
     assert_eq!(person.a, res.a);
@@ -83,7 +83,7 @@ fn test_mem_case() {
     assert_eq!(person.b.b, res.b.b);
 
     let res = unsafe { Person::mmap("test.bin", Flags::TRANSPARENT_HUGE_PAGES).unwrap() };
-    let res = res.get();
+    let res = res.uncase();
     assert_eq!(person.test, res.test);
     assert_eq!(person.test, res.get_test());
     assert_eq!(person.a, res.a);
@@ -91,7 +91,7 @@ fn test_mem_case() {
     assert_eq!(person.b.b, res.b.b);
 
     let res = unsafe { Person::mmap("test.bin", Flags::empty()).unwrap() };
-    let res = res.get();
+    let res = res.uncase();
     assert_eq!(person.test, res.test);
     assert_eq!(person.test, res.get_test());
     assert_eq!(person.a, res.a);
@@ -123,7 +123,7 @@ fn test_read_mem() {
     // Test read_mem with a Cursor (implements Read)
     let cursor = Cursor::new(&buffer);
     let mem_case = unsafe { TestData::read_mem(cursor, buffer.len()).unwrap() };
-    let deserialized = mem_case.get();
+    let deserialized = mem_case.uncase();
 
     assert_eq!(data.values, deserialized.values);
     assert_eq!(data.count, deserialized.count);
@@ -146,7 +146,7 @@ fn test_read_mmap() {
     // Test read_mmap with a Cursor (implements Read)
     let cursor = Cursor::new(&buffer);
     let mmap_case = unsafe { TestData::read_mmap(cursor, buffer.len(), Flags::empty()).unwrap() };
-    let deserialized = mmap_case.get();
+    let deserialized = mmap_case.uncase();
 
     assert_eq!(data.values, deserialized.values);
     assert_eq!(data.count, deserialized.count);
