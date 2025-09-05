@@ -486,7 +486,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     // SAFETY: &'epserde_desertype Self is covariant
                     #[automatically_derived]
-                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
                     {
                         unsafe fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
@@ -543,7 +543,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     // SAFETY: #name is a struct, so it is covariant
                     #[automatically_derived]
-                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         unsafe fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
@@ -828,7 +828,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     // SAFETY: &'epserde_desertype Self is covariant
                     #[automatically_derived]
-                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         unsafe fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {
@@ -883,7 +883,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
                     // SAFETY: #name is an enum, so it is covariant
                     #[automatically_derived]
-                    unsafe impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         unsafe fn _deserialize_full_inner(
                             backend: &mut impl epserde::deser::ReadWithPos,
                         ) -> core::result::Result<Self, epserde::deser::Error> {

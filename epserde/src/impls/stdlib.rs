@@ -94,7 +94,7 @@ impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     }
 }
 
-unsafe impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::Range<Idx> {
+impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::Range<Idx> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let start = Idx::_deserialize_full_inner(backend)?;
@@ -126,7 +126,7 @@ impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     }
 }
 
-unsafe impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeFrom<Idx> {
+impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeFrom<Idx> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let start = Idx::_deserialize_full_inner(backend)?;
@@ -158,7 +158,7 @@ impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     }
 }
 
-unsafe impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeInclusive<Idx> {
+impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeInclusive<Idx> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let start = Idx::_deserialize_full_inner(backend)?;
@@ -194,7 +194,7 @@ impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     }
 }
 
-unsafe impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeTo<Idx> {
+impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeTo<Idx> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let end = Idx::_deserialize_full_inner(backend)?;
@@ -224,7 +224,7 @@ impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     }
 }
 
-unsafe impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner
+impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner
     for core::ops::RangeToInclusive<Idx>
 {
     #[inline(always)]
@@ -253,7 +253,7 @@ impl SerializeInner for core::ops::RangeFull {
     }
 }
 
-unsafe impl DeserializeInner for core::ops::RangeFull {
+impl DeserializeInner for core::ops::RangeFull {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(core::ops::RangeFull)
@@ -303,7 +303,7 @@ impl<T: SerializeInner + TypeHash + AlignHash> SerializeInner for core::ops::Bou
     }
 }
 
-unsafe impl<T: DeserializeInner> DeserializeInner for core::ops::Bound<T> {
+impl<T: DeserializeInner> DeserializeInner for core::ops::Bound<T> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let tag = u8::_deserialize_full_inner(backend)?;
@@ -378,7 +378,7 @@ impl<B: SerializeInner + TypeHash + AlignHash, C: SerializeInner + TypeHash + Al
     }
 }
 
-unsafe impl<B: DeserializeInner, C: DeserializeInner> DeserializeInner
+impl<B: DeserializeInner, C: DeserializeInner> DeserializeInner
     for core::ops::ControlFlow<B, C>
 {
     #[inline(always)]

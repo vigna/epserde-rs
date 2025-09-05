@@ -342,7 +342,7 @@ pub trait Deserialize: DeserializeInner {
 /// # Safety
 ///
 /// See [`Deserialize`].
-pub unsafe trait DeserializeInner: Sized {
+pub trait DeserializeInner: Sized {
     /// The deserialization type associated with this type. It can be retrieved
     /// conveniently with the alias [`DeserType`].
     type DeserType<'a>;
