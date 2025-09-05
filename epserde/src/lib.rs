@@ -155,7 +155,7 @@ impl<T: ?Sized> SerializeInner for PhantomDeserData<T> {
     }
 }
 
-unsafe impl<T: DeserializeInner> DeserializeInner for PhantomDeserData<T> {
+impl<T: DeserializeInner> DeserializeInner for PhantomDeserData<T> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomDeserData(PhantomData))

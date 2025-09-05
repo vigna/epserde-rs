@@ -1,0 +1,57 @@
+   Compiling epserde-derive v0.8.0 (/app/epserde-derive)
+   Compiling epserde v0.8.0 (/app/epserde)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.81s
+     Running unittests src/lib.rs (target/debug/deps/epserde-4cba48141556447f)
+
+running 2 tests
+test test_pad_align_to ... ok
+test utils::aligned_cursor::tests::test_aligned_cursor ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/fail.rs (target/debug/deps/fail-edbbab370a46376a)
+
+running 1 test
+   Compiling epserde-derive v0.8.0 (/app/epserde-derive)
+    Checking epserde v0.8.0 (/app/epserde)
+    Checking epserde-tests v0.0.0 (/app/target/tests/trybuild/epserde)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.46s
+
+
+test [0m[1mtests/fail/drop_memcase.rs[0m ... [0m[1m[33mwip
+[0m[1m[33m
+[0m[1m[33mNOTE[0m: writing the following output to `wip/drop_memcase.stderr`.
+Move this file to `tests/fail/drop_memcase.stderr` to accept it as correct.
+[0m[33m┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+[0m[33merror[E0505]: cannot move out of `mem_case` because it is borrowed
+[0m[33m  --> tests/fail/drop_memcase.rs:18:10
+[0m[33m   |
+[0m[33m16 |     let mem_case = unsafe { Vec::<i32>::read_mem(cursor, buffer.len()).unwrap() };
+[0m[33m   |         -------- binding `mem_case` declared here
+[0m[33m17 |     let v = mem_case.uncase();
+[0m[33m   |             -------- borrow of `mem_case` occurs here
+[0m[33m18 |     drop(mem_case);
+[0m[33m   |          ^^^^^^^^ move out of `mem_case` occurs here
+[0m[33m19 |     let _vv = v;
+[0m[33m   |               - borrow later used here
+[0m[33m┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
+[0m
+
+
+test fail ... FAILED
+
+failures:
+
+---- fail stdout ----
+
+thread 'fail' panicked at /home/jules/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/trybuild-1.0.110/src/run.rs:105:13:
+successfully created new stderr files for 1 test cases
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    fail
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.71s
+
+error: test failed, to rerun pass `-p epserde --test fail`
