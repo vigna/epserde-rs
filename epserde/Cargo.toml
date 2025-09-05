@@ -30,6 +30,9 @@ mem_dbg = { version = "0.3.0", features = [
 	"derive",
 ], default-features = false }
 
+[dev-dependencies]
+trybuild = "1.0.110"
+
 [features]
 default = ["std", "mmap", "derive"]
 derive = ["epserde-derive"]
