@@ -78,7 +78,7 @@ These are the main limitations you should be aware of before choosing to use
   with its serialized support, which is obtained by putting it in a [`MemCase`]
   using the convenience methods [`Deserialize::load_mem`],
   [`Deserialize::load_mmap`], and [`Deserialize::mmap`]. A [`MemCase`] provides
-  a [`get`] method that yields references to the deserialized type associated to
+  a [`uncase`] method that yields references to the deserialized type associated to
   its contained type.
 
 - No validation or padding cleaning is performed on zero-copy types. If you plan
@@ -152,7 +152,7 @@ assert_eq!(s, t);
 let u: MemCase<[usize; 1000]> =
     unsafe { <[usize; 1000]>::mmap(&file, Flags::empty())? };
 
-assert_eq!(s, **u.get());
+assert_eq!(s, **u.uncase());
 #     Ok(())
 # }
 ```
@@ -206,7 +206,7 @@ assert_eq!(s, t);
 // In this case we map the data structure into memory
 let u: MemCase<Vec<usize>> =
     unsafe { <Vec<usize>>::mmap(&file, Flags::empty())? };
-assert_eq!(s, **u.get());
+assert_eq!(s, **u.uncase());
 #     Ok(())
 # }
 ```
@@ -265,7 +265,7 @@ assert_eq!(s, t);
 // In this case we map the data structure into memory
 let u: MemCase<Vec<Data>> =
     unsafe { <Vec<Data>>::mmap(&file, Flags::empty())? };
-assert_eq!(s, **u.get());
+assert_eq!(s, **u.uncase());
 #     Ok(())
 # }
 ```
@@ -317,7 +317,7 @@ assert_eq!(s, t);
 // In this case we map the data structure into memory
 let u: MemCase<MyStruct<Vec<isize>>> =
     unsafe { <MyStruct<Vec<isize>>>::mmap(&file, Flags::empty())? };
-let u: &MyStruct<&[isize]> = u.get();
+let u: &MyStruct<&[isize]> = u.uncase();
 assert_eq!(s.id, u.id);
 assert_eq!(s.data, u.data.as_ref());
 #     Ok(())
@@ -366,7 +366,7 @@ let t = unsafe { MyStruct::deserialize_eps(b.as_ref())? };
 assert_eq!(s.sum(), t.sum());
 
 let t = unsafe { <MyStruct>::mmap(&file, Flags::empty())? };
-let t: &MyStructParam<&[isize]> = t.get();
+let t: &MyStructParam<&[isize]> = t.uncase();
 
 // t works transparently as a &MyStructParam<&[isize]>
 assert_eq!(s.id, t.id);
@@ -701,7 +701,7 @@ necessarily reflect those of the European Union or the Italian MUR. Neither the
 European Union nor the Italian MUR can be held responsible for them.
 
 [`MemCase`]: <https://docs.rs/epserde/latest/epserde/deser/mem_case/struct.MemCase.html>
-[`get`]: <https://docs.rs/epserde/latest/epserde/deser/mem_case/struct.MemCase.html#method.get>
+[`uncase`]: <https://docs.rs/epserde/latest/epserde/deser/mem_case/struct.MemCase.html#method.uncase>
 [`ZeroCopy`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.ZeroCopy.html>
 [`DeepCopy`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.DeepCopy.html>
 [`CopyType`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html>

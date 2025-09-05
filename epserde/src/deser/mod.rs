@@ -115,7 +115,7 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// let cursor = Cursor::new(&buffer);
     /// let mem_case = unsafe { <Vec<i32>>::read_mem(cursor, buffer.len())? };
-    /// assert_eq!(data, **mem_case.get());
+    /// assert_eq!(data, **mem_case.uncase());
     /// # Ok(())
     /// # }
     /// ```
@@ -219,7 +219,7 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// let cursor = Cursor::new(&buffer);
     /// let mmap_case = unsafe { <Vec<i32>>::read_mmap(cursor, buffer.len(), Flags::empty())? };
-    /// assert_eq!(data, **mmap_case.get());
+    /// assert_eq!(data, **mmap_case.uncase());
     /// # Ok(())
     /// # }
     /// ```
