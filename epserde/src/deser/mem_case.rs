@@ -165,3 +165,12 @@ where
         self.uncase().into_iter()
     }
 }
+
+impl<A, S: DeserializeInner> AsRef<A> for MemCase<S>
+where
+    for<'a> <S as DeserializeInner>::DeserType<'a>: AsRef<A>,
+{
+    fn as_ref(&self) -> &A {
+        self.uncase().as_ref()
+    }
+}
