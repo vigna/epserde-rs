@@ -63,11 +63,13 @@ impl Flags {
 /// The [alignment](maligned::Alignment) by the [`Memory`](MemBackend::Memory) variant of [`MemBackend`].
 pub type MemoryAlignment = A64;
 
-/// Possible backends of a [`MemCase`]. The `None` variant is used when the data structure is
-/// created in memory; the `Memory` variant is used when the data structure is deserialized
-/// from a file loaded into a heap-allocated memory region; the `Mmap` variant is used when
-/// the data structure is deserialized from a `mmap()`-based region, either coming from
-/// an allocation or a from mapping a file.
+/// Possible backends of a [`MemCase`]. The [`None`](MemBackend::None) variant
+/// is used when the data structure is created in memory; the
+/// [`Memory`](MemBackend::Memory) variant is used when the data structure is
+/// deserialized from a file loaded into a heap-allocated memory region; the
+/// [`Mmap`](MemBackend::Mmap) variant is used when the data structure is
+/// deserialized from a `mmap()`-based region, either coming from an allocation
+/// or a from mapping a file.
 #[derive(Debug, MemDbg, MemSize)]
 pub enum MemBackend {
     /// No backend. The data structure is a standard Rust data structure.
@@ -98,20 +100,16 @@ impl MemBackend {
     }
 }
 
-/// A wrapper keeping together an immutable structure and the memory
-/// it was deserialized from. [`MemCase`] instances can not be cloned, but references
+/// A wrapper keeping together an immutable structure and the memory it was
+/// deserialized from. [`MemCase`] instances can not be cloned, but references
 /// to such instances can be shared freely.
 ///
-/// [`MemCase`] implements [`Deref`] and [`AsRef`] to the
-/// wrapped type, so it can be used almost transparently and
-/// with no performance cost. However,
-/// if you need to use a memory-mapped structure as a field in
-/// a struct and you want to avoid `dyn`, you will have
-/// to use [`MemCase`] as the type of the field.
-/// [`MemCase`] implements [`From`] for the
-/// wrapped type, using the no-op [`None`](`MemBackend#variant.None`) variant
-/// of [`MemBackend`], so a structure can be [encased](MemCase::encase)
-/// almost transparently.
+/// You must use [`uncase`](MemCase::uncase) to get a reference to the wrapped
+/// structure. If you need to use [`MemCase`]'d and standard structures
+/// interchangeably, you need to implement the same traits for both of them.
+///
+/// Packages that are ε-serde–aware are encouraged to provide such delegations
+/// for their traits.
 #[derive(MemDbg, MemSize)]
 pub struct MemCase<S: DeserializeInner>(
     pub(crate) <S as DeserializeInner>::DeserType<'static>,
@@ -132,10 +130,15 @@ where
 
 impl<S: DeserializeInner> MemCase<S> {
     /// Encases a data structure in a [`MemCase`] with no backend.
+    ///
+    /// Note that since a [`MemCase`] stores a deserialization associated type,
+    /// this method is useful only for types that are equal to their own
+    /// deserialization type (e.g., they do not have type parameters).
     pub fn encase(s: <S as DeserializeInner>::DeserType<'static>) -> Self {
         MemCase(s, MemBackend::None)
     }
 
+    /// Returns a reference to the structure contained in this [`MemCase`].
     pub fn uncase<'this>(&'this self) -> &'this <S as DeserializeInner>::DeserType<'this> {
         // SAFETY: 'static outlives 'this, and <S as DeserializeInner>::DeserType is required to be
         // covariant (ie. it's a normal structure and not, say, a closure with 'this as argument)
@@ -150,3 +153,15 @@ impl<S: DeserializeInner> MemCase<S> {
 
 unsafe impl<S: DeserializeInner + Send> Send for MemCase<S> {}
 unsafe impl<S: DeserializeInner + Sync> Sync for MemCase<S> {}
+
+impl<'a, S: DeserializeInner> IntoIterator for &'a MemCase<S>
+where
+    &'a <S as DeserializeInner>::DeserType<'a>: IntoIterator,
+{
+    type Item = <&'a <S as DeserializeInner>::DeserType<'a> as IntoIterator>::Item;
+    type IntoIter = <&'a <S as DeserializeInner>::DeserType<'a> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.uncase().into_iter()
+    }
+}

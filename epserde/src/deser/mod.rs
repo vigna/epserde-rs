@@ -64,8 +64,10 @@ pub type DeserType<'a, T> = <T as DeserializeInner>::DeserType<'a>;
 ///   incompatible structures using the same code, or cause undefined behavior
 ///   by loading data with an incorrect alignment.
 /// - Memory-mapped files might be modified externally.
-/// - [`Self::DeserType`] must be covariant (ie. behave like a structure,
-///   not a closure with a generic argument)
+/// - If you use a method coupling a deserialized structure with its serialized
+///   support using [`MemCase`] (e.g., [`Deserialize::mmap`]),
+///   [`DeserializeInner::DeserType`] must be covariant (i.e., behave like a
+///   structure, not a closure with a generic argument)
 pub trait Deserialize: DeserializeInner {
     /// Fully deserialize a structure of this type from the given backend.
     ///
@@ -95,13 +97,11 @@ pub trait Deserialize: DeserializeInner {
     /// data structure from it, returning a [`MemCase`] containing the data
     /// structure and the memory. Excess bytes are zeroed out.
     ///
-    /// This is a more generic version of [`load_mem`](Self::load_mem) that
-    /// accepts any [`Read`](std::io::Read) implementation instead of just file
-    /// paths.
-    ///
     /// The allocated memory will have [`MemoryAlignment`] as alignment: types
     /// with a higher alignment requirement will cause an [alignment
     /// error](`Error::AlignmentError`).
+    ///
+    /// For a version using a file path, see [`load_mem`](Self::load_mem).
     ///
     /// # Examples
     ///
@@ -181,7 +181,7 @@ pub trait Deserialize: DeserializeInner {
     /// with a higher alignment requirement will cause an [alignment
     /// error](`Error::AlignmentError`).
     ///
-    /// For a version using a generic [`Read`], see
+    /// For a version using a generic [`std::io::Read`], see
     /// [`read_mem`](Self::read_mem).
     ///
     /// # Safety
@@ -197,12 +197,10 @@ pub trait Deserialize: DeserializeInner {
     /// a data structure from it, returning a [`MemCase`] containing the data
     /// structure and the memory. Excess bytes are zeroed out.
     ///
-    /// This is a more generic version of [`load_mmap`](Self::load_mmap) that
-    /// accepts any [`Read`](std::io::Read) implementation instead of just file
-    /// paths.
-    ///
     /// The behavior of `mmap()` can be modified by passing some [`Flags`];
     /// otherwise, just pass `Flags::empty()`.
+    ///
+    /// For a version using a file path, see [`load_mmap`](Self::load_mmap).
     ///
     /// Requires the `mmap` feature.
     ///
@@ -269,6 +267,9 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// The behavior of `mmap()` can be modified by passing some [`Flags`];
     /// otherwise, just pass `Flags::empty()`.
+    ///
+    /// For a version using a generic [`std::io::Read`], see
+    /// [`read_mmap`](Self::read_mmap).
     ///
     /// Requires the `mmap` feature.
     ///
