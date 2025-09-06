@@ -5,7 +5,7 @@
  */
 
 use epserde::prelude::*;
-use std::io::Cursor;
+use std::{io::Cursor, iter::zip};
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct PersonVec<A, B> {
@@ -110,17 +110,13 @@ struct TestData {
 
 #[test]
 fn test_read_mem() {
-    // Create test data
     let data = TestData {
         values: vec![1, 2, 3, 4, 5],
         count: 42,
     };
 
-    // Serialize to a buffer
     let mut buffer = Vec::new();
     unsafe { data.serialize(&mut buffer).unwrap() };
-
-    // Test read_mem with a Cursor (implements Read)
     let cursor = Cursor::new(&buffer);
     let mem_case = unsafe { TestData::read_mem(cursor, buffer.len()).unwrap() };
     let deserialized = mem_case.uncase();
@@ -139,15 +135,27 @@ fn test_read_mmap() {
         count: 123,
     };
 
-    // Serialize to a buffer
     let mut buffer = Vec::new();
     unsafe { data.serialize(&mut buffer).unwrap() };
-
-    // Test read_mmap with a Cursor (implements Read)
     let cursor = Cursor::new(&buffer);
     let mmap_case = unsafe { TestData::read_mmap(cursor, buffer.len(), Flags::empty()).unwrap() };
     let deserialized = mmap_case.uncase();
 
     assert_eq!(data.values, deserialized.values);
     assert_eq!(data.count, deserialized.count);
+}
+
+#[test]
+fn test_into_iter() {
+    let data = vec![10, 20, 30, 40, 50];
+
+    let mut buffer = Vec::new();
+    unsafe { data.serialize(&mut buffer).unwrap() };
+    let cursor = Cursor::new(&buffer);
+    let mem_case = unsafe { Vec::<i32>::read_mem(cursor, buffer.len()).unwrap() };
+    let deserialized = mem_case.uncase();
+
+    zip(data.iter(), deserialized.into_iter()).for_each(|(v, w)| {
+        assert_eq!(v, w);
+    });
 }
