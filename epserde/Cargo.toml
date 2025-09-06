@@ -24,7 +24,7 @@ anyhow = "1.0.79"
 thiserror = "2.0.11"
 sealed = "0.6.0"
 maligned = "0.2.1"
-common_traits = "0.11.2"
+common_traits = "0.12.0"
 mem_dbg = { version = "0.3.0", features = [
 	"maligned",
 	"derive",
