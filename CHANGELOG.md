@@ -12,9 +12,6 @@
   requires a call do `uncase`, similarly to what happens with the `Borrow` and
   `AsRef` traits, and it is no longer possible to pass a `MemCase` as type
   parameter when the trait bound is `Deref` or `AsRef` to the underlying type.
-  For the same reason, `DeserializeInner` is now unsafe as it requires
-  explicitly that the associated deserialization type is covariant (again,
-  similarly to the `Yokeable` trait in the `Yoke` crate).
 
 * New `read_mem` and `read_mmap` methods that work like `load_mem` and
   `load_mmap` but accept any `Read` implementation and a length instead of file

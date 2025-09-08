@@ -100,16 +100,37 @@ impl MemBackend {
     }
 }
 
-/// A wrapper keeping together an immutable structure and the memory it was
-/// deserialized from. [`MemCase`] instances can not be cloned, but references
-/// to such instances can be shared freely.
+/// A wrapper keeping together an immutable structure and the [`MemBackend`] it
+/// was deserialized from. [`MemCase`] instances can not be cloned, but
+/// references to such instances can be shared freely.
 ///
-/// You must use [`uncase`](MemCase::uncase) to get a reference to the wrapped
-/// structure. If you need to use [`MemCase`]'d and standard structures
-/// interchangeably, you need to implement the same traits for both of them.
+/// A [`MemCase`] is parameterized by a type `S`, but it stores an inner
+/// structure of type `<S as DeserializeInner>::DeserType<'static>`. The
+/// references contained in the latter point inside the [`MemBackend`] (i.e., a
+/// [`MemCase`] is in general self-referential).
+///
+/// You must use [`uncase`](MemCase::uncase) to get a reference to the inner
+/// structure. If you need to use [`MemCase`]s parameterized by `S` and
+/// structures of type `S` interchangeably you need to implement the same traits
+/// for both cases. Note that for delegation to work, the traits must be
+/// implemented also on the deserialization type of `S`, but this usually not a
+/// problem because traits that do not satisfy this property are unusable on
+/// [ε-copy deserialized](Deserialize::deserialize_eps) structures.
+///
+/// We provide implementations for [`MemCase`] delegating basic traits from the
+/// standard library, such as [`AsRef`] and [`IntoIterator`] (the latter,
+/// implemented on a reference) to the inner structure.
 ///
 /// Packages that are ε-serde–aware are encouraged to provide such delegations
-/// for their traits.
+/// for their traits. Note that in case the traits contain associated types such
+/// delegations require some lifetime juggling using
+/// [`transmute`](core::mem::transmute), as [`uncase`](MemCase::uncase) returns
+/// a `&'a <S as DeserializeInner>::DeserType<'a>`, where `'a` is the
+/// lifetime of `self`, but associated types for the delegating implementation
+/// will be necessarily written using `<S as
+/// DeserializeInner>::DeserType<'static>`. Examples can be found in the
+/// delegations of the trait [`IndexedDict`] from the
+/// [`sux`](https://crates.io/crates/sux) crate.
 #[derive(MemDbg, MemSize)]
 pub struct MemCase<S: DeserializeInner>(
     pub(crate) <S as DeserializeInner>::DeserType<'static>,
@@ -139,13 +160,14 @@ impl<S: DeserializeInner> MemCase<S> {
     }
 
     /// Returns a reference to the structure contained in this [`MemCase`].
-    pub fn uncase<'this>(&'this self) -> &'this <S as DeserializeInner>::DeserType<'this> {
-        // SAFETY: 'static outlives 'this, and <S as DeserializeInner>::DeserType is required to be
-        // covariant (ie. it's a normal structure and not, say, a closure with 'this as argument)
+    pub fn uncase<'a>(&'a self) -> &'a <S as DeserializeInner>::DeserType<'a> {
+        // SAFETY: 'static outlives 'a, and <S as DeserializeInner>::DeserType
+        // is required to be covariant (i.e., it's a normal structure and not,
+        // say, a closure with 'a as argument)
         unsafe {
             core::mem::transmute::<
-                &'this <S as DeserializeInner>::DeserType<'static>,
-                &'this <S as DeserializeInner>::DeserType<'this>,
+                &'a <S as DeserializeInner>::DeserType<'static>,
+                &'a <S as DeserializeInner>::DeserType<'a>,
             >(&self.0)
         }
     }
