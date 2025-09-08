@@ -125,11 +125,11 @@ impl MemBackend {
 /// for their traits. Note that in case the traits contain associated types such
 /// delegations require some lifetime juggling using
 /// [`transmute`](core::mem::transmute), as [`uncase`](MemCase::uncase) returns
-/// a `&'a <S as DeserializeInner>::DeserType<'a>`, where `'a` is the
-/// lifetime of `self`, but associated types for the delegating implementation
-/// will be necessarily written using `<S as
-/// DeserializeInner>::DeserType<'static>`. Examples can be found in the
-/// delegations of the trait `IndexedDict` from the
+/// a `&'a <S as DeserializeInner>::DeserType<'a>`, where `'a` is the lifetime
+/// of `self`, but associated types for the delegating implementation will be
+/// necessarily written using `<S as DeserializeInner>::DeserType<'static>`. The
+/// unsafe [`uncase_static`](MemCase::uncase_static) method might be handy.
+/// Examples can be found in the delegations of the trait `IndexedDict` from the
 /// [`sux`](https://crates.io/crates/sux) crate.
 #[derive(MemDbg, MemSize)]
 pub struct MemCase<S: DeserializeInner>(
@@ -160,6 +160,9 @@ impl<S: DeserializeInner> MemCase<S> {
     }
 
     /// Returns a reference to the structure contained in this [`MemCase`].
+    ///
+    /// Both the lifetime of the returned reference and the lifetime of
+    /// the inner deserialization type will be that of `self`.
     pub fn uncase<'a>(&'a self) -> &'a <S as DeserializeInner>::DeserType<'a> {
         // SAFETY: 'static outlives 'a, and <S as DeserializeInner>::DeserType
         // is required to be covariant (i.e., it's a normal structure and not,
@@ -172,6 +175,16 @@ impl<S: DeserializeInner> MemCase<S> {
         }
     }
 
+    /// Returns a reference to the structure contained in this [`MemCase`]
+    /// with type `&<S as DeserializeInner>::DeserType<'static>`.
+    ///
+    /// # Safety
+    ///
+    /// The intended usage of this method is that of calling easily methods on
+    /// the inner structure, as in `mem_case.uncase_static().method()`. The
+    /// returned reference is dangerous, as it is decoupled from the [`MemCase`]
+    /// instance; even storing it in a variable can easily lead to undefined behavior
+    /// (e.g., if the [`MemCase`] is dropped before the reference is used).
     pub unsafe fn uncase_static(&self) -> &<S as DeserializeInner>::DeserType<'static> {
         &self.0
     }
