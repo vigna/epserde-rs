@@ -115,7 +115,7 @@ impl MemBackend {
 /// for both cases. Note that for delegation to work, the traits must be
 /// implemented also on the deserialization type of `S`, but this usually not a
 /// problem because traits that do not satisfy this property are unusable on
-/// [ε-copy deserialized](Deserialize::deserialize_eps) structures.
+/// [ε-copy deserialized](crate::deser::Deserialize::deserialize_eps) structures.
 ///
 /// We provide implementations for [`MemCase`] delegating basic traits from the
 /// standard library, such as [`AsRef`] and [`IntoIterator`] (the latter,
@@ -129,7 +129,7 @@ impl MemBackend {
 /// lifetime of `self`, but associated types for the delegating implementation
 /// will be necessarily written using `<S as
 /// DeserializeInner>::DeserType<'static>`. Examples can be found in the
-/// delegations of the trait [`IndexedDict`] from the
+/// delegations of the trait `IndexedDict` from the
 /// [`sux`](https://crates.io/crates/sux) crate.
 #[derive(MemDbg, MemSize)]
 pub struct MemCase<S: DeserializeInner>(
@@ -170,6 +170,10 @@ impl<S: DeserializeInner> MemCase<S> {
                 &'a <S as DeserializeInner>::DeserType<'a>,
             >(&self.0)
         }
+    }
+
+    pub unsafe fn uncase_static(&self) -> &<S as DeserializeInner>::DeserType<'static> {
+        &self.0
     }
 }
 
