@@ -161,9 +161,9 @@ impl<S: DeserializeInner> MemCase<S> {
     /// Both the lifetime of the returned reference and the lifetime of
     /// the inner deserialization type will be that of `self`.
     pub fn uncase<'a>(&'a self) -> &'a DeserType<'a, S> {
-        // SAFETY: 'static outlives 'a, and <S as DeserializeInner>::DeserType
-        // is required to be covariant (i.e., it's a normal structure and not,
-        // say, a closure with 'a as argument)
+        // SAFETY: 'static outlives 'a, and DeserType<S, '_> is required to be
+        // covariant (i.e., it's a normal structure and not, say, a closure with
+        // 'a as argument)
         unsafe { core::mem::transmute::<&'a DeserType<'static, S>, &'a DeserType<'a, S>>(&self.0) }
     }
 
