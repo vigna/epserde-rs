@@ -12,7 +12,9 @@
   requires a call do `uncase`, similarly to what happens with the `Borrow` and
   `AsRef` traits, and it is no longer possible to pass a `MemCase` as type
   parameter when the trait bound is `Deref` or `AsRef` to the underlying type.
-  Using a structure of type `S`and a `MemCase<S>` interchangeably now requires
+  Moreover, `encase` still exists, but it accepts only types implementing
+  `DeserializeInner` and whose deserialization types is `Self`. Using a
+  structure of type `S`and a `MemCase<S>` interchangeably now requires
   implementing the same traits in both cases. For some elaboration, see the
   `MemCase` documentation.
 

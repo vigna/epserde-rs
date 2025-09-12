@@ -269,7 +269,7 @@ fn add_ser_deser_bounds<T: quote::ToTokens>(
                             gt_token: token::Gt::default(),
                         }),
                         bounded_ty: syn::parse_quote!(
-                            <#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
+                            <#ty as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
                         ),
                         colon_token: token::Colon::default(),
                         bounds: t.bounds.clone(),
@@ -281,7 +281,7 @@ fn add_ser_deser_bounds<T: quote::ToTokens>(
                     .push(WherePredicate::Type(PredicateType {
                         lifetimes: None,
                         bounded_ty: syn::parse_quote!(
-                            <#ty as epserde::ser::SerializeInner>::SerType
+                            <#ty as ::epserde::ser::SerializeInner>::SerType
                         ),
                         colon_token: token::Colon::default(),
                         bounds: t.bounds.clone(),
@@ -390,7 +390,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .iter()
                         .any(|x| x.to_token_stream().to_string() == ty.to_string())
                     {
-                        quote!(<#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
+                        quote!(<#ty as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
                     } else {
                         ty.to_token_stream()
                     }
@@ -412,7 +412,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             fields_types.iter().for_each(|ty| {
                 // add that every struct field has to implement SerializeInner
                 let mut bounds_ser = Punctuated::new();
-                bounds_ser.push(syn::parse_quote!(epserde::ser::SerializeInner));
+                bounds_ser.push(syn::parse_quote!(::epserde::ser::SerializeInner));
                 where_clause_ser
                     .predicates
                     .push(WherePredicate::Type(PredicateType {
@@ -424,7 +424,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                 // add that every struct field has to implement DeserializeInner
                 let mut bounds_des = Punctuated::new();
-                bounds_des.push(syn::parse_quote!(epserde::deser::DeserializeInner));
+                bounds_des.push(syn::parse_quote!(::epserde::deser::DeserializeInner));
                 where_clause_des
                     .predicates
                     .push(WherePredicate::Type(PredicateType {
@@ -444,7 +444,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .iter()
                         .any(|x| x.to_token_stream().to_string() == ty.to_string())
                     {
-                        quote!(<#ty as epserde::ser::SerializeInner>::SerType)
+                        quote!(<#ty as ::epserde::ser::SerializeInner>::SerType)
                     } else {
                         ty.to_token_stream()
                     }
@@ -458,12 +458,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                 quote! {
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
-                        type Copy = epserde::traits::Zero;
+                    impl<#impl_generics> ::epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
+                        type Copy = ::epserde::traits::Zero;
                     }
 
                     #[automatically_derived]
-                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
+                    impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
                         type SerType = Self;
                         // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
@@ -474,34 +474,34 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         const ZERO_COPY_MISMATCH: bool = false;
 
                         #[inline(always)]
-                        unsafe fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
+                        unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                             // No-op code that however checks that all fields are zero-copy.
-                            fn test<T: epserde::traits::ZeroCopy>() {}
+                            fn test<T: ::epserde::traits::ZeroCopy>() {}
                             #(
                                 test::<#fields_types>();
                             )*
-                            epserde::ser::helpers::serialize_zero(backend, self)
+                            ::epserde::ser::helpers::serialize_zero(backend, self)
                         }
                     }
 
                     // SAFETY: &'epserde_desertype Self is covariant
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
+                    impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
                     {
                         unsafe fn _deserialize_full_inner(
-                            backend: &mut impl epserde::deser::ReadWithPos,
-                        ) -> core::result::Result<Self, epserde::deser::Error> {
-                            use epserde::deser::DeserializeInner;
-                            epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
+                            backend: &mut impl ::epserde::deser::ReadWithPos,
+                        ) -> core::result::Result<Self, ::epserde::deser::Error> {
+                            use ::epserde::deser::DeserializeInner;
+                            ::epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
 
                         type DeserType<'epserde_desertype> = &'epserde_desertype Self;
 
                         unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
-                            backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
+                            backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
+                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                         {
-                            epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
+                            ::epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
                         }
                     }
                 }
@@ -515,12 +515,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                 quote! {
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
-                        type Copy = epserde::traits::Deep;
+                    impl<#impl_generics> ::epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
+                        type Copy = ::epserde::traits::Deep;
                     }
 
                     #[automatically_derived]
-                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
+                    impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
                         type SerType =  #name<#(#ser_type_generics,)*>;
                         // Compute whether the type could be zero copy
                         const IS_ZERO_COPY: bool = #is_repr_c #(
@@ -532,8 +532,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
 
                         #[inline(always)]
-                        unsafe fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
-                            epserde::ser::helpers::check_mismatch::<Self>();
+                        unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
+                            ::epserde::ser::helpers::check_mismatch::<Self>();
                             #(
                                 backend.write(stringify!(#fields_names), &self.#fields_names)?;
                             )*
@@ -543,11 +543,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                     // SAFETY: #name is a struct, so it is covariant
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         unsafe fn _deserialize_full_inner(
-                            backend: &mut impl epserde::deser::ReadWithPos,
-                        ) -> core::result::Result<Self, epserde::deser::Error> {
-                            use epserde::deser::DeserializeInner;
+                            backend: &mut impl ::epserde::deser::ReadWithPos,
+                        ) -> core::result::Result<Self, ::epserde::deser::Error> {
+                            use ::epserde::deser::DeserializeInner;
                             Ok(#name{
                                 #(
                                     #fields_names: unsafe { <#fields_types>::_deserialize_full_inner(backend)? },
@@ -558,10 +558,10 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
 
                         unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
-                            backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
+                            backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
+                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                         {
-                            use epserde::deser::DeserializeInner;
+                            use ::epserde::deser::DeserializeInner;
                             Ok(#name{
                                 #(
                                     #fields_names: <#fields_types>::#methods(backend)?,
@@ -627,7 +627,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                             // add that every struct field has to implement SerializeInner
                             let mut bounds_ser = Punctuated::new();
-                            bounds_ser.push(syn::parse_quote!(epserde::ser::SerializeInner));
+                            bounds_ser.push(syn::parse_quote!(::epserde::ser::SerializeInner));
                             where_clause_ser
                                 .predicates
                                 .push(WherePredicate::Type(PredicateType {
@@ -638,7 +638,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             }));
                             // add that every struct field has to implement DeserializeInner
                             let mut bounds_des = Punctuated::new();
-                            bounds_des.push(syn::parse_quote!(epserde::deser::DeserializeInner));
+                            bounds_des.push(syn::parse_quote!(::epserde::deser::DeserializeInner));
                             where_clause_des
                                 .predicates
                                 .push(WherePredicate::Type(PredicateType {
@@ -710,7 +710,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                             // add that every struct field has to implement SerializeInner
                             let mut bounds_ser = Punctuated::new();
-                            bounds_ser.push(syn::parse_quote!(epserde::ser::SerializeInner));
+                            bounds_ser.push(syn::parse_quote!(::epserde::ser::SerializeInner));
                             where_clause_ser
                                 .predicates
                                 .push(WherePredicate::Type(PredicateType {
@@ -721,7 +721,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             }));
                             // add that every struct field has to implement DeserializeInner
                             let mut bounds_des = Punctuated::new();
-                            bounds_des.push(syn::parse_quote!(epserde::deser::DeserializeInner));
+                            bounds_des.push(syn::parse_quote!(::epserde::deser::DeserializeInner));
                             where_clause_des
                                 .predicates
                                 .push(WherePredicate::Type(PredicateType {
@@ -773,7 +773,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .iter()
                         .any(|x| x.to_token_stream().to_string() == ty.to_string())
                     {
-                        quote!(<#ty as epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
+                        quote!(<#ty as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
                     } else {
                         ty.clone()
                     }
@@ -786,7 +786,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         .iter()
                         .any(|x| x.to_token_stream().to_string() == ty.to_string())
                     {
-                        quote!(<#ty as epserde::ser::SerializeInner>::SerType)
+                        quote!(<#ty as ::epserde::ser::SerializeInner>::SerType)
                     } else {
                         ty.clone()
                     }
@@ -801,11 +801,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                 quote! {
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
-                        type Copy = epserde::traits::Zero;
+                    impl<#impl_generics> ::epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
+                        type Copy = ::epserde::traits::Zero;
                     }
                     #[automatically_derived]
-                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
+                    impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
                         type SerType = Self;
 
                         // Compute whether the type could be zero copy
@@ -816,32 +816,32 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         // The type is declared as zero copy, so a fortiori there is no mismatch.
                         const ZERO_COPY_MISMATCH: bool = false;
                         #[inline(always)]
-                        unsafe fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
+                        unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                             // No-op code that however checks that all fields are zero-copy.
-                            fn test<T: epserde::traits::ZeroCopy>() {}
+                            fn test<T: ::epserde::traits::ZeroCopy>() {}
                             #(
                                 test::<#fields_types>();
                             )*
-                            epserde::ser::helpers::serialize_zero(backend, self)
+                            ::epserde::ser::helpers::serialize_zero(backend, self)
                         }
                     }
 
                     // SAFETY: &'epserde_desertype Self is covariant
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         unsafe fn _deserialize_full_inner(
-                            backend: &mut impl epserde::deser::ReadWithPos,
-                        ) -> core::result::Result<Self, epserde::deser::Error> {
-                            epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
+                            backend: &mut impl ::epserde::deser::ReadWithPos,
+                        ) -> core::result::Result<Self, ::epserde::deser::Error> {
+                            ::epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
 
                         type DeserType<'epserde_desertype> = &'epserde_desertype Self;
 
                         unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
-                            backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
+                            backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
+                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                         {
-                            epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
+                            ::epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
                         }
                     }
                 }
@@ -855,11 +855,11 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                 quote! {
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
-                        type Copy = epserde::traits::Deep;
+                    impl<#impl_generics> ::epserde::traits::CopyType for  #name<#concat_generics> #where_clause {
+                        type Copy = ::epserde::traits::Deep;
                     }
                     #[automatically_derived]
-                    impl<#generics_serialize> epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
+                    impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
                         type SerType =  #name<#(#ser_type_generics,)*>;
 
                         // Compute whether the type could be zero copy
@@ -871,8 +871,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         // and the attribute `deep_copy` is missing.
                         const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
                         #[inline(always)]
-                        unsafe fn _serialize_inner(&self, backend: &mut impl epserde::ser::WriteWithNames) -> epserde::ser::Result<()> {
-                            epserde::ser::helpers::check_mismatch::<Self>();
+                        unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
+                            ::epserde::ser::helpers::check_mismatch::<Self>();
                             match self {
                                 #(
                                    Self::#variants => { #variant_ser }
@@ -883,31 +883,31 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     }
                     // SAFETY: #name is an enum, so it is covariant
                     #[automatically_derived]
-                    impl<#generics_deserialize> epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+                    impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         unsafe fn _deserialize_full_inner(
-                            backend: &mut impl epserde::deser::ReadWithPos,
-                        ) -> core::result::Result<Self, epserde::deser::Error> {
-                            use epserde::deser::DeserializeInner;
+                            backend: &mut impl ::epserde::deser::ReadWithPos,
+                        ) -> core::result::Result<Self, ::epserde::deser::Error> {
+                            use ::epserde::deser::DeserializeInner;
                             match unsafe { usize::_deserialize_full_inner(backend)? } {
                                 #(
                                     #tag => Ok(Self::#variants_names{ #variant_full_des }),
                                 )*
-                                tag => Err(epserde::deser::Error::InvalidTag(tag)),
+                                tag => Err(::epserde::deser::Error::InvalidTag(tag)),
                             }
                         }
 
                         type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
 
                         unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
-                            backend: &mut epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, epserde::deser::Error>
+                            backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
+                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                         {
-                            use epserde::deser::DeserializeInner;
+                            use ::epserde::deser::DeserializeInner;
                             match unsafe { usize::_deserialize_full_inner(backend)? } {
                                 #(
                                     #tag => Ok(Self::DeserType::<'_>::#variants_names{ #variant_eps_des }),
                                 )*
-                                tag => Err(epserde::deser::Error::InvalidTag(tag)),
+                                tag => Err(::epserde::deser::Error::InvalidTag(tag)),
                             }
                         }
                     }
@@ -928,15 +928,15 @@ fn type_repr_max_size_of_where_clauses(
     generic_types: &[syn::Type],
 ) -> (WhereClause, WhereClause, WhereClause) {
     let mut bounds_type_hash = Punctuated::new();
-    bounds_type_hash.push(syn::parse_quote!(epserde::traits::TypeHash));
+    bounds_type_hash.push(syn::parse_quote!(::epserde::traits::TypeHash));
     let mut where_clause_type_hash = where_clause.clone();
 
     let mut bounds_align_hash = Punctuated::new();
-    bounds_align_hash.push(syn::parse_quote!(epserde::traits::AlignHash));
+    bounds_align_hash.push(syn::parse_quote!(::epserde::traits::AlignHash));
     let mut where_clause_align_hash = where_clause.clone();
 
     let mut bounds_max_size_of = Punctuated::new();
-    bounds_max_size_of.push(syn::parse_quote!(epserde::traits::MaxSizeOf));
+    bounds_max_size_of.push(syn::parse_quote!(::epserde::traits::MaxSizeOf));
     let mut where_clause_max_size_of = where_clause.clone();
 
     generic_types.iter().for_each(|ty| {
@@ -1049,7 +1049,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash {
+                    impl<#impl_generics> ::epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash {
 
                         #[inline(always)]
                         fn type_hash(
@@ -1073,12 +1073,12 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             )*
                             // Recurse on all fields.
                             #(
-                                <#fields_types as epserde::traits::TypeHash>::type_hash(hasher);
+                                <#fields_types as ::epserde::traits::TypeHash>::type_hash(hasher);
                             )*
                         }
                     }
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash{
+                    impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash{
                         #[inline(always)]
                         fn align_hash(
                             hasher: &mut impl core::hash::Hasher,
@@ -1094,7 +1094,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             )*
                             // Recurse on all fields.
                             #(
-                                <#fields_types as epserde::traits::AlignHash>::align_hash(
+                                <#fields_types as ::epserde::traits::AlignHash>::align_hash(
                                     hasher,
                                     offset_of,
                                 );
@@ -1102,14 +1102,14 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_max_size_of{
+                    impl<#impl_generics> ::epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_max_size_of{
                         #[inline(always)]
                         fn max_size_of() -> usize {
                             let mut max_size_of = std::mem::align_of::<Self>();
                             // Recurse on all fields.
                             #(
-                                if max_size_of < <#fields_types as epserde::traits::MaxSizeOf>::max_size_of() {
-                                    max_size_of = <#fields_types as epserde::traits::MaxSizeOf>::max_size_of();
+                                if max_size_of < <#fields_types as ::epserde::traits::MaxSizeOf>::max_size_of() {
+                                    max_size_of = <#fields_types as ::epserde::traits::MaxSizeOf>::max_size_of();
                                 }
                             )*
                             max_size_of
@@ -1119,7 +1119,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash{
+                    impl<#impl_generics> ::epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash{
 
                         #[inline(always)]
                         fn type_hash(
@@ -1144,12 +1144,12 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             )*
                             // Recurse on all fields.
                             #(
-                                <#fields_types as epserde::traits::TypeHash>::type_hash(hasher);
+                                <#fields_types as ::epserde::traits::TypeHash>::type_hash(hasher);
                             )*
                         }
                     }
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
+                    impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
                         #[inline(always)]
                         fn align_hash(
                             hasher: &mut impl core::hash::Hasher,
@@ -1157,7 +1157,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         ) {
                             // Recurse on all variants starting at offset 0
                             #(
-                                <#fields_types as epserde::traits::AlignHash>::align_hash(hasher, &mut 0);
+                                <#fields_types as ::epserde::traits::AlignHash>::align_hash(hasher, &mut 0);
                             )*
                         }
                     }
@@ -1196,15 +1196,15 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             .for_each(|(ident, ty)| {
                                 var_type_hash.extend([quote! {
                                     stringify!(#ident).hash(hasher);
-                                    <#ty as epserde::traits::TypeHash>::type_hash(hasher);
+                                    <#ty as ::epserde::traits::TypeHash>::type_hash(hasher);
                                 }]);
                                 var_align_hash.extend([quote! {
-                                    <#ty as epserde::traits::AlignHash>::align_hash(hasher, offset_of);
+                                    <#ty as ::epserde::traits::AlignHash>::align_hash(hasher, offset_of);
                                 }]);
                                 var_max_size_of.extend([
                                     quote! {
-                                        if max_size_of < <#ty as epserde::traits::MaxSizeOf>::max_size_of() {
-                                            max_size_of = <#ty as epserde::traits::MaxSizeOf>::max_size_of();
+                                        if max_size_of < <#ty as ::epserde::traits::MaxSizeOf>::max_size_of() {
+                                            max_size_of = <#ty as ::epserde::traits::MaxSizeOf>::max_size_of();
                                         }
                                     }
                                 ]);
@@ -1223,15 +1223,15 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                                 let field_name = field_idx.to_string();
                                 var_type_hash.extend([quote! {
                                     #field_name.hash(hasher);
-                                    <#ty as epserde::traits::TypeHash>::type_hash(hasher);
+                                    <#ty as ::epserde::traits::TypeHash>::type_hash(hasher);
                                 }]);
                                 var_align_hash.extend([quote! {
-                                    <#ty as epserde::traits::AlignHash>::align_hash(hasher, offset_of);
+                                    <#ty as ::epserde::traits::AlignHash>::align_hash(hasher, offset_of);
                                 }]);
                                 var_max_size_of.extend([
                                     quote! {
-                                        if max_size_of < <#ty as epserde::traits::MaxSizeOf>::max_size_of() {
-                                            max_size_of = <#ty as epserde::traits::MaxSizeOf>::max_size_of();
+                                        if max_size_of < <#ty as ::epserde::traits::MaxSizeOf>::max_size_of() {
+                                            max_size_of = <#ty as ::epserde::traits::MaxSizeOf>::max_size_of();
                                         }
                                     }
                                 ]);
@@ -1263,7 +1263,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             if is_zero_copy {
                 quote! {
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash {
+                    impl<#impl_generics> ::epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash {
 
                         #[inline(always)]
                         fn type_hash(
@@ -1288,7 +1288,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
+                    impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
                         #[inline(always)]
                         fn align_hash(
                             hasher: &mut impl core::hash::Hasher,
@@ -1311,7 +1311,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_max_size_of{
+                    impl<#impl_generics> ::epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_max_size_of{
                         #[inline(always)]
                         fn max_size_of() -> usize {
                             let mut max_size_of = std::mem::align_of::<Self>();
@@ -1325,7 +1325,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
             } else {
                 quote! {
                     #[automatically_derived]
-                    impl<#impl_generics> epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash{
+                    impl<#impl_generics> ::epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash{
 
                         #[inline(always)]
                         fn type_hash(
@@ -1351,7 +1351,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                         }
                     }
 
-                    impl<#impl_generics> epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
+                    impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
                         #[inline(always)]
                         fn align_hash(
                             hasher: &mut impl core::hash::Hasher,
