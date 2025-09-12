@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::DeserializeInner;
+use crate::{deser::DeserType, DeserializeInner};
 use bitflags::bitflags;
 use core::{fmt, mem::size_of};
 use maligned::A64;
@@ -105,9 +105,9 @@ impl MemBackend {
 /// references to such instances can be shared freely.
 ///
 /// A [`MemCase`] is parameterized by a type `S`, but it stores an inner
-/// structure of type `<S as DeserializeInner>::DeserType<'static>`. The
-/// references contained in the latter point inside the [`MemBackend`] (i.e., a
-/// [`MemCase`] is in general self-referential).
+/// structure of type `DeserType<'static, S>`. The references contained in the
+/// latter point inside the [`MemBackend`] (i.e., a [`MemCase`] is in general
+/// self-referential).
 ///
 /// You must use [`uncase`](MemCase::uncase) to get a reference to the inner
 /// structure. If you need to use [`MemCase`]s parameterized by `S` and
@@ -125,21 +125,18 @@ impl MemBackend {
 /// for their traits. Note that in case the traits contain associated types such
 /// delegations require some lifetime juggling using
 /// [`transmute`](core::mem::transmute), as [`uncase`](MemCase::uncase) returns
-/// a `&'a <S as DeserializeInner>::DeserType<'a>`, where `'a` is the lifetime
+/// a `&'a DeserType<'a, S>`, where `'a` is the lifetime
 /// of `self`, but associated types for the delegating implementation will be
-/// necessarily written using `<S as DeserializeInner>::DeserType<'static>`. The
+/// necessarily written using `DeserType<'static, S>`. The
 /// unsafe [`uncase_static`](MemCase::uncase_static) method might be handy.
 /// Examples can be found in the delegations of the trait `IndexedDict` from the
 /// [`sux`](https://crates.io/crates/sux) crate.
 #[derive(MemDbg, MemSize)]
-pub struct MemCase<S: DeserializeInner>(
-    pub(crate) <S as DeserializeInner>::DeserType<'static>,
-    pub(crate) MemBackend,
-);
+pub struct MemCase<S: DeserializeInner>(pub(crate) DeserType<'static, S>, pub(crate) MemBackend);
 
 impl<S: DeserializeInner> fmt::Debug for MemCase<S>
 where
-    <S as DeserializeInner>::DeserType<'static>: fmt::Debug,
+    DeserType<'static, S>: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("MemBackend")
@@ -155,7 +152,7 @@ impl<S: DeserializeInner> MemCase<S> {
     /// Note that since a [`MemCase`] stores a deserialization associated type,
     /// this method is useful only for types that are equal to their own
     /// deserialization type (e.g., they do not have type parameters).
-    pub fn encase(s: <S as DeserializeInner>::DeserType<'static>) -> Self {
+    pub fn encase(s: DeserType<'static, S>) -> Self {
         MemCase(s, MemBackend::None)
     }
 
@@ -163,20 +160,15 @@ impl<S: DeserializeInner> MemCase<S> {
     ///
     /// Both the lifetime of the returned reference and the lifetime of
     /// the inner deserialization type will be that of `self`.
-    pub fn uncase<'a>(&'a self) -> &'a <S as DeserializeInner>::DeserType<'a> {
+    pub fn uncase<'a>(&'a self) -> &'a DeserType<'a, S> {
         // SAFETY: 'static outlives 'a, and <S as DeserializeInner>::DeserType
         // is required to be covariant (i.e., it's a normal structure and not,
         // say, a closure with 'a as argument)
-        unsafe {
-            core::mem::transmute::<
-                &'a <S as DeserializeInner>::DeserType<'static>,
-                &'a <S as DeserializeInner>::DeserType<'a>,
-            >(&self.0)
-        }
+        unsafe { core::mem::transmute::<&'a DeserType<'static, S>, &'a DeserType<'a, S>>(&self.0) }
     }
 
     /// Returns a reference to the structure contained in this [`MemCase`]
-    /// with type `&<S as DeserializeInner>::DeserType<'static>`.
+    /// with type `&DeserType<'static, S>`.
     ///
     /// # Safety
     ///
@@ -185,7 +177,7 @@ impl<S: DeserializeInner> MemCase<S> {
     /// returned reference is dangerous, as it is decoupled from the [`MemCase`]
     /// instance; even storing it in a variable can easily lead to undefined behavior
     /// (e.g., if the [`MemCase`] is dropped before the reference is used).
-    pub unsafe fn uncase_static(&self) -> &<S as DeserializeInner>::DeserType<'static> {
+    pub unsafe fn uncase_static(&self) -> &DeserType<'static, S> {
         &self.0
     }
 }
@@ -195,10 +187,10 @@ unsafe impl<S: DeserializeInner + Sync> Sync for MemCase<S> {}
 
 impl<'a, S: DeserializeInner> IntoIterator for &'a MemCase<S>
 where
-    &'a <S as DeserializeInner>::DeserType<'a>: IntoIterator,
+    &'a DeserType<'a, S>: IntoIterator,
 {
-    type Item = <&'a <S as DeserializeInner>::DeserType<'a> as IntoIterator>::Item;
-    type IntoIter = <&'a <S as DeserializeInner>::DeserType<'a> as IntoIterator>::IntoIter;
+    type Item = <&'a DeserType<'a, S> as IntoIterator>::Item;
+    type IntoIter = <&'a DeserType<'a, S> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.uncase().into_iter()
@@ -207,7 +199,7 @@ where
 
 impl<A, S: DeserializeInner> AsRef<A> for MemCase<S>
 where
-    for<'a> <S as DeserializeInner>::DeserType<'a>: AsRef<A>,
+    for<'a> DeserType<'a, S>: AsRef<A>,
 {
     fn as_ref(&self) -> &A {
         self.uncase().as_ref()

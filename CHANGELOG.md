@@ -12,6 +12,9 @@
   requires a call do `uncase`, similarly to what happens with the `Borrow` and
   `AsRef` traits, and it is no longer possible to pass a `MemCase` as type
   parameter when the trait bound is `Deref` or `AsRef` to the underlying type.
+  Using a structure of type `S`and a `MemCase<S>` interchangeably now requires
+  implementing the same traits in both cases. For some elaboration, see the
+  `MemCase` documentation.
 
 * New `read_mem` and `read_mmap` methods that work like `load_mem` and
   `load_mmap` but accept any `Read` implementation and a length instead of file
@@ -21,9 +24,9 @@
 
 * All serialization and deserialization methods are now unsafe.
 
-* `DeserializeInner` is now an unsafe trait, and all deserialization helper
-  methods handling zero-copy types are also unsafe. This change is necessary
-  because such methods can deserialize uninhabited types.
+* All deserialization helper methods handling zero-copy types are also unsafe.
+  This change is necessary because such methods can deserialize uninhabited
+  types.
 
 * The `TypeHash` of tuples has changed as it was ambiguous. If you
   serialized a structure using tuples, it will be no longer deserializable.

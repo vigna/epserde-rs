@@ -516,7 +516,7 @@ pub enum Error {
     #[error(
         r#"Wrong type hash: actual = 0x{ser_type_hash:016x}, expected = 0x{self_type_hash:016x}.
 You are trying to deserialize a file with the wrong type. You might also be trying to deserialize
-a structure containing tuples that was serialized before 0.9.0. The serialized type is '{ser_type_name}', 
+a structure containing tuples that was serialized before 0.9.0. The serialized type is '{ser_type_name}',
 but the type on which the deserialization method was invoked is '{self_type_name}'."#
     )]
     /// The type hash is wrong. Probably the user is trying to deserialize a
@@ -533,11 +533,11 @@ but the type on which the deserialization method was invoked is '{self_type_name
     },
     #[error(
 r#"Wrong alignment hash: actual = 0x{ser_align_hash:016x}, expected = 0x{self_align_hash:016x}.
-You might be trying to deserialize a file that was serialized on an architecture 
-with different alignment requirements, or some of the fields of the type 
-might have changed their copy type (zero or deep). You might also be trying to deserialize a 
-tuple of mixed zero-copy types, which is no longer supported since 0.8.0, or to 
-deserialize an array, whose alignment hash has been fixed in 0.8.0. 
+You might be trying to deserialize a file that was serialized on an architecture
+with different alignment requirements, or some of the fields of the type
+might have changed their copy type (zero or deep). You might also be trying to deserialize a
+tuple of mixed zero-copy types, which is no longer supported since 0.8.0, or to
+deserialize an array, whose alignment hash has been fixed in 0.8.0.
 The serialized type is '{ser_type_name}',  but the type on which the the deserialization
 method was invoked is '{self_type_name}'."#
     )]
