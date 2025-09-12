@@ -550,7 +550,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             use ::epserde::deser::DeserializeInner;
                             Ok(#name{
                                 #(
-                                    #fields_names: unsafe { <#fields_types>::_deserialize_full_inner(backend)? },
+                                    #fields_names: unsafe { <#fields_types as DeserializeInner>::_deserialize_full_inner(backend)? },
                                 )*
                             })
                         }
@@ -600,7 +600,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 syn::Fields::Unit => {
                     variants.push(variant.ident.to_token_stream());
                     variant_ser.push(quote! {{
-                        backend.write("tag", &#variant_id)?;
+                        ::epserde::ser::WriteWithNames::write(backend, "tag", &#variant_id)?;
                     }});
                     variant_full_des.push(quote! {});
                     variant_eps_des.push(quote! {});
@@ -662,9 +662,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     });
                     fields_types.extend(var_fields_types.clone());
                     variant_ser.push(quote! {
-                        backend.write("tag", &#variant_id)?;
+                        ::epserde::ser::WriteWithNames::write(backend, "tag", &#variant_id)?;
                         #(
-                            backend.write(stringify!(#var_fields_names), #var_fields_names)?;
+                            ::epserde::ser::WriteWithNames::write(backend, stringify!(#var_fields_names), #var_fields_names)?;
                         )*
                     });
                     variant_full_des.push(quote! {
@@ -746,9 +746,9 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     fields_types.extend(var_fields_types.clone());
 
                     variant_ser.push(quote! {
-                        backend.write("tag", &#variant_id)?;
+                        ::epserde::ser::WriteWithNames::write(backend, "tag", &#variant_id)?;
                         #(
-                            backend.write(stringify!(#var_fields_names), #var_fields_names)?;
+                            ::epserde::ser::WriteWithNames::write(backend, stringify!(#var_fields_names), #var_fields_names)?;
                         )*
                     });
                     variant_full_des.push(quote! {
