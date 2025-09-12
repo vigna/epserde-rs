@@ -490,7 +490,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     {
                         unsafe fn _deserialize_full_inner(
                             backend: &mut impl ::epserde::deser::ReadWithPos,
-                        ) -> core::result::Result<Self, ::epserde::deser::Error> {
+                        ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
                             use ::epserde::deser::DeserializeInner;
                             ::epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
@@ -499,7 +499,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
+                        ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                         {
                             ::epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
                         }
@@ -546,7 +546,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         unsafe fn _deserialize_full_inner(
                             backend: &mut impl ::epserde::deser::ReadWithPos,
-                        ) -> core::result::Result<Self, ::epserde::deser::Error> {
+                        ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
                             use ::epserde::deser::DeserializeInner;
                             Ok(#name{
                                 #(
@@ -559,7 +559,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
+                        ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                         {
                             use ::epserde::deser::DeserializeInner;
                             Ok(#name{
@@ -669,7 +669,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     });
                     variant_full_des.push(quote! {
                         #(
-                            #var_fields_names: unsafe { <#var_fields_types>::_deserialize_full_inner(backend)? },
+                            #var_fields_names: unsafe { <#var_fields_types as DeserializeInner>::_deserialize_full_inner(backend)? },
                         )*
                     });
                     variant_eps_des.push(quote! {
@@ -753,12 +753,12 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     });
                     variant_full_des.push(quote! {
                         #(
-                            #var_fields_vars    : unsafe { <#var_fields_types>::_deserialize_full_inner(backend)? },
+                            #var_fields_vars : unsafe { <#var_fields_types as DeserializeInner>::_deserialize_full_inner(backend)? },
                         )*
                     });
                     variant_eps_des.push(quote! {
                         #(
-                            #var_fields_vars    : unsafe { <#var_fields_types>::#methods(backend)? },
+                            #var_fields_vars : unsafe { <#var_fields_types>::#methods(backend)? },
                         )*
                     });
                 }
@@ -831,7 +831,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         unsafe fn _deserialize_full_inner(
                             backend: &mut impl ::epserde::deser::ReadWithPos,
-                        ) -> core::result::Result<Self, ::epserde::deser::Error> {
+                        ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
                             ::epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                         }
 
@@ -839,7 +839,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
+                        ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                         {
                             ::epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
                         }
@@ -886,7 +886,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                         unsafe fn _deserialize_full_inner(
                             backend: &mut impl ::epserde::deser::ReadWithPos,
-                        ) -> core::result::Result<Self, ::epserde::deser::Error> {
+                        ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
                             use ::epserde::deser::DeserializeInner;
                             match unsafe { usize::_deserialize_full_inner(backend)? } {
                                 #(
@@ -900,7 +900,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 
                         unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                             backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                        ) -> core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
+                        ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                         {
                             use ::epserde::deser::DeserializeInner;
                             match unsafe { usize::_deserialize_full_inner(backend)? } {
@@ -1053,23 +1053,23 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
 
                         #[inline(always)]
                         fn type_hash(
-                            hasher: &mut impl core::hash::Hasher,
+                            hasher: &mut impl ::core::hash::Hasher,
                         ) {
-                            use core::hash::Hash;
+                            use ::core::hash::Hash;
                             // Hash in ZeroCopy
-                            "ZeroCopy".hash(hasher);
+                            Hash::hash("ZeroCopy", hasher);
                             // Hash the values of generic constants
                             #(
-                                #const_names.hash(hasher);
+                                Hash::hash(&#const_names, hasher);
                             )*
                             // Hash the identifiers of generic constants
                             #(
-                                #const_names_raw.hash(hasher);
+                                Hash::hash(#const_names_raw, hasher);
                             )*
                             // Hash in struct and field names.
-                            #name_literal.hash(hasher);
+                            Hash::hash(#name_literal, hasher);
                             #(
-                                #fields_names.hash(hasher);
+                                Hash::hash(#fields_names, hasher);
                             )*
                             // Recurse on all fields.
                             #(
@@ -1081,16 +1081,16 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                     impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash{
                         #[inline(always)]
                         fn align_hash(
-                            hasher: &mut impl core::hash::Hasher,
+                            hasher: &mut impl ::core::hash::Hasher,
                             offset_of: &mut usize,
                         ) {
-                            use core::hash::Hash;
+                            use ::core::hash::Hash;
                             // Hash in size, as padding is given by MaxSizeOf.
                             // and it is independent of the architecture.
-                            core::mem::size_of::<Self>().hash(hasher);
+                            Hash::hash(&::core::mem::size_of::<Self>(), hasher);
                             // Hash in representation data.
                             #(
-                                #repr.hash(hasher);
+                                Hash::hash(#repr, hasher);
                             )*
                             // Recurse on all fields.
                             #(
@@ -1123,24 +1123,24 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
 
                         #[inline(always)]
                         fn type_hash(
-                            hasher: &mut impl core::hash::Hasher,
+                            hasher: &mut impl ::core::hash::Hasher,
                         ) {
-                            use core::hash::Hash;
+                            use ::core::hash::Hash;
                             // No alignment, so we do not hash in anything.
                             // Hash in DeepCopy
-                            "DeepCopy".hash(hasher);
+                            Hash::hash("DeepCopy", hasher);
                             // Hash the values of generic constants
                             #(
-                                #const_names.hash(hasher);
+                                Hash::hash(&#const_names, hasher);
                             )*
                             // Hash the identifiers of generic constants
                             #(
-                                #const_names_raw.hash(hasher);
+                                Hash::hash(#const_names_raw, hasher);
                             )*
                             // Hash in struct and field names.
-                            #name_literal.hash(hasher);
+                            Hash::hash(#name_literal, hasher);
                             #(
-                                #fields_names.hash(hasher);
+                                Hash::hash(#fields_names, hasher);
                             )*
                             // Recurse on all fields.
                             #(
@@ -1152,7 +1152,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                     impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
                         #[inline(always)]
                         fn align_hash(
-                            hasher: &mut impl core::hash::Hasher,
+                            hasher: &mut impl ::core::hash::Hasher,
                             _offset_of: &mut usize,
                         ) {
                             // Recurse on all variants starting at offset 0
@@ -1181,7 +1181,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
 
             e.variants.iter().for_each(|variant| {
                 let ident = variant.ident.to_owned();
-                let mut var_type_hash = quote! { stringify!(#ident).hash(hasher); };
+                let mut var_type_hash = quote! { Hash::hash(stringify!(#ident), hasher); };
                 let mut var_align_hash = quote! { };
                 let mut var_max_size_of = quote! {  };
                 match &variant.fields {
@@ -1195,7 +1195,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                             })
                             .for_each(|(ident, ty)| {
                                 var_type_hash.extend([quote! {
-                                    stringify!(#ident).hash(hasher);
+                                    Hash::hash(stringify!(#ident), hasher);
                                     <#ty as ::epserde::traits::TypeHash>::type_hash(hasher);
                                 }]);
                                 var_align_hash.extend([quote! {
@@ -1222,7 +1222,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                                 let ty = &unnamed.ty;
                                 let field_name = field_idx.to_string();
                                 var_type_hash.extend([quote! {
-                                    #field_name.hash(hasher);
+                                    Hash::hash(#field_name, hasher);
                                     <#ty as ::epserde::traits::TypeHash>::type_hash(hasher);
                                 }]);
                                 var_align_hash.extend([quote! {
@@ -1267,21 +1267,21 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
 
                         #[inline(always)]
                         fn type_hash(
-                            hasher: &mut impl core::hash::Hasher,
+                            hasher: &mut impl ::core::hash::Hasher,
                         ) {
-                            use core::hash::Hash;
+                            use ::core::hash::Hash;
                             // Hash in ZeroCopy
-                            "ZeroCopy".hash(hasher);
+                            Hash::hash("ZeroCopy", hasher);
                             // Hash the values of generic constants
                             #(
-                                #const_names.hash(hasher);
+                                Hash::hash(#const_names, hasher);
                             )*
                             // Hash the identifiers of generic constants
                             #(
-                                #const_names_raw.hash(hasher);
+                                Hash::hash(#const_names_raw, hasher);
                             )*
                             // Hash in struct and field names.
-                            #name_literal.hash(hasher);
+                            Hash::hash(#name_literal, hasher);
                             #(
                                 #var_type_hashes
                             )*
@@ -1291,16 +1291,16 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                     impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
                         #[inline(always)]
                         fn align_hash(
-                            hasher: &mut impl core::hash::Hasher,
+                            hasher: &mut impl ::core::hash::Hasher,
                             offset_of: &mut usize,
                         ) {
-                            use core::hash::Hash;
+                            use ::core::hash::Hash;
                             // Hash in size, as padding is given by MaxSizeOf.
                             // and it is independent of the architecture.
-                            core::mem::size_of::<Self>().hash(hasher);
+                            Hash::hash(&::core::mem::size_of::<Self>(), hasher);
                             // Hash in representation data.
                             #(
-                                #repr.hash(hasher);
+                                Hash::hash(#repr, hasher);
                             )*
                             // Recurse on all fields.
                             let old_offset_of = *offset_of;
@@ -1329,22 +1329,22 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
 
                         #[inline(always)]
                         fn type_hash(
-                            hasher: &mut impl core::hash::Hasher,
+                            hasher: &mut impl ::core::hash::Hasher,
                         ) {
-                            use core::hash::Hash;
+                            use ::core::hash::Hash;
                             // No alignment, so we do not hash in anything.
                             // Hash in DeepCopy
-                            "DeepCopy".hash(hasher);
+                            Hash::hash("DeepCopy", hasher);
                             // Hash the values of generic constants
                             #(
-                                #const_names.hash(hasher);
+                                Hash::hash(&#const_names, hasher);
                             )*
                             // Hash the identifiers of generic constants
                             #(
-                                #const_names_raw.hash(hasher);
+                                Hash::hash(#const_names_raw, hasher);
                             )*
                             // Hash in struct and field names.
-                            #name_literal.hash(hasher);
+                            Hash::hash(#name_literal, hasher);
                             #(
                                 #var_type_hashes
                             )*
@@ -1354,7 +1354,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                     impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
                         #[inline(always)]
                         fn align_hash(
-                            hasher: &mut impl core::hash::Hasher,
+                            hasher: &mut impl ::core::hash::Hasher,
                             offset_of: &mut usize,
                         ) {
                             // Recurse on all variants starting at offset 0
