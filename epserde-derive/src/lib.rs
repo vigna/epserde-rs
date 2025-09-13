@@ -68,6 +68,20 @@ fn generate_method_call(
     }
 }
 
+/// Generate IS_ZERO_COPY expression for fields
+fn generate_is_zero_copy_expr(
+    is_repr_c: bool,
+    fields_types: &[&syn::Type],
+) -> proc_macro2::TokenStream {
+    if fields_types.is_empty() {
+        quote!(#is_repr_c)
+    } else {
+        quote!(#is_repr_c #(&& <#fields_types>::IS_ZERO_COPY)*)
+    }
+}
+
+
+
 
 
 /// Check if `sub_type` is part of `ty`. we use this function to detect which
@@ -470,6 +484,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 // In zero-copy types we do not need to add bounds to
                 // the associated SerType/DeserType, as generics are not
                 // replaced with their SerType/DeserType.
+                let is_zero_copy_expr = generate_is_zero_copy_expr(is_repr_c, &fields_types);
 
                 quote! {
                     #[automatically_derived]
@@ -481,9 +496,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
                         type SerType = Self;
                         // Compute whether the type could be zero copy
-                        const IS_ZERO_COPY: bool = #is_repr_c #(
-                            && <#fields_types>::IS_ZERO_COPY
-                        )*;
+                        const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
                         // The type is declared as zero copy, so a fortiori there is no mismatch.
                         const ZERO_COPY_MISMATCH: bool = false;
@@ -704,42 +717,16 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             )
                             .to_token_stream());
 
-                            if is_phantom_deser_data(ty) {
-                                method_calls.push(syn::parse_quote!(
-                                    #ident: <#ty>::_deserialize_eps_inner_special
-                                ));
-                            } else if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
-                                method_calls.push(syn::parse_quote!(#ident: <#ty as DeserializeInner>::_deserialize_eps_inner));
-                            } else {
-                                method_calls.push(syn::parse_quote!(#ident: <#ty as DeserializeInner>::_deserialize_full_inner));
-                            }
+                            method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &generics_names_raw));
 
                             var_fields_vars.push(syn::Index::from(field_idx));
                             var_fields_types.push(ty.to_token_stream());
 
 
                             // add that every struct field has to implement SerializeInner
-                            let mut bounds_ser = Punctuated::new();
-                            bounds_ser.push(syn::parse_quote!(::epserde::ser::SerializeInner));
-                            where_clause_ser
-                                .predicates
-                                .push(WherePredicate::Type(PredicateType {
-                                    lifetimes: None,
-                                    bounded_ty: ty.clone(),
-                                    colon_token: token::Colon::default(),
-                                    bounds: bounds_ser,
-                            }));
+                            add_trait_bound(&mut where_clause_ser, ty, syn::parse_quote!(::epserde::ser::SerializeInner));
                             // add that every struct field has to implement DeserializeInner
-                            let mut bounds_des = Punctuated::new();
-                            bounds_des.push(syn::parse_quote!(::epserde::deser::DeserializeInner));
-                            where_clause_des
-                                .predicates
-                                .push(WherePredicate::Type(PredicateType {
-                                    lifetimes: None,
-                                    bounded_ty: ty.clone(),
-                                    colon_token: token::Colon::default(),
-                                    bounds: bounds_des,
-                            }));
+                            add_trait_bound(&mut where_clause_des, ty, syn::parse_quote!(::epserde::deser::DeserializeInner));
                         });
 
                     let ident = variant.ident.clone();
