@@ -413,6 +413,94 @@ fn generate_ser_type_generics(
         .collect()
 }
 
+/// Set of where clauses for trait implementations
+struct WhereClausesSet {
+    /// Where clause for serialization traits
+    serialize: WhereClause,
+    /// Where clause for deserialization traits
+    deserialize: WhereClause,
+}
+
+/// Generate where clauses for main derive traits (SerializeInner, DeserializeInner)
+fn generate_main_trait_where_clauses(
+    base_clause: &WhereClause,
+    field_types: &[syn::Type],
+) -> WhereClausesSet {
+    let mut where_clause_ser = base_clause.clone();
+    let mut where_clause_des = base_clause.clone();
+
+    // Add trait bounds for all field types
+    for ty in field_types {
+        add_ser_deser_trait_bounds(&mut where_clause_ser, &mut where_clause_des, ty);
+    }
+
+    WhereClausesSet {
+        serialize: where_clause_ser,
+        deserialize: where_clause_des,
+    }
+}
+
+/// Set of where clauses for TypeHash traits
+struct TypeHashWhereClausesSet {
+    /// Where clause for TypeHash trait
+    type_hash: WhereClause,
+    /// Where clause for AlignHash trait
+    align_hash: WhereClause,
+    /// Where clause for MaxSizeOf trait
+    max_size_of: WhereClause,
+}
+
+/// Generate where clauses for TypeHash traits (TypeHash, AlignHash, MaxSizeOf)
+fn generate_type_hash_where_clauses(
+    base_clause: &WhereClause,
+    generic_types: &[syn::Type],
+) -> TypeHashWhereClausesSet {
+    let mut bounds_type_hash = Punctuated::new();
+    bounds_type_hash.push(syn::parse_quote!(::epserde::traits::TypeHash));
+    let mut where_clause_type_hash = base_clause.clone();
+
+    let mut bounds_align_hash = Punctuated::new();
+    bounds_align_hash.push(syn::parse_quote!(::epserde::traits::AlignHash));
+    let mut where_clause_align_hash = base_clause.clone();
+
+    let mut bounds_max_size_of = Punctuated::new();
+    bounds_max_size_of.push(syn::parse_quote!(::epserde::traits::MaxSizeOf));
+    let mut where_clause_max_size_of = base_clause.clone();
+
+    generic_types.iter().for_each(|ty| {
+        where_clause_type_hash
+            .predicates
+            .push(WherePredicate::Type(PredicateType {
+                lifetimes: None,
+                bounded_ty: ty.clone(),
+                colon_token: token::Colon::default(),
+                bounds: bounds_type_hash.clone(),
+            }));
+        where_clause_align_hash
+            .predicates
+            .push(WherePredicate::Type(PredicateType {
+                lifetimes: None,
+                bounded_ty: ty.clone(),
+                colon_token: token::Colon::default(),
+                bounds: bounds_align_hash.clone(),
+            }));
+        where_clause_max_size_of
+            .predicates
+            .push(WherePredicate::Type(PredicateType {
+                lifetimes: None,
+                bounded_ty: ty.clone(),
+                colon_token: token::Colon::default(),
+                bounds: bounds_max_size_of.clone(),
+            }));
+    });
+
+    TypeHashWhereClausesSet {
+        type_hash: where_clause_type_hash,
+        align_hash: where_clause_align_hash,
+        max_size_of: where_clause_max_size_of,
+    }
+}
+
 /// Context structure containing all the common parameters needed for code generation
 struct CodegenContext<'a> {
     /// The original derive input containing all metadata
@@ -453,8 +541,6 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
     let mut variants_names = Vec::new();
     let mut variants = Vec::new();
     let mut variant_ser = Vec::new();
-    let mut where_clause_ser = where_clause.clone();
-    let mut where_clause_des = where_clause.clone();
     let mut variant_full_des = Vec::new();
     let mut variant_eps_des = Vec::new();
     let mut types_with_generics = Vec::new();
@@ -494,8 +580,6 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
 
                     var_fields_names.push(ident.to_token_stream());
                     var_fields_types.push(ty.clone());
-
-                    add_ser_deser_trait_bounds(&mut where_clause_ser, &mut where_clause_des, ty);
                 });
             let ident = variant.ident.clone();
             variants.push(quote! {
@@ -550,9 +634,6 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
 
                     var_fields_vars.push(syn::Index::from(field_idx));
                     var_fields_types.push(ty.clone());
-
-
-                    add_ser_deser_trait_bounds(&mut where_clause_ser, &mut where_clause_des, ty);
                 });
 
             let ident = variant.ident.clone();
@@ -587,6 +668,11 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
         generate_deser_type_generics(ctx.generics_names, &types_with_generics);
     let ser_type_generics = generate_ser_type_generics(ctx.generics_names, &types_with_generics);
     let tag = (0..variants.len()).collect::<Vec<_>>();
+
+    // Generate where clauses for trait implementations
+    let where_clauses = generate_main_trait_where_clauses(&where_clause, &fields_types);
+    let mut where_clause_ser = where_clauses.serialize;
+    let mut where_clause_des = where_clauses.deserialize;
 
     let name = ctx.name;
     let impl_generics = ctx.impl_generics;
@@ -801,22 +887,10 @@ fn generate_struct_impl(ctx: &CodegenContext, s: &syn::DataStruct) -> proc_macro
         .clone()
         .unwrap_or_else(empty_where_clause);
 
-    let mut where_clause_ser = where_clause.clone();
-    let mut where_clause_des = where_clause.clone();
-
-    // Add trait bounds for all field types
-    for ty in &fields_types {
-        add_trait_bound(
-            &mut where_clause_ser,
-            ty,
-            syn::parse_quote!(::epserde::ser::SerializeInner),
-        );
-        add_trait_bound(
-            &mut where_clause_des,
-            ty,
-            syn::parse_quote!(::epserde::deser::DeserializeInner),
-        );
-    }
+    // Generate where clauses for trait implementations
+    let where_clauses = generate_main_trait_where_clauses(&where_clause, &fields_types);
+    let mut where_clause_ser = where_clauses.serialize;
+    let mut where_clause_des = where_clauses.deserialize;
 
     let is_zero_copy_expr = generate_is_zero_copy_expr(ctx.is_repr_c, &fields_types);
 
@@ -1171,8 +1245,10 @@ fn generate_struct_type_hash(
         .clone()
         .unwrap_or_else(empty_where_clause);
 
-    let (where_clause_type_hash, where_clause_align_hash, where_clause_max_size_of) =
-        type_repr_max_size_of_where_clauses(&where_clause, &generic_types);
+    let type_hash_where_clauses = generate_type_hash_where_clauses(&where_clause, &generic_types);
+    let where_clause_type_hash = type_hash_where_clauses.type_hash;
+    let where_clause_align_hash = type_hash_where_clauses.align_hash;
+    let where_clause_max_size_of = type_hash_where_clauses.max_size_of;
 
     // Generate field hashes for TypeHash
     let field_hashes: Vec<_> = fields_names
@@ -1287,8 +1363,10 @@ fn generate_enum_type_hash(ctx: &TypeHashContext, e: &syn::DataEnum) -> proc_mac
         .clone()
         .unwrap_or_else(empty_where_clause);
 
-    let (where_clause_type_hash, where_clause_align_hash, where_clause_max_size_of) =
-        type_repr_max_size_of_where_clauses(&where_clause, &generic_types);
+    let type_hash_where_clauses = generate_type_hash_where_clauses(&where_clause, &generic_types);
+    let where_clause_type_hash = type_hash_where_clauses.type_hash;
+    let where_clause_align_hash = type_hash_where_clauses.align_hash;
+    let where_clause_max_size_of = type_hash_where_clauses.max_size_of;
 
     // Generate implementation bodies
     let type_hash_body = generate_type_hash_body(ctx, &var_type_hashes);
@@ -1437,54 +1515,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
     out
 }
 
-fn type_repr_max_size_of_where_clauses(
-    where_clause: &WhereClause,
-    generic_types: &[syn::Type],
-) -> (WhereClause, WhereClause, WhereClause) {
-    let mut bounds_type_hash = Punctuated::new();
-    bounds_type_hash.push(syn::parse_quote!(::epserde::traits::TypeHash));
-    let mut where_clause_type_hash = where_clause.clone();
 
-    let mut bounds_align_hash = Punctuated::new();
-    bounds_align_hash.push(syn::parse_quote!(::epserde::traits::AlignHash));
-    let mut where_clause_align_hash = where_clause.clone();
-
-    let mut bounds_max_size_of = Punctuated::new();
-    bounds_max_size_of.push(syn::parse_quote!(::epserde::traits::MaxSizeOf));
-    let mut where_clause_max_size_of = where_clause.clone();
-
-    generic_types.iter().for_each(|ty| {
-        where_clause_type_hash
-            .predicates
-            .push(WherePredicate::Type(PredicateType {
-                lifetimes: None,
-                bounded_ty: ty.clone(),
-                colon_token: token::Colon::default(),
-                bounds: bounds_type_hash.clone(),
-            }));
-        where_clause_align_hash
-            .predicates
-            .push(WherePredicate::Type(PredicateType {
-                lifetimes: None,
-                bounded_ty: ty.clone(),
-                colon_token: token::Colon::default(),
-                bounds: bounds_align_hash.clone(),
-            }));
-        where_clause_max_size_of
-            .predicates
-            .push(WherePredicate::Type(PredicateType {
-                lifetimes: None,
-                bounded_ty: ty.clone(),
-                colon_token: token::Colon::default(),
-                bounds: bounds_max_size_of.clone(),
-            }));
-    });
-    (
-        where_clause_type_hash,
-        where_clause_align_hash,
-        where_clause_max_size_of,
-    )
-}
 
 /// Generate a partial ε-serde implementation for custom types.
 ///
