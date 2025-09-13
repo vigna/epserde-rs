@@ -717,16 +717,17 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
     let tag = (0..variants.len()).collect::<Vec<_>>();
 
     // Initialize common trait implementation data
-    let init = initialize_trait_impl(ctx, &fields_types);
-    let mut where_clause_ser = init.where_clause_ser;
-    let mut where_clause_des = init.where_clause_des;
-    let where_clause = init.base_where_clause;
-    let is_zero_copy_expr = init.is_zero_copy_expr;
-    let name = init.name;
-    let impl_generics = init.impl_generics;
-    let concat_generics = init.concat_generics;
-    let generics_serialize = init.generics_serialize;
-    let generics_deserialize = init.generics_deserialize;
+    let TraitImplInit {
+        base_where_clause,
+        mut where_clause_ser,
+        mut where_clause_des,
+        is_zero_copy_expr,
+        name,
+        impl_generics,
+        concat_generics,
+        generics_serialize,
+        generics_deserialize,
+    } = initialize_trait_impl(ctx, &fields_types);
     let is_deep_copy = ctx.is_deep_copy;
 
     if ctx.is_zero_copy {
@@ -736,7 +737,7 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
 
         quote! {
             #[automatically_derived]
-            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
+            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #let_clause {
                 type Copy = ::epserde::traits::Zero;
             }
             #[automatically_derived]
@@ -797,7 +798,7 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
 
         quote! {
             #[automatically_derived]
-            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
+            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #base_where_clause {
                 type Copy = ::epserde::traits::Deep;
             }
             #[automatically_derived]
@@ -928,16 +929,17 @@ fn generate_struct_impl(ctx: &CodegenContext, s: &syn::DataStruct) -> proc_macro
         .collect::<Vec<_>>();
 
     // Initialize common trait implementation data
-    let init = initialize_trait_impl(ctx, &fields_types);
-    let mut where_clause_ser = init.where_clause_ser;
-    let mut where_clause_des = init.where_clause_des;
-    let where_clause = init.base_where_clause;
-    let is_zero_copy_expr = init.is_zero_copy_expr;
-    let name = init.name;
-    let impl_generics = init.impl_generics;
-    let concat_generics = init.concat_generics;
-    let generics_serialize = init.generics_serialize;
-    let generics_deserialize = init.generics_deserialize;
+    let TraitImplInit {
+        base_where_clause,
+        mut where_clause_ser,
+        mut where_clause_des,
+        is_zero_copy_expr,
+        name,
+        impl_generics,
+        concat_generics,
+        generics_serialize,
+        generics_deserialize,
+    } = initialize_trait_impl(ctx, &fields_types);
 
     if ctx.is_zero_copy {
         // In zero-copy types we do not need to add bounds to
@@ -945,7 +947,7 @@ fn generate_struct_impl(ctx: &CodegenContext, s: &syn::DataStruct) -> proc_macro
         // replaced with their SerType/DeserType.
         quote! {
             #[automatically_derived]
-            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
+            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #base_where_clause {
                 type Copy = ::epserde::traits::Zero;
             }
 
@@ -1008,7 +1010,7 @@ fn generate_struct_impl(ctx: &CodegenContext, s: &syn::DataStruct) -> proc_macro
 
         quote! {
             #[automatically_derived]
-            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
+            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #base_where_clause {
                 type Copy = ::epserde::traits::Deep;
             }
 
@@ -1283,10 +1285,11 @@ fn generate_struct_type_hash(
         .clone()
         .unwrap_or_else(empty_where_clause);
 
-    let type_hash_where_clauses = generate_type_hash_where_clauses(&where_clause, &generic_types);
-    let where_clause_type_hash = type_hash_where_clauses.type_hash;
-    let where_clause_align_hash = type_hash_where_clauses.align_hash;
-    let where_clause_max_size_of = type_hash_where_clauses.max_size_of;
+    let TypeHashWhereClausesSet {
+        type_hash: where_clause_type_hash,
+        align_hash: where_clause_align_hash,
+        max_size_of: where_clause_max_size_of,
+    } = generate_type_hash_where_clauses(&where_clause, &generic_types);
 
     // Generate field hashes for TypeHash
     let field_hashes: Vec<_> = fields_names
@@ -1401,10 +1404,11 @@ fn generate_enum_type_hash(ctx: &TypeHashContext, e: &syn::DataEnum) -> proc_mac
         .clone()
         .unwrap_or_else(empty_where_clause);
 
-    let type_hash_where_clauses = generate_type_hash_where_clauses(&where_clause, &generic_types);
-    let where_clause_type_hash = type_hash_where_clauses.type_hash;
-    let where_clause_align_hash = type_hash_where_clauses.align_hash;
-    let where_clause_max_size_of = type_hash_where_clauses.max_size_of;
+    let TypeHashWhereClausesSet {
+        type_hash: where_clause_type_hash,
+        align_hash: where_clause_align_hash,
+        max_size_of: where_clause_max_size_of,
+    } = generate_type_hash_where_clauses(&where_clause, &generic_types);
 
     // Generate implementation bodies
     let type_hash_body = generate_type_hash_body(ctx, &var_type_hashes);
@@ -1552,8 +1556,6 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
     out.extend(epserde_type_hash(input_for_type_hash));
     out
 }
-
-
 
 /// Generate a partial ε-serde implementation for custom types.
 ///
