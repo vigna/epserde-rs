@@ -629,7 +629,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                 types_without_generics.push(ty.to_token_stream());
                             }
 
-                            if is_phantom_deser_data(&ty) {
+                            if is_phantom_deser_data(ty) {
                                 method_calls.push(syn::parse_quote!(
                                     #ident: <#ty>::_deserialize_eps_inner_special
                                 ));
@@ -714,7 +714,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                             )
                             .to_token_stream());
 
-                            if is_phantom_deser_data(&ty) {
+                            if is_phantom_deser_data(ty) {
                                 method_calls.push(syn::parse_quote!(
                                     #ident: <#ty>::_deserialize_eps_inner_special
                                 ));
