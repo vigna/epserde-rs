@@ -502,25 +502,25 @@ fn generate_type_hash_where_clauses(
 }
 
 /// Context structure containing all the common parameters needed for code generation
-struct CodegenContext<'a> {
+struct CodegenContext {
     /// The original derive input containing all metadata
-    derive_input: &'a DeriveInput,
+    derive_input: DeriveInput,
     /// The name of the type being derived
-    name: &'a syn::Ident,
+    name: syn::Ident,
     /// Concatenated generics for type declarations (e.g., `<T, U>`)
-    concat_generics: &'a proc_macro2::TokenStream,
+    concat_generics: proc_macro2::TokenStream,
     /// Raw generic names as strings (e.g., `["T", "U"]`)
-    generics_names_raw: &'a [String],
+    generics_names_raw: Vec<String>,
     /// Generic names as token streams for code generation
-    generics_names: &'a [proc_macro2::TokenStream],
+    generics_names: Vec<proc_macro2::TokenStream>,
     /// Generic types for subtype checking
-    generics_types: &'a [syn::Type],
+    generics_types: Vec<syn::Type>,
     /// Implementation generics for trait bounds
-    impl_generics: &'a proc_macro2::TokenStream,
+    impl_generics: proc_macro2::TokenStream,
     /// Serialization generics with bounds
-    generics_serialize: &'a proc_macro2::TokenStream,
+    generics_serialize: proc_macro2::TokenStream,
     /// Deserialization generics with bounds
-    generics_deserialize: &'a proc_macro2::TokenStream,
+    generics_deserialize: proc_macro2::TokenStream,
     /// Whether the type has `#[repr(C)]`
     is_repr_c: bool,
     /// Whether the type has `#[zero_copy]`
@@ -530,7 +530,7 @@ struct CodegenContext<'a> {
 }
 
 /// Common initialization data for trait implementation generation
-struct TraitImplInit<'a> {
+struct TraitImplInit {
     /// Base where clause from the derive input
     base_where_clause: WhereClause,
     /// Where clause for serialization traits
@@ -540,22 +540,22 @@ struct TraitImplInit<'a> {
     /// Expression for IS_ZERO_COPY constant
     is_zero_copy_expr: proc_macro2::TokenStream,
     /// Type name
-    name: &'a syn::Ident,
+    name: syn::Ident,
     /// Implementation generics
-    impl_generics: &'a proc_macro2::TokenStream,
+    impl_generics: proc_macro2::TokenStream,
     /// Concatenated generics
-    concat_generics: &'a proc_macro2::TokenStream,
+    concat_generics: proc_macro2::TokenStream,
     /// Serialization generics
-    generics_serialize: &'a proc_macro2::TokenStream,
+    generics_serialize: proc_macro2::TokenStream,
     /// Deserialization generics
-    generics_deserialize: &'a proc_macro2::TokenStream,
+    generics_deserialize: proc_macro2::TokenStream,
 }
 
 /// Initialize common trait implementation data
-fn initialize_trait_impl<'a>(
-    ctx: &'a CodegenContext<'a>,
+fn initialize_trait_impl(
+    ctx: &CodegenContext,
     fields_types: &[syn::Type],
-) -> TraitImplInit<'a> {
+) -> TraitImplInit {
     let base_where_clause = ctx
         .derive_input
         .generics
@@ -575,11 +575,11 @@ fn initialize_trait_impl<'a>(
         where_clause_ser,
         where_clause_des,
         is_zero_copy_expr,
-        name: ctx.name,
-        impl_generics: ctx.impl_generics,
-        concat_generics: ctx.concat_generics,
-        generics_serialize: ctx.generics_serialize,
-        generics_deserialize: ctx.generics_deserialize,
+        name: ctx.name.clone(),
+        impl_generics: ctx.impl_generics.clone(),
+        concat_generics: ctx.concat_generics.clone(),
+        generics_serialize: ctx.generics_serialize.clone(),
+        generics_deserialize: ctx.generics_deserialize.clone(),
     }
 }
 
@@ -623,7 +623,7 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
                         types_without_generics.push(ty.to_token_stream());
                     }
 
-                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, ctx.generics_names_raw));
+                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &ctx.generics_names_raw));
 
                     var_fields_names.push(ident.to_token_stream());
                     var_fields_types.push(ty.clone());
@@ -677,7 +677,7 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
                     )
                     .to_token_stream());
 
-                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, ctx.generics_names_raw));
+                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &ctx.generics_names_raw));
 
                     var_fields_vars.push(syn::Index::from(field_idx));
                     var_fields_types.push(ty.clone());
@@ -712,13 +712,13 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
     // Gather deserialization types of fields,
     // which are necessary to derive the deserialization type.
     let deser_type_generics =
-        generate_deser_type_generics(ctx.generics_names, &types_with_generics);
-    let ser_type_generics = generate_ser_type_generics(ctx.generics_names, &types_with_generics);
+        generate_deser_type_generics(&ctx.generics_names, &types_with_generics);
+    let ser_type_generics = generate_ser_type_generics(&ctx.generics_names, &types_with_generics);
     let tag = (0..variants.len()).collect::<Vec<_>>();
 
     // Initialize common trait implementation data
     let TraitImplInit {
-        base_where_clause,
+        base_where_clause: where_clause,
         mut where_clause_ser,
         mut where_clause_des,
         is_zero_copy_expr,
@@ -737,7 +737,7 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
 
         quote! {
             #[automatically_derived]
-            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #let_clause {
+            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
                 type Copy = ::epserde::traits::Zero;
             }
             #[automatically_derived]
@@ -788,7 +788,7 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
         }
     } else {
         add_ser_deser_bounds(
-            ctx.derive_input,
+            &ctx.derive_input,
             &types_with_generics,
             &mut where_clause_ser,
             &mut where_clause_des,
@@ -798,7 +798,7 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
 
         quote! {
             #[automatically_derived]
-            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #base_where_clause {
+            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
                 type Copy = ::epserde::traits::Deep;
             }
             #[automatically_derived]
@@ -890,7 +890,7 @@ fn generate_struct_impl(ctx: &CodegenContext, s: &syn::DataStruct) -> proc_macro
         method_calls.push(generate_method_call(
             &field_name,
             ty,
-            ctx.generics_names_raw,
+            &ctx.generics_names_raw,
         ));
         fields_types.push(ty.clone());
         fields_names.push(field_name);
@@ -930,7 +930,7 @@ fn generate_struct_impl(ctx: &CodegenContext, s: &syn::DataStruct) -> proc_macro
 
     // Initialize common trait implementation data
     let TraitImplInit {
-        base_where_clause,
+        base_where_clause: where_clause,
         mut where_clause_ser,
         mut where_clause_des,
         is_zero_copy_expr,
@@ -947,7 +947,7 @@ fn generate_struct_impl(ctx: &CodegenContext, s: &syn::DataStruct) -> proc_macro
         // replaced with their SerType/DeserType.
         quote! {
             #[automatically_derived]
-            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #base_where_clause {
+            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
                 type Copy = ::epserde::traits::Zero;
             }
 
@@ -1000,7 +1000,7 @@ fn generate_struct_impl(ctx: &CodegenContext, s: &syn::DataStruct) -> proc_macro
         }
     } else {
         add_ser_deser_bounds(
-            ctx.derive_input,
+            &ctx.derive_input,
             &types_with_generics,
             &mut where_clause_ser,
             &mut where_clause_des,
@@ -1010,7 +1010,7 @@ fn generate_struct_impl(ctx: &CodegenContext, s: &syn::DataStruct) -> proc_macro
 
         quote! {
             #[automatically_derived]
-            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #base_where_clause {
+            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
                 type Copy = ::epserde::traits::Deep;
             }
 
@@ -1072,21 +1072,21 @@ fn generate_struct_impl(ctx: &CodegenContext, s: &syn::DataStruct) -> proc_macro
 }
 
 /// Context structure for TypeHash code generation
-struct TypeHashContext<'a> {
+struct TypeHashContext {
     /// The original derive input
-    input: &'a DeriveInput,
+    input: DeriveInput,
     /// The name of the type
-    name: &'a syn::Ident,
+    name: syn::Ident,
     /// Implementation generics
-    impl_generics: &'a proc_macro2::TokenStream,
+    impl_generics: proc_macro2::TokenStream,
     /// Concatenated generics
-    concat_generics: &'a proc_macro2::TokenStream,
+    concat_generics: proc_macro2::TokenStream,
     /// Generic types for subtype checking
-    generics_types: &'a [syn::Type],
+    generics_types: Vec<syn::Type>,
     /// Generic constant names
-    const_names: &'a [proc_macro2::TokenStream],
+    const_names: Vec<proc_macro2::TokenStream>,
     /// Raw generic constant names
-    const_names_raw: &'a [String],
+    const_names_raw: Vec<String>,
     /// Whether the type is zero-copy
     is_zero_copy: bool,
     /// Type name as string literal
@@ -1127,8 +1127,8 @@ fn generate_type_hash_body(
     } else {
         "DeepCopy"
     };
-    let const_names = ctx.const_names;
-    let const_names_raw = ctx.const_names_raw;
+    let const_names = &ctx.const_names;
+    let const_names_raw = &ctx.const_names_raw;
     let name_literal = &ctx.name_literal;
 
     quote! {
@@ -1217,9 +1217,9 @@ fn generate_type_hash_traits(
     align_hash_body: proc_macro2::TokenStream,
     max_size_of_body: Option<proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
-    let name = ctx.name;
-    let impl_generics = ctx.impl_generics;
-    let concat_generics = ctx.concat_generics;
+    let name = &ctx.name;
+    let impl_generics = &ctx.impl_generics;
+    let concat_generics = &ctx.concat_generics;
 
     let max_size_of_impl = if let Some(max_size_of_body) = max_size_of_body {
         quote! {
@@ -1270,7 +1270,7 @@ fn generate_struct_type_hash(
         .iter()
         .enumerate()
         .map(|(field_idx, field)| {
-            extract_field_info(field, field_idx, ctx.generics_types, &mut generic_types)
+            extract_field_info(field, field_idx, &ctx.generics_types, &mut generic_types)
         })
         .collect();
 
@@ -1516,15 +1516,15 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
     let out = match &derive_input.data {
         Data::Struct(s) => {
             let ctx = CodegenContext {
-                derive_input: &derive_input,
-                name: &name,
-                concat_generics: &concat_generics,
-                generics_names_raw: &generics_names_raw,
-                generics_names: &generics_names,
-                generics_types: &generics_types,
-                impl_generics: &impl_generics,
-                generics_serialize: &generics_serialize,
-                generics_deserialize: &generics_deserialize,
+                derive_input: derive_input.clone(),
+                name: name.clone(),
+                concat_generics: concat_generics.clone(),
+                generics_names_raw: generics_names_raw.clone(),
+                generics_names: generics_names.clone(),
+                generics_types: generics_types.clone(),
+                impl_generics: impl_generics.clone(),
+                generics_serialize: generics_serialize.clone(),
+                generics_deserialize: generics_deserialize.clone(),
                 is_repr_c,
                 is_zero_copy,
                 is_deep_copy,
@@ -1533,15 +1533,15 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
         }
         Data::Enum(e) => {
             let ctx = CodegenContext {
-                derive_input: &derive_input,
-                name: &name,
-                concat_generics: &concat_generics,
-                generics_names_raw: &generics_names_raw,
-                generics_names: &generics_names,
-                generics_types: &generics_types,
-                impl_generics: &impl_generics,
-                generics_serialize: &generics_serialize,
-                generics_deserialize: &generics_deserialize,
+                derive_input: derive_input.clone(),
+                name: name.clone(),
+                concat_generics: concat_generics.clone(),
+                generics_names_raw: generics_names_raw.clone(),
+                generics_names: generics_names.clone(),
+                generics_types: generics_types.clone(),
+                impl_generics: impl_generics.clone(),
+                generics_serialize: generics_serialize.clone(),
+                generics_deserialize: generics_deserialize.clone(),
                 is_repr_c,
                 is_zero_copy,
                 is_deep_copy,
@@ -1589,16 +1589,16 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         .collect::<Vec<_>>();
 
     let ctx = TypeHashContext {
-        input: &input,
-        name: &name,
-        impl_generics: &impl_generics,
-        concat_generics: &concat_generics,
-        generics_types: &generics_types,
-        const_names: &const_names
+        input: input.clone(),
+        name: name.clone(),
+        impl_generics: impl_generics.clone(),
+        concat_generics: concat_generics.clone(),
+        generics_types: generics_types.clone(),
+        const_names: const_names
             .iter()
             .map(|x| x.to_token_stream())
             .collect::<Vec<_>>(),
-        const_names_raw: &const_names_raw,
+        const_names_raw: const_names_raw.clone(),
         is_zero_copy,
         name_literal,
         repr,
