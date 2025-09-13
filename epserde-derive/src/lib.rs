@@ -18,6 +18,58 @@ use syn::{
     GenericParam, LifetimeParam, PredicateType, WhereClause, WherePredicate,
 };
 
+/// Create an empty where clause
+fn empty_where_clause() -> WhereClause {
+    WhereClause {
+        where_token: token::Where::default(),
+        predicates: Punctuated::new(),
+    }
+}
+
+/// Add a trait bound to a where clause
+fn add_trait_bound(where_clause: &mut WhereClause, ty: &syn::Type, trait_path: syn::Path) {
+    let mut bounds = Punctuated::new();
+    bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
+        paren_token: None,
+        modifier: syn::TraitBoundModifier::None,
+        lifetimes: None,
+        path: trait_path,
+    }));
+
+    where_clause.predicates.push(WherePredicate::Type(PredicateType {
+        lifetimes: None,
+        bounded_ty: ty.clone(),
+        colon_token: token::Colon::default(),
+        bounds,
+    }));
+}
+
+/// Get field name as TokenStream (either ident or index)
+fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStream {
+    field
+        .ident
+        .to_owned()
+        .map(|x| x.to_token_stream())
+        .unwrap_or_else(|| syn::Index::from(field_idx).to_token_stream())
+}
+
+/// Generate method call for field deserialization
+fn generate_method_call(
+    field_name: &proc_macro2::TokenStream,
+    ty: &syn::Type,
+    generics_names_raw: &[String],
+) -> proc_macro2::TokenStream {
+    if is_phantom_deser_data(ty) {
+        syn::parse_quote!(#field_name: <#ty>::_deserialize_eps_inner_special)
+    } else if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
+        syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_eps_inner)
+    } else {
+        syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_full_inner)
+    }
+}
+
+
+
 /// Check if `sub_type` is part of `ty`. we use this function to detect which
 /// field types contains generics and thus need to be bounded.
 fn is_subtype(ty: &syn::Type, sub_type: &syn::Type) -> bool {
@@ -351,11 +403,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             // or of a type containing a generic type as a parameter).
             s.fields.iter().enumerate().for_each(|(field_idx, field)| {
                 let ty = &field.ty;
-                let field_name = field
-                    .ident
-                    .to_owned()
-                    .map(|x| x.to_token_stream())
-                    .unwrap_or_else(|| syn::Index::from(field_idx).to_token_stream());
+                let field_name = get_field_name(field, field_idx);
 
                 if generics_types.iter().any(|x| is_subtype(ty, x)) {
                     fields_with_generics.push(field_name.clone());
@@ -364,15 +412,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     fields_without_generics.push(field_name.clone());
                     types_without_generics.push(ty);
                 }
-                if is_phantom_deser_data(&field.ty) {
-                    method_calls.push(syn::parse_quote!(
-                        #field_name: <#ty>::_deserialize_eps_inner_special
-                    ));
-                } else if generics_names_raw.contains(&field.ty.to_token_stream().to_string()) {
-                    method_calls.push(syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_eps_inner));
-                } else {
-                    method_calls.push(syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_full_inner));
-                }
+                method_calls.push(generate_method_call(&field_name, ty, &generics_names_raw));
                 fields_types.push(ty);
                 fields_names.push(field_name);
             });
@@ -397,38 +437,17 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 .generics
                 .where_clause
                 .clone()
-                .unwrap_or_else(|| WhereClause {
-                    where_token: token::Where::default(),
-                    predicates: Punctuated::new(),
-                });
+                .unwrap_or_else(empty_where_clause);
 
             let mut where_clause_des = where_clause.clone();
             let mut where_clause_ser = where_clause.clone();
 
             fields_types.iter().for_each(|ty| {
                 // add that every struct field has to implement SerializeInner
-                let mut bounds_ser = Punctuated::new();
-                bounds_ser.push(syn::parse_quote!(::epserde::ser::SerializeInner));
-                where_clause_ser
-                    .predicates
-                    .push(WherePredicate::Type(PredicateType {
-                        lifetimes: None,
-                        bounded_ty: (*ty).clone(),
-                        colon_token: token::Colon::default(),
-                        bounds: bounds_ser,
-                    }));
+                add_trait_bound(&mut where_clause_ser, ty, syn::parse_quote!(::epserde::ser::SerializeInner));
 
                 // add that every struct field has to implement DeserializeInner
-                let mut bounds_des = Punctuated::new();
-                bounds_des.push(syn::parse_quote!(::epserde::deser::DeserializeInner));
-                where_clause_des
-                    .predicates
-                    .push(WherePredicate::Type(PredicateType {
-                        lifetimes: None,
-                        bounded_ty: (*ty).clone(),
-                        colon_token: token::Colon::default(),
-                        bounds: bounds_des,
-                    }));
+                add_trait_bound(&mut where_clause_des, ty, syn::parse_quote!(::epserde::deser::DeserializeInner));
             });
 
             // Map recursively type parameters to their SerType to generate this
@@ -584,10 +603,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 .generics
                 .where_clause
                 .clone()
-                .unwrap_or_else(|| WhereClause {
-                    where_token: token::Where::default(),
-                    predicates: Punctuated::new(),
-                });
+                .unwrap_or_else(empty_where_clause);
 
             let mut variants_names = Vec::new();
             let mut variants = Vec::new();
@@ -629,41 +645,15 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                                 types_without_generics.push(ty.to_token_stream());
                             }
 
-                            if is_phantom_deser_data(ty) {
-                                method_calls.push(syn::parse_quote!(
-                                    #ident: <#ty>::_deserialize_eps_inner_special
-                                ));
-                            } else if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
-                                method_calls.push(syn::parse_quote!(#ident: <#ty as DeserializeInner>::_deserialize_eps_inner));
-                            } else {
-                                method_calls.push(syn::parse_quote!(#ident: <#ty as DeserializeInner>::_deserialize_full_inner));
-                            }
+                            method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &generics_names_raw));
 
                             var_fields_names.push(ident.to_token_stream());
                             var_fields_types.push(ty.to_token_stream());
 
                             // add that every struct field has to implement SerializeInner
-                            let mut bounds_ser = Punctuated::new();
-                            bounds_ser.push(syn::parse_quote!(::epserde::ser::SerializeInner));
-                            where_clause_ser
-                                .predicates
-                                .push(WherePredicate::Type(PredicateType {
-                                    lifetimes: None,
-                                    bounded_ty: ty.clone(),
-                                    colon_token: token::Colon::default(),
-                                    bounds: bounds_ser,
-                            }));
+                            add_trait_bound(&mut where_clause_ser, ty, syn::parse_quote!(::epserde::ser::SerializeInner));
                             // add that every struct field has to implement DeserializeInner
-                            let mut bounds_des = Punctuated::new();
-                            bounds_des.push(syn::parse_quote!(::epserde::deser::DeserializeInner));
-                            where_clause_des
-                                .predicates
-                                .push(WherePredicate::Type(PredicateType {
-                                    lifetimes: None,
-                                    bounded_ty: ty.clone(),
-                                    colon_token: token::Colon::default(),
-                                    bounds: bounds_des,
-                            }));
+                            add_trait_bound(&mut where_clause_des, ty, syn::parse_quote!(::epserde::deser::DeserializeInner));
                         });
                     let ident = variant.ident.clone();
                     variants.push(quote! {
