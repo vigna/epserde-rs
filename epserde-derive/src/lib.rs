@@ -70,22 +70,10 @@ fn generate_method_call(
     }
 }
 
-/// Generate IS_ZERO_COPY expression for fields (accepts Type references)
-fn generate_is_zero_copy_expr_types(
+/// Generate IS_ZERO_COPY expression for fields
+fn generate_is_zero_copy_expr(
     is_repr_c: bool,
-    fields_types: &[&syn::Type],
-) -> proc_macro2::TokenStream {
-    if fields_types.is_empty() {
-        quote!(#is_repr_c)
-    } else {
-        quote!(#is_repr_c #(&& <#fields_types>::IS_ZERO_COPY)*)
-    }
-}
-
-/// Generate IS_ZERO_COPY expression for fields (accepts TokenStreams)
-fn generate_is_zero_copy_expr_tokens(
-    is_repr_c: bool,
-    fields_types: &[proc_macro2::TokenStream],
+    fields_types: &[syn::Type],
 ) -> proc_macro2::TokenStream {
     if fields_types.is_empty() {
         quote!(#is_repr_c)
@@ -432,7 +420,7 @@ fn generate_enum_impl(
                     method_calls.push(generate_method_call(&ident.to_token_stream(), ty, generics_names_raw));
 
                     var_fields_names.push(ident.to_token_stream());
-                    var_fields_types.push(ty.to_token_stream());
+                    var_fields_types.push(ty.clone());
 
                     // add that every struct field has to implement SerializeInner
                     add_trait_bound(&mut where_clause_ser, ty, syn::parse_quote!(::epserde::ser::SerializeInner));
@@ -491,7 +479,7 @@ fn generate_enum_impl(
                     method_calls.push(generate_method_call(&ident.to_token_stream(), ty, generics_names_raw));
 
                     var_fields_vars.push(syn::Index::from(field_idx));
-                    var_fields_types.push(ty.to_token_stream());
+                    var_fields_types.push(ty.clone());
 
 
                     // add that every struct field has to implement SerializeInner
@@ -560,7 +548,7 @@ fn generate_enum_impl(
         // In zero-copy types we do not need to add bounds to
         // the associated SerType/DeserType, as generics are not
         // replaced with their SerType/DeserType.
-        let is_zero_copy_expr = generate_is_zero_copy_expr_tokens(is_repr_c, &fields_types);
+        let is_zero_copy_expr = generate_is_zero_copy_expr(is_repr_c, &fields_types);
 
         quote! {
             #[automatically_derived]
@@ -621,7 +609,7 @@ fn generate_enum_impl(
             &mut where_clause_des,
         );
 
-        let is_zero_copy_expr = generate_is_zero_copy_expr_tokens(is_repr_c, &fields_types);
+        let is_zero_copy_expr = generate_is_zero_copy_expr(is_repr_c, &fields_types);
 
         quote! {
             #[automatically_derived]
@@ -760,7 +748,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     types_without_generics.push(ty);
                 }
                 method_calls.push(generate_method_call(&field_name, ty, &generics_names_raw));
-                fields_types.push(ty);
+                fields_types.push(ty.clone());
                 fields_names.push(field_name);
             });
 
@@ -825,7 +813,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 // In zero-copy types we do not need to add bounds to
                 // the associated SerType/DeserType, as generics are not
                 // replaced with their SerType/DeserType.
-                let is_zero_copy_expr = generate_is_zero_copy_expr_types(is_repr_c, &fields_types);
+                let is_zero_copy_expr = generate_is_zero_copy_expr(is_repr_c, &fields_types);
 
                 quote! {
                     #[automatically_derived]
@@ -888,7 +876,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     &mut where_clause_des,
                 );
 
-                let is_zero_copy_expr = generate_is_zero_copy_expr_types(is_repr_c, &fields_types);
+                let is_zero_copy_expr = generate_is_zero_copy_expr(is_repr_c, &fields_types);
 
                 quote! {
                     #[automatically_derived]
@@ -1082,11 +1070,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
                 })
                 .collect::<Vec<_>>();
 
-            let fields_types = s
-                .fields
-                .iter()
-                .map(|field| field.ty.to_owned())
-                .collect::<Vec<_>>();
+            let fields_types = s.fields.iter().map(|field| &field.ty).collect::<Vec<_>>();
 
             // Build type name
             let name_literal = name.to_string();
