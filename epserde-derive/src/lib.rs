@@ -68,10 +68,22 @@ fn generate_method_call(
     }
 }
 
-/// Generate IS_ZERO_COPY expression for fields
-fn generate_is_zero_copy_expr(
+/// Generate IS_ZERO_COPY expression for fields (accepts Type references)
+fn generate_is_zero_copy_expr_types(
     is_repr_c: bool,
     fields_types: &[&syn::Type],
+) -> proc_macro2::TokenStream {
+    if fields_types.is_empty() {
+        quote!(#is_repr_c)
+    } else {
+        quote!(#is_repr_c #(&& <#fields_types>::IS_ZERO_COPY)*)
+    }
+}
+
+/// Generate IS_ZERO_COPY expression for fields (accepts TokenStreams)
+fn generate_is_zero_copy_expr_tokens(
+    is_repr_c: bool,
+    fields_types: &[proc_macro2::TokenStream],
 ) -> proc_macro2::TokenStream {
     if fields_types.is_empty() {
         quote!(#is_repr_c)
@@ -484,7 +496,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 // In zero-copy types we do not need to add bounds to
                 // the associated SerType/DeserType, as generics are not
                 // replaced with their SerType/DeserType.
-                let is_zero_copy_expr = generate_is_zero_copy_expr(is_repr_c, &fields_types);
+                let is_zero_copy_expr = generate_is_zero_copy_expr_types(is_repr_c, &fields_types);
 
                 quote! {
                     #[automatically_derived]
@@ -547,6 +559,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     &mut where_clause_des,
                 );
 
+                let is_zero_copy_expr = generate_is_zero_copy_expr_types(is_repr_c, &fields_types);
+
                 quote! {
                     #[automatically_derived]
                     impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
@@ -557,9 +571,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
                         type SerType = #name<#(#ser_type_generics,)*>;
                         // Compute whether the type could be zero copy
-                        const IS_ZERO_COPY: bool = #is_repr_c #(
-                            && <#fields_types>::IS_ZERO_COPY
-                        )*;
+                        const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
                         // Compute whether the type could be zero copy but it is not declared as such,
                         // and the attribute `deep_copy` is missing.
@@ -788,6 +800,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 // In zero-copy types we do not need to add bounds to
                 // the associated SerType/DeserType, as generics are not
                 // replaced with their SerType/DeserType.
+                let is_zero_copy_expr = generate_is_zero_copy_expr_tokens(is_repr_c, &fields_types);
 
                 quote! {
                     #[automatically_derived]
@@ -799,9 +812,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         type SerType = Self;
 
                         // Compute whether the type could be zero copy
-                        const IS_ZERO_COPY: bool = #is_repr_c #(
-                            && <#fields_types>::IS_ZERO_COPY
-                        )*;
+                        const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
                         // The type is declared as zero copy, so a fortiori there is no mismatch.
                         const ZERO_COPY_MISMATCH: bool = false;
@@ -850,6 +861,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                     &mut where_clause_des,
                 );
 
+                let is_zero_copy_expr = generate_is_zero_copy_expr_tokens(is_repr_c, &fields_types);
+
                 quote! {
                     #[automatically_derived]
                     impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
@@ -860,9 +873,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                         type SerType = #name<#(#ser_type_generics,)*>;
 
                         // Compute whether the type could be zero copy
-                        const IS_ZERO_COPY: bool = #is_repr_c #(
-                            && <#fields_types>::IS_ZERO_COPY
-                        )*;
+                        const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
                         // Compute whether the type could be zero copy but it is not declared as such,
                         // and the attribute `deep_copy` is missing.
