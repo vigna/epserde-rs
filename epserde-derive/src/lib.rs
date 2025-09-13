@@ -355,6 +355,56 @@ fn add_ser_deser_bounds<T: quote::ToTokens>(
     });
 }
 
+/// Add SerializeInner and DeserializeInner trait bounds for a field type
+fn add_ser_deser_trait_bounds(
+    where_clause_ser: &mut syn::WhereClause,
+    where_clause_des: &mut syn::WhereClause,
+    ty: &syn::Type,
+) {
+    add_trait_bound(where_clause_ser, ty, syn::parse_quote!(::epserde::ser::SerializeInner));
+    add_trait_bound(where_clause_des, ty, syn::parse_quote!(::epserde::deser::DeserializeInner));
+}
+
+/// Generate deserialization type generics
+fn generate_deser_type_generics(
+    generics_names: &[proc_macro2::TokenStream],
+    types_with_generics: &[proc_macro2::TokenStream],
+) -> Vec<proc_macro2::TokenStream> {
+    generics_names
+        .iter()
+        .map(|ty| {
+            if types_with_generics
+                .iter()
+                .any(|x| x.to_token_stream().to_string() == ty.to_string())
+            {
+                quote!(<#ty as DeserializeInner>::DeserType<'epserde_desertype>)
+            } else {
+                ty.clone()
+            }
+        })
+        .collect()
+}
+
+/// Generate serialization type generics
+fn generate_ser_type_generics(
+    generics_names: &[proc_macro2::TokenStream],
+    types_with_generics: &[proc_macro2::TokenStream],
+) -> Vec<proc_macro2::TokenStream> {
+    generics_names
+        .iter()
+        .map(|ty| {
+            if types_with_generics
+                .iter()
+                .any(|x| x.to_token_stream().to_string() == ty.to_string())
+            {
+                quote!(<#ty as SerializeInner>::SerType)
+            } else {
+                ty.clone()
+            }
+        })
+        .collect()
+}
+
 /// Context structure containing all the common parameters needed for code generation
 struct CodegenContext<'a> {
     /// The original derive input containing all metadata
@@ -439,10 +489,7 @@ fn generate_enum_impl(
                     var_fields_names.push(ident.to_token_stream());
                     var_fields_types.push(ty.clone());
 
-                    // add that every struct field has to implement SerializeInner
-                    add_trait_bound(&mut where_clause_ser, ty, syn::parse_quote!(::epserde::ser::SerializeInner));
-                    // add that every struct field has to implement DeserializeInner
-                    add_trait_bound(&mut where_clause_des, ty, syn::parse_quote!(::epserde::deser::DeserializeInner));
+                    add_ser_deser_trait_bounds(&mut where_clause_ser, &mut where_clause_des, ty);
                 });
             let ident = variant.ident.clone();
             variants.push(quote! {
@@ -499,10 +546,7 @@ fn generate_enum_impl(
                     var_fields_types.push(ty.clone());
 
 
-                    // add that every struct field has to implement SerializeInner
-                    add_trait_bound(&mut where_clause_ser, ty, syn::parse_quote!(::epserde::ser::SerializeInner));
-                    // add that every struct field has to implement DeserializeInner
-                    add_trait_bound(&mut where_clause_des, ty, syn::parse_quote!(::epserde::deser::DeserializeInner));
+                    add_ser_deser_trait_bounds(&mut where_clause_ser, &mut where_clause_des, ty);
                 });
 
             let ident = variant.ident.clone();
@@ -533,32 +577,8 @@ fn generate_enum_impl(
 
     // Gather deserialization types of fields,
     // which are necessary to derive the deserialization type.
-    let deser_type_generics = ctx.generics_names
-        .iter()
-        .map(|ty| {
-            if types_with_generics
-                .iter()
-                .any(|x| x.to_token_stream().to_string() == ty.to_string())
-            {
-                quote!(<#ty as DeserializeInner>::DeserType<'epserde_desertype>)
-            } else {
-                ty.clone()
-            }
-        })
-        .collect::<Vec<_>>();
-    let ser_type_generics = ctx.generics_names
-        .iter()
-        .map(|ty| {
-            if types_with_generics
-                .iter()
-                .any(|x| x.to_token_stream().to_string() == ty.to_string())
-            {
-                quote!(<#ty as SerializeInner>::SerType)
-            } else {
-                ty.clone()
-            }
-        })
-        .collect::<Vec<_>>();
+    let deser_type_generics = generate_deser_type_generics(ctx.generics_names, &types_with_generics);
+    let ser_type_generics = generate_ser_type_generics(ctx.generics_names, &types_with_generics);
     let tag = (0..variants.len()).collect::<Vec<_>>();
 
     let name = ctx.name;
@@ -883,19 +903,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
             let mut where_clause_ser = where_clause.clone();
 
             fields_types.iter().for_each(|ty| {
-                // add that every struct field has to implement SerializeInner
-                add_trait_bound(
-                    &mut where_clause_ser,
-                    ty,
-                    syn::parse_quote!(::epserde::ser::SerializeInner),
-                );
-
-                // add that every struct field has to implement DeserializeInner
-                add_trait_bound(
-                    &mut where_clause_des,
-                    ty,
-                    syn::parse_quote!(::epserde::deser::DeserializeInner),
-                );
+                add_ser_deser_trait_bounds(&mut where_clause_ser, &mut where_clause_des, ty);
             });
 
             // Map recursively type parameters to their SerType to generate this
