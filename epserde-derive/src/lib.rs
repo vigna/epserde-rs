@@ -529,15 +529,62 @@ struct CodegenContext<'a> {
     is_deep_copy: bool,
 }
 
-/// Generate implementation for enum types
-fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
-    let where_clause = ctx
+/// Common initialization data for trait implementation generation
+struct TraitImplInit<'a> {
+    /// Base where clause from the derive input
+    base_where_clause: WhereClause,
+    /// Where clause for serialization traits
+    where_clause_ser: WhereClause,
+    /// Where clause for deserialization traits
+    where_clause_des: WhereClause,
+    /// Expression for IS_ZERO_COPY constant
+    is_zero_copy_expr: proc_macro2::TokenStream,
+    /// Type name
+    name: &'a syn::Ident,
+    /// Implementation generics
+    impl_generics: &'a proc_macro2::TokenStream,
+    /// Concatenated generics
+    concat_generics: &'a proc_macro2::TokenStream,
+    /// Serialization generics
+    generics_serialize: &'a proc_macro2::TokenStream,
+    /// Deserialization generics
+    generics_deserialize: &'a proc_macro2::TokenStream,
+}
+
+/// Initialize common trait implementation data
+fn initialize_trait_impl<'a>(
+    ctx: &'a CodegenContext<'a>,
+    fields_types: &[syn::Type],
+) -> TraitImplInit<'a> {
+    let base_where_clause = ctx
         .derive_input
         .generics
         .where_clause
         .clone()
         .unwrap_or_else(empty_where_clause);
 
+    // Generate where clauses for trait implementations
+    let where_clauses = generate_main_trait_where_clauses(&base_where_clause, fields_types);
+    let where_clause_ser = where_clauses.serialize;
+    let where_clause_des = where_clauses.deserialize;
+
+    let is_zero_copy_expr = generate_is_zero_copy_expr(ctx.is_repr_c, fields_types);
+
+    TraitImplInit {
+        base_where_clause,
+        where_clause_ser,
+        where_clause_des,
+        is_zero_copy_expr,
+        name: ctx.name,
+        impl_generics: ctx.impl_generics,
+        concat_generics: ctx.concat_generics,
+        generics_serialize: ctx.generics_serialize,
+        generics_deserialize: ctx.generics_deserialize,
+    }
+}
+
+/// Generate implementation for enum types
+fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
     let mut variants_names = Vec::new();
     let mut variants = Vec::new();
     let mut variant_ser = Vec::new();
@@ -669,23 +716,23 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
     let ser_type_generics = generate_ser_type_generics(ctx.generics_names, &types_with_generics);
     let tag = (0..variants.len()).collect::<Vec<_>>();
 
-    // Generate where clauses for trait implementations
-    let where_clauses = generate_main_trait_where_clauses(&where_clause, &fields_types);
-    let mut where_clause_ser = where_clauses.serialize;
-    let mut where_clause_des = where_clauses.deserialize;
-
-    let name = ctx.name;
-    let impl_generics = ctx.impl_generics;
-    let concat_generics = ctx.concat_generics;
-    let generics_serialize = ctx.generics_serialize;
-    let generics_deserialize = ctx.generics_deserialize;
+    // Initialize common trait implementation data
+    let init = initialize_trait_impl(ctx, &fields_types);
+    let mut where_clause_ser = init.where_clause_ser;
+    let mut where_clause_des = init.where_clause_des;
+    let where_clause = init.base_where_clause;
+    let is_zero_copy_expr = init.is_zero_copy_expr;
+    let name = init.name;
+    let impl_generics = init.impl_generics;
+    let concat_generics = init.concat_generics;
+    let generics_serialize = init.generics_serialize;
+    let generics_deserialize = init.generics_deserialize;
     let is_deep_copy = ctx.is_deep_copy;
 
     if ctx.is_zero_copy {
         // In zero-copy types we do not need to add bounds to
         // the associated SerType/DeserType, as generics are not
         // replaced with their SerType/DeserType.
-        let is_zero_copy_expr = generate_is_zero_copy_expr(ctx.is_repr_c, &fields_types);
 
         quote! {
             #[automatically_derived]
@@ -880,26 +927,17 @@ fn generate_struct_impl(ctx: &CodegenContext, s: &syn::DataStruct) -> proc_macro
         })
         .collect::<Vec<_>>();
 
-    let where_clause = ctx
-        .derive_input
-        .generics
-        .where_clause
-        .clone()
-        .unwrap_or_else(empty_where_clause);
-
-    // Generate where clauses for trait implementations
-    let where_clauses = generate_main_trait_where_clauses(&where_clause, &fields_types);
-    let mut where_clause_ser = where_clauses.serialize;
-    let mut where_clause_des = where_clauses.deserialize;
-
-    let is_zero_copy_expr = generate_is_zero_copy_expr(ctx.is_repr_c, &fields_types);
-
-    // Extract context fields for use in quote! macro
-    let name = ctx.name;
-    let impl_generics = ctx.impl_generics;
-    let concat_generics = ctx.concat_generics;
-    let generics_serialize = ctx.generics_serialize;
-    let generics_deserialize = ctx.generics_deserialize;
+    // Initialize common trait implementation data
+    let init = initialize_trait_impl(ctx, &fields_types);
+    let mut where_clause_ser = init.where_clause_ser;
+    let mut where_clause_des = init.where_clause_des;
+    let where_clause = init.base_where_clause;
+    let is_zero_copy_expr = init.is_zero_copy_expr;
+    let name = init.name;
+    let impl_generics = init.impl_generics;
+    let concat_generics = init.concat_generics;
+    let generics_serialize = init.generics_serialize;
+    let generics_deserialize = init.generics_deserialize;
 
     if ctx.is_zero_copy {
         // In zero-copy types we do not need to add bounds to
