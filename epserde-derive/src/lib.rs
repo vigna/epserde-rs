@@ -355,23 +355,40 @@ fn add_ser_deser_bounds<T: quote::ToTokens>(
     });
 }
 
+/// Context structure containing all the common parameters needed for code generation
+struct CodegenContext<'a> {
+    /// The original derive input containing all metadata
+    derive_input: &'a DeriveInput,
+    /// The name of the type being derived
+    name: &'a syn::Ident,
+    /// Concatenated generics for type declarations (e.g., `<T, U>`)
+    concat_generics: &'a proc_macro2::TokenStream,
+    /// Raw generic names as strings (e.g., `["T", "U"]`)
+    generics_names_raw: &'a [String],
+    /// Generic names as token streams for code generation
+    generics_names: &'a [proc_macro2::TokenStream],
+    /// Generic types for subtype checking
+    generics_types: &'a [syn::Type],
+    /// Implementation generics for trait bounds
+    impl_generics: &'a proc_macro2::TokenStream,
+    /// Serialization generics with bounds
+    generics_serialize: &'a proc_macro2::TokenStream,
+    /// Deserialization generics with bounds
+    generics_deserialize: &'a proc_macro2::TokenStream,
+    /// Whether the type has `#[repr(C)]`
+    is_repr_c: bool,
+    /// Whether the type has `#[zero_copy]`
+    is_zero_copy: bool,
+    /// Whether the type has `#[deep_copy]`
+    is_deep_copy: bool,
+}
+
 /// Generate implementation for enum types
 fn generate_enum_impl(
-    derive_input: &DeriveInput,
+    ctx: &CodegenContext,
     e: &syn::DataEnum,
-    name: &syn::Ident,
-    concat_generics: &proc_macro2::TokenStream,
-    generics_names_raw: &[String],
-    generics_names: &[proc_macro2::TokenStream],
-    impl_generics: &proc_macro2::TokenStream,
-    generics_serialize: &proc_macro2::TokenStream,
-    generics_deserialize: &proc_macro2::TokenStream,
-    generics_types: &[syn::Type],
-    is_repr_c: bool,
-    is_zero_copy: bool,
-    is_deep_copy: bool,
 ) -> proc_macro2::TokenStream {
-    let where_clause = derive_input
+    let where_clause = ctx.derive_input
         .generics
         .where_clause
         .clone()
@@ -409,7 +426,7 @@ fn generate_enum_impl(
                 .iter()
                 .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
                 .for_each(|(ident, ty)| {
-                    if generics_types.iter().any(|x| is_subtype(ty, x)) {
+                    if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
                         fields_with_generics.push(ident.to_token_stream());
                         types_with_generics.push(ty.to_token_stream());
                     } else {
@@ -417,7 +434,7 @@ fn generate_enum_impl(
                         types_without_generics.push(ty.to_token_stream());
                     }
 
-                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, generics_names_raw));
+                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, ctx.generics_names_raw));
 
                     var_fields_names.push(ident.to_token_stream());
                     var_fields_types.push(ty.clone());
@@ -462,7 +479,7 @@ fn generate_enum_impl(
                 .for_each(|(field_idx, unnamed)| {
                     let ty = &unnamed.ty;
                     let ident = syn::Index::from(field_idx);
-                    if generics_types.iter().any(|x| is_subtype(ty, x)) {
+                    if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
                         fields_with_generics.push(ident.to_token_stream());
                         types_with_generics.push(ty.to_token_stream());
                     } else {
@@ -476,7 +493,7 @@ fn generate_enum_impl(
                     )
                     .to_token_stream());
 
-                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, generics_names_raw));
+                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, ctx.generics_names_raw));
 
                     var_fields_vars.push(syn::Index::from(field_idx));
                     var_fields_types.push(ty.clone());
@@ -516,7 +533,7 @@ fn generate_enum_impl(
 
     // Gather deserialization types of fields,
     // which are necessary to derive the deserialization type.
-    let deser_type_generics = generics_names
+    let deser_type_generics = ctx.generics_names
         .iter()
         .map(|ty| {
             if types_with_generics
@@ -529,7 +546,7 @@ fn generate_enum_impl(
             }
         })
         .collect::<Vec<_>>();
-    let ser_type_generics = generics_names
+    let ser_type_generics = ctx.generics_names
         .iter()
         .map(|ty| {
             if types_with_generics
@@ -544,11 +561,18 @@ fn generate_enum_impl(
         .collect::<Vec<_>>();
     let tag = (0..variants.len()).collect::<Vec<_>>();
 
-    if is_zero_copy {
+    let name = ctx.name;
+    let impl_generics = ctx.impl_generics;
+    let concat_generics = ctx.concat_generics;
+    let generics_serialize = ctx.generics_serialize;
+    let generics_deserialize = ctx.generics_deserialize;
+    let is_deep_copy = ctx.is_deep_copy;
+
+    if ctx.is_zero_copy {
         // In zero-copy types we do not need to add bounds to
         // the associated SerType/DeserType, as generics are not
         // replaced with their SerType/DeserType.
-        let is_zero_copy_expr = generate_is_zero_copy_expr(is_repr_c, &fields_types);
+        let is_zero_copy_expr = generate_is_zero_copy_expr(ctx.is_repr_c, &fields_types);
 
         quote! {
             #[automatically_derived]
@@ -603,13 +627,13 @@ fn generate_enum_impl(
         }
     } else {
         add_ser_deser_bounds(
-            derive_input,
+            ctx.derive_input,
             &types_with_generics,
             &mut where_clause_ser,
             &mut where_clause_des,
         );
 
-        let is_zero_copy_expr = generate_is_zero_copy_expr(is_repr_c, &fields_types);
+        let is_zero_copy_expr = generate_is_zero_copy_expr(ctx.is_repr_c, &fields_types);
 
         quote! {
             #[automatically_derived]
@@ -676,6 +700,87 @@ fn generate_enum_impl(
             }
         }
     }
+}
+
+/// Generate implementation for struct types
+fn generate_struct_impl(
+    ctx: &CodegenContext,
+    s: &syn::DataStruct,
+) -> proc_macro2::TokenStream {
+    let mut fields_types = vec![];
+    let mut fields_names = vec![];
+    let mut fields_without_generics = vec![];
+    let mut types_without_generics = vec![];
+    let mut fields_with_generics = vec![];
+    let mut types_with_generics = vec![];
+    let mut method_calls: Vec<proc_macro2::TokenStream> = vec![];
+
+    // Scan the struct to find which fields contain a generic
+    // type (i.e., they are themselves of a generic type,
+    // or of a type containing a generic type as a parameter).
+    s.fields.iter().enumerate().for_each(|(field_idx, field)| {
+        let ty = &field.ty;
+        let field_name = get_field_name(field, field_idx);
+
+        if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
+            fields_with_generics.push(field_name.clone());
+            types_with_generics.push(ty);
+        } else {
+            fields_without_generics.push(field_name.clone());
+            types_without_generics.push(ty);
+        }
+        method_calls.push(generate_method_call(&field_name, ty, ctx.generics_names_raw));
+        fields_types.push(ty.clone());
+        fields_names.push(field_name);
+    });
+
+    // Gather deserialization types of fields, as they are necessary to
+    // derive the deserialization type.
+    let deser_type_generics = ctx.generics_names
+        .iter()
+        .map(|ty| {
+            if types_with_generics
+                .iter()
+                .any(|x| x.to_token_stream().to_string() == ty.to_string())
+            {
+                quote!(<#ty as DeserializeInner>::DeserType<'epserde_desertype>)
+            } else {
+                ty.clone()
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let ser_type_generics = ctx.generics_names
+        .iter()
+        .map(|ty| {
+            if types_with_generics
+                .iter()
+                .any(|x| x.to_token_stream().to_string() == ty.to_string())
+            {
+                quote!(<#ty as SerializeInner>::SerType)
+            } else {
+                ty.clone()
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let where_clause = ctx.derive_input
+        .generics
+        .where_clause
+        .clone()
+        .unwrap_or_else(empty_where_clause);
+
+    let mut where_clause_ser = where_clause.clone();
+    let mut where_clause_des = where_clause.clone();
+
+    // Add trait bounds for all field types
+    for ty in &fields_types {
+        add_trait_bound(&mut where_clause_ser, ty, syn::parse_quote!(::epserde::ser::SerializeInner));
+        add_trait_bound(&mut where_clause_des, ty, syn::parse_quote!(::epserde::deser::DeserializeInner));
+    }
+
+    // Continue with implementation generation...
+    quote! { /* placeholder for implementation */ }
 }
 
 /// Generate an ε-serde implementation for custom types.
@@ -940,21 +1045,23 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
                 }
             }
         }
-        Data::Enum(e) => generate_enum_impl(
-            &derive_input,
-            e,
-            &name,
-            &concat_generics,
-            &generics_names_raw,
-            &generics_names,
-            &impl_generics,
-            &generics_serialize,
-            &generics_deserialize,
-            &generics_types,
-            is_repr_c,
-            is_zero_copy,
-            is_deep_copy,
-        ),
+        Data::Enum(e) => {
+            let ctx = CodegenContext {
+                derive_input: &derive_input,
+                name: &name,
+                concat_generics: &concat_generics,
+                generics_names_raw: &generics_names_raw,
+                generics_names: &generics_names,
+                generics_types: &generics_types,
+                impl_generics: &impl_generics,
+                generics_serialize: &generics_serialize,
+                generics_deserialize: &generics_deserialize,
+                is_repr_c,
+                is_zero_copy,
+                is_deep_copy,
+            };
+            generate_enum_impl(&ctx, e)
+        }
         _ => todo!("Union types are not currently supported"),
     };
 
