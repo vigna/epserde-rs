@@ -803,6 +803,387 @@ fn generate_struct_impl(
     quote! { /* placeholder for implementation */ }
 }
 
+/// Context structure for TypeHash code generation
+struct TypeHashContext<'a> {
+    /// The original derive input
+    input: &'a DeriveInput,
+    /// The name of the type
+    name: &'a syn::Ident,
+    /// Implementation generics
+    impl_generics: &'a proc_macro2::TokenStream,
+    /// Concatenated generics
+    concat_generics: &'a proc_macro2::TokenStream,
+    /// Generic types for subtype checking
+    generics_types: &'a [syn::Type],
+    /// Generic constant names
+    const_names: &'a [proc_macro2::TokenStream],
+    /// Raw generic constant names
+    const_names_raw: &'a [String],
+    /// Whether the type is zero-copy
+    is_zero_copy: bool,
+    /// Type name as string literal
+    name_literal: String,
+    /// Representation attributes
+    repr: Vec<String>,
+}
+
+/// Extract field information for TypeHash generation
+fn extract_field_info(
+    field: &syn::Field,
+    field_idx: usize,
+    generics_types: &[syn::Type],
+    generic_types: &mut Vec<syn::Type>,
+) -> (String, syn::Type) {
+    let field_name = field
+        .ident
+        .as_ref()
+        .map(|ident| ident.to_string())
+        .unwrap_or_else(|| field_idx.to_string());
+
+    let ty = field.ty.clone();
+
+    if generics_types.iter().any(|x| is_subtype(&ty, x)) {
+        generic_types.push(ty.clone());
+    }
+
+    (field_name, ty)
+}
+
+/// Generate TypeHash implementation body
+fn generate_type_hash_body(
+    ctx: &TypeHashContext,
+    field_hashes: &[proc_macro2::TokenStream],
+) -> proc_macro2::TokenStream {
+    let copy_type = if ctx.is_zero_copy { "ZeroCopy" } else { "DeepCopy" };
+    let const_names = ctx.const_names;
+    let const_names_raw = ctx.const_names_raw;
+    let name_literal = &ctx.name_literal;
+
+    quote! {
+        use ::core::hash::Hash;
+        use ::epserde::traits::TypeHash;
+        // Hash in copy type
+        Hash::hash(#copy_type, hasher);
+        // Hash the values of generic constants
+        #(
+            Hash::hash(&#const_names, hasher);
+        )*
+        // Hash the identifiers of generic constants
+        #(
+            Hash::hash(#const_names_raw, hasher);
+        )*
+        // Hash in struct and field names.
+        Hash::hash(#name_literal, hasher);
+        // Hash field information
+        #(
+            #field_hashes
+        )*
+    }
+}
+
+/// Generate AlignHash implementation body for structs
+fn generate_struct_align_hash_body(
+    ctx: &TypeHashContext,
+    fields_types: &[syn::Type],
+) -> proc_macro2::TokenStream {
+    let repr = &ctx.repr;
+    if ctx.is_zero_copy {
+        quote! {
+            use ::core::hash::Hash;
+            use ::core::mem;
+            use ::epserde::traits::AlignHash;
+            // Hash in size, as padding is given by MaxSizeOf.
+            // and it is independent of the architecture.
+            Hash::hash(&mem::size_of::<Self>(), hasher);
+            // Hash in representation data.
+            #(
+                Hash::hash(#repr, hasher);
+            )*
+            // Recurse on all fields.
+            #(
+                <#fields_types as AlignHash>::align_hash(
+                    hasher,
+                    offset_of,
+                );
+            )*
+        }
+    } else {
+        quote! {
+            use ::epserde::traits::AlignHash;
+            // Recurse on all variants starting at offset 0
+            #(
+                <#fields_types as AlignHash>::align_hash(hasher, &mut 0);
+            )*
+        }
+    }
+}
+
+/// Generate MaxSizeOf implementation body
+fn generate_max_size_of_body(
+    fields_types: &[syn::Type],
+) -> proc_macro2::TokenStream {
+    quote! {
+        use ::std::mem;
+        use ::epserde::traits::MaxSizeOf;
+
+        let mut max_size_of = mem::align_of::<Self>();
+        // Recurse on all fields.
+        #(
+            if max_size_of < <#fields_types as MaxSizeOf>::max_size_of() {
+                max_size_of = <#fields_types as MaxSizeOf>::max_size_of();
+            }
+        )*
+        max_size_of
+    }
+}
+
+/// Generate the trait implementations (TypeHash, AlignHash, and optionally MaxSizeOf)
+fn generate_type_hash_traits(
+    ctx: &TypeHashContext,
+    where_clause_type_hash: &syn::WhereClause,
+    where_clause_align_hash: &syn::WhereClause,
+    where_clause_max_size_of: &syn::WhereClause,
+    type_hash_body: proc_macro2::TokenStream,
+    align_hash_body: proc_macro2::TokenStream,
+    max_size_of_body: Option<proc_macro2::TokenStream>,
+) -> proc_macro2::TokenStream {
+    let name = ctx.name;
+    let impl_generics = ctx.impl_generics;
+    let concat_generics = ctx.concat_generics;
+
+    let max_size_of_impl = if let Some(max_size_of_body) = max_size_of_body {
+        quote! {
+            #[automatically_derived]
+            impl<#impl_generics> ::epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_max_size_of {
+                #[inline(always)]
+                fn max_size_of() -> usize {
+                    #max_size_of_body
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    quote! {
+        #[automatically_derived]
+        impl<#impl_generics> ::epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash {
+            #[inline(always)]
+            fn type_hash(hasher: &mut impl ::core::hash::Hasher) {
+                #type_hash_body
+            }
+        }
+        #[automatically_derived]
+        impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
+            #[inline(always)]
+            fn align_hash(
+                hasher: &mut impl ::core::hash::Hasher,
+                offset_of: &mut usize,
+            ) {
+                #align_hash_body
+            }
+        }
+        #max_size_of_impl
+    }
+}
+
+/// Generate TypeHash implementation for struct types
+fn generate_struct_type_hash(
+    ctx: &TypeHashContext,
+    s: &syn::DataStruct,
+) -> proc_macro2::TokenStream {
+    let mut generic_types = vec![];
+
+    // Extract field information
+    let field_info: Vec<_> = s.fields
+        .iter()
+        .enumerate()
+        .map(|(field_idx, field)| {
+            extract_field_info(field, field_idx, ctx.generics_types, &mut generic_types)
+        })
+        .collect();
+
+    let fields_names: Vec<_> = field_info.iter().map(|(name, _)| name).collect();
+    let fields_types: Vec<_> = field_info.iter().map(|(_, ty)| ty.clone()).collect();
+
+    // Generate where clauses
+    let where_clause = ctx.input
+        .generics
+        .where_clause
+        .clone()
+        .unwrap_or_else(empty_where_clause);
+
+    let (where_clause_type_hash, where_clause_align_hash, where_clause_max_size_of) =
+        type_repr_max_size_of_where_clauses(&where_clause, &generic_types);
+
+    // Generate field hashes for TypeHash
+    let field_hashes: Vec<_> = fields_names.iter().zip(fields_types.iter())
+        .map(|(name, ty)| quote! {
+            Hash::hash(#name, hasher);
+            <#ty as TypeHash>::type_hash(hasher);
+        })
+        .collect();
+
+    // Generate implementation bodies
+    let type_hash_body = generate_type_hash_body(ctx, &field_hashes);
+    let align_hash_body = generate_struct_align_hash_body(ctx, &fields_types);
+    let max_size_of_body = if ctx.is_zero_copy {
+        Some(generate_max_size_of_body(&fields_types))
+    } else {
+        None
+    };
+
+    generate_type_hash_traits(
+        ctx,
+        &where_clause_type_hash,
+        &where_clause_align_hash,
+        &where_clause_max_size_of,
+        type_hash_body,
+        align_hash_body,
+        max_size_of_body,
+    )
+}
+
+/// Generate TypeHash implementation for enum types
+fn generate_enum_type_hash(
+    ctx: &TypeHashContext,
+    e: &syn::DataEnum,
+) -> proc_macro2::TokenStream {
+    let mut var_type_hashes = Vec::new();
+    let mut var_align_hashes = Vec::new();
+    let mut var_max_size_ofs = Vec::new();
+    let mut generic_types = vec![];
+
+    // Process each variant
+    e.variants.iter().for_each(|variant| {
+        let ident = variant.ident.to_owned();
+        let mut var_type_hash = quote! { Hash::hash(stringify!(#ident), hasher); };
+        let mut var_align_hash = quote! {};
+        let mut var_max_size_of = quote! {};
+
+        match &variant.fields {
+            syn::Fields::Unit => {}
+            syn::Fields::Named(fields) => {
+                fields.named.iter().for_each(|field| {
+                    let ident = field.ident.as_ref().unwrap();
+                    let ty = &field.ty;
+
+                    var_type_hash.extend([quote! {
+                        Hash::hash(stringify!(#ident), hasher);
+                        <#ty as TypeHash>::type_hash(hasher);
+                    }]);
+                    var_align_hash.extend([quote! {
+                        <#ty as AlignHash>::align_hash(hasher, offset_of);
+                    }]);
+                    var_max_size_of.extend([quote! {
+                        if max_size_of < <#ty as MaxSizeOf>::max_size_of() {
+                            max_size_of = <#ty as MaxSizeOf>::max_size_of();
+                        }
+                    }]);
+
+                    if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
+                        generic_types.push(ty.clone());
+                    }
+                });
+            }
+            syn::Fields::Unnamed(fields) => {
+                fields.unnamed.iter().enumerate().for_each(|(field_idx, field)| {
+                    let ty = &field.ty;
+                    let field_name = field_idx.to_string();
+
+                    var_type_hash.extend([quote! {
+                        Hash::hash(#field_name, hasher);
+                        <#ty as TypeHash>::type_hash(hasher);
+                    }]);
+                    var_align_hash.extend([quote! {
+                        <#ty as AlignHash>::align_hash(hasher, offset_of);
+                    }]);
+                    var_max_size_of.extend([quote! {
+                        if max_size_of < <#ty as MaxSizeOf>::max_size_of() {
+                            max_size_of = <#ty as MaxSizeOf>::max_size_of();
+                        }
+                    }]);
+
+                    if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
+                        generic_types.push(ty.clone());
+                    }
+                });
+            }
+        }
+
+        var_type_hashes.push(var_type_hash);
+        var_align_hashes.push(var_align_hash);
+        var_max_size_ofs.push(var_max_size_of);
+    });
+
+    // Generate where clauses
+    let where_clause = ctx.input
+        .generics
+        .where_clause
+        .clone()
+        .unwrap_or_else(empty_where_clause);
+
+    let (where_clause_type_hash, where_clause_align_hash, where_clause_max_size_of) =
+        type_repr_max_size_of_where_clauses(&where_clause, &generic_types);
+
+    // Generate implementation bodies
+    let type_hash_body = generate_type_hash_body(ctx, &var_type_hashes);
+
+    let repr = &ctx.repr;
+    let align_hash_body = if ctx.is_zero_copy {
+        quote! {
+            use ::core::hash::Hash;
+            // Hash in size, as padding is given by MaxSizeOf.
+            // and it is independent of the architecture.
+            Hash::hash(&::core::mem::size_of::<Self>(), hasher);
+            // Hash in representation data.
+            #(
+                Hash::hash(#repr, hasher);
+            )*
+            // Recurse on all fields.
+            let old_offset_of = *offset_of;
+            #(
+                *offset_of = old_offset_of;
+                #var_align_hashes
+            )*
+        }
+    } else {
+        quote! {
+            // Recurse on all variants starting at offset 0
+            // Note that we share var_align_hashes with the
+            // zero-copy case, so we cannot pass &mut 0.
+            #(
+                *offset_of = 0;
+                #var_align_hashes
+            )*
+        }
+    };
+
+    let max_size_of_body = quote! {
+        let mut max_size_of = std::mem::align_of::<Self>();
+        #(
+            #var_max_size_ofs
+        )*
+        max_size_of
+    };
+
+    let max_size_of_body = if ctx.is_zero_copy {
+        Some(max_size_of_body)
+    } else {
+        None
+    };
+
+    generate_type_hash_traits(
+        ctx,
+        &where_clause_type_hash,
+        &where_clause_align_hash,
+        &where_clause_max_size_of,
+        type_hash_body,
+        align_hash_body,
+        max_size_of_body,
+    )
+}
+
 /// Generate an ε-serde implementation for custom types.
 ///
 /// It generates implementations for the traits `CopyType`,
@@ -1148,383 +1529,33 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         ..
     } = CommonDeriveInput::new(input.clone(), vec![]);
 
-    let where_clause = input
-        .generics
-        .where_clause
-        .clone()
-        .unwrap_or_else(|| WhereClause {
-            where_token: token::Where::default(),
-            predicates: Punctuated::new(),
-        });
+    // Build type name
+    let name_literal = name.to_string();
 
-    let out = match input.data {
-        Data::Struct(s) => {
-            //these are the type of the fields that contains generics parameters
-            let mut generic_types = vec![];
-            // Compute which fields types are super-types of the generic parameters
-            s.fields.iter().for_each(|field| {
-                let ty = &field.ty;
-                if generics_types.iter().any(|x| is_subtype(ty, x)) {
-                    generic_types.push(ty.clone());
-                }
-            });
+    // Add reprs
+    let repr = input
+        .attrs
+        .iter()
+        .filter(|x| x.meta.path().is_ident("repr"))
+        .map(|x| x.meta.require_list().unwrap().tokens.to_string())
+        .collect::<Vec<_>>();
 
-            let (where_clause_type_hash, where_clause_align_hash, where_clause_max_size_of) =
-                type_repr_max_size_of_where_clauses(&where_clause, &generic_types);
+    let ctx = TypeHashContext {
+        input: &input,
+        name: &name,
+        impl_generics: &impl_generics,
+        concat_generics: &concat_generics,
+        generics_types: &generics_types,
+        const_names: &const_names.iter().map(|x| x.to_token_stream()).collect::<Vec<_>>(),
+        const_names_raw: &const_names_raw,
+        is_zero_copy,
+        name_literal,
+        repr,
+    };
 
-            let fields_names = s
-                .fields
-                .iter()
-                .enumerate()
-                .map(|(field_idx, field)| {
-                    field
-                        .ident
-                        .as_ref()
-                        .map(|ident| ident.to_string())
-                        .unwrap_or_else(|| field_idx.to_string())
-                })
-                .collect::<Vec<_>>();
-
-            let fields_types = s.fields.iter().map(|field| &field.ty).collect::<Vec<_>>();
-
-            // Build type name
-            let name_literal = name.to_string();
-
-            // Add reprs
-            let repr = input
-                .attrs
-                .iter()
-                .filter(|x| x.meta.path().is_ident("repr"))
-                .map(|x| x.meta.require_list().unwrap().tokens.to_string())
-                .collect::<Vec<_>>();
-
-            if is_zero_copy {
-                quote! {
-                    #[automatically_derived]
-                    impl<#impl_generics> ::epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash {
-
-                        #[inline(always)]
-                        fn type_hash(
-                            hasher: &mut impl ::core::hash::Hasher,
-                        ) {
-                            use ::core::hash::Hash;
-                            use ::epserde::traits::TypeHash;
-                            // Hash in ZeroCopy
-                            Hash::hash("ZeroCopy", hasher);
-                            // Hash the values of generic constants
-                            #(
-                                Hash::hash(&#const_names, hasher);
-                            )*
-                            // Hash the identifiers of generic constants
-                            #(
-                                Hash::hash(#const_names_raw, hasher);
-                            )*
-                            // Hash in struct and field names.
-                            Hash::hash(#name_literal, hasher);
-                            #(
-                                Hash::hash(#fields_names, hasher);
-                            )*
-                            // Recurse on all fields.
-                            #(
-                                <#fields_types as TypeHash>::type_hash(hasher);
-                            )*
-                        }
-                    }
-                    #[automatically_derived]
-                    impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash{
-                        #[inline(always)]
-                        fn align_hash(
-                            hasher: &mut impl ::core::hash::Hasher,
-                            offset_of: &mut usize,
-                        ) {
-                            use ::core::hash::Hash;
-                            use ::core::mem;
-                            use ::epserde::traits::AlignHash;
-                            // Hash in size, as padding is given by MaxSizeOf.
-                            // and it is independent of the architecture.
-                            Hash::hash(&mem::size_of::<Self>(), hasher);
-                            // Hash in representation data.
-                            #(
-                                Hash::hash(#repr, hasher);
-                            )*
-                            // Recurse on all fields.
-                            #(
-                                <#fields_types as AlignHash>::align_hash(
-                                    hasher,
-                                    offset_of,
-                                );
-                            )*
-                        }
-                    }
-                    #[automatically_derived]
-                    impl<#impl_generics> ::epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_max_size_of{
-                        #[inline(always)]
-                        fn max_size_of() -> usize {
-                            use ::std::mem;
-                            use ::epserde::traits::MaxSizeOf;
-
-                            let mut max_size_of = mem::align_of::<Self>();
-                            // Recurse on all fields.
-                            #(
-                                if max_size_of < <#fields_types as MaxSizeOf>::max_size_of() {
-                                    max_size_of = <#fields_types as MaxSizeOf>::max_size_of();
-                                }
-                            )*
-                            max_size_of
-                        }
-                    }
-                }
-            } else {
-                quote! {
-                    #[automatically_derived]
-                    impl<#impl_generics> ::epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash{
-
-                        #[inline(always)]
-                        fn type_hash(
-                            hasher: &mut impl ::core::hash::Hasher,
-                        ) {
-                            use ::core::hash::Hash;
-                            use ::epserde::traits::TypeHash;
-                            // No alignment, so we do not hash in anything.
-                            // Hash in DeepCopy
-                            Hash::hash("DeepCopy", hasher);
-                            // Hash the values of generic constants
-                            #(
-                                Hash::hash(&#const_names, hasher);
-                            )*
-                            // Hash the identifiers of generic constants
-                            #(
-                                Hash::hash(#const_names_raw, hasher);
-                            )*
-                            // Hash in struct and field names.
-                            Hash::hash(#name_literal, hasher);
-                            #(
-                                Hash::hash(#fields_names, hasher);
-                            )*
-                            // Recurse on all fields.
-                            #(
-                                <#fields_types as TypeHash>::type_hash(hasher);
-                            )*
-                        }
-                    }
-                    #[automatically_derived]
-                    impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
-                        #[inline(always)]
-                        fn align_hash(
-                            hasher: &mut impl ::core::hash::Hasher,
-                            _offset_of: &mut usize,
-                        ) {
-                            use ::epserde::traits::AlignHash;
-
-                            // Recurse on all variants starting at offset 0
-                            #(
-                                <#fields_types as AlignHash>::align_hash(hasher, &mut 0);
-                            )*
-                        }
-                    }
-                }
-            }
-        }
-        Data::Enum(e) => {
-            let where_clause = input
-                .generics
-                .where_clause
-                .clone()
-                .unwrap_or_else(|| WhereClause {
-                    where_token: token::Where::default(),
-                    predicates: Punctuated::new(),
-                });
-
-            let mut var_type_hashes = Vec::new();
-            let mut var_align_hashes = Vec::new();
-            let mut var_max_size_ofs = Vec::new();
-            let mut generic_types = vec![];
-
-            e.variants.iter().for_each(|variant| {
-                let ident = variant.ident.to_owned();
-                let mut var_type_hash = quote! { Hash::hash(stringify!(#ident), hasher); };
-                let mut var_align_hash = quote! {};
-                let mut var_max_size_of = quote! {};
-                match &variant.fields {
-                    syn::Fields::Unit => {}
-                    syn::Fields::Named(fields) => {
-                        fields
-                            .named
-                            .iter()
-                            .map(|named| (named.ident.as_ref().unwrap(), named.ty.clone()))
-                            .for_each(|(ident, ty)| {
-                                var_type_hash.extend([quote! {
-                                    Hash::hash(stringify!(#ident), hasher);
-                                    <#ty as TypeHash>::type_hash(hasher);
-                                }]);
-                                var_align_hash.extend([quote! {
-                                    <#ty as AlignHash>::align_hash(hasher, offset_of);
-                                }]);
-                                var_max_size_of.extend([quote! {
-                                    if max_size_of < <#ty as MaxSizeOf>::max_size_of() {
-                                        max_size_of = <#ty as MaxSizeOf>::max_size_of();
-                                    }
-                                }]);
-                                if generics_types.iter().any(|x| is_subtype(&ty, x)) {
-                                    generic_types.push(ty);
-                                }
-                            });
-                    }
-                    syn::Fields::Unnamed(fields) => {
-                        fields
-                            .unnamed
-                            .iter()
-                            .enumerate()
-                            .for_each(|(field_idx, unnamed)| {
-                                let ty = &unnamed.ty;
-                                let field_name = field_idx.to_string();
-                                var_type_hash.extend([quote! {
-                                    Hash::hash(#field_name, hasher);
-                                    <#ty as TypeHash>::type_hash(hasher);
-                                }]);
-                                var_align_hash.extend([quote! {
-                                    <#ty as AlignHash>::align_hash(hasher, offset_of);
-                                }]);
-                                var_max_size_of.extend([quote! {
-                                    if max_size_of < <#ty as MaxSizeOf>::max_size_of() {
-                                        max_size_of = <#ty as MaxSizeOf>::max_size_of();
-                                    }
-                                }]);
-                                if generics_types.iter().any(|x| is_subtype(ty, x)) {
-                                    generic_types.push(ty.clone());
-                                }
-                            });
-                    }
-                }
-                var_type_hashes.push(var_type_hash);
-                var_align_hashes.push(var_align_hash);
-                var_max_size_ofs.push(var_max_size_of);
-            });
-
-            // Build type name
-            let name_literal = name.to_string();
-
-            // Add reprs
-            let repr = input
-                .attrs
-                .iter()
-                .filter(|x| x.meta.path().is_ident("repr"))
-                .map(|x| x.meta.require_list().unwrap().tokens.to_string())
-                .collect::<Vec<_>>();
-
-            let (where_clause_type_hash, where_clause_align_hash, where_clause_max_size_of) =
-                type_repr_max_size_of_where_clauses(&where_clause, &generic_types);
-
-            if is_zero_copy {
-                quote! {
-                    #[automatically_derived]
-                    impl<#impl_generics> ::epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash {
-
-                        #[inline(always)]
-                        fn type_hash(
-                            hasher: &mut impl ::core::hash::Hasher,
-                        ) {
-                            use ::core::hash::Hash;
-                            // Hash in ZeroCopy
-                            Hash::hash("ZeroCopy", hasher);
-                            // Hash the values of generic constants
-                            #(
-                                Hash::hash(#const_names, hasher);
-                            )*
-                            // Hash the identifiers of generic constants
-                            #(
-                                Hash::hash(#const_names_raw, hasher);
-                            )*
-                            // Hash in struct and field names.
-                            Hash::hash(#name_literal, hasher);
-                            #(
-                                #var_type_hashes
-                            )*
-                        }
-                    }
-                    #[automatically_derived]
-                    impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
-                        #[inline(always)]
-                        fn align_hash(
-                            hasher: &mut impl ::core::hash::Hasher,
-                            offset_of: &mut usize,
-                        ) {
-                            use ::core::hash::Hash;
-                            // Hash in size, as padding is given by MaxSizeOf.
-                            // and it is independent of the architecture.
-                            Hash::hash(&::core::mem::size_of::<Self>(), hasher);
-                            // Hash in representation data.
-                            #(
-                                Hash::hash(#repr, hasher);
-                            )*
-                            // Recurse on all fields.
-                            let old_offset_of = *offset_of;
-                            #(
-                                *offset_of = old_offset_of;
-                                #var_align_hashes
-                            )*
-                        }
-                    }
-                    #[automatically_derived]
-                    impl<#impl_generics> ::epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_max_size_of{
-                        #[inline(always)]
-                        fn max_size_of() -> usize {
-                            let mut max_size_of = std::mem::align_of::<Self>();
-                            #(
-                                #var_max_size_ofs
-                            )*
-                            max_size_of
-                        }
-                    }
-                }
-            } else {
-                quote! {
-                    #[automatically_derived]
-                    impl<#impl_generics> ::epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash{
-
-                        #[inline(always)]
-                        fn type_hash(
-                            hasher: &mut impl ::core::hash::Hasher,
-                        ) {
-                            use ::core::hash::Hash;
-                            // No alignment, so we do not hash in anything.
-                            // Hash in DeepCopy
-                            Hash::hash("DeepCopy", hasher);
-                            // Hash the values of generic constants
-                            #(
-                                Hash::hash(&#const_names, hasher);
-                            )*
-                            // Hash the identifiers of generic constants
-                            #(
-                                Hash::hash(#const_names_raw, hasher);
-                            )*
-                            // Hash in struct and field names.
-                            Hash::hash(#name_literal, hasher);
-                            #(
-                                #var_type_hashes
-                            )*
-                        }
-                    }
-
-                    impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
-                        #[inline(always)]
-                        fn align_hash(
-                            hasher: &mut impl ::core::hash::Hasher,
-                            offset_of: &mut usize,
-                        ) {
-                            // Recurse on all variants starting at offset 0
-                            // Note that we share var_align_hashes with the
-                            // zero-copy case, so we cannot pass &mut 0.
-
-                            #(
-                                *offset_of = 0;
-                                #var_align_hashes
-                            )*
-                        }
-                    }
-                }
-            }
-        }
+    let out = match &input.data {
+        Data::Struct(s) => generate_struct_type_hash(&ctx, s),
+        Data::Enum(e) => generate_enum_type_hash(&ctx, e),
         _ => todo!("Union types are not currently supported"),
     };
     out.into()
