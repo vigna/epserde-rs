@@ -596,8 +596,6 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
     let mut variant_eps_des = Vec::new();
     let mut field_types_with_generics = Vec::new();
     let mut fields_with_generics = Vec::new();
-    let mut fields_without_generics = Vec::new();
-    let mut types_without_generics = Vec::new();
     let mut fields_types = Vec::new();
     e.variants.iter().enumerate().for_each(|(variant_id, variant)| {
         variants_names.push(variant.ident.to_token_stream());
@@ -622,9 +620,6 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                     if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
                         fields_with_generics.push(ident.to_token_stream());
                         field_types_with_generics.push(ty.clone());
-                    } else {
-                        fields_without_generics.push(ident.to_token_stream());
-                        types_without_generics.push(ty.to_token_stream());
                     }
 
                     method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &ctx.type_parameters));
@@ -670,9 +665,6 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                     if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
                         fields_with_generics.push(ident.to_token_stream());
                         field_types_with_generics.push(ty.clone());
-                    } else {
-                        fields_without_generics.push(ident.to_token_stream());
-                        types_without_generics.push(ty.to_token_stream());
                     }
 
                     var_fields_names.push(syn::Ident::new(
@@ -870,8 +862,6 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
 fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     let mut fields_types = vec![];
     let mut fields_names = vec![];
-    let mut fields_without_generics = vec![];
-    let mut types_without_generics = vec![];
     let mut fields_with_generics = vec![];
     let mut field_types_with_generics = vec![];
     let mut method_calls: Vec<proc_macro2::TokenStream> = vec![];
@@ -886,10 +876,8 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
         if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
             fields_with_generics.push(field_name.clone());
             field_types_with_generics.push(ty.clone());
-        } else {
-            fields_without_generics.push(field_name.clone());
-            types_without_generics.push(ty);
         }
+
         method_calls.push(generate_method_call(&field_name, ty, &ctx.type_parameters));
         fields_types.push(ty.clone());
         fields_names.push(field_name);
