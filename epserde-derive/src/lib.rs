@@ -18,7 +18,7 @@ use syn::{
     GenericParam, LifetimeParam, PredicateType, WhereClause, WherePredicate,
 };
 
-/// Create an empty where clause
+/// Creates an empty where clause
 fn empty_where_clause() -> WhereClause {
     WhereClause {
         where_token: token::Where::default(),
@@ -26,7 +26,7 @@ fn empty_where_clause() -> WhereClause {
     }
 }
 
-/// Add a trait bound to a where clause
+/// Adds a trait bound to a where clause
 fn add_trait_bound(where_clause: &mut WhereClause, ty: &syn::Type, trait_path: syn::Path) {
     let mut bounds = Punctuated::new();
     bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
@@ -46,7 +46,7 @@ fn add_trait_bound(where_clause: &mut WhereClause, ty: &syn::Type, trait_path: s
         }));
 }
 
-/// Get field name as TokenStream (either ident or index)
+/// Gets field name as TokenStream (either ident or index)
 fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStream {
     field
         .ident
@@ -55,7 +55,7 @@ fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStr
         .unwrap_or_else(|| syn::Index::from(field_idx).to_token_stream())
 }
 
-/// Generate method call for field deserialization
+/// Generates method call for field deserialization
 fn generate_method_call(
     field_name: &proc_macro2::TokenStream,
     ty: &syn::Type,
@@ -70,7 +70,7 @@ fn generate_method_call(
     }
 }
 
-/// Generate IS_ZERO_COPY expression for fields
+/// Generates IS_ZERO_COPY expression for fields
 fn generate_is_zero_copy_expr(
     is_repr_c: bool,
     fields_types: &[syn::Type],
@@ -82,7 +82,7 @@ fn generate_is_zero_copy_expr(
     }
 }
 
-/// Check if `sub_type` is part of `ty`. we use this function to detect which
+/// Checks whether `sub_type` is part of `ty`. we use this function to detect which
 /// field types contains generics and thus need to be bounded.
 fn is_subtype(ty: &syn::Type, sub_type: &syn::Type) -> bool {
     // early stop if they perfectly match
@@ -760,7 +760,6 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                 }
             }
 
-            // SAFETY: &'epserde_desertype Self is covariant
             #[automatically_derived]
             impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                 unsafe fn _deserialize_full_inner(
@@ -822,7 +821,6 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                     Ok(())
                 }
             }
-            // SAFETY: #name is an enum, so it is covariant
             #[automatically_derived]
             impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                 unsafe fn _deserialize_full_inner(
@@ -971,7 +969,6 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
                 }
             }
 
-            // SAFETY: &'epserde_desertype Self is covariant
             #[automatically_derived]
             impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
             {
@@ -1034,7 +1031,6 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
                 }
             }
 
-            // SAFETY: #name is a struct, so it is covariant
             #[automatically_derived]
             impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
                 unsafe fn _deserialize_full_inner(
