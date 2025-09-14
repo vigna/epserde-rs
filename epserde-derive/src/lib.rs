@@ -128,66 +128,6 @@ fn generate_is_zero_copy_expr(
     }
 }
 
-/// Checks if `sub_type` is part of `ty`. We use this function to detect which
-/// field types contains generics and thus need to be bounded.
-fn is_subtype(ty: &syn::Type, sub_type: &syn::Ident) -> bool {
-    match ty {
-        syn::Type::Never(_) | syn::Type::Verbatim(_) => false,
-        syn::Type::Array(ty) => is_subtype(ty.elem.as_ref(), sub_type),
-        syn::Type::Tuple(ty) => ty.elems.iter().any(|x| is_subtype(x, sub_type)),
-        syn::Type::Ptr(ty) => is_subtype(ty.elem.as_ref(), sub_type),
-        syn::Type::Reference(ty) => is_subtype(ty.elem.as_ref(), sub_type),
-        syn::Type::Slice(ty) => is_subtype(ty.elem.as_ref(), sub_type),
-        syn::Type::Paren(ty) => is_subtype(ty.elem.as_ref(), sub_type),
-        syn::Type::Group(ty) => is_subtype(ty.elem.as_ref(), sub_type),
-        syn::Type::BareFn(ty) => {
-            ty.inputs.iter().any(|x| is_subtype(&x.ty, sub_type))
-                || match ty.output {
-                    syn::ReturnType::Default => false,
-                    syn::ReturnType::Type(_, ref ty) => is_subtype(ty.as_ref(), sub_type),
-                }
-        }
-        syn::Type::ImplTrait(ty) => ty.bounds.iter().any(|x| match x {
-            syn::TypeParamBound::Trait(_) => {
-                unimplemented!("This shouldn't happen inside a struct")
-            }
-            _ => false,
-        }),
-        syn::Type::Path(ty) => ty.path.segments.iter().any(|x| {
-            x.ident == sub_type.to_token_stream().to_string()
-                || match x.arguments {
-                    syn::PathArguments::None => false,
-                    syn::PathArguments::AngleBracketed(ref args) => {
-                        args.args.iter().any(|x| match x {
-                            syn::GenericArgument::Type(ty) => is_subtype(ty, sub_type),
-                            syn::GenericArgument::AssocType(ty) => is_subtype(&ty.ty, sub_type),
-                            syn::GenericArgument::Const(_) => false,
-                            syn::GenericArgument::Lifetime(_) => false,
-                            syn::GenericArgument::AssocConst(_) => false,
-                            syn::GenericArgument::Constraint(_) => todo!(),
-                            _ => unimplemented!("Non exhaustive"),
-                        })
-                    }
-                    syn::PathArguments::Parenthesized(_) => todo!(),
-                }
-        }),
-        syn::Type::TraitObject(ty) => ty.bounds.iter().any(|x| match x {
-            syn::TypeParamBound::Trait(_) => todo!(),
-            syn::TypeParamBound::Lifetime(_) => false,
-            syn::TypeParamBound::PreciseCapture(_) => false,
-            syn::TypeParamBound::Verbatim(ty) => {
-                ty.to_string() == sub_type.to_token_stream().to_string()
-            }
-            _ => unimplemented!("Non exhaustive"),
-        }),
-        syn::Type::Infer(_) => {
-            unimplemented!("We cannot check the covariance of a type to be inferred")
-        }
-        syn::Type::Macro(_) => unimplemented!("We cannot check the covariance of a macro type"),
-        _ => unimplemented!("Non exhaustive"),
-    }
-}
-
 /// Pre-parsed information for the derive macros.
 struct CommonDeriveInput {
     /// The identifier of the type.
@@ -298,7 +238,7 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
 /// type parameters.
 fn add_ser_deser_bounds(
     derive_input: &DeriveInput,
-    field_types_with_generics: &[syn::Type],
+    generic_fields_ids: &HashSet<syn::Ident>,
     where_clause_ser: &mut WhereClause,
     where_clause_des: &mut WhereClause,
 ) {
@@ -312,13 +252,11 @@ fn add_ser_deser_bounds(
             // We are just interested in types with bounds that are
             // types of fields of the struct.
             //
-            // Note that field_types_with_generics contains also field types
+            // Note that generic_fields_ids contains also field types
             // *containing* a type parameter, but that just slows down
             // the search.
             if !t.bounds.is_empty()
-                && field_types_with_generics
-                    .iter()
-                    .any(|x| *ident == x.to_token_stream().to_string())
+                && generic_fields_ids.contains(ident)
             {
                 // The lifetime of the DeserType
                 let mut lifetimes = Punctuated::new();
@@ -387,14 +325,12 @@ fn add_ser_deser_trait_bounds(
 /// Generate deserialization type generics
 fn generate_deser_type_generics<'a>(
     ctx: &CodegenContext,
-    field_types_with_generics: &[syn::Type],
+    generic_fields_ids: &HashSet<syn::Ident>,
 ) -> Vec<proc_macro2::TokenStream> {
     ctx.type_const_ids
         .iter()
         .map(|ident| {
-            if field_types_with_generics
-                .iter()
-                .any(|field_type| type_equals_ident(field_type, ident))
+            if generic_fields_ids.contains(ident)
             {
                 quote!(<#ident as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
             } else {
@@ -407,15 +343,12 @@ fn generate_deser_type_generics<'a>(
 /// Generate serialization type generics
 fn generate_ser_type_generics<'a>(
     ctx: &CodegenContext,
-    field_types_with_generics: &[syn::Type],
+    generic_fields_ids: &HashSet<syn::Ident>,
 ) -> Vec<proc_macro2::TokenStream> {
     ctx.type_const_ids
         .iter()
         .map(|ident| {
-            if field_types_with_generics
-                .iter()
-                .any(|field_type| type_equals_ident(field_type, ident))
-            {
+            if generic_fields_ids.contains(ident) {
                 quote!(<#ident as ::epserde::ser::SerializeInner>::SerType)
             } else {
                 quote!(#ident)
@@ -461,7 +394,7 @@ struct TypeHashWhereClausesSet {
 /// Generate where clauses for TypeHash traits (TypeHash, AlignHash, MaxSizeOf)
 fn generate_type_hash_where_clauses(
     base_clause: &WhereClause,
-    generic_types: &[syn::Type],
+    field_types: &[&syn::Type],
 ) -> TypeHashWhereClausesSet {
     let mut bounds_type_hash = Punctuated::new();
     bounds_type_hash.push(syn::parse_quote!(::epserde::traits::TypeHash));
@@ -475,7 +408,8 @@ fn generate_type_hash_where_clauses(
     bounds_max_size_of.push(syn::parse_quote!(::epserde::traits::MaxSizeOf));
     let mut where_clause_max_size_of = base_clause.clone();
 
-    generic_types.iter().for_each(|ty| {
+    // Add trait bounds for all field types
+    for &ty in field_types {
         where_clause_type_hash
             .predicates
             .push(WherePredicate::Type(PredicateType {
@@ -500,7 +434,7 @@ fn generate_type_hash_where_clauses(
                 colon_token: token::Colon::default(),
                 bounds: bounds_max_size_of.clone(),
             }));
-    });
+    }
 
     TypeHashWhereClausesSet {
         type_hash: where_clause_type_hash,
@@ -591,7 +525,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
     let mut variant_ser = Vec::new();
     let mut variant_full_des = Vec::new();
     let mut variant_eps_des = Vec::new();
-    let mut field_types_with_generics = Vec::new();
+    let mut generic_fields_ids = HashSet::new();
     let mut fields_types = Vec::new();
     let type_const_ids = HashSet::from_iter(&ctx.type_const_ids);
 
@@ -614,14 +548,17 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                 .named
                 .iter()
                 .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
-                .for_each(|(ident, ty)| {
-                    if ctx.type_const_ids.iter().any(|ident| is_subtype(ty, ident)) {
-                        field_types_with_generics.push(ty.clone());
+                .for_each(|(name, ty)| {
+                    for &id in &type_const_ids {
+                        if type_equals_ident(ty, id) {
+                            generic_fields_ids.insert(id.clone());
+                            break;
+                        }
                     }
 
-                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &type_const_ids));
+                    method_calls.push(generate_method_call(&name.to_token_stream(), ty, &type_const_ids));
 
-                    var_fields_names.push(ident.to_token_stream());
+                    var_fields_names.push(name.to_token_stream());
                     var_fields_types.push(ty.clone());
                 });
             let ident = variant.ident.clone();
@@ -658,9 +595,12 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                 .enumerate()
                 .for_each(|(field_idx, unnamed)| {
                     let ty = &unnamed.ty;
-                    let ident = syn::Index::from(field_idx);
-                    if ctx.type_const_ids.iter().any(|ident| is_subtype(ty, ident)) {
-                        field_types_with_generics.push(ty.clone());
+                    let name = syn::Index::from(field_idx);
+                    for &id in &type_const_ids {
+                        if type_equals_ident(ty, id) {
+                            generic_fields_ids.insert(id.clone());
+                            break;
+                        }
                     }
 
                     var_fields_names.push(syn::Ident::new(
@@ -669,7 +609,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                     )
                     .to_token_stream());
 
-                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &type_const_ids));
+                    method_calls.push(generate_method_call(&name.to_token_stream(), ty, &type_const_ids));
 
                     var_fields_vars.push(syn::Index::from(field_idx));
                     var_fields_types.push(ty.clone());
@@ -703,8 +643,8 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
 
     // Gather deserialization types of fields,
     // which are necessary to derive the deserialization type.
-    let deser_type_generics = generate_deser_type_generics(&ctx, &field_types_with_generics);
-    let ser_type_generics = generate_ser_type_generics(&ctx, &field_types_with_generics);
+    let deser_type_generics = generate_deser_type_generics(&ctx, &generic_fields_ids);
+    let ser_type_generics = generate_ser_type_generics(&ctx, &generic_fields_ids);
     let tag = (0..variants.len()).collect::<Vec<_>>();
 
     // Initialize common trait implementation data
@@ -779,7 +719,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
     } else {
         add_ser_deser_bounds(
             &ctx.derive_input,
-            &field_types_with_generics,
+            &generic_fields_ids,
             &mut where_clause_ser,
             &mut where_clause_des,
         );
@@ -857,7 +797,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
 fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     let mut fields_types = vec![];
     let mut fields_names = vec![];
-    let mut field_types_with_generics = vec![];
+    let mut generic_fields_ids = HashSet::new();
     let mut method_calls: Vec<proc_macro2::TokenStream> = vec![];
     let type_const_ids = HashSet::from_iter(&ctx.type_const_ids);
 
@@ -868,8 +808,11 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
         let ty = &field.ty;
         let field_name = get_field_name(field, field_idx);
 
-        if ctx.type_const_ids.iter().any(|ident| is_subtype(ty, ident)) {
-            field_types_with_generics.push(ty.clone());
+        for &ident in &type_const_ids {
+            if type_equals_ident(ty, ident) {
+                generic_fields_ids.insert(ident.clone());
+                break;
+            }
         }
 
         method_calls.push(generate_method_call(&field_name, ty, &type_const_ids));
@@ -879,8 +822,8 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
 
     // Gather deserialization types of fields, as they are necessary to
     // derive the deserialization type.
-    let deser_type_generics = generate_deser_type_generics(&ctx, &field_types_with_generics);
-    let ser_type_generics = generate_ser_type_generics(&ctx, &field_types_with_generics);
+    let deser_type_generics = generate_deser_type_generics(&ctx, &generic_fields_ids);
+    let ser_type_generics = generate_ser_type_generics(&ctx, &generic_fields_ids);
 
     // Initialize common trait implementation data
     let TraitImplInit {
@@ -954,7 +897,7 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
     } else {
         add_ser_deser_bounds(
             &ctx.derive_input,
-            &field_types_with_generics,
+            &generic_fields_ids,
             &mut where_clause_ser,
             &mut where_clause_des,
         );
@@ -1041,7 +984,7 @@ struct TypeHashContext {
     is_zero_copy: bool,
     /// Type name as string literal
     name_literal: String,
-    /// Representation attributes
+    /// `repr` attributes
     repr: Vec<String>,
 }
 
@@ -1202,7 +1145,7 @@ fn generate_struct_type_hash(
         if ctx
             .type_const_ids
             .iter()
-            .any(|ident| is_subtype(&ty, ident))
+            .any(|ident| type_equals_ident(&ty, ident))
         {
             generic_types.push(ty.clone());
         }
@@ -1220,7 +1163,7 @@ fn generate_struct_type_hash(
         type_hash: where_clause_type_hash,
         align_hash: where_clause_align_hash,
         max_size_of: where_clause_max_size_of,
-    } = generate_type_hash_where_clauses(&where_clause, &generic_types);
+    } = generate_type_hash_where_clauses(&where_clause, &fields_types);
 
     // Generate field hashes for TypeHash
     let field_hashes: Vec<_> = fields_names
@@ -1288,8 +1231,12 @@ fn generate_enum_type_hash(ctx: TypeHashContext, e: &syn::DataEnum) -> proc_macr
                         }
                     }]);
 
-                    if ctx.type_const_ids.iter().any(|ident| is_subtype(ty, ident)) {
-                        generic_types.push(ty.clone());
+                    if ctx
+                        .type_const_ids
+                        .iter()
+                        .any(|ident| type_equals_ident(ty, ident))
+                    {
+                        generic_types.push(ty);
                     }
                 });
             }
@@ -1315,8 +1262,12 @@ fn generate_enum_type_hash(ctx: TypeHashContext, e: &syn::DataEnum) -> proc_macr
                             }
                         }]);
 
-                        if ctx.type_const_ids.iter().any(|ident| is_subtype(ty, ident)) {
-                            generic_types.push(ty.clone());
+                        if ctx
+                            .type_const_ids
+                            .iter()
+                            .any(|ident| type_equals_ident(ty, ident))
+                        {
+                            generic_types.push(ty);
                         }
                     });
             }
