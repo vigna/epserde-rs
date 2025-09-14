@@ -11,7 +11,8 @@ Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) c
 
 */
 
-use proc_macro::TokenStream;
+use std::collections::HashSet;
+
 use quote::{quote, ToTokens};
 use syn::{
     parse_macro_input, punctuated::Punctuated, token, BoundLifetimes, Data, DeriveInput,
@@ -46,9 +47,9 @@ fn add_trait_bound(where_clause: &mut WhereClause, ty: &syn::Type, trait_path: s
         }));
 }
 
-/// Returns a field name as TokenStream.
+/// Returns a field name as a token stream.
 ///
-/// This method takes care transparently of unnamed fields (i.e., tuple
+/// This method takes care transparently of unnamed fields (i.e., fields tuple
 /// structs), and for this reason it can only return a `TokenStream` instead of
 /// a more specific type such as `Ident`.
 fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStream {
@@ -57,6 +58,24 @@ fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStr
         .to_owned()
         .map(|x| x.to_token_stream())
         .unwrap_or_else(|| syn::Index::from(field_idx).to_token_stream())
+}
+
+/// Returns true if the given type just made of the given identifier.
+fn type_equals_ident(ty: &syn::Type, ident: &syn::Ident) -> bool {
+    if let syn::Type::Path(syn::TypePath {
+        qself: None,
+        path: syn::Path {
+            leading_colon: None,
+            segments,
+        },
+    }) = ty
+    {
+        if segments.len() == 1 && segments[0].ident == *ident {
+            return true;
+        }
+    }
+
+    false
 }
 
 /// Generates a method call for field deserialization.
@@ -71,7 +90,7 @@ fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStr
 fn generate_method_call(
     field_name: &proc_macro2::TokenStream,
     ty: &syn::Type,
-    generics_names: &[syn::Ident],
+    type_params_ids: &HashSet<&syn::Ident>,
 ) -> proc_macro2::TokenStream {
     if let syn::Type::Path(syn::TypePath {
         qself: None,
@@ -81,21 +100,23 @@ fn generate_method_call(
         },
     }) = ty
     {
+        // This is a pretty weak check, as a user could define its own PhantomDeserData,
+        // but it should be good enough in practice
         if let Some(segment) = segments.last() {
             if segment.ident == "PhantomDeserData" {
                 return syn::parse_quote!(#field_name: <#ty>::_deserialize_eps_inner_special);
             }
         }
 
-        if segments.len() == 1 && generics_names.contains(&segments[0].ident) {
+        if segments.len() == 1 && type_params_ids.contains(&segments[0].ident) {
             return syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_eps_inner);
         }
     }
+
     syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_full_inner)
 }
 
-/// Generates the [`IS_ZERO_COPY`](crate::traits::SerializeInner::IS_ZERO_COPY)
-/// expression for fields.
+/// Generates the `IS_ZERO_COPY` expression.
 fn generate_is_zero_copy_expr(
     is_repr_c: bool,
     fields_types: &[syn::Type],
@@ -107,17 +128,11 @@ fn generate_is_zero_copy_expr(
     }
 }
 
-/// Checks if `sub_type` is part of `ty`. we use this function to detect which
+/// Checks if `sub_type` is part of `ty`. We use this function to detect which
 /// field types contains generics and thus need to be bounded.
-fn is_subtype(ty: &syn::Type, sub_type: &syn::Type) -> bool {
-    // early stop if they perfectly match
-    if ty == sub_type {
-        return true;
-    }
-
+fn is_subtype(ty: &syn::Type, sub_type: &syn::Ident) -> bool {
     match ty {
-        syn::Type::Never(_) => false,
-        syn::Type::Verbatim(token) => token.to_string() == sub_type.to_token_stream().to_string(),
+        syn::Type::Never(_) | syn::Type::Verbatim(_) => false,
         syn::Type::Array(ty) => is_subtype(ty.elem.as_ref(), sub_type),
         syn::Type::Tuple(ty) => ty.elems.iter().any(|x| is_subtype(x, sub_type)),
         syn::Type::Ptr(ty) => is_subtype(ty.elem.as_ref(), sub_type),
@@ -175,25 +190,20 @@ fn is_subtype(ty: &syn::Type, sub_type: &syn::Type) -> bool {
 
 /// Pre-parsed information for the derive macros.
 struct CommonDeriveInput {
-    /// The identifier of the struct.
+    /// The identifier of the type.
     name: syn::Ident,
-    /// Identifiers of non-const type parameters.
-    type_parameters: Vec<syn::Ident>,
-    /// Identifiers of const type parameters. Used to include their
-    /// names and values in the type hash.
-    const_parameters: Vec<syn::Ident>,
-    /// The identifiers of all generics as token streams.
-    generics_names: Vec<proc_macro2::TokenStream>,
-    /// Same as `generics_names`, but names are concatenated
-    /// and separated by commas. It can be put between `<` and `>` after
-    /// the structure name.
+    /// Identifiers of type and const parameters, in order of appearance.
+    type_const_ids: Vec<syn::Ident>,
+    /// Identifiers of const parameters, in order of appearance.
+    const_ids: Vec<syn::Ident>,
+    /// All generics (lifetimes and type parameters) concatenated and separated
+    /// by commas, in order of appearance. It can be put between `<` and `>`
+    /// after the structure name.
     concat_generics: proc_macro2::TokenStream,
     /// Same as `concat_generics`, but with all necessary trait
     /// bounds. It can be put between `<` and `>` after
     /// the `impl` keyword.
     impl_generics: proc_macro2::TokenStream,
-    /// A vector containing the [types](syn::Type) of the generics.
-    generics_types: Vec<syn::Type>,
 }
 
 impl CommonDeriveInput {
@@ -202,63 +212,53 @@ impl CommonDeriveInput {
     /// be added to the generic types.
     fn new(input: DeriveInput, traits_to_add: Vec<syn::Path>) -> Self {
         let name = input.ident;
-        let mut impl_generics = quote!();
-        let mut type_parameters = vec![];
-        let mut generics_names = vec![];
+        let mut type_const_ids = vec![];
+        let mut const_ids = vec![];
         let mut concat_generics = quote!();
-        let mut generics_types: Vec<syn::Type> = vec![];
+        let mut impl_generics = quote!();
 
-        let mut const_parameters = vec![];
+        input.generics.params.into_iter().for_each(|x| {
+            match x {
+                syn::GenericParam::Type(mut t) => {
+                    type_const_ids.push(t.ident.clone());
+                    concat_generics.extend(t.ident.to_token_stream());
 
-        if !input.generics.params.is_empty() {
-            input.generics.params.into_iter().for_each(|x| {
-                match x {
-                    syn::GenericParam::Type(mut t) => {
-                        type_parameters.push(t.ident.clone());
-                        generics_names.push(t.ident.to_token_stream());
-                        concat_generics.extend(t.ident.to_token_stream());
-                        generics_types.push(syn::Type::Verbatim(t.ident.to_token_stream()));
-
-                        // Remove default and add traits
-                        t.default = None;
-                        for trait_to_add in traits_to_add.iter() {
-                            t.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
-                                paren_token: None,
-                                modifier: syn::TraitBoundModifier::None,
-                                lifetimes: None,
-                                path: trait_to_add.clone(),
-                            }));
-                        }
-
-                        impl_generics.extend(quote!(#t,));
+                    // Remove default and add traits
+                    t.default = None;
+                    for trait_to_add in traits_to_add.iter() {
+                        t.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
+                            paren_token: None,
+                            modifier: syn::TraitBoundModifier::None,
+                            lifetimes: None,
+                            path: trait_to_add.clone(),
+                        }));
                     }
-                    syn::GenericParam::Lifetime(l) => {
-                        generics_names.push(l.lifetime.to_token_stream());
-                        concat_generics.extend(l.lifetime.to_token_stream());
-                        impl_generics.extend(quote!(#l,));
-                    }
-                    syn::GenericParam::Const(mut c) => {
-                        const_parameters.push(c.ident.clone());
-                        generics_names.push(c.ident.to_token_stream());
-                        concat_generics.extend(c.ident.to_token_stream());
 
-                        // Remove default
-                        c.default = None;
-                        impl_generics.extend(quote!(#c,));
-                    }
-                };
-                concat_generics.extend(quote!(,))
-            });
-        }
+                    impl_generics.extend(quote!(#t,));
+                }
+                syn::GenericParam::Lifetime(l) => {
+                    concat_generics.extend(l.lifetime.to_token_stream());
+                    impl_generics.extend(quote!(#l,));
+                }
+                syn::GenericParam::Const(mut c) => {
+                    const_ids.push(c.ident.clone());
+                    type_const_ids.push(c.ident.clone());
+                    concat_generics.extend(c.ident.to_token_stream());
+
+                    // Remove default
+                    c.default = None;
+                    impl_generics.extend(quote!(#c,));
+                }
+            };
+            concat_generics.extend(quote!(,))
+        });
 
         Self {
             name,
+            const_ids,
+            type_const_ids,
             impl_generics,
-            generics_types,
             concat_generics,
-            type_parameters,
-            generics_names,
-            const_parameters,
         }
     }
 }
@@ -307,7 +307,7 @@ fn add_ser_deser_bounds(
     // the DeserType.
     derive_input.generics.params.iter().for_each(|param| {
         if let syn::GenericParam::Type(t) = param {
-            let ty = &t.ident;
+            let ident = &t.ident;
 
             // We are just interested in types with bounds that are
             // types of fields of the struct.
@@ -318,7 +318,7 @@ fn add_ser_deser_bounds(
             if !t.bounds.is_empty()
                 && field_types_with_generics
                     .iter()
-                    .any(|x| *ty == x.to_token_stream().to_string())
+                    .any(|x| *ident == x.to_token_stream().to_string())
             {
                 // The lifetime of the DeserType
                 let mut lifetimes = Punctuated::new();
@@ -344,7 +344,7 @@ fn add_ser_deser_bounds(
                             gt_token: token::Gt::default(),
                         }),
                         bounded_ty: syn::parse_quote!(
-                            <#ty as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
+                            <#ident as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
                         ),
                         colon_token: token::Colon::default(),
                         bounds: t.bounds.clone(),
@@ -356,7 +356,7 @@ fn add_ser_deser_bounds(
                     .push(WherePredicate::Type(PredicateType {
                         lifetimes: None,
                         bounded_ty: syn::parse_quote!(
-                            <#ty as ::epserde::ser::SerializeInner>::SerType
+                            <#ident as ::epserde::ser::SerializeInner>::SerType
                         ),
                         colon_token: token::Colon::default(),
                         bounds: t.bounds.clone(),
@@ -385,40 +385,40 @@ fn add_ser_deser_trait_bounds(
 }
 
 /// Generate deserialization type generics
-fn generate_deser_type_generics(
-    generics_names: &[proc_macro2::TokenStream],
+fn generate_deser_type_generics<'a>(
+    ctx: &CodegenContext,
     field_types_with_generics: &[syn::Type],
 ) -> Vec<proc_macro2::TokenStream> {
-    generics_names
+    ctx.type_const_ids
         .iter()
-        .map(|ty| {
+        .map(|ident| {
             if field_types_with_generics
                 .iter()
-                .any(|x| x.to_token_stream().to_string() == ty.to_string())
+                .any(|field_type| type_equals_ident(field_type, ident))
             {
-                quote!(<#ty as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
+                quote!(<#ident as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
             } else {
-                ty.clone()
+                quote!(#ident)
             }
         })
         .collect()
 }
 
 /// Generate serialization type generics
-fn generate_ser_type_generics(
-    generics_names: &[proc_macro2::TokenStream],
+fn generate_ser_type_generics<'a>(
+    ctx: &CodegenContext,
     field_types_with_generics: &[syn::Type],
 ) -> Vec<proc_macro2::TokenStream> {
-    generics_names
+    ctx.type_const_ids
         .iter()
-        .map(|ty| {
+        .map(|ident| {
             if field_types_with_generics
                 .iter()
-                .any(|x| x.to_token_stream().to_string() == ty.to_string())
+                .any(|field_type| type_equals_ident(field_type, ident))
             {
-                quote!(<#ty as ::epserde::ser::SerializeInner>::SerType)
+                quote!(<#ident as ::epserde::ser::SerializeInner>::SerType)
             } else {
-                ty.clone()
+                quote!(#ident)
             }
         })
         .collect()
@@ -517,12 +517,8 @@ struct CodegenContext {
     name: syn::Ident,
     /// Concatenated generics for type declarations (e.g., `<T, U>`)
     concat_generics: proc_macro2::TokenStream,
-    /// Identifiers of type parameters
-    type_parameters: Vec<syn::Ident>,
-    /// Generic names as token streams for code generation
-    generics_names: Vec<proc_macro2::TokenStream>,
-    /// Generic types for subtype checking
-    generics_types: Vec<syn::Type>,
+    /// Identifiers of type and const parameters, in order of appearance.
+    type_const_ids: Vec<syn::Ident>,
     /// Implementation generics for trait bounds
     impl_generics: proc_macro2::TokenStream,
     /// Serialization generics with bounds
@@ -596,8 +592,9 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
     let mut variant_full_des = Vec::new();
     let mut variant_eps_des = Vec::new();
     let mut field_types_with_generics = Vec::new();
-    let mut fields_with_generics = Vec::new();
     let mut fields_types = Vec::new();
+    let type_const_ids = HashSet::from_iter(&ctx.type_const_ids);
+
     e.variants.iter().enumerate().for_each(|(variant_id, variant)| {
         variants_names.push(variant.ident.to_token_stream());
         match &variant.fields {
@@ -618,12 +615,11 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                 .iter()
                 .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
                 .for_each(|(ident, ty)| {
-                    if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
-                        fields_with_generics.push(ident.to_token_stream());
+                    if ctx.type_const_ids.iter().any(|ident| is_subtype(ty, ident)) {
                         field_types_with_generics.push(ty.clone());
                     }
 
-                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &ctx.type_parameters));
+                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &type_const_ids));
 
                     var_fields_names.push(ident.to_token_stream());
                     var_fields_types.push(ty.clone());
@@ -663,8 +659,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                 .for_each(|(field_idx, unnamed)| {
                     let ty = &unnamed.ty;
                     let ident = syn::Index::from(field_idx);
-                    if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
-                        fields_with_generics.push(ident.to_token_stream());
+                    if ctx.type_const_ids.iter().any(|ident| is_subtype(ty, ident)) {
                         field_types_with_generics.push(ty.clone());
                     }
 
@@ -674,7 +669,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                     )
                     .to_token_stream());
 
-                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &ctx.type_parameters));
+                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &type_const_ids));
 
                     var_fields_vars.push(syn::Index::from(field_idx));
                     var_fields_types.push(ty.clone());
@@ -708,10 +703,8 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
 
     // Gather deserialization types of fields,
     // which are necessary to derive the deserialization type.
-    let deser_type_generics =
-        generate_deser_type_generics(&ctx.generics_names, &field_types_with_generics);
-    let ser_type_generics =
-        generate_ser_type_generics(&ctx.generics_names, &field_types_with_generics);
+    let deser_type_generics = generate_deser_type_generics(&ctx, &field_types_with_generics);
+    let ser_type_generics = generate_ser_type_generics(&ctx, &field_types_with_generics);
     let tag = (0..variants.len()).collect::<Vec<_>>();
 
     // Initialize common trait implementation data
@@ -799,6 +792,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                 type Copy = ::epserde::traits::Deep;
             }
             #[automatically_derived]
+
             impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
                 type SerType = #name<#(#ser_type_generics,)*>;
 
@@ -863,9 +857,9 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
 fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     let mut fields_types = vec![];
     let mut fields_names = vec![];
-    let mut fields_with_generics = vec![];
     let mut field_types_with_generics = vec![];
     let mut method_calls: Vec<proc_macro2::TokenStream> = vec![];
+    let type_const_ids = HashSet::from_iter(&ctx.type_const_ids);
 
     // Scan the struct to find which fields contain a generic
     // type (i.e., they are themselves of a generic type,
@@ -874,22 +868,19 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
         let ty = &field.ty;
         let field_name = get_field_name(field, field_idx);
 
-        if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
-            fields_with_generics.push(field_name.clone());
+        if ctx.type_const_ids.iter().any(|ident| is_subtype(ty, ident)) {
             field_types_with_generics.push(ty.clone());
         }
 
-        method_calls.push(generate_method_call(&field_name, ty, &ctx.type_parameters));
+        method_calls.push(generate_method_call(&field_name, ty, &type_const_ids));
         fields_types.push(ty.clone());
         fields_names.push(field_name);
     });
 
     // Gather deserialization types of fields, as they are necessary to
     // derive the deserialization type.
-    let deser_type_generics =
-        generate_deser_type_generics(&ctx.generics_names, &field_types_with_generics);
-    let ser_type_generics =
-        generate_ser_type_generics(&ctx.generics_names, &field_types_with_generics);
+    let deser_type_generics = generate_deser_type_generics(&ctx, &field_types_with_generics);
+    let ser_type_generics = generate_ser_type_generics(&ctx, &field_types_with_generics);
 
     // Initialize common trait implementation data
     let TraitImplInit {
@@ -1042,38 +1033,16 @@ struct TypeHashContext {
     impl_generics: proc_macro2::TokenStream,
     /// Concatenated generics
     concat_generics: proc_macro2::TokenStream,
-    /// Generic types for subtype checking
-    generics_types: Vec<syn::Type>,
-    /// Generic constant names
-    const_parameters: Vec<syn::Ident>,
+    /// Identifiers of type and const parameters, in order of appearance.
+    type_const_ids: Vec<syn::Ident>,
+    /// Identifiers of const parameters, in order of appearance.
+    const_ids: Vec<syn::Ident>,
     /// Whether the type is zero-copy
     is_zero_copy: bool,
     /// Type name as string literal
     name_literal: String,
     /// Representation attributes
     repr: Vec<String>,
-}
-
-/// Extract field information for TypeHash generation
-fn extract_field_info(
-    field: &syn::Field,
-    field_idx: usize,
-    generics_types: &[syn::Type],
-    generic_types: &mut Vec<syn::Type>,
-) -> (String, syn::Type) {
-    let field_name = field
-        .ident
-        .as_ref()
-        .map(|ident| ident.to_string())
-        .unwrap_or_else(|| field_idx.to_string());
-
-    let ty = field.ty.clone();
-
-    if generics_types.iter().any(|x| is_subtype(&ty, x)) {
-        generic_types.push(ty.clone());
-    }
-
-    (field_name, ty)
 }
 
 /// Generate TypeHash implementation body
@@ -1086,7 +1055,7 @@ fn generate_type_hash_body(
     } else {
         "DeepCopy"
     };
-    let const_parameters = &ctx.const_parameters;
+    let const_ids = &ctx.const_ids;
     let name_literal = &ctx.name_literal;
 
     quote! {
@@ -1096,11 +1065,11 @@ fn generate_type_hash_body(
         Hash::hash(#copy_type, hasher);
         // Hash the values of generic constants
         #(
-            Hash::hash(&#const_parameters, hasher);
+            Hash::hash(&#const_ids, hasher);
         )*
         // Hash the identifiers of generic constants
         #(
-            Hash::hash(stringify!(#const_parameters), hasher);
+            Hash::hash(stringify!(#const_ids), hasher);
         )*
         // Hash in struct and field names.
         Hash::hash(#name_literal, hasher);
@@ -1114,7 +1083,7 @@ fn generate_type_hash_body(
 /// Generate AlignHash implementation body for structs
 fn generate_struct_align_hash_body(
     ctx: &TypeHashContext,
-    fields_types: &[syn::Type],
+    fields_types: &[&syn::Type],
 ) -> proc_macro2::TokenStream {
     let repr = &ctx.repr;
     if ctx.is_zero_copy {
@@ -1149,7 +1118,7 @@ fn generate_struct_align_hash_body(
 }
 
 /// Generate MaxSizeOf implementation body
-fn generate_max_size_of_body(fields_types: &[syn::Type]) -> proc_macro2::TokenStream {
+fn generate_max_size_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
     quote! {
         use ::std::mem;
         use ::epserde::traits::MaxSizeOf;
@@ -1221,19 +1190,23 @@ fn generate_struct_type_hash(
     s: &syn::DataStruct,
 ) -> proc_macro2::TokenStream {
     let mut generic_types = vec![];
+    let mut fields_names = vec![];
+    let mut fields_types = vec![];
 
     // Extract field information
-    let field_info: Vec<_> = s
-        .fields
-        .iter()
-        .enumerate()
-        .map(|(field_idx, field)| {
-            extract_field_info(field, field_idx, &ctx.generics_types, &mut generic_types)
-        })
-        .collect();
+    s.fields.iter().enumerate().for_each(|(field_idx, field)| {
+        let ty = &field.ty;
+        fields_names.push(get_field_name(field, field_idx));
+        fields_types.push(ty);
 
-    let fields_names: Vec<_> = field_info.iter().map(|(name, _)| name).collect();
-    let fields_types: Vec<_> = field_info.iter().map(|(_, ty)| ty.clone()).collect();
+        if ctx
+            .type_const_ids
+            .iter()
+            .any(|ident| is_subtype(&ty, ident))
+        {
+            generic_types.push(ty.clone());
+        }
+    });
 
     // Generate where clauses
     let where_clause = ctx
@@ -1255,7 +1228,7 @@ fn generate_struct_type_hash(
         .zip(fields_types.iter())
         .map(|(name, ty)| {
             quote! {
-                Hash::hash(#name, hasher);
+                Hash::hash(stringify!(#name), hasher);
                 <#ty as TypeHash>::type_hash(hasher);
             }
         })
@@ -1315,7 +1288,7 @@ fn generate_enum_type_hash(ctx: TypeHashContext, e: &syn::DataEnum) -> proc_macr
                         }
                     }]);
 
-                    if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
+                    if ctx.type_const_ids.iter().any(|ident| is_subtype(ty, ident)) {
                         generic_types.push(ty.clone());
                     }
                 });
@@ -1342,7 +1315,7 @@ fn generate_enum_type_hash(ctx: TypeHashContext, e: &syn::DataEnum) -> proc_macr
                             }
                         }]);
 
-                        if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
+                        if ctx.type_const_ids.iter().any(|ident| is_subtype(ty, ident)) {
                             generic_types.push(ty.clone());
                         }
                     });
@@ -1442,20 +1415,17 @@ fn generate_enum_type_hash(ctx: TypeHashContext, e: &syn::DataEnum) -> proc_macr
 /// a warning will be issued every time you serialize. The warning can be silenced adding
 /// the explicit attribute `deep_copy`.
 #[proc_macro_derive(Epserde, attributes(zero_copy, deep_copy))]
-pub fn epserde_derive(input: TokenStream) -> TokenStream {
+pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Cloning input for type hash
     let input_for_type_hash = input.clone();
     let derive_input = parse_macro_input!(input as DeriveInput);
     let (is_repr_c, is_zero_copy, is_deep_copy) = check_attrs(&derive_input);
 
-    // Common values between serialize and deserialize
     let CommonDeriveInput {
         name,
+        type_const_ids,
         concat_generics,
-        type_parameters,
-        generics_names,
         impl_generics,
-        generics_types,
         ..
     } = CommonDeriveInput::new(derive_input.clone(), vec![]);
 
@@ -1476,9 +1446,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
         derive_input,
         name,
         concat_generics,
-        type_parameters,
-        generics_names,
-        generics_types,
+        type_const_ids,
         impl_generics,
         generics_serialize,
         generics_deserialize,
@@ -1487,7 +1455,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
         is_deep_copy,
     };
 
-    let mut out: TokenStream = match &data {
+    let mut out: proc_macro::TokenStream = match &data {
         Data::Struct(s) => generate_struct_impl(ctx, s),
         Data::Enum(e) => generate_enum_impl(ctx, e),
         _ => todo!("Union types are not currently supported"),
@@ -1505,16 +1473,16 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
 /// `MaxSizeOf`, `TypeHash`, and `AlignHash`. See the documentation
 /// of [`epserde_derive`] for more information.
 #[proc_macro_derive(TypeInfo, attributes(zero_copy, deep_copy))]
-pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
+pub fn epserde_type_hash(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let (_, is_zero_copy, _) = check_attrs(&input);
 
     let CommonDeriveInput {
         name,
+        type_const_ids,
+        const_ids,
         impl_generics,
         concat_generics,
-        generics_types,
-        const_parameters,
         ..
     } = CommonDeriveInput::new(input.clone(), vec![]);
 
@@ -1533,10 +1501,10 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
     let ctx = TypeHashContext {
         input,
         name,
+        type_const_ids,
+        const_ids,
         impl_generics,
         concat_generics,
-        generics_types,
-        const_parameters,
         is_zero_copy,
         name_literal,
         repr,
