@@ -192,10 +192,6 @@ struct CommonDeriveInput {
     /// A vector containing the identifiers of the generic constants.
     /// Used to include the generic constant values into the type hash.
     const_names: Vec<syn::Ident>,
-    /// A vector containing the identifier of the generic constants, represented
-    /// as strings. Used to include the identifiers of generic constants into
-    /// the type hash.
-    const_names_raw: Vec<String>,
 }
 
 impl CommonDeriveInput {
@@ -211,7 +207,6 @@ impl CommonDeriveInput {
         let mut generics_types: Vec<syn::Type> = vec![];
 
         let mut const_names = vec![];
-        let mut const_names_raw = vec![];
 
         if !input.generics.params.is_empty() {
             input.generics.params.into_iter().for_each(|x| {
@@ -241,7 +236,6 @@ impl CommonDeriveInput {
                     }
                     syn::GenericParam::Const(mut c) => {
                         concat_generics.extend(c.ident.to_token_stream());
-                        const_names_raw.push(c.ident.to_string());
 
                         c.default = None; // remove the defaults from the const generics
                                           // otherwise we can't use them in the impl generics
@@ -261,7 +255,6 @@ impl CommonDeriveInput {
             concat_generics,
             type_parameters,
             generics_names,
-            const_names_raw,
             const_names,
         }
     }
@@ -1059,8 +1052,6 @@ struct TypeHashContext {
     generics_types: Vec<syn::Type>,
     /// Generic constant names
     const_names: Vec<syn::Ident>,
-    /// Raw generic constant names
-    const_names_raw: Vec<String>,
     /// Whether the type is zero-copy
     is_zero_copy: bool,
     /// Type name as string literal
@@ -1102,8 +1093,6 @@ fn generate_type_hash_body(
         "DeepCopy"
     };
     let const_names = &ctx.const_names;
-    let const_names_raw = &ctx.const_names_raw;
-    dbg!(&const_names, &const_names_raw);
     let name_literal = &ctx.name_literal;
 
     quote! {
@@ -1117,7 +1106,7 @@ fn generate_type_hash_body(
         )*
         // Hash the identifiers of generic constants
         #(
-            Hash::hash(#const_names_raw, hasher);
+            Hash::hash(stringify!(#const_names), hasher);
         )*
         // Hash in struct and field names.
         Hash::hash(#name_literal, hasher);
@@ -1532,7 +1521,6 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         concat_generics,
         generics_types,
         const_names,
-        const_names_raw,
         ..
     } = CommonDeriveInput::new(input.clone(), vec![]);
 
@@ -1555,7 +1543,6 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         concat_generics,
         generics_types,
         const_names,
-        const_names_raw,
         is_zero_copy,
         name_literal,
         repr,
