@@ -181,7 +181,7 @@ struct CommonDeriveInput {
     type_parameters: Vec<syn::Ident>,
     /// Identifiers of const type parameters. Used to include their
     /// names and values in the type hash.
-    const_type_parameters: Vec<syn::Ident>,
+    const_parameters: Vec<syn::Ident>,
     /// The identifiers of all generics as token streams.
     generics_names: Vec<proc_macro2::TokenStream>,
     /// Same as `generics_names`, but names are concatenated
@@ -208,7 +208,7 @@ impl CommonDeriveInput {
         let mut concat_generics = quote!();
         let mut generics_types: Vec<syn::Type> = vec![];
 
-        let mut const_type_parameters = vec![];
+        let mut const_parameters = vec![];
 
         if !input.generics.params.is_empty() {
             input.generics.params.into_iter().for_each(|x| {
@@ -238,7 +238,7 @@ impl CommonDeriveInput {
                         impl_generics.extend(quote!(#l,));
                     }
                     syn::GenericParam::Const(mut c) => {
-                        const_type_parameters.push(c.ident.clone());
+                        const_parameters.push(c.ident.clone());
                         generics_names.push(c.ident.to_token_stream());
                         concat_generics.extend(c.ident.to_token_stream());
 
@@ -258,7 +258,7 @@ impl CommonDeriveInput {
             concat_generics,
             type_parameters,
             generics_names,
-            const_type_parameters,
+            const_parameters,
         }
     }
 }
@@ -320,7 +320,7 @@ fn add_ser_deser_bounds(
                     .iter()
                     .any(|x| *ty == x.to_token_stream().to_string())
             {
-                // Add a lifetime so we express bounds on DeserType
+                // The lifetime of the DeserType
                 let mut lifetimes = Punctuated::new();
                 lifetimes.push(GenericParam::Lifetime(LifetimeParam {
                     attrs: vec![],
@@ -331,6 +331,7 @@ fn add_ser_deser_bounds(
                     colon_token: None,
                     bounds: Punctuated::new(),
                 }));
+
 
                 // Add the type bounds to the DeserType
                 where_clause_des
@@ -1044,7 +1045,7 @@ struct TypeHashContext {
     /// Generic types for subtype checking
     generics_types: Vec<syn::Type>,
     /// Generic constant names
-    const_type_parameters: Vec<syn::Ident>,
+    const_parameters: Vec<syn::Ident>,
     /// Whether the type is zero-copy
     is_zero_copy: bool,
     /// Type name as string literal
@@ -1085,7 +1086,7 @@ fn generate_type_hash_body(
     } else {
         "DeepCopy"
     };
-    let const_type_parameters = &ctx.const_type_parameters;
+    let const_parameters = &ctx.const_parameters;
     let name_literal = &ctx.name_literal;
 
     quote! {
@@ -1095,11 +1096,11 @@ fn generate_type_hash_body(
         Hash::hash(#copy_type, hasher);
         // Hash the values of generic constants
         #(
-            Hash::hash(&#const_type_parameters, hasher);
+            Hash::hash(&#const_parameters, hasher);
         )*
         // Hash the identifiers of generic constants
         #(
-            Hash::hash(stringify!(#const_type_parameters), hasher);
+            Hash::hash(stringify!(#const_parameters), hasher);
         )*
         // Hash in struct and field names.
         Hash::hash(#name_literal, hasher);
@@ -1513,7 +1514,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         impl_generics,
         concat_generics,
         generics_types,
-        const_type_parameters,
+        const_parameters,
         ..
     } = CommonDeriveInput::new(input.clone(), vec![]);
 
@@ -1535,7 +1536,7 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         impl_generics,
         concat_generics,
         generics_types,
-        const_type_parameters,
+        const_parameters,
         is_zero_copy,
         name_literal,
         repr,
