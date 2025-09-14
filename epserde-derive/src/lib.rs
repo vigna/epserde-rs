@@ -18,7 +18,7 @@ use syn::{
     GenericParam, LifetimeParam, PredicateType, WhereClause, WherePredicate,
 };
 
-/// Creates an empty where clause
+/// Returns an empty where clause.
 fn empty_where_clause() -> WhereClause {
     WhereClause {
         where_token: token::Where::default(),
@@ -26,7 +26,7 @@ fn empty_where_clause() -> WhereClause {
     }
 }
 
-/// Adds a trait bound to a where clause
+/// Adds a trait bound to a where clause.
 fn add_trait_bound(where_clause: &mut WhereClause, ty: &syn::Type, trait_path: syn::Path) {
     let mut bounds = Punctuated::new();
     bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
@@ -46,7 +46,11 @@ fn add_trait_bound(where_clause: &mut WhereClause, ty: &syn::Type, trait_path: s
         }));
 }
 
-/// Gets field name as TokenStream (either ident or index)
+/// Returns a field name as TokenStream.
+///
+/// This method takes care transparently of unnamed fields (i.e., tuple structs),
+/// and this reason it can only return a `TokenStream` instead of a more specific
+/// type such as `Ident`.
 fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStream {
     field
         .ident
@@ -55,7 +59,12 @@ fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStr
         .unwrap_or_else(|| syn::Index::from(field_idx).to_token_stream())
 }
 
-/// Generates method call for field deserialization
+/// Generates a method call for field deserialization.
+///
+/// This methods takes care of choosing `_deserialize_eps_inner` or
+/// `_deserialize_full_inner` depending on whether the field type is a generic
+/// type or not, and to use the special method `_deserialize_eps_inner_special`
+/// for `PhantomDeserData`.
 fn generate_method_call(
     field_name: &proc_macro2::TokenStream,
     ty: &syn::Type,
@@ -70,7 +79,8 @@ fn generate_method_call(
     }
 }
 
-/// Generates IS_ZERO_COPY expression for fields
+/// Generates the [`IS_ZERO_COPY`](crate::traits::SerializeInner::IS_ZERO_COPY)
+/// expression for fields.
 fn generate_is_zero_copy_expr(
     is_repr_c: bool,
     fields_types: &[syn::Type],
@@ -413,19 +423,16 @@ fn generate_ser_type_generics(
         .collect()
 }
 
-/// Set of where clauses for trait implementations
-struct WhereClausesSet {
-    /// Where clause for serialization traits
+/// Where clauses for `SerializeInner` and `DeserializeInner`
+struct WhereClauses {
+    /// Where clause for `SerializeInner`.
     serialize: WhereClause,
-    /// Where clause for deserialization traits
+    /// Where clause for `DeserializeInner`.
     deserialize: WhereClause,
 }
 
 /// Generate where clauses for main derive traits (SerializeInner, DeserializeInner)
-fn generate_main_trait_where_clauses(
-    base_clause: &WhereClause,
-    field_types: &[syn::Type],
-) -> WhereClausesSet {
+fn generate_where_clauses(base_clause: &WhereClause, field_types: &[syn::Type]) -> WhereClauses {
     let mut where_clause_ser = base_clause.clone();
     let mut where_clause_des = base_clause.clone();
 
@@ -434,7 +441,7 @@ fn generate_main_trait_where_clauses(
         add_ser_deser_trait_bounds(&mut where_clause_ser, &mut where_clause_des, ty);
     }
 
-    WhereClausesSet {
+    WhereClauses {
         serialize: where_clause_ser,
         deserialize: where_clause_des,
     }
@@ -561,7 +568,7 @@ fn initialize_trait_impl(ctx: &CodegenContext, fields_types: &[syn::Type]) -> Tr
         .unwrap_or_else(empty_where_clause);
 
     // Generate where clauses for trait implementations
-    let where_clauses = generate_main_trait_where_clauses(&base_where_clause, fields_types);
+    let where_clauses = generate_where_clauses(&base_where_clause, fields_types);
     let where_clause_ser = where_clauses.serialize;
     let where_clause_des = where_clauses.deserialize;
 
@@ -893,7 +900,8 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
 
     // Gather deserialization types of fields, as they are necessary to
     // derive the deserialization type.
-    let deser_type_generics = generate_deser_type_generics(&ctx.generics_names, &types_with_generics);
+    let deser_type_generics =
+        generate_deser_type_generics(&ctx.generics_names, &types_with_generics);
     let ser_type_generics = generate_ser_type_generics(&ctx.generics_names, &types_with_generics);
 
     // Initialize common trait implementation data
