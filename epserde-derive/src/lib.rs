@@ -581,7 +581,7 @@ fn initialize_trait_impl(ctx: &CodegenContext, fields_types: &[syn::Type]) -> Tr
 }
 
 /// Generate implementation for enum types
-fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
+fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
     let mut variants_names = Vec::new();
     let mut variants = Vec::new();
     let mut variant_ser = Vec::new();
@@ -724,7 +724,7 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
         concat_generics,
         generics_serialize,
         generics_deserialize,
-    } = initialize_trait_impl(ctx, &fields_types);
+    } = initialize_trait_impl(&ctx, &fields_types);
     let is_deep_copy = ctx.is_deep_copy;
 
     if ctx.is_zero_copy {
@@ -861,7 +861,7 @@ fn generate_enum_impl(ctx: &CodegenContext, e: &syn::DataEnum) -> proc_macro2::T
 }
 
 /// Generate implementation for struct types
-fn generate_struct_impl(ctx: &CodegenContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
+fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     let mut fields_types = vec![];
     let mut fields_names = vec![];
     let mut fields_without_generics = vec![];
@@ -936,7 +936,7 @@ fn generate_struct_impl(ctx: &CodegenContext, s: &syn::DataStruct) -> proc_macro
         concat_generics,
         generics_serialize,
         generics_deserialize,
-    } = initialize_trait_impl(ctx, &fields_types);
+    } = initialize_trait_impl(&ctx, &fields_types);
 
     if ctx.is_zero_copy {
         // In zero-copy types we do not need to add bounds to
@@ -1256,7 +1256,7 @@ fn generate_type_hash_traits(
 
 /// Generate TypeHash implementation for struct types
 fn generate_struct_type_hash(
-    ctx: &TypeHashContext,
+    ctx: TypeHashContext,
     s: &syn::DataStruct,
 ) -> proc_macro2::TokenStream {
     let mut generic_types = vec![];
@@ -1301,8 +1301,8 @@ fn generate_struct_type_hash(
         .collect();
 
     // Generate implementation bodies
-    let type_hash_body = generate_type_hash_body(ctx, &field_hashes);
-    let align_hash_body = generate_struct_align_hash_body(ctx, &fields_types);
+    let type_hash_body = generate_type_hash_body(&ctx, &field_hashes);
+    let align_hash_body = generate_struct_align_hash_body(&ctx, &fields_types);
     let max_size_of_body = if ctx.is_zero_copy {
         Some(generate_max_size_of_body(&fields_types))
     } else {
@@ -1310,7 +1310,7 @@ fn generate_struct_type_hash(
     };
 
     generate_type_hash_traits(
-        ctx,
+        &ctx,
         &where_clause_type_hash,
         &where_clause_align_hash,
         &where_clause_max_size_of,
@@ -1321,7 +1321,7 @@ fn generate_struct_type_hash(
 }
 
 /// Generate TypeHash implementation for enum types
-fn generate_enum_type_hash(ctx: &TypeHashContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
+fn generate_enum_type_hash(ctx: TypeHashContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
     let mut var_type_hashes = Vec::new();
     let mut var_align_hashes = Vec::new();
     let mut var_max_size_ofs = Vec::new();
@@ -1408,7 +1408,7 @@ fn generate_enum_type_hash(ctx: &TypeHashContext, e: &syn::DataEnum) -> proc_mac
     } = generate_type_hash_where_clauses(&where_clause, &generic_types);
 
     // Generate implementation bodies
-    let type_hash_body = generate_type_hash_body(ctx, &var_type_hashes);
+    let type_hash_body = generate_type_hash_body(&ctx, &var_type_hashes);
 
     let repr = &ctx.repr;
     let align_hash_body = if ctx.is_zero_copy {
@@ -1455,7 +1455,7 @@ fn generate_enum_type_hash(ctx: &TypeHashContext, e: &syn::DataEnum) -> proc_mac
     };
 
     generate_type_hash_traits(
-        ctx,
+        &ctx,
         &where_clause_type_hash,
         &where_clause_align_hash,
         &where_clause_max_size_of,
@@ -1527,8 +1527,8 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
     };
 
     let mut out: TokenStream = match &data {
-        Data::Struct(s) => generate_struct_impl(&ctx, s),
-        Data::Enum(e) => generate_enum_impl(&ctx, e),
+        Data::Struct(s) => generate_struct_impl(ctx, s),
+        Data::Enum(e) => generate_enum_impl(ctx, e),
         _ => todo!("Union types are not currently supported"),
     }
     .into();
@@ -1584,8 +1584,8 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
     };
 
     match &data {
-        Data::Struct(s) => generate_struct_type_hash(&ctx, s),
-        Data::Enum(e) => generate_enum_type_hash(&ctx, e),
+        Data::Struct(s) => generate_struct_type_hash(ctx, s),
+        Data::Enum(e) => generate_enum_type_hash(ctx, e),
         _ => todo!("Union types are not currently supported"),
     }
     .into()
