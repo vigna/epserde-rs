@@ -552,10 +552,7 @@ struct TraitImplInit {
 }
 
 /// Initialize common trait implementation data
-fn initialize_trait_impl(
-    ctx: &CodegenContext,
-    fields_types: &[syn::Type],
-) -> TraitImplInit {
+fn initialize_trait_impl(ctx: &CodegenContext, fields_types: &[syn::Type]) -> TraitImplInit {
     let base_where_clause = ctx
         .derive_input
         .generics
@@ -1084,7 +1081,7 @@ struct TypeHashContext {
     /// Generic types for subtype checking
     generics_types: Vec<syn::Type>,
     /// Generic constant names
-    const_names: Vec<proc_macro2::TokenStream>,
+    const_names: Vec<syn::Ident>,
     /// Raw generic constant names
     const_names_raw: Vec<String>,
     /// Whether the type is zero-copy
@@ -1513,45 +1510,29 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
         ..
     } = CommonDeriveInput::new(derive_input.clone(), vec![]);
 
-    let out = match &derive_input.data {
-        Data::Struct(s) => {
-            let ctx = CodegenContext {
-                derive_input: derive_input.clone(),
-                name: name.clone(),
-                concat_generics: concat_generics.clone(),
-                generics_names_raw: generics_names_raw.clone(),
-                generics_names: generics_names.clone(),
-                generics_types: generics_types.clone(),
-                impl_generics: impl_generics.clone(),
-                generics_serialize: generics_serialize.clone(),
-                generics_deserialize: generics_deserialize.clone(),
-                is_repr_c,
-                is_zero_copy,
-                is_deep_copy,
-            };
-            generate_struct_impl(&ctx, s)
-        }
-        Data::Enum(e) => {
-            let ctx = CodegenContext {
-                derive_input: derive_input.clone(),
-                name: name.clone(),
-                concat_generics: concat_generics.clone(),
-                generics_names_raw: generics_names_raw.clone(),
-                generics_names: generics_names.clone(),
-                generics_types: generics_types.clone(),
-                impl_generics: impl_generics.clone(),
-                generics_serialize: generics_serialize.clone(),
-                generics_deserialize: generics_deserialize.clone(),
-                is_repr_c,
-                is_zero_copy,
-                is_deep_copy,
-            };
-            generate_enum_impl(&ctx, e)
-        }
-        _ => todo!("Union types are not currently supported"),
+    let data = derive_input.data.to_owned();
+    let ctx = CodegenContext {
+        derive_input,
+        name,
+        concat_generics,
+        generics_names_raw,
+        generics_names,
+        generics_types,
+        impl_generics,
+        generics_serialize,
+        generics_deserialize,
+        is_repr_c,
+        is_zero_copy,
+        is_deep_copy,
     };
 
-    let mut out: TokenStream = out.into();
+    let mut out: TokenStream = match &data {
+        Data::Struct(s) => generate_struct_impl(&ctx, s),
+        Data::Enum(e) => generate_enum_impl(&ctx, e),
+        _ => todo!("Union types are not currently supported"),
+    }
+    .into();
+
     // automatically derive type hash
     out.extend(epserde_type_hash(input_for_type_hash));
     out
@@ -1588,26 +1569,24 @@ pub fn epserde_type_hash(input: TokenStream) -> TokenStream {
         .map(|x| x.meta.require_list().unwrap().tokens.to_string())
         .collect::<Vec<_>>();
 
+    let data = input.data.to_owned();
     let ctx = TypeHashContext {
-        input: input.clone(),
-        name: name.clone(),
-        impl_generics: impl_generics.clone(),
-        concat_generics: concat_generics.clone(),
-        generics_types: generics_types.clone(),
-        const_names: const_names
-            .iter()
-            .map(|x| x.to_token_stream())
-            .collect::<Vec<_>>(),
-        const_names_raw: const_names_raw.clone(),
+        input,
+        name,
+        impl_generics,
+        concat_generics,
+        generics_types,
+        const_names,
+        const_names_raw,
         is_zero_copy,
         name_literal,
         repr,
     };
 
-    let out = match &input.data {
+    match &data {
         Data::Struct(s) => generate_struct_type_hash(&ctx, s),
         Data::Enum(e) => generate_enum_type_hash(&ctx, e),
         _ => todo!("Union types are not currently supported"),
-    };
-    out.into()
+    }
+    .into()
 }
