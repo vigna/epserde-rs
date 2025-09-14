@@ -90,7 +90,7 @@ fn type_equals_ident(ty: &syn::Type, ident: &syn::Ident) -> bool {
 fn generate_method_call(
     field_name: &proc_macro2::TokenStream,
     ty: &syn::Type,
-    type_params_ids: &HashSet<&syn::Ident>,
+    generic_fields_ids: &HashSet<syn::Ident>,
 ) -> proc_macro2::TokenStream {
     if let syn::Type::Path(syn::TypePath {
         qself: None,
@@ -108,7 +108,7 @@ fn generate_method_call(
             }
         }
 
-        if segments.len() == 1 && type_params_ids.contains(&segments[0].ident) {
+        if segments.len() == 1 && generic_fields_ids.contains(&segments[0].ident) {
             return syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_eps_inner);
         }
     }
@@ -235,7 +235,7 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
 }
 
 /// Add trait bounds for associated (de)serialization types based on bounds on
-/// type parameters.
+/// type parameters that are types of some field.
 fn add_ser_deser_bounds(
     derive_input: &DeriveInput,
     generic_fields_ids: &HashSet<syn::Ident>,
@@ -251,10 +251,6 @@ fn add_ser_deser_bounds(
 
             // We are just interested in types with bounds that are
             // types of fields of the struct.
-            //
-            // Note that generic_fields_ids contains also field types
-            // *containing* a type parameter, but that just slows down
-            // the search.
             if !t.bounds.is_empty()
                 && generic_fields_ids.contains(ident)
             {
@@ -527,7 +523,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
     let mut variant_eps_des = Vec::new();
     let mut generic_fields_ids = HashSet::new();
     let mut fields_types = Vec::new();
-    let type_const_ids = HashSet::from_iter(&ctx.type_const_ids);
+    let type_const_ids = ctx.type_const_ids.iter().cloned().collect::<HashSet<_>>();
 
     e.variants.iter().enumerate().for_each(|(variant_id, variant)| {
         variants_names.push(variant.ident.to_token_stream());
@@ -549,14 +545,14 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                 .iter()
                 .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
                 .for_each(|(name, ty)| {
-                    for &id in &type_const_ids {
+                    for id in &type_const_ids {
                         if type_equals_ident(ty, id) {
                             generic_fields_ids.insert(id.clone());
                             break;
                         }
                     }
 
-                    method_calls.push(generate_method_call(&name.to_token_stream(), ty, &type_const_ids));
+                    method_calls.push(generate_method_call(&name.to_token_stream(), ty, &generic_fields_ids));
 
                     var_fields_names.push(name.to_token_stream());
                     var_fields_types.push(ty.clone());
@@ -596,7 +592,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                 .for_each(|(field_idx, unnamed)| {
                     let ty = &unnamed.ty;
                     let name = syn::Index::from(field_idx);
-                    for &id in &type_const_ids {
+                    for id in &type_const_ids {
                         if type_equals_ident(ty, id) {
                             generic_fields_ids.insert(id.clone());
                             break;
@@ -609,7 +605,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                     )
                     .to_token_stream());
 
-                    method_calls.push(generate_method_call(&name.to_token_stream(), ty, &type_const_ids));
+                    method_calls.push(generate_method_call(&name.to_token_stream(), ty, &generic_fields_ids));
 
                     var_fields_vars.push(syn::Index::from(field_idx));
                     var_fields_types.push(ty.clone());
@@ -799,24 +795,28 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
     let mut fields_names = vec![];
     let mut generic_fields_ids = HashSet::new();
     let mut method_calls: Vec<proc_macro2::TokenStream> = vec![];
-    let type_const_ids = HashSet::from_iter(&ctx.type_const_ids);
+    let type_const_ids = ctx.type_const_ids.iter().cloned().collect::<HashSet<_>>();
 
     // Scan the struct to find which fields contain a generic
     // type (i.e., they are themselves of a generic type,
     // or of a type containing a generic type as a parameter).
     s.fields.iter().enumerate().for_each(|(field_idx, field)| {
-        let ty = &field.ty;
+        let field_type = &field.ty;
         let field_name = get_field_name(field, field_idx);
 
-        for &ident in &type_const_ids {
-            if type_equals_ident(ty, ident) {
-                generic_fields_ids.insert(ident.clone());
+        for id in &type_const_ids {
+            if type_equals_ident(field_type, id) {
+                generic_fields_ids.insert(id.clone());
                 break;
             }
         }
 
-        method_calls.push(generate_method_call(&field_name, ty, &type_const_ids));
-        fields_types.push(ty.clone());
+        method_calls.push(generate_method_call(
+            &field_name,
+            field_type,
+            &generic_fields_ids,
+        ));
+        fields_types.push(field_type.clone());
         fields_names.push(field_name);
     });
 
