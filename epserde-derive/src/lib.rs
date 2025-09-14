@@ -82,7 +82,7 @@ fn generate_is_zero_copy_expr(
     }
 }
 
-/// Checks whether `sub_type` is part of `ty`. we use this function to detect which
+/// Checks if `sub_type` is part of `ty`. we use this function to detect which
 /// field types contains generics and thus need to be bounded.
 fn is_subtype(ty: &syn::Type, sub_type: &syn::Type) -> bool {
     // early stop if they perfectly match
@@ -286,9 +286,9 @@ fn is_phantom_deser_data(ty: &syn::Type) -> bool {
 
 /// Add trait bounds for associated (de)serialization types based on bounds on
 /// type parameters.
-fn add_ser_deser_bounds<T: quote::ToTokens>(
+fn add_ser_deser_bounds(
     derive_input: &DeriveInput,
-    types_with_generics: &[T],
+    types_with_generics: &[syn::Type],
     where_clause_ser: &mut WhereClause,
     where_clause_des: &mut WhereClause,
 ) {
@@ -376,7 +376,7 @@ fn add_ser_deser_trait_bounds(
 /// Generate deserialization type generics
 fn generate_deser_type_generics(
     generics_names: &[proc_macro2::TokenStream],
-    types_with_generics: &[proc_macro2::TokenStream],
+    types_with_generics: &[syn::Type],
 ) -> Vec<proc_macro2::TokenStream> {
     generics_names
         .iter()
@@ -396,7 +396,7 @@ fn generate_deser_type_generics(
 /// Generate serialization type generics
 fn generate_ser_type_generics(
     generics_names: &[proc_macro2::TokenStream],
-    types_with_generics: &[proc_macro2::TokenStream],
+    types_with_generics: &[syn::Type],
 ) -> Vec<proc_macro2::TokenStream> {
     generics_names
         .iter()
@@ -614,7 +614,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                 .for_each(|(ident, ty)| {
                     if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
                         fields_with_generics.push(ident.to_token_stream());
-                        types_with_generics.push(ty.to_token_stream());
+                        types_with_generics.push(ty.clone());
                     } else {
                         fields_without_generics.push(ident.to_token_stream());
                         types_without_generics.push(ty.to_token_stream());
@@ -662,7 +662,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                     let ident = syn::Index::from(field_idx);
                     if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
                         fields_with_generics.push(ident.to_token_stream());
-                        types_with_generics.push(ty.to_token_stream());
+                        types_with_generics.push(ty.clone());
                     } else {
                         fields_without_generics.push(ident.to_token_stream());
                         types_without_generics.push(ty.to_token_stream());
@@ -877,7 +877,7 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
 
         if ctx.generics_types.iter().any(|x| is_subtype(ty, x)) {
             fields_with_generics.push(field_name.clone());
-            types_with_generics.push(ty);
+            types_with_generics.push(ty.clone());
         } else {
             fields_without_generics.push(field_name.clone());
             types_without_generics.push(ty);
@@ -893,35 +893,8 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
 
     // Gather deserialization types of fields, as they are necessary to
     // derive the deserialization type.
-    let deser_type_generics = ctx
-        .generics_names
-        .iter()
-        .map(|ty| {
-            if types_with_generics
-                .iter()
-                .any(|x| x.to_token_stream().to_string() == ty.to_string())
-            {
-                quote!(<#ty as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
-            } else {
-                ty.clone()
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let ser_type_generics = ctx
-        .generics_names
-        .iter()
-        .map(|ty| {
-            if types_with_generics
-                .iter()
-                .any(|x| x.to_token_stream().to_string() == ty.to_string())
-            {
-                quote!(<#ty as ::epserde::ser::SerializeInner>::SerType)
-            } else {
-                ty.clone()
-            }
-        })
-        .collect::<Vec<_>>();
+    let deser_type_generics = generate_deser_type_generics(&ctx.generics_names, &types_with_generics);
+    let ser_type_generics = generate_ser_type_generics(&ctx.generics_names, &types_with_generics);
 
     // Initialize common trait implementation data
     let TraitImplInit {
