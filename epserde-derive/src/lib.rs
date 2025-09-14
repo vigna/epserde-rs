@@ -48,9 +48,9 @@ fn add_trait_bound(where_clause: &mut WhereClause, ty: &syn::Type, trait_path: s
 
 /// Returns a field name as TokenStream.
 ///
-/// This method takes care transparently of unnamed fields (i.e., tuple structs),
-/// and this reason it can only return a `TokenStream` instead of a more specific
-/// type such as `Ident`.
+/// This method takes care transparently of unnamed fields (i.e., tuple
+/// structs), and for this reason it can only return a `TokenStream` instead of
+/// a more specific type such as `Ident`.
 fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStream {
     field
         .ident
@@ -65,18 +65,33 @@ fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStr
 /// `_deserialize_full_inner` depending on whether the field type is a generic
 /// type or not, and to use the special method `_deserialize_eps_inner_special`
 /// for `PhantomDeserData`.
+///
+/// The type of `field_name` is `TokenStream` because it can be either an
+/// identifier (for named fields) or an index (for unnamed fields).
 fn generate_method_call(
     field_name: &proc_macro2::TokenStream,
     ty: &syn::Type,
-    generics_names_raw: &[String],
+    generics_names: &[syn::Ident],
 ) -> proc_macro2::TokenStream {
-    if is_phantom_deser_data(ty) {
-        syn::parse_quote!(#field_name: <#ty>::_deserialize_eps_inner_special)
-    } else if generics_names_raw.contains(&ty.to_token_stream().to_string()) {
-        syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_eps_inner)
-    } else {
-        syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_full_inner)
+    if let syn::Type::Path(syn::TypePath {
+        qself: None,
+        path: syn::Path {
+            leading_colon: None,
+            segments,
+        },
+    }) = ty
+    {
+        if let Some(segment) = segments.last() {
+            if segment.ident == "PhantomDeserData" {
+                return syn::parse_quote!(#field_name: <#ty>::_deserialize_eps_inner_special);
+            }
+        }
+
+        if segments.len() == 1 && generics_names.contains(&segments[0].ident) {
+            return syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_eps_inner);
+        }
     }
+    syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_full_inner)
 }
 
 /// Generates the [`IS_ZERO_COPY`](crate::traits::SerializeInner::IS_ZERO_COPY)
@@ -172,9 +187,8 @@ struct CommonDeriveInput {
     /// Same as `generics_names`, but names are concatenated
     /// and separated by commas.
     concat_generics: proc_macro2::TokenStream,
-    /// A vector containing the name of generics types, represented as strings.
-    /// Used to include the identifiers of generic types into the type hash.
-    generics_names_raw: Vec<String>,
+    /// Identifiers of type parameters
+    type_parameters: Vec<syn::Ident>,
     /// A vector containing the identifiers of the generic constants.
     /// Used to include the generic constant values into the type hash.
     const_names: Vec<syn::Ident>,
@@ -191,7 +205,7 @@ impl CommonDeriveInput {
     fn new(input: DeriveInput, traits_to_add: Vec<syn::Path>) -> Self {
         let name = input.ident;
         let mut impl_generics = quote!();
-        let mut generics_names_raw = vec![];
+        let mut type_parameters = vec![];
         let mut generics_names = vec![];
         let mut concat_generics = quote!();
         let mut generics_types: Vec<syn::Type> = vec![];
@@ -204,7 +218,7 @@ impl CommonDeriveInput {
                 match x {
                     syn::GenericParam::Type(mut t) => {
                         concat_generics.extend(t.ident.to_token_stream());
-                        generics_names_raw.push(t.ident.to_string());
+                        type_parameters.push(t.ident.clone());
 
                         t.default = None;
                         for trait_to_add in traits_to_add.iter() {
@@ -245,7 +259,7 @@ impl CommonDeriveInput {
             impl_generics,
             generics_types,
             concat_generics,
-            generics_names_raw,
+            type_parameters,
             generics_names,
             const_names_raw,
             const_names,
@@ -282,16 +296,6 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     }
 
     (is_repr_c, is_zero_copy, is_deep_copy)
-}
-
-/// Check if a type is PhantomDeserData
-fn is_phantom_deser_data(ty: &syn::Type) -> bool {
-    if let syn::Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            return segment.ident == "PhantomDeserData";
-        }
-    }
-    false
 }
 
 /// Add trait bounds for associated (de)serialization types based on bounds on
@@ -395,7 +399,7 @@ fn generate_deser_type_generics(
                 .iter()
                 .any(|x| x.to_token_stream().to_string() == ty.to_string())
             {
-                quote!(<#ty as DeserializeInner>::DeserType<'epserde_desertype>)
+                quote!(<#ty as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
             } else {
                 ty.clone()
             }
@@ -415,7 +419,7 @@ fn generate_ser_type_generics(
                 .iter()
                 .any(|x| x.to_token_stream().to_string() == ty.to_string())
             {
-                quote!(<#ty as SerializeInner>::SerType)
+                quote!(<#ty as ::epserde::ser::SerializeInner>::SerType)
             } else {
                 ty.clone()
             }
@@ -516,8 +520,8 @@ struct CodegenContext {
     name: syn::Ident,
     /// Concatenated generics for type declarations (e.g., `<T, U>`)
     concat_generics: proc_macro2::TokenStream,
-    /// Raw generic names as strings (e.g., `["T", "U"]`)
-    generics_names_raw: Vec<String>,
+    /// Identifiers of type parameters
+    type_parameters: Vec<syn::Ident>,
     /// Generic names as token streams for code generation
     generics_names: Vec<proc_macro2::TokenStream>,
     /// Generic types for subtype checking
@@ -627,7 +631,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                         types_without_generics.push(ty.to_token_stream());
                     }
 
-                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &ctx.generics_names_raw));
+                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &ctx.type_parameters));
 
                     var_fields_names.push(ident.to_token_stream());
                     var_fields_types.push(ty.clone());
@@ -681,7 +685,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                     )
                     .to_token_stream());
 
-                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &ctx.generics_names_raw));
+                    method_calls.push(generate_method_call(&ident.to_token_stream(), ty, &ctx.type_parameters));
 
                     var_fields_vars.push(syn::Index::from(field_idx));
                     var_fields_types.push(ty.clone());
@@ -889,11 +893,7 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
             fields_without_generics.push(field_name.clone());
             types_without_generics.push(ty);
         }
-        method_calls.push(generate_method_call(
-            &field_name,
-            ty,
-            &ctx.generics_names_raw,
-        ));
+        method_calls.push(generate_method_call(&field_name, ty, &ctx.type_parameters));
         fields_types.push(ty.clone());
         fields_names.push(field_name);
     });
@@ -1103,6 +1103,7 @@ fn generate_type_hash_body(
     };
     let const_names = &ctx.const_names;
     let const_names_raw = &ctx.const_names_raw;
+    dbg!(&const_names, &const_names_raw);
     let name_literal = &ctx.name_literal;
 
     quote! {
@@ -1181,7 +1182,7 @@ fn generate_max_size_of_body(fields_types: &[syn::Type]) -> proc_macro2::TokenSt
     }
 }
 
-/// Generate the trait implementations (TypeHash, AlignHash, and optionally MaxSizeOf)
+/// Generates the implementations for TypeHash, AlignHash, and optionally MaxSizeOf.
 fn generate_type_hash_traits(
     ctx: &TypeHashContext,
     where_clause_type_hash: &syn::WhereClause,
@@ -1468,7 +1469,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
     let CommonDeriveInput {
         name,
         concat_generics,
-        generics_names_raw,
+        type_parameters,
         generics_names,
         impl_generics,
         generics_types,
@@ -1492,7 +1493,7 @@ pub fn epserde_derive(input: TokenStream) -> TokenStream {
         derive_input,
         name,
         concat_generics,
-        generics_names_raw,
+        type_parameters,
         generics_names,
         generics_types,
         impl_generics,
