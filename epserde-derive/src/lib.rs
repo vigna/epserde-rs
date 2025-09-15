@@ -5,15 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
-
-Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) crate.
-
-*/
-
-use std::collections::HashSet;
+//! Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) crate.
 
 use quote::{quote, ToTokens};
+use std::collections::HashSet;
 use syn::{
     parse_macro_input, punctuated::Punctuated, token, BoundLifetimes, Data, DeriveInput,
     GenericParam, LifetimeParam, PredicateType, WhereClause, WherePredicate,
@@ -27,7 +22,7 @@ fn empty_where_clause() -> WhereClause {
     }
 }
 
-/// Adds a trait bound to a where clause.
+/// Adds a trait bound for a type to a where clause.
 fn add_trait_bound(where_clause: &mut WhereClause, ty: &syn::Type, trait_path: syn::Path) {
     let mut bounds = Punctuated::new();
     bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
@@ -136,13 +131,12 @@ struct CommonDeriveInput {
     type_const_ids: Vec<syn::Ident>,
     /// Identifiers of const parameters, in order of appearance.
     const_ids: Vec<syn::Ident>,
-    /// All generics (lifetimes and type parameters) concatenated and separated
-    /// by commas, in order of appearance. It can be put between `<` and `>`
-    /// after the structure name.
+    /// All generics (lifetimes and type/const parameters) concatenated and
+    /// separated by commas, in order of appearance. It can be put between `<`
+    /// and `>` after the structure name.
     concat_generics: proc_macro2::TokenStream,
-    /// Same as `concat_generics`, but with all necessary trait
-    /// bounds. It can be put between `<` and `>` after
-    /// the `impl` keyword.
+    /// Same as `concat_generics`, but with all necessary trait bounds on type
+    /// parameters. It can be put between `<` and `>` after the `impl` keyword.
     impl_generics: proc_macro2::TokenStream,
 }
 
@@ -156,6 +150,14 @@ impl CommonDeriveInput {
         let mut const_ids = vec![];
         let mut concat_generics = quote!();
         let mut impl_generics = quote!();
+
+        let mut input_generics = input.generics.clone();
+        input_generics.make_where_clause();
+        let (_impl_generics, _ty_generics, where_clause) = input_generics.split_for_impl();
+        let where_clause = where_clause.clone().unwrap();
+        if !where_clause.predicates.is_empty() {
+            panic!("The derive macros do not support where clauses on the original type. Please remove the where clause and add the necessary trait bounds to the type parameters.");
+        }
 
         input.generics.params.into_iter().for_each(|x| {
             match x {
