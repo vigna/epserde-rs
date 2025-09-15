@@ -134,8 +134,8 @@ struct CommonDeriveInput {
     /// All generics (lifetimes and type/const parameters) concatenated and
     /// separated by commas, in order of appearance. It can be put between `<`
     /// and `>` after the structure name.
-    concat_generics: proc_macro2::TokenStream,
-    /// Same as `concat_generics`, but with all necessary trait bounds on type
+    generics: proc_macro2::TokenStream,
+    /// Same as `generics`, but with all necessary trait bounds on type
     /// parameters. It can be put between `<` and `>` after the `impl` keyword.
     impl_generics: proc_macro2::TokenStream,
 }
@@ -148,23 +148,16 @@ impl CommonDeriveInput {
         let name = input.ident;
         let mut type_const_ids = vec![];
         let mut const_ids = vec![];
-        let mut concat_generics = quote!();
+        let mut generics = quote!();
         let mut impl_generics = quote!();
 
-        let mut input_generics = input.generics.clone();
-        input_generics.make_where_clause();
-        let (_impl_generics, _ty_generics, where_clause) = input_generics.split_for_impl();
-        let where_clause = where_clause.clone().unwrap();
-        if !where_clause.predicates.is_empty() {
-            panic!("The derive macros do not support where clauses on the original type. Please remove the where clause and add the necessary trait bounds to the type parameters.");
+        if input.generics.where_clause.is_some() {
+            panic!("The derive macros do not support where clauses on the original type.");
         }
 
         input.generics.params.into_iter().for_each(|x| {
             match x {
                 syn::GenericParam::Type(mut t) => {
-                    type_const_ids.push(t.ident.clone());
-                    concat_generics.extend(t.ident.to_token_stream());
-
                     // Remove default and add traits
                     t.default = None;
                     for trait_to_add in traits_to_add.iter() {
@@ -176,31 +169,33 @@ impl CommonDeriveInput {
                         }));
                     }
 
+                    type_const_ids.push(t.ident.clone());
+                    generics.extend(t.ident.to_token_stream());
                     impl_generics.extend(quote!(#t,));
                 }
                 syn::GenericParam::Lifetime(l) => {
-                    concat_generics.extend(l.lifetime.to_token_stream());
+                    generics.extend(l.lifetime.to_token_stream());
                     impl_generics.extend(quote!(#l,));
                 }
                 syn::GenericParam::Const(mut c) => {
-                    const_ids.push(c.ident.clone());
-                    type_const_ids.push(c.ident.clone());
-                    concat_generics.extend(c.ident.to_token_stream());
-
                     // Remove default
                     c.default = None;
+
+                    const_ids.push(c.ident.clone());
+                    type_const_ids.push(c.ident.clone());
+                    generics.extend(c.ident.to_token_stream());
                     impl_generics.extend(quote!(#c,));
                 }
             };
-            concat_generics.extend(quote!(,))
+            generics.extend(quote!(,))
         });
 
         Self {
             name,
             const_ids,
             type_const_ids,
+            generics,
             impl_generics,
-            concat_generics,
         }
     }
 }
@@ -447,11 +442,14 @@ struct CodegenContext {
     derive_input: DeriveInput,
     /// The name of the type being derived
     name: syn::Ident,
-    /// Concatenated generics for type declarations (e.g., `<T, U>`)
-    concat_generics: proc_macro2::TokenStream,
     /// Identifiers of type and const parameters, in order of appearance.
     type_const_ids: Vec<syn::Ident>,
-    /// Implementation generics for trait bounds
+    /// All generics (lifetimes and type/const parameters) concatenated and
+    /// separated by commas, in order of appearance. It can be put between `<`
+    /// and `>` after the structure name.
+    generics: proc_macro2::TokenStream,
+    /// Same as `generics`, but with all necessary trait bounds on type
+    /// parameters. It can be put between `<` and `>` after the `impl` keyword.
     impl_generics: proc_macro2::TokenStream,
     /// Serialization generics with bounds
     generics_serialize: proc_macro2::TokenStream,
@@ -477,10 +475,13 @@ struct TraitImplInit {
     is_zero_copy_expr: proc_macro2::TokenStream,
     /// Type name
     name: syn::Ident,
-    /// Implementation generics
+    /// All generics (lifetimes and type/const parameters) concatenated and
+    /// separated by commas, in order of appearance. It can be put between `<`
+    /// and `>` after the structure name.
+    generics: proc_macro2::TokenStream,
+    /// Same as `generics`, but with all necessary trait bounds on type
+    /// parameters. It can be put between `<` and `>` after the `impl` keyword.
     impl_generics: proc_macro2::TokenStream,
-    /// Concatenated generics
-    concat_generics: proc_macro2::TokenStream,
     /// Serialization generics
     generics_serialize: proc_macro2::TokenStream,
     /// Deserialization generics
@@ -509,8 +510,8 @@ fn initialize_trait_impl(ctx: &CodegenContext, fields_types: &[syn::Type]) -> Tr
         where_clause_des,
         is_zero_copy_expr,
         name: ctx.name.clone(),
+        generics: ctx.generics.clone(),
         impl_generics: ctx.impl_generics.clone(),
-        concat_generics: ctx.concat_generics.clone(),
         generics_serialize: ctx.generics_serialize.clone(),
         generics_deserialize: ctx.generics_deserialize.clone(),
     }
@@ -652,8 +653,8 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
         mut where_clause_des,
         is_zero_copy_expr,
         name,
+        generics,
         impl_generics,
-        concat_generics,
         generics_serialize,
         generics_deserialize,
     } = initialize_trait_impl(&ctx, &fields_types);
@@ -666,11 +667,11 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
 
         quote! {
             #[automatically_derived]
-            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
+            impl<#impl_generics> ::epserde::traits::CopyType for #name<#generics> #where_clause {
                 type Copy = ::epserde::traits::Zero;
             }
             #[automatically_derived]
-            impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
+            impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#generics> #where_clause_ser {
                 type SerType = Self;
 
                 // Compute whether the type could be zero copy
@@ -693,7 +694,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
             }
 
             #[automatically_derived]
-            impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+            impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#generics> #where_clause_des {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
@@ -726,12 +727,12 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
 
         quote! {
             #[automatically_derived]
-            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
+            impl<#impl_generics> ::epserde::traits::CopyType for #name<#generics> #where_clause {
                 type Copy = ::epserde::traits::Deep;
             }
             #[automatically_derived]
 
-            impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
+            impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#generics> #where_clause_ser {
                 type SerType = #name<#(#ser_type_generics,)*>;
 
                 // Compute whether the type could be zero copy
@@ -755,7 +756,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                 }
             }
             #[automatically_derived]
-            impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+            impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#generics> #where_clause_des {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
@@ -834,8 +835,8 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
         mut where_clause_des,
         is_zero_copy_expr,
         name,
+        generics,
         impl_generics,
-        concat_generics,
         generics_serialize,
         generics_deserialize,
     } = initialize_trait_impl(&ctx, &fields_types);
@@ -846,12 +847,12 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
         // replaced with their SerType/DeserType.
         quote! {
             #[automatically_derived]
-            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
+            impl<#impl_generics> ::epserde::traits::CopyType for #name<#generics> #where_clause {
                 type Copy = ::epserde::traits::Zero;
             }
 
             #[automatically_derived]
-            impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
+            impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#generics> #where_clause_ser {
                 type SerType = Self;
                 // Compute whether the type could be zero copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
@@ -874,7 +875,7 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
             }
 
             #[automatically_derived]
-            impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des
+            impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#generics> #where_clause_des
             {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
@@ -908,12 +909,12 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
 
         quote! {
             #[automatically_derived]
-            impl<#impl_generics> ::epserde::traits::CopyType for #name<#concat_generics> #where_clause {
+            impl<#impl_generics> ::epserde::traits::CopyType for #name<#generics> #where_clause {
                 type Copy = ::epserde::traits::Deep;
             }
 
             #[automatically_derived]
-            impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#concat_generics> #where_clause_ser {
+            impl<#generics_serialize> ::epserde::ser::SerializeInner for #name<#generics> #where_clause_ser {
                 type SerType = #name<#(#ser_type_generics,)*>;
                 // Compute whether the type could be zero copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
@@ -936,7 +937,7 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
             }
 
             #[automatically_derived]
-            impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#concat_generics> #where_clause_des {
+            impl<#generics_deserialize> ::epserde::deser::DeserializeInner for #name<#generics> #where_clause_des {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
@@ -974,14 +975,17 @@ struct TypeHashContext {
     input: DeriveInput,
     /// The name of the type
     name: syn::Ident,
-    /// Implementation generics
-    impl_generics: proc_macro2::TokenStream,
-    /// Concatenated generics
-    concat_generics: proc_macro2::TokenStream,
     /// Identifiers of type and const parameters, in order of appearance.
     type_const_ids: Vec<syn::Ident>,
     /// Identifiers of const parameters, in order of appearance.
     const_ids: Vec<syn::Ident>,
+    /// All generics (lifetimes and type/const parameters) concatenated and
+    /// separated by commas, in order of appearance. It can be put between `<`
+    /// and `>` after the structure name.
+    generics: proc_macro2::TokenStream,
+    /// Same as `generics`, but with all necessary trait bounds on type
+    /// parameters. It can be put between `<` and `>` after the `impl` keyword.
+    impl_generics: proc_macro2::TokenStream,
     /// Whether the type is zero-copy
     is_zero_copy: bool,
     /// Type name as string literal
@@ -1090,13 +1094,13 @@ fn generate_type_hash_traits(
     max_size_of_body: Option<proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
     let name = &ctx.name;
+    let generics = &ctx.generics;
     let impl_generics = &ctx.impl_generics;
-    let concat_generics = &ctx.concat_generics;
 
     let max_size_of_impl = if let Some(max_size_of_body) = max_size_of_body {
         quote! {
             #[automatically_derived]
-            impl<#impl_generics> ::epserde::traits::MaxSizeOf for #name<#concat_generics> #where_clause_max_size_of {
+            impl<#impl_generics> ::epserde::traits::MaxSizeOf for #name<#generics> #where_clause_max_size_of {
                 #[inline(always)]
                 fn max_size_of() -> usize {
                     #max_size_of_body
@@ -1109,14 +1113,14 @@ fn generate_type_hash_traits(
 
     quote! {
         #[automatically_derived]
-        impl<#impl_generics> ::epserde::traits::TypeHash for #name<#concat_generics> #where_clause_type_hash {
+        impl<#impl_generics> ::epserde::traits::TypeHash for #name<#generics> #where_clause_type_hash {
             #[inline(always)]
             fn type_hash(hasher: &mut impl ::core::hash::Hasher) {
                 #type_hash_body
             }
         }
         #[automatically_derived]
-        impl<#impl_generics> ::epserde::traits::AlignHash for #name<#concat_generics> #where_clause_align_hash {
+        impl<#impl_generics> ::epserde::traits::AlignHash for #name<#generics> #where_clause_align_hash {
             #[inline(always)]
             fn align_hash(
                 hasher: &mut impl ::core::hash::Hasher,
@@ -1377,7 +1381,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     let CommonDeriveInput {
         name,
         type_const_ids,
-        concat_generics,
+        generics,
         impl_generics,
         ..
     } = CommonDeriveInput::new(derive_input.clone(), vec![]);
@@ -1398,8 +1402,8 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     let ctx = CodegenContext {
         derive_input,
         name,
-        concat_generics,
         type_const_ids,
+        generics,
         impl_generics,
         generics_serialize,
         generics_deserialize,
@@ -1434,8 +1438,8 @@ pub fn epserde_type_hash(input: proc_macro::TokenStream) -> proc_macro::TokenStr
         name,
         type_const_ids,
         const_ids,
+        generics,
         impl_generics,
-        concat_generics,
         ..
     } = CommonDeriveInput::new(input.clone(), vec![]);
 
@@ -1456,8 +1460,8 @@ pub fn epserde_type_hash(input: proc_macro::TokenStream) -> proc_macro::TokenStr
         name,
         type_const_ids,
         const_ids,
+        generics,
         impl_generics,
-        concat_generics,
         is_zero_copy,
         name_literal,
         repr,

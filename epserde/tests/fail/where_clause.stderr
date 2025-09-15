@@ -4,4 +4,4 @@ error: proc-macro derive panicked
 9 | #[derive(Epserde)]
   |          ^^^^^^^
   |
-  = help: message: The derive macros do not support where clauses on the original type. Please remove the where clause and add the necessary trait bounds to the type parameters.
+  = help: message: The derive macros do not support where clauses on the original type.
