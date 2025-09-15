@@ -1166,16 +1166,16 @@ fn generate_struct_type_hash(
     } = generate_type_hash_where_clauses(&where_clause, &fields_types);
 
     // Generate field hashes for TypeHash
-    let field_hashes: Vec<_> = fields_names
+    let mut field_hashes: Vec<_> = fields_names
         .iter()
-        .zip(fields_types.iter())
-        .map(|(name, ty)| {
-            quote! {
-                Hash::hash(stringify!(#name), hasher);
-                <#ty as TypeHash>::type_hash(hasher);
-            }
-        })
+        .map(|name| quote! {Hash::hash(stringify!(#name), hasher);})
         .collect();
+
+    field_hashes.extend(
+        fields_types
+            .iter()
+            .map(|ty| quote! {<#ty as TypeHash>::type_hash(hasher);}),
+    );
 
     // Generate implementation bodies
     let type_hash_body = generate_type_hash_body(&ctx, &field_hashes);
