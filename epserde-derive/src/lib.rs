@@ -85,7 +85,7 @@ fn type_equals_ident(ty: &syn::Type, ident: &syn::Ident) -> bool {
 fn generate_method_call(
     field_name: &proc_macro2::TokenStream,
     ty: &syn::Type,
-    generic_fields_ids: &HashSet<syn::Ident>,
+    field_type_params: &HashSet<syn::Ident>,
 ) -> proc_macro2::TokenStream {
     if let syn::Type::Path(syn::TypePath {
         qself: None,
@@ -103,7 +103,7 @@ fn generate_method_call(
             }
         }
 
-        if segments.len() == 1 && generic_fields_ids.contains(&segments[0].ident) {
+        if segments.len() == 1 && field_type_params.contains(&segments[0].ident) {
             return syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_eps_inner);
         }
     }
@@ -123,31 +123,30 @@ fn generate_is_zero_copy_expr(
     }
 }
 
-/// Pre-parsed information for the derive macros.
-struct CommonDeriveInput {
+/// Pre-parsed information about generics for the derive macros.
+struct GenericsInfo {
     /// The identifier of the type.
     name: syn::Ident,
     /// Identifiers of type and const parameters, in order of appearance.
-    type_const_ids: Vec<syn::Ident>,
+    type_const_params: Vec<syn::Ident>,
     /// Identifiers of const parameters, in order of appearance.
-    const_ids: Vec<syn::Ident>,
+    const_params: Vec<syn::Ident>,
     /// All generics (lifetimes and type/const parameters) concatenated and
     /// separated by commas, in order of appearance. It can be put between `<`
-    /// and `>` after the structure name.
+    /// and `>` after the structure name in `quote!` macros.
     generics: proc_macro2::TokenStream,
     /// Same as `generics`, but with all necessary trait bounds on type
-    /// parameters. It can be put between `<` and `>` after the `impl` keyword.
+    /// parameters. It can be put between `<` and `>` after the `impl` keyword
+    /// in `quote!` macros.
     impl_generics: proc_macro2::TokenStream,
 }
 
-impl CommonDeriveInput {
-    /// Create a new `CommonDeriveInput` from a `DeriveInput`.
-    /// Additionally, one can specify traits and lifetimes to
-    /// be added to the generic types.
-    fn new(input: DeriveInput, traits_to_add: Vec<syn::Path>) -> Self {
+impl GenericsInfo {
+    /// Create a new `GenericsInfo` from a `DeriveInput`.
+    fn new(input: DeriveInput) -> Self {
         let name = input.ident;
-        let mut type_const_ids = vec![];
-        let mut const_ids = vec![];
+        let mut type_const_params = vec![];
+        let mut const_params = vec![];
         let mut generics = quote!();
         let mut impl_generics = quote!();
 
@@ -159,17 +158,9 @@ impl CommonDeriveInput {
             match x {
                 syn::GenericParam::Type(mut t) => {
                     // Remove default and add traits
-                    t.default = None;
-                    for trait_to_add in traits_to_add.iter() {
-                        t.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
-                            paren_token: None,
-                            modifier: syn::TraitBoundModifier::None,
-                            lifetimes: None,
-                            path: trait_to_add.clone(),
-                        }));
-                    }
 
-                    type_const_ids.push(t.ident.clone());
+                    t.default = None;
+                    type_const_params.push(t.ident.clone());
                     generics.extend(t.ident.to_token_stream());
                     impl_generics.extend(quote!(#t,));
                 }
@@ -181,8 +172,8 @@ impl CommonDeriveInput {
                     // Remove default
                     c.default = None;
 
-                    const_ids.push(c.ident.clone());
-                    type_const_ids.push(c.ident.clone());
+                    const_params.push(c.ident.clone());
+                    type_const_params.push(c.ident.clone());
                     generics.extend(c.ident.to_token_stream());
                     impl_generics.extend(quote!(#c,));
                 }
@@ -192,17 +183,20 @@ impl CommonDeriveInput {
 
         Self {
             name,
-            const_ids,
-            type_const_ids,
+            const_params,
+            type_const_params,
             generics,
             impl_generics,
         }
     }
 }
 
-/// Return whether the struct has attributes `repr(C)`, `zero_copy`, and `deep_copy`.
+/// Returns whether the struct has attributes `repr(C)`, `zero_copy`, and `deep_copy`.
 ///
-/// Performs coherence checks (e.g., to be `zero_copy` the struct must be `repr(C)`).
+/// # Panics
+///
+/// This method will panic if coherence checks fail (e.g., to be `zero_copy` the
+/// struct must be `repr(C)`)
 fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     let is_repr_c = input.attrs.iter().any(|x| {
         x.meta.path().is_ident("repr") && x.meta.require_list().unwrap().tokens.to_string() == "C"
@@ -231,11 +225,11 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     (is_repr_c, is_zero_copy, is_deep_copy)
 }
 
-/// Add trait bounds for associated (de)serialization types based on bounds on
-/// type parameters that are types of some field.
+/// Adds trait bounds for associated (de)serialization types based on bounds on
+/// type parameters that are the type of some fields.
 fn add_ser_deser_bounds(
     derive_input: &DeriveInput,
-    generic_fields_ids: &HashSet<syn::Ident>,
+    field_type_params: &HashSet<syn::Ident>,
     where_clause_ser: &mut WhereClause,
     where_clause_des: &mut WhereClause,
 ) {
@@ -249,7 +243,7 @@ fn add_ser_deser_bounds(
             // We are just interested in types with bounds that are
             // types of fields of the struct.
             if !t.bounds.is_empty()
-                && generic_fields_ids.contains(ident)
+                && field_type_params.contains(ident)
             {
                 // The lifetime of the DeserType
                 let mut lifetimes = Punctuated::new();
@@ -318,12 +312,12 @@ fn add_ser_deser_trait_bounds(
 /// Generate deserialization type generics
 fn generate_deser_type_generics<'a>(
     ctx: &CodegenContext,
-    generic_fields_ids: &HashSet<syn::Ident>,
+    field_type_params: &HashSet<syn::Ident>,
 ) -> Vec<proc_macro2::TokenStream> {
-    ctx.type_const_ids
+    ctx.type_const_params
         .iter()
         .map(|ident| {
-            if generic_fields_ids.contains(ident)
+            if field_type_params.contains(ident)
             {
                 quote!(<#ident as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
             } else {
@@ -336,12 +330,12 @@ fn generate_deser_type_generics<'a>(
 /// Generate serialization type generics
 fn generate_ser_type_generics<'a>(
     ctx: &CodegenContext,
-    generic_fields_ids: &HashSet<syn::Ident>,
+    field_type_params: &HashSet<syn::Ident>,
 ) -> Vec<proc_macro2::TokenStream> {
-    ctx.type_const_ids
+    ctx.type_const_params
         .iter()
         .map(|ident| {
-            if generic_fields_ids.contains(ident) {
+            if field_type_params.contains(ident) {
                 quote!(<#ident as ::epserde::ser::SerializeInner>::SerType)
             } else {
                 quote!(#ident)
@@ -443,7 +437,7 @@ struct CodegenContext {
     /// The name of the type being derived
     name: syn::Ident,
     /// Identifiers of type and const parameters, in order of appearance.
-    type_const_ids: Vec<syn::Ident>,
+    type_const_params: Vec<syn::Ident>,
     /// All generics (lifetimes and type/const parameters) concatenated and
     /// separated by commas, in order of appearance. It can be put between `<`
     /// and `>` after the structure name.
@@ -524,9 +518,13 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
     let mut variant_ser = Vec::new();
     let mut variant_full_des = Vec::new();
     let mut variant_eps_des = Vec::new();
-    let mut generic_fields_ids = HashSet::new();
+    let mut field_type_params = HashSet::new();
     let mut fields_types = Vec::new();
-    let type_const_ids = ctx.type_const_ids.iter().cloned().collect::<HashSet<_>>();
+    let type_const_params = ctx
+        .type_const_params
+        .iter()
+        .cloned()
+        .collect::<HashSet<_>>();
 
     e.variants.iter().enumerate().for_each(|(variant_id, variant)| {
         variants_names.push(variant.ident.to_token_stream());
@@ -548,14 +546,14 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                 .iter()
                 .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
                 .for_each(|(name, ty)| {
-                    for id in &type_const_ids {
+                    for id in &type_const_params {
                         if type_equals_ident(ty, id) {
-                            generic_fields_ids.insert(id.clone());
+                            field_type_params.insert(id.clone());
                             break;
                         }
                     }
 
-                    method_calls.push(generate_method_call(&name.to_token_stream(), ty, &generic_fields_ids));
+                    method_calls.push(generate_method_call(&name.to_token_stream(), ty, &field_type_params));
 
                     var_fields_names.push(name.to_token_stream());
                     var_fields_types.push(ty.clone());
@@ -595,9 +593,9 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                 .for_each(|(field_idx, unnamed)| {
                     let ty = &unnamed.ty;
                     let name = syn::Index::from(field_idx);
-                    for id in &type_const_ids {
+                    for id in &type_const_params {
                         if type_equals_ident(ty, id) {
-                            generic_fields_ids.insert(id.clone());
+                            field_type_params.insert(id.clone());
                             break;
                         }
                     }
@@ -608,7 +606,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
                     )
                     .to_token_stream());
 
-                    method_calls.push(generate_method_call(&name.to_token_stream(), ty, &generic_fields_ids));
+                    method_calls.push(generate_method_call(&name.to_token_stream(), ty, &field_type_params));
 
                     var_fields_vars.push(syn::Index::from(field_idx));
                     var_fields_types.push(ty.clone());
@@ -642,8 +640,8 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
 
     // Gather deserialization types of fields,
     // which are necessary to derive the deserialization type.
-    let deser_type_generics = generate_deser_type_generics(&ctx, &generic_fields_ids);
-    let ser_type_generics = generate_ser_type_generics(&ctx, &generic_fields_ids);
+    let deser_type_generics = generate_deser_type_generics(&ctx, &field_type_params);
+    let ser_type_generics = generate_ser_type_generics(&ctx, &field_type_params);
     let tag = (0..variants.len()).collect::<Vec<_>>();
 
     // Initialize common trait implementation data
@@ -718,7 +716,7 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
     } else {
         add_ser_deser_bounds(
             &ctx.derive_input,
-            &generic_fields_ids,
+            &field_type_params,
             &mut where_clause_ser,
             &mut where_clause_des,
         );
@@ -796,9 +794,13 @@ fn generate_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::To
 fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     let mut fields_types = vec![];
     let mut fields_names = vec![];
-    let mut generic_fields_ids = HashSet::new();
+    let mut field_type_params = HashSet::new();
     let mut method_calls: Vec<proc_macro2::TokenStream> = vec![];
-    let type_const_ids = ctx.type_const_ids.iter().cloned().collect::<HashSet<_>>();
+    let type_const_params = ctx
+        .type_const_params
+        .iter()
+        .cloned()
+        .collect::<HashSet<_>>();
 
     // Scan the struct to find which fields contain a generic
     // type (i.e., they are themselves of a generic type,
@@ -807,9 +809,9 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
         let field_type = &field.ty;
         let field_name = get_field_name(field, field_idx);
 
-        for id in &type_const_ids {
+        for id in &type_const_params {
             if type_equals_ident(field_type, id) {
-                generic_fields_ids.insert(id.clone());
+                field_type_params.insert(id.clone());
                 break;
             }
         }
@@ -817,7 +819,7 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
         method_calls.push(generate_method_call(
             &field_name,
             field_type,
-            &generic_fields_ids,
+            &field_type_params,
         ));
         fields_types.push(field_type.clone());
         fields_names.push(field_name);
@@ -825,8 +827,8 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
 
     // Gather deserialization types of fields, as they are necessary to
     // derive the deserialization type.
-    let deser_type_generics = generate_deser_type_generics(&ctx, &generic_fields_ids);
-    let ser_type_generics = generate_ser_type_generics(&ctx, &generic_fields_ids);
+    let deser_type_generics = generate_deser_type_generics(&ctx, &field_type_params);
+    let ser_type_generics = generate_ser_type_generics(&ctx, &field_type_params);
 
     // Initialize common trait implementation data
     let TraitImplInit {
@@ -900,7 +902,7 @@ fn generate_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2
     } else {
         add_ser_deser_bounds(
             &ctx.derive_input,
-            &generic_fields_ids,
+            &field_type_params,
             &mut where_clause_ser,
             &mut where_clause_des,
         );
@@ -976,9 +978,9 @@ struct TypeHashContext {
     /// The name of the type
     name: syn::Ident,
     /// Identifiers of type and const parameters, in order of appearance.
-    type_const_ids: Vec<syn::Ident>,
+    type_const_params: Vec<syn::Ident>,
     /// Identifiers of const parameters, in order of appearance.
-    const_ids: Vec<syn::Ident>,
+    const_params: Vec<syn::Ident>,
     /// All generics (lifetimes and type/const parameters) concatenated and
     /// separated by commas, in order of appearance. It can be put between `<`
     /// and `>` after the structure name.
@@ -1004,7 +1006,7 @@ fn generate_type_hash_body(
     } else {
         "DeepCopy"
     };
-    let const_ids = &ctx.const_ids;
+    let const_params = &ctx.const_params;
     let name_literal = &ctx.name_literal;
 
     quote! {
@@ -1014,11 +1016,11 @@ fn generate_type_hash_body(
         Hash::hash(#copy_type, hasher);
         // Hash the values of generic constants
         #(
-            Hash::hash(&#const_ids, hasher);
+            Hash::hash(&#const_params, hasher);
         )*
         // Hash the identifiers of generic constants
         #(
-            Hash::hash(stringify!(#const_ids), hasher);
+            Hash::hash(stringify!(#const_params), hasher);
         )*
         // Hash in struct and field names.
         Hash::hash(#name_literal, hasher);
@@ -1149,7 +1151,7 @@ fn generate_struct_type_hash(
         fields_types.push(ty);
 
         if ctx
-            .type_const_ids
+            .type_const_params
             .iter()
             .any(|ident| type_equals_ident(&ty, ident))
         {
@@ -1238,7 +1240,7 @@ fn generate_enum_type_hash(ctx: TypeHashContext, e: &syn::DataEnum) -> proc_macr
                     }]);
 
                     if ctx
-                        .type_const_ids
+                        .type_const_params
                         .iter()
                         .any(|ident| type_equals_ident(ty, ident))
                     {
@@ -1269,7 +1271,7 @@ fn generate_enum_type_hash(ctx: TypeHashContext, e: &syn::DataEnum) -> proc_macr
                         }]);
 
                         if ctx
-                            .type_const_ids
+                            .type_const_params
                             .iter()
                             .any(|ident| type_equals_ident(ty, ident))
                         {
@@ -1378,31 +1380,31 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     let derive_input = parse_macro_input!(input as DeriveInput);
     let (is_repr_c, is_zero_copy, is_deep_copy) = check_attrs(&derive_input);
 
-    let CommonDeriveInput {
+    let GenericsInfo {
         name,
-        type_const_ids,
+        type_const_params,
         generics,
         impl_generics,
         ..
-    } = CommonDeriveInput::new(derive_input.clone(), vec![]);
+    } = GenericsInfo::new(derive_input.clone());
 
     // Values for serialize (we add serialization bounds to generics)
-    let CommonDeriveInput {
+    let GenericsInfo {
         impl_generics: generics_serialize,
         ..
-    } = CommonDeriveInput::new(derive_input.clone(), vec![]);
+    } = GenericsInfo::new(derive_input.clone());
 
     // Values for deserialize (we add deserialization bounds to generics)
-    let CommonDeriveInput {
+    let GenericsInfo {
         impl_generics: generics_deserialize,
         ..
-    } = CommonDeriveInput::new(derive_input.clone(), vec![]);
+    } = GenericsInfo::new(derive_input.clone());
 
     let data = derive_input.data.to_owned();
     let ctx = CodegenContext {
         derive_input,
         name,
-        type_const_ids,
+        type_const_params,
         generics,
         impl_generics,
         generics_serialize,
@@ -1434,14 +1436,14 @@ pub fn epserde_type_hash(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     let input = parse_macro_input!(input as DeriveInput);
     let (_, is_zero_copy, _) = check_attrs(&input);
 
-    let CommonDeriveInput {
+    let GenericsInfo {
         name,
-        type_const_ids,
-        const_ids,
+        type_const_params,
+        const_params,
         generics,
         impl_generics,
         ..
-    } = CommonDeriveInput::new(input.clone(), vec![]);
+    } = GenericsInfo::new(input.clone());
 
     // Build type name
     let name_literal = name.to_string();
@@ -1458,8 +1460,8 @@ pub fn epserde_type_hash(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     let ctx = TypeHashContext {
         input,
         name,
-        type_const_ids,
-        const_ids,
+        type_const_params,
+        const_params,
         generics,
         impl_generics,
         is_zero_copy,
