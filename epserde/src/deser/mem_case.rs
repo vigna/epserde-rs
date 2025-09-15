@@ -152,6 +152,8 @@ impl<S: DeserializeInner> MemCase<S> {
     /// Note that since a [`MemCase`] stores a deserialization associated type,
     /// this method is useful only for types that are equal to their own
     /// deserialization type (e.g., they do not have type parameters).
+    /// Moreover, type inference will not be able to deduce `S` from the
+    /// argument, so you will need to specify it explicitly.
     pub fn encase(s: DeserType<'static, S>) -> Self {
         MemCase(s, MemBackend::None)
     }
