@@ -102,8 +102,10 @@ fn test_vec_types() {
 
 #[test]
 fn test_stdlib_types() {
+    use core::ops::{
+        Bound, ControlFlow, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
+    };
     use std::collections::hash_map::DefaultHasher;
-    use core::ops::{Range, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive, RangeFull, Bound, ControlFlow};
     assert_eq!(get_type_hash::<DefaultHasher>(), 0x216366ce6df79e86);
     assert_eq!(get_type_hash::<Range<i32>>(), 0x837a1968d53dcff1);
     assert_eq!(get_align_hash::<Range<i32>>(), 0xde0fd80637b3a4da);
@@ -114,13 +116,19 @@ fn test_stdlib_types() {
     assert_eq!(get_type_hash::<RangeTo<i32>>(), 0xd889856367fa2fe3);
     assert_eq!(get_align_hash::<RangeTo<i32>>(), 0xde0fd80637b3a4da);
     assert_eq!(get_type_hash::<RangeToInclusive<i32>>(), 0xc3682b190d94704d);
-    assert_eq!(get_align_hash::<RangeToInclusive<i32>>(), 0xde0fd80637b3a4da);
+    assert_eq!(
+        get_align_hash::<RangeToInclusive<i32>>(),
+        0xde0fd80637b3a4da
+    );
     assert_eq!(get_type_hash::<RangeFull>(), 0x1d5d4cc6e963d594);
     assert_eq!(get_align_hash::<RangeFull>(), 0xd1fba762150c532c);
     assert_eq!(get_type_hash::<Bound<i32>>(), 0x1f77c5db6e0be477);
     assert_eq!(get_align_hash::<Bound<i32>>(), 0xd1fba762150c532c);
     assert_eq!(get_type_hash::<ControlFlow<i32, f64>>(), 0x5f4feceae713afe0);
-    assert_eq!(get_align_hash::<ControlFlow<i32, f64>>(), 0xc3caaeef7aa4605a);
+    assert_eq!(
+        get_align_hash::<ControlFlow<i32, f64>>(),
+        0xc3caaeef7aa4605a
+    );
 }
 
 #[derive(Epserde, Debug, PartialEq)]
@@ -185,11 +193,20 @@ fn test_derive_struct_const() {
 #[test]
 fn test_derive_struct_mixed() {
     assert_eq!(get_type_hash::<MyStructMixed<i32, 5>>(), 0xa8a943379dbe6ea7);
-    assert_eq!(get_align_hash::<MyStructMixed<i32, 5>>(), 0xde0fd80637b3a4da);
+    assert_eq!(
+        get_align_hash::<MyStructMixed<i32, 5>>(),
+        0xde0fd80637b3a4da
+    );
 }
 
 #[test]
 fn test_derive_struct_const_then_type() {
-    assert_eq!(get_type_hash::<MyStructConstThenType<5, i32>>(), 0xba025cd70e024ad5);
-    assert_eq!(get_align_hash::<MyStructConstThenType<5, i32>>(), 0xde0fd80637b3a4da);
+    assert_eq!(
+        get_type_hash::<MyStructConstThenType<5, i32>>(),
+        0xba025cd70e024ad5
+    );
+    assert_eq!(
+        get_align_hash::<MyStructConstThenType<5, i32>>(),
+        0xde0fd80637b3a4da
+    );
 }
