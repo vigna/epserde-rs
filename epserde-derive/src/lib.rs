@@ -453,7 +453,6 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
                 // The type is declared as zero copy, so a fortiori there is no mismatch.
                 const ZERO_COPY_MISMATCH: bool = false;
 
-                #[inline(always)]
                 unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     // No-op code that however checks that all fields are zero-copy.
                     fn test<T: ::epserde::traits::ZeroCopy>() {}
@@ -509,7 +508,6 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
                 // and the attribute `deep_copy` is missing.
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*;
 
-                #[inline(always)]
                 unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     #(
                         ::epserde::ser::WriteWithNames::write(backend, stringify!(#fields_names), &self.#fields_names)?;
@@ -722,7 +720,6 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                 // The type is declared as zero copy, so a fortiori there is no mismatch.
                 const ZERO_COPY_MISMATCH: bool = false;
 
-                #[inline(always)]
                 unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     use ::epserde::traits::ZeroCopy;
                     use ::epserde::ser::helpers;
@@ -783,7 +780,6 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                 // and the attribute `deep_copy` is missing.
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*;
 
-                #[inline(always)]
                 unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     use ::epserde::ser::helpers;
                     use ::epserde::ser::WriteWithNames;
@@ -926,8 +922,8 @@ struct TypeInfoContext<'a> {
     repr: Vec<String>,
 }
 
-/// Generate TypeHash implementation body
-fn gen_type_info_body(
+/// Generates `TypeHash` implementation body.
+fn gen_type_hash_body(
     ctx: &TypeInfoContext,
     field_hashes: &[proc_macro2::TokenStream],
 ) -> proc_macro2::TokenStream {
@@ -942,27 +938,32 @@ fn gen_type_info_body(
     quote! {
         use ::core::hash::Hash;
         use ::epserde::traits::TypeHash;
+
         // Hash in copy type
         Hash::hash(#copy_type, hasher);
-        // Hash the values of generic constants
+
+        // Hash in the values of const parameters
         #(
             Hash::hash(&#const_params, hasher);
         )*
-        // Hash the identifiers of generic constants
+
+        // Hash in the identifiers of const parameters
         #(
             Hash::hash(stringify!(#const_params), hasher);
         )*
-        // Hash in struct and field names.
+
+        // Hash in the struct name.
         Hash::hash(stringify!(#name), hasher);
-        // Hash field information
+
+        // Hash field names and hashes
         #(
             #field_hashes
         )*
     }
 }
 
-/// Generate AlignHash implementation body for structs
-fn gen_struct_align_hash_body(
+/// Generates `AlignHash` implementation body.
+fn gen_align_hash_body(
     ctx: &TypeInfoContext,
     fields_types: &[&syn::Type],
 ) -> proc_macro2::TokenStream {
@@ -972,13 +973,16 @@ fn gen_struct_align_hash_body(
             use ::core::hash::Hash;
             use ::core::mem;
             use ::epserde::traits::AlignHash;
+
             // Hash in size, as padding is given by MaxSizeOf.
             // and it is independent of the architecture.
             Hash::hash(&mem::size_of::<Self>(), hasher);
+
             // Hash in representation data.
             #(
                 Hash::hash(#repr, hasher);
             )*
+
             // Recurse on all fields.
             #(
                 <#fields_types as AlignHash>::align_hash(
@@ -990,7 +994,8 @@ fn gen_struct_align_hash_body(
     } else {
         quote! {
             use ::epserde::traits::AlignHash;
-            // Recurse on all variants starting at offset 0
+
+            // Recurse on all fields starting at offset 0
             #(
                 <#fields_types as AlignHash>::align_hash(hasher, &mut 0);
             )*
@@ -1005,6 +1010,7 @@ fn gen_max_size_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream
         use ::epserde::traits::MaxSizeOf;
 
         let mut max_size_of = mem::align_of::<Self>();
+
         // Recurse on all fields.
         #(
             if max_size_of < <#fields_types as MaxSizeOf>::max_size_of() {
@@ -1034,7 +1040,6 @@ fn gen_type_info_traits(
         quote! {
             #[automatically_derived]
             impl #generics_for_impl ::epserde::traits::MaxSizeOf for #name #generics #where_clause_max_size_of {
-                #[inline(always)]
                 fn max_size_of() -> usize {
                     #max_size_of_body
                 }
@@ -1047,14 +1052,13 @@ fn gen_type_info_traits(
     quote! {
         #[automatically_derived]
         impl #generics_for_impl ::epserde::traits::TypeHash for #name #generics #where_clause_type_hash {
-            #[inline(always)]
             fn type_hash(hasher: &mut impl ::core::hash::Hasher) {
                 #type_hash_body
             }
         }
+
         #[automatically_derived]
         impl #generics_for_impl ::epserde::traits::AlignHash for #name #generics #where_clause_align_hash {
-            #[inline(always)]
             fn align_hash(
                 hasher: &mut impl ::core::hash::Hasher,
                 offset_of: &mut usize,
@@ -1062,6 +1066,7 @@ fn gen_type_info_traits(
                 #align_hash_body
             }
         }
+
         #max_size_of_impl
     }
 }
@@ -1106,8 +1111,8 @@ fn gen_struct_type_info(ctx: TypeInfoContext, s: &syn::DataStruct) -> proc_macro
     );
 
     // Generate implementation bodies
-    let type_hash_body = gen_type_info_body(&ctx, &field_hashes);
-    let align_hash_body = gen_struct_align_hash_body(&ctx, &fields_types);
+    let type_hash_body = gen_type_hash_body(&ctx, &field_hashes);
+    let align_hash_body = gen_align_hash_body(&ctx, &fields_types);
     let max_size_of_body = if ctx.is_zero_copy {
         Some(gen_max_size_of_body(&fields_types))
     } else {
@@ -1216,7 +1221,7 @@ fn gen_enum_type_info(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macro2::T
     } = gen_type_info_where_clauses(&where_clause, &generic_types);
 
     // Generate implementation bodies
-    let type_hash_body = gen_type_info_body(&ctx, &var_type_hashes);
+    let type_hash_body = gen_type_hash_body(&ctx, &var_type_hashes);
 
     let repr = &ctx.repr;
     let align_hash_body = if ctx.is_zero_copy {
