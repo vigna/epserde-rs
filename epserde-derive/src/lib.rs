@@ -553,20 +553,26 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
 
 /// Generate implementation for enum types
 fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
-    let mut variants_names = vec![];
-    let mut variants = vec![];
+    let mut variant_names = vec![];
+    // For each variant, a match statement arm as a TokenStream
+    let mut variant_arm = vec![];
+    // For each variant, serialization code
     let mut variant_ser = vec![];
+    // For each variant, full deserialization code
     let mut variant_full_des = vec![];
+    // For each variant, ε-copy deserialization code
     let mut variant_eps_des = vec![];
+    // Type parameters that are types of some fields in some variant
     let mut field_type_params = HashSet::new();
+    // All field types for all variants
     let mut fields_types = vec![];
     let type_const_params = &ctx.type_const_params;
 
     e.variants.iter().enumerate().for_each(|(variant_id, variant)| {
-        variants_names.push(&variant.ident);
+        variant_names.push(&variant.ident);
         match &variant.fields {
         syn::Fields::Unit => {
-            variants.push(variant.ident.to_token_stream());
+            variant_arm.push(variant.ident.to_token_stream());
             variant_ser.push(quote! {{
                 WriteWithNames::write(backend, "tag", &#variant_id)?;
             }});
@@ -595,7 +601,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                     var_fields_types.push(ty);
                 });
             let ident = variant.ident.clone();
-            variants.push(quote! {
+            variant_arm.push(quote! {
                 #ident{ #( #var_fields_names, )* }
             });
             fields_types.extend(&var_fields_types);
@@ -649,7 +655,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                 });
 
             let ident = variant.ident.clone();
-            variants.push(quote! {
+            variant_arm.push(quote! {
                 #ident( #( #var_fields_names, )* )
             });
             fields_types.extend(&var_fields_types);
@@ -678,7 +684,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
     // which are necessary to derive the deserialization type.
     let deser_type_generics = gen_deser_type_generics(&ctx, &field_type_params);
     let ser_type_generics = gen_ser_type_generics(&ctx, &field_type_params);
-    let tag = (0..variants.len()).collect::<Vec<_>>();
+    let tag = (0..variant_arm.len()).collect::<Vec<_>>();
 
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &fields_types);
     let (mut where_clause_ser, mut where_clause_des) = gen_where_clauses(&fields_types);
@@ -777,7 +783,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                     helpers::check_mismatch::<Self>();
                     match self {
                         #(
-                           Self::#variants => { #variant_ser }
+                           Self::#variant_arm => { #variant_ser }
                         )*
                     }
                     Ok(())
@@ -793,7 +799,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
 
                     match unsafe { <usize as DeserializeInner>::_deserialize_full_inner(backend)? } {
                         #(
-                            #tag => Ok(Self::#variants_names{ #variant_full_des }),
+                            #tag => Ok(Self::#variant_names{ #variant_full_des }),
                         )*
                         tag => Err(Error::InvalidTag(tag)),
                     }
@@ -810,7 +816,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
 
                     match unsafe { <usize as DeserializeInner>::_deserialize_full_inner(backend)? } {
                         #(
-                            #tag => Ok(Self::DeserType::<'_>::#variants_names{ #variant_eps_des }),
+                            #tag => Ok(Self::DeserType::<'_>::#variant_names{ #variant_eps_des }),
                         )*
                         tag => Err(Error::InvalidTag(tag)),
                     }
