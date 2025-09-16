@@ -120,7 +120,7 @@ fn gen_method_call(
 }
 
 /// Generates the `IS_ZERO_COPY` expression.
-fn gen_is_zero_copy_expr(is_repr_c: bool, fields_types: &[syn::Type]) -> proc_macro2::TokenStream {
+fn gen_is_zero_copy_expr(is_repr_c: bool, fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
     if fields_types.is_empty() {
         quote!(#is_repr_c)
     } else {
@@ -307,7 +307,7 @@ fn gen_ser_type_generics<'a>(
 ///
 /// The where clauses bound all field types with the trait being implemented,
 /// thus propagating recursively (de)serializability.
-fn gen_where_clauses(field_types: &[syn::Type]) -> (WhereClause, WhereClause) {
+fn gen_where_clauses(field_types: &[&syn::Type]) -> (WhereClause, WhereClause) {
     let mut where_clause_ser = empty_where_clause();
     let mut where_clause_des = empty_where_clause();
 
@@ -401,16 +401,16 @@ struct EpserdeContext<'a> {
 /// Generate implementation for struct types
 fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     let mut fields_names = vec![];
-    let mut fields_types = vec![];
-    let mut field_type_params = HashSet::new();
+    let mut field_types = vec![];
     let mut method_calls = vec![];
-    let type_const_params = ctx.type_const_params.iter().collect::<HashSet<_>>();
+    let mut field_type_params = HashSet::new();
 
     s.fields.iter().enumerate().for_each(|(field_idx, field)| {
         let field_type = &field.ty;
         let field_name = get_field_name(field, field_idx);
 
-        for &id in &type_const_params {
+        // We look for type parameters that are types of fields
+        for id in &ctx.type_const_params {
             if type_equals_ident(field_type, id) {
                 field_type_params.insert(id);
                 break;
@@ -418,8 +418,8 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
         }
 
         method_calls.push(gen_method_call(&field_name, field_type, &field_type_params));
-        fields_types.push(field_type.clone());
         fields_names.push(field_name);
+        field_types.push(field_type);
     });
 
     // Gather deserialization types of fields, as they are necessary to
@@ -427,8 +427,8 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
     let deser_type_generics = gen_deser_type_generics(&ctx, &field_type_params);
     let ser_type_generics = gen_ser_type_generics(&ctx, &field_type_params);
 
-    let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &fields_types);
-    let (mut where_clause_ser, mut where_clause_des) = gen_where_clauses(&fields_types);
+    let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
+    let (mut where_clause_ser, mut where_clause_des) = gen_where_clauses(&field_types);
     let impl_generics = &ctx.impl_generics;
     let generics = &ctx.generics;
     let where_clause = &ctx.where_clause;
@@ -461,7 +461,7 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
                     // No-op code that however checks that all fields are zero-copy.
                     fn test<T: ZeroCopy>() {}
                     #(
-                        test::<#fields_types>();
+                        test::<#field_types>();
                     )*
                     helpers::serialize_zero(backend, self)
                 }
@@ -514,7 +514,7 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
 
                 // Compute whether the type could be zero copy but it is not declared as such,
                 // and the attribute `deep_copy` is missing.
-                const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
+                const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*;
 
                 #[inline(always)]
                 unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
@@ -538,7 +538,7 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
 
                     Ok(#name{
                         #(
-                            #fields_names: unsafe { <#fields_types as ::epserde::deser::DeserializeInner>::_deserialize_full_inner(backend)? },
+                            #fields_names: unsafe { <#field_types as ::epserde::deser::DeserializeInner>::_deserialize_full_inner(backend)? },
                         )*
                     })
                 }
@@ -607,13 +607,13 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                     method_calls.push(gen_method_call(&name.to_token_stream(), ty, &field_type_params));
 
                     var_fields_names.push(name.to_token_stream());
-                    var_fields_types.push(ty.clone());
+                    var_fields_types.push(ty);
                 });
             let ident = variant.ident.clone();
             variants.push(quote! {
                 #ident{ #( #var_fields_names, )* }
             });
-            fields_types.extend(var_fields_types.clone());
+            fields_types.extend(&var_fields_types);
             variant_ser.push(quote! {
                 WriteWithNames::write(backend, "tag", &#variant_id)?;
                 #(
@@ -660,14 +660,14 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                     method_calls.push(gen_method_call(&name.to_token_stream(), ty, &field_type_params));
 
                     var_fields_vars.push(syn::Index::from(field_idx));
-                    var_fields_types.push(ty.clone());
+                    var_fields_types.push(ty);
                 });
 
             let ident = variant.ident.clone();
             variants.push(quote! {
                 #ident( #( #var_fields_names, )* )
             });
-            fields_types.extend(var_fields_types.clone());
+            fields_types.extend(&var_fields_types);
 
             variant_ser.push(quote! {
                 WriteWithNames::write(backend, "tag", &#variant_id)?;
