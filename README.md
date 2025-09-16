@@ -115,9 +115,8 @@ this case, we serialize an array of a thousand zeros, and get back a reference
 to such an array:
 
 ```rust
+# use epserde::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-use epserde::prelude::*;
-
 let s = [0_usize; 1000];
 
 // Serialize it
@@ -180,9 +179,8 @@ deserialize its associated deserialization type, which is a reference to a
 slice.
 
 ```rust
+# use epserde::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-use epserde::prelude::*;
-
 let s = vec![0; 1000];
 
 // Serialize it
@@ -230,10 +228,8 @@ zero-copy fields, and to be annotated with `#[zero_copy]` and `#[repr(C)]`
 fields to optimize memory usage):
 
 ```rust
+# use epserde::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-use epserde::prelude::*;
-use epserde_derive::*;
-
 #[derive(Epserde, Debug, PartialEq, Copy, Clone)]
 #[repr(C)]
 #[zero_copy]
@@ -283,10 +279,8 @@ Let us design a structure that will contain an integer, which will be copied,
 and a vector of integers that we want to ε-copy:
 
 ```rust
+# use epserde::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-use epserde::prelude::*;
-use epserde_derive::*;
-
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStruct<A> {
     id: isize,
@@ -334,10 +328,8 @@ in a way that will work both on the original type parameter and on its
 associated deserialized type; we can also use `type` to reduce the clutter:
 
 ```rust
+# use epserde::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-use epserde::prelude::*;
-use epserde_derive::*;
-
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStructParam<A> {
     id: isize,
@@ -376,6 +368,34 @@ assert_eq!(s.sum(), t.sum());
 # }
 ```
 
+It is important to note that since the derive code replaces type parameters that
+are types of fields with their associated (de)serialization type when
+generating the (de)serialization type of your structure, you cannot have a type
+parameter that appears both as the type of a field and as a type parameter of
+another field. For example, the following code will not compile:
+
+```compile_fail
+# use epserde::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[derive(Epserde, Debug, PartialEq)]
+struct MyStructParam<A> {
+    id: isize,
+    data: A,
+    vec: Vec<A>
+}
+#     Ok(())
+# }
+```
+
+The result will be an error message similar to the following:
+```text
+|
+| #[derive(Epserde, Debug, PartialEq)]
+|          ^^^^^^^ expected `Vec<<A as DeserializeInner>::DeserType<'_>>`, found `Vec<A>`
+| struct MyStructParam<A> {
+|                      - found this type parameter
+```
+
 ## Example: Deep-copy structures with internal parameters
 
 Internal parameters, that is, parameters used by the types of your fields but
@@ -386,10 +406,8 @@ for types inside a [`PhantomData`], which do not even need to be serializable.
 For example,
 
 ```rust
+# use epserde::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-use epserde::prelude::*;
-use epserde_derive::*;
-
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStruct<A: DeepCopy + 'static>(Vec<A>);
 
@@ -420,10 +438,8 @@ must be zero-copy. This must hold even for types inside a [`PhantomData`].
 For example,
 
 ```rust
+# use epserde::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-use epserde::prelude::*;
-use epserde_derive::*;
-
 #[derive(Epserde, Debug, PartialEq, Clone, Copy)]
 #[repr(C)]
 #[zero_copy]
@@ -460,10 +476,8 @@ obvious for non-enum types, but with enum types with default type parameters it
 can become tricky. For example,
 
 ```rust
+# use epserde::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-use epserde::prelude::*;
-use epserde_derive::*;
-
 #[derive(Epserde, Debug, PartialEq, Clone, Copy)]
 enum Enum<T=Vec<usize>> {
     A,
@@ -490,10 +504,8 @@ deserialize them as if they were vectors. You must however be careful to
 deserialize with the correct type. For example,
 
 ```rust
+# use epserde::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-use epserde::prelude::*;
-use epserde_derive::*;
-
 let v = vec![0, 1, 2, 3];
 // This is a slice
 let s: &[i32] = v.as_ref();
@@ -541,11 +553,9 @@ in a [`SerIter`], as ε-serde cannot implement the serialization traits directly
 on [`Iterator`]. For example,
 
 ```rust
+# use epserde::prelude::*;
+# use std::slice::Iter;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-use epserde::prelude::*;
-use epserde_derive::*;
-use std::slice::Iter;
-
 let v = vec![0, 1, 2, 3];
 // This is an iterator
 let i: Iter<'_, i32> = v.iter();

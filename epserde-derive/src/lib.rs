@@ -52,8 +52,9 @@ fn add_trait_bound(where_clause: &mut WhereClause, ty: &syn::Type, trait_path: s
 /// Returns a field name as a token stream.
 ///
 /// This method takes care transparently of unnamed fields (i.e., fields tuple
-/// structs), and for this reason it can only return a `TokenStream` instead of
-/// a more specific type such as `Ident`.
+/// structs), and for this reason it can only return a
+/// [`proc_macro2::TokenStream`] instead of a more specific type such as
+/// [`struct@syn::Ident`].
 fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStream {
     field
         .ident
@@ -86,12 +87,12 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
 /// Generates a method call for field deserialization.
 ///
 /// This methods takes care of choosing `_deserialize_eps_inner` or
-/// `_deserialize_full_inner` depending on whether the field type is a generic
-/// type or not, and to use the special method `_deserialize_eps_inner_special`
-/// for `PhantomDeserData`.
+/// `_deserialize_full_inner` depending on whether a field type is a type
+/// parameter or not, and to use the special method
+/// `_deserialize_eps_inner_special` for `PhantomDeserData`.
 ///
-/// The type of `field_name` is `TokenStream` because it can be either an
-/// identifier (for named fields) or an index (for unnamed fields).
+/// The type of `field_name` is [`proc_macro2::TokenStream`] because it can be
+/// either an identifier (for named fields) or an index (for unnamed fields).
 fn gen_deser_method_call(
     field_name: &proc_macro2::TokenStream,
     ty: &syn::Type,
@@ -136,13 +137,13 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, fields_types: &[&syn::Type]) -> proc_m
 /// More in detail, returns a tuple containing:
 ///
 /// - the identifiers of type and const parameters, in order of appearance (used
-/// to generate associated (de)serialization type generics);
+///   to generate associated (de)serialization type generics);
 ///
 /// - the identifiers of type parameters as a set (used to identify fields whose
-/// type is a type parameter);
+///   type is a type parameter);
 ///
 /// - the identifiers of const parameters, also in order of appearance (used
-/// to compute type hashes).
+///   to compute type hashes).
 fn get_type_const_params(
     input: &DeriveInput,
 ) -> (Vec<&syn::Ident>, HashSet<&syn::Ident>, Vec<&syn::Ident>) {
@@ -201,7 +202,7 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     (is_repr_c, is_zero_copy, is_deep_copy)
 }
 
-/// For each bounded type parameter that is the type of some fields, binds the
+/// For each bounded type parameter that is the type of some field, binds the
 /// associated (de)serialization types with the same trait bounds of the type.
 fn bind_ser_deser_types(
     derive_input: &DeriveInput,
@@ -263,12 +264,12 @@ fn bind_ser_deser_types(
     }
 }
 
-/// Add to the given (de)serialization where clause a bound
+/// Adds to the given (de)serialization where clause a bound
 /// binding the given type to `(De)serializeInner`.
 fn add_ser_deser_trait_bounds(
+    ty: &syn::Type,
     where_clause_ser: &mut syn::WhereClause,
     where_clause_deser: &mut syn::WhereClause,
-    ty: &syn::Type,
 ) {
     add_trait_bound(
         where_clause_ser,
@@ -320,7 +321,7 @@ fn gen_generics_for_ser_type(
 }
 
 /// Generates where clauses for `SerializeInner` and `DeserializeInner`
-/// implementation.
+/// implementations.
 ///
 /// The where clauses bound all field types with the trait being implemented,
 /// thus propagating recursively (de)serializability.
@@ -330,7 +331,7 @@ fn gen_ser_deser_where_clauses(field_types: &[&syn::Type]) -> (WhereClause, Wher
 
     // Add trait bounds for all field types
     for ty in field_types {
-        add_ser_deser_trait_bounds(&mut where_clause_ser, &mut where_clause_deser, ty);
+        add_ser_deser_trait_bounds(ty, &mut where_clause_ser, &mut where_clause_deser);
     }
 
     (where_clause_ser, where_clause_deser)
@@ -341,8 +342,8 @@ fn gen_type_info_where_clauses(
     base_clause: &WhereClause,
     field_types: &[&syn::Type],
 ) -> (WhereClause, WhereClause, WhereClause) {
-    /// Generates one of the clauses in [`TypeInfoWhereClauses`]
-    /// by adding the given trait bound for all types of fields.
+    /// Generates one of the clauses by adding the given trait bound for all
+    /// types of fields.
     fn gen_type_info_where_clause(
         base_clause: &WhereClause,
         field_types: &[&syn::Type],
@@ -362,6 +363,7 @@ fn gen_type_info_where_clauses(
 
         where_clause
     }
+
     let mut bound_type_hash = Punctuated::new();
     bound_type_hash.push(syn::parse_quote!(::epserde::traits::TypeHash));
     let type_hash = gen_type_info_where_clause(base_clause, field_types, bound_type_hash);
@@ -430,8 +432,6 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         field_types.push(field_type);
     });
 
-    // Gather deserialization types of fields, as they are necessary to
-    // derive the deserialization type.
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &field_type_params);
     let generics_for_ser_type = gen_generics_for_ser_type(ctx, &field_type_params);
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
@@ -646,8 +646,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     .unnamed
                     .iter()
                     .enumerate()
-                    .for_each(|(field_idx, unnamed)| {
-                        let field_type = &unnamed.ty;
+                    .for_each(|(field_idx, field)| {
+                        let field_type = &field.ty;
                         let field_name = syn::Index::from(field_idx);
 
                         // We look for type parameters that are types of fields
