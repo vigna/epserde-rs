@@ -130,18 +130,18 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, fields_types: &[&syn::Type]) -> proc_m
 
 /// Returns the identifiers of type and const parameters in order of appearance,
 /// and the identifiers of const parameters only, also in order of appearance.
-fn get_type_const_params(input: &DeriveInput) -> (Vec<syn::Ident>, Vec<syn::Ident>) {
+fn get_type_const_params(input: &DeriveInput) -> (Vec<&syn::Ident>, Vec<&syn::Ident>) {
     let mut type_const_params = vec![];
     let mut const_params = vec![];
 
     input.generics.params.iter().for_each(|x| {
         match x {
             syn::GenericParam::Type(t) => {
-                type_const_params.push(t.ident.clone());
+                type_const_params.push(&t.ident);
             }
             syn::GenericParam::Const(c) => {
-                const_params.push(c.ident.clone());
-                type_const_params.push(c.ident.clone());
+                const_params.push(&c.ident);
+                type_const_params.push(&c.ident);
             }
             syn::GenericParam::Lifetime(_) => {}
         };
@@ -381,7 +381,7 @@ struct EpserdeContext<'a> {
     /// The name of the type being derived
     name: syn::Ident,
     /// Identifiers of type and const parameters, in order of appearance.
-    type_const_params: Vec<syn::Ident>,
+    type_const_params: Vec<&'a syn::Ident>,
     /// Generics for the type as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
     type_generics: TypeGenerics<'a>,
@@ -410,7 +410,7 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
         let field_type = &field.ty;
 
         // We look for type parameters that are types of fields
-        for id in &ctx.type_const_params {
+        for &id in &ctx.type_const_params {
             if type_equals_ident(field_type, id) {
                 field_type_params.insert(id);
                 break;
@@ -588,7 +588,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                 .iter()
                 .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
                 .for_each(|(name, ty)| {
-                    for id in type_const_params {
+                    for &id in type_const_params {
                         if type_equals_ident(ty, id) {
                             field_type_params.insert(id);
                             break;
@@ -600,7 +600,8 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                     var_fields_names.push(name.to_token_stream());
                     var_fields_types.push(ty);
                 });
-            let ident = variant.ident.clone();
+
+            let ident = &variant.ident;
             variant_arm.push(quote! {
                 #ident{ #( #var_fields_names, )* }
             });
@@ -654,7 +655,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                     var_fields_types.push(ty);
                 });
 
-            let ident = variant.ident.clone();
+            let ident = &variant.ident;
             variant_arm.push(quote! {
                 #ident( #( #var_fields_names, )* )
             });
@@ -851,7 +852,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     }
 
     derive_input.generics.make_where_clause();
-    let (impl_generics, generics, where_clause) = derive_input.generics.split_for_impl();
+    let (impl_generics, type_generics, where_clause) = derive_input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 
     let (is_repr_c, is_zero_copy, is_deep_copy) = check_attrs(&derive_input);
@@ -862,7 +863,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         derive_input: &derive_input,
         name,
         type_const_params,
-        type_generics: generics,
+        type_generics,
         impl_generics,
         where_clause,
         is_repr_c,
@@ -902,9 +903,9 @@ struct TypeInfoContext<'a> {
     /// The name of the type
     name: syn::Ident,
     /// Identifiers of type and const parameters, in order of appearance.
-    type_const_params: Vec<syn::Ident>,
+    type_const_params: Vec<&'a syn::Ident>,
     /// Identifiers of const parameters, in order of appearance.
-    const_params: Vec<syn::Ident>,
+    const_params: Vec<&'a syn::Ident>,
     /// Generics for the type as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
     type_generics: TypeGenerics<'a>,
@@ -1076,7 +1077,7 @@ fn gen_struct_type_info(ctx: TypeInfoContext, s: &syn::DataStruct) -> proc_macro
             .iter()
             .any(|ident| type_equals_ident(&ty, ident))
         {
-            generic_types.push(ty.clone());
+            generic_types.push(ty);
         }
     });
 
@@ -1200,12 +1201,7 @@ fn gen_enum_type_info(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macro2::T
     });
 
     // Generate where clauses
-    let where_clause = ctx
-        .derive_input
-        .generics
-        .where_clause
-        .clone()
-        .unwrap_or_else(empty_where_clause);
+    let where_clause = ctx.where_clause;
 
     let TypeInfoWhereClauses {
         type_hash: where_clause_type_hash,
@@ -1309,8 +1305,8 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// avoid recomputing the same data twice.
 fn _type_info_derive(
     derive_input: &DeriveInput,
-    type_const_params: Vec<syn::Ident>,
-    const_params: Vec<syn::Ident>,
+    type_const_params: Vec<&syn::Ident>,
+    const_params: Vec<&syn::Ident>,
     type_generics: TypeGenerics<'_>,
     impl_generics: ImplGenerics<'_>,
     where_clause: &WhereClause,
