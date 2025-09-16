@@ -129,24 +129,28 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, fields_types: &[&syn::Type]) -> proc_m
 
 /// Returns the identifiers of type and const parameters in order of appearance,
 /// and the identifiers of const parameters only, also in order of appearance.
-fn get_type_const_params(input: &DeriveInput) -> (HashSet<&syn::Ident>, Vec<&syn::Ident>) {
-    let mut type_const_params = HashSet::new();
+fn get_type_const_params(
+    input: &DeriveInput,
+) -> (Vec<&syn::Ident>, HashSet<&syn::Ident>, Vec<&syn::Ident>) {
+    let mut type_const_params = vec![];
+    let mut type_params = HashSet::new();
     let mut const_params = vec![];
 
     input.generics.params.iter().for_each(|x| {
         match x {
             syn::GenericParam::Type(t) => {
-                type_const_params.insert(&t.ident);
+                type_const_params.push(&t.ident);
+                type_params.insert(&t.ident);
             }
             syn::GenericParam::Const(c) => {
+                type_const_params.push(&c.ident);
                 const_params.push(&c.ident);
-                type_const_params.insert(&c.ident);
             }
             syn::GenericParam::Lifetime(_) => {}
         };
     });
 
-    (type_const_params, const_params)
+    (type_const_params, type_params, const_params)
 }
 
 /// Returns whether the struct has attributes `repr(C)`, `zero_copy`, and `deep_copy`.
@@ -366,7 +370,9 @@ struct EpserdeContext<'a> {
     /// The name of the type being derived
     name: syn::Ident,
     /// Identifiers of type and const parameters, in order of appearance.
-    type_const_params: HashSet<&'a syn::Ident>,
+    type_const_params: Vec<&'a syn::Ident>,
+    /// Identifiers of type parameters as a set.
+    type_params: HashSet<&'a syn::Ident>,
     /// Generics for the type as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
     generics_for_type: TypeGenerics<'a>,
@@ -396,7 +402,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
         // We look for type parameters that are types of fields
         if let Some(field_type_id) = get_ident(field_type) {
-            if ctx.type_const_params.contains(field_type_id) {
+            if ctx.type_params.contains(field_type_id) {
                 field_type_params.insert(field_type_id);
             }
         }
@@ -576,7 +582,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     .for_each(|(field_name, field_type)| {
                         // We look for type parameters that are types of fields
                         if let Some(field_type_id) = get_ident(field_type) {
-                            if ctx.type_const_params.contains(field_type_id) {
+                            if ctx.type_params.contains(field_type_id) {
                                 all_field_type_params.insert(field_type_id);
                             }
                         }
@@ -628,7 +634,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                         // We look for type parameters that are types of fields
                         if let Some(field_type_id) = get_ident(field_type) {
-                            if ctx.type_const_params.contains(field_type_id) {
+                            if ctx.type_params.contains(field_type_id) {
                                 all_field_type_params.insert(field_type_id);
                             }
                         }
@@ -708,15 +714,13 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 const ZERO_COPY_MISMATCH: bool = false;
 
                 unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
-                    use ::epserde::traits::ZeroCopy;
-                    use ::epserde::ser::helpers;
-
                     // No-op code that however checks that all fields are zero-copy.
-                    fn test<T: ZeroCopy>() {}
+                    fn test<T: ::epserde::traits::ZeroCopy>() {}
                     #(
                         test::<#all_fields_types>();
                     )*
-                    helpers::serialize_zero(backend, self)
+
+                    ::epserde::ser::helpers::serialize_zero(backend, self)
                 }
             }
 
@@ -725,9 +729,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
-                    use ::epserde::deser::helpers;
-
-                    helpers::deserialize_full_zero::<Self>(backend)
+                    ::epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                 }
 
                 type DeserType<'epserde_desertype> = &'epserde_desertype Self;
@@ -736,9 +738,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                 ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
-                    use ::epserde::deser::helpers;
-
-                    helpers::deserialize_eps_zero::<Self>(backend)
+                    ::epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
                 }
             }
         }
@@ -768,10 +768,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*;
 
                 unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
-                    use ::epserde::ser::helpers;
                     use ::epserde::ser::WriteWithNames;
 
-                    helpers::check_mismatch::<Self>();
+                    ::epserde::ser::helpers::check_mismatch::<Self>();
                     match self {
                         #(
                            Self::#variant_arm => { #variant_ser }
@@ -847,13 +846,14 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     let where_clause = where_clause.unwrap();
 
     let (is_repr_c, is_zero_copy, is_deep_copy) = check_attrs(&derive_input);
-    let (type_const_params, const_params) = get_type_const_params(&derive_input);
+    let (type_const_params, type_params, const_params) = get_type_const_params(&derive_input);
     let name = derive_input.ident.clone();
 
     let ctx = EpserdeContext {
         derive_input: &derive_input,
         name,
         type_const_params,
+        type_params,
         generics_for_type,
         generics_for_impl,
         where_clause,
@@ -872,7 +872,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     // Automatically derive type info
     out.extend(_type_info_derive(
         &derive_input,
-        ctx.type_const_params,
+        ctx.type_params,
         const_params,
         ctx.generics_for_type,
         ctx.generics_for_impl,
@@ -891,8 +891,8 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 struct TypeInfoContext<'a> {
     /// The name of the type
     name: syn::Ident,
-    /// Identifiers of type and const parameters, in order of appearance.
-    type_const_params: HashSet<&'a syn::Ident>,
+    /// Identifiers of type parameters as a set.
+    type_params: HashSet<&'a syn::Ident>,
     /// Identifiers of const parameters, in order of appearance.
     const_params: Vec<&'a syn::Ident>,
     /// Generics for the type as returned by
@@ -958,12 +958,11 @@ fn gen_struct_align_hash_body(
     if ctx.is_zero_copy {
         quote! {
             use ::core::hash::Hash;
-            use ::core::mem;
             use ::epserde::traits::AlignHash;
 
             // Hash in size, as padding is given by MaxSizeOf.
             // and it is independent of the architecture.
-            Hash::hash(&mem::size_of::<Self>(), hasher);
+            Hash::hash(&::core::mem::size_of::<Self>(), hasher);
 
             // Hash in representation data.
             #(
@@ -1031,10 +1030,9 @@ fn gen_enum_align_hash_body(
 /// Generates `MaxSizeOf` implementation body.
 fn gen_struct_max_size_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
     quote! {
-        use ::std::mem;
         use ::epserde::traits::MaxSizeOf;
 
-        let mut max_size_of = mem::align_of::<Self>();
+        let mut max_size_of = ::std::mem::align_of::<Self>();
 
         // Recurse on all fields.
         #(
@@ -1113,7 +1111,7 @@ fn gen_struct_type_info_impl(
 
         // We look for type parameters that are types of fields
         if let Some(field_type_id) = get_ident(field_type) {
-            if ctx.type_const_params.contains(field_type_id) {
+            if ctx.type_params.contains(field_type_id) {
                 field_type_params.insert(field_type_id);
             }
         }
@@ -1193,7 +1191,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 
                     // We look for type parameters that are types of fields
                     if let Some(field_type_id) = get_ident(field_type) {
-                        if ctx.type_const_params.contains(field_type_id) {
+                        if ctx.type_params.contains(field_type_id) {
                             all_field_type_params.push(field_type);
                         }
                     }
@@ -1226,7 +1224,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 
                         // We look for type parameters that are types of fields
                         if let Some(field_type_id) = get_ident(field_type) {
-                            if ctx.type_const_params.contains(field_type_id) {
+                            if ctx.type_params.contains(field_type_id) {
                                 all_field_type_params.push(field_type);
                             }
                         }
@@ -1287,11 +1285,10 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     let where_clause = where_clause.unwrap();
 
     let (_, is_zero_copy, _) = check_attrs(&derive_input);
-    let (type_const_params, const_params) = get_type_const_params(&derive_input);
-
+    let (_, type_params, const_params) = get_type_const_params(&derive_input);
     _type_info_derive(
         &derive_input,
-        type_const_params,
+        type_params,
         const_params,
         generics,
         generics_for_impl,
@@ -1306,7 +1303,7 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// avoid recomputing the same data twice.
 fn _type_info_derive(
     derive_input: &DeriveInput,
-    type_const_params: HashSet<&syn::Ident>,
+    type_params: HashSet<&syn::Ident>,
     const_params: Vec<&syn::Ident>,
     generics_for_type: TypeGenerics<'_>,
     generics_for_impl: ImplGenerics<'_>,
@@ -1323,7 +1320,7 @@ fn _type_info_derive(
 
     let ctx = TypeInfoContext {
         name: derive_input.ident.clone(),
-        type_const_params,
+        type_params,
         const_params,
         generics_for_type,
         generics_for_impl,
