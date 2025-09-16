@@ -24,7 +24,8 @@
 
 ### Changed
 
-* All serialization and deserialization methods are now unsafe.
+* All serialization and deserialization methods are now unsafe. See their
+  safety section for more information.
 
 * All deserialization helper methods handling zero-copy types are also unsafe.
   This change is necessary because such methods can deserialize uninhabited
@@ -45,6 +46,9 @@
   types of their generic type parameters, but this is not correct and does
   not always work, as the associated (de)serialization type of zero-copy
   type is just `Self`.
+
+* Trait bounds for `TypeHash`, `AlignHash` and `MaxSizeOf` were generated
+  incorrectly.
 
 ## [0.8.0] - 2025-03-03
 
