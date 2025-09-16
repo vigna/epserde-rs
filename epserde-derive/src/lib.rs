@@ -17,6 +17,10 @@ use syn::{
     TypeGenerics, TypeParamBound, WhereClause, WherePredicate,
 };
 
+//
+// `Epserde` derive macro implementation
+//
+
 /// Returns an empty where clause.
 fn empty_where_clause() -> WhereClause {
     WhereClause {
@@ -58,7 +62,7 @@ fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStr
         .unwrap_or_else(|| syn::Index::from(field_idx).to_token_stream())
 }
 
-/// Returns true if the given type just made of the given identifier.
+/// Returns true if the given type is just given by the given identifier.
 fn type_equals_ident(ty: &syn::Type, ident: &syn::Ident) -> bool {
     if let syn::Type::Path(syn::TypePath {
         qself: None,
@@ -106,6 +110,7 @@ fn gen_method_call(
             }
         }
 
+        // It's just a type, and it's the type of a field: ε-copy deserialization
         if segments.len() == 1 && field_type_params.contains(&segments[0].ident) {
             return syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_eps_inner);
         }
@@ -193,8 +198,8 @@ fn add_ser_deser_bounds<'a>(
         if let syn::GenericParam::Type(t) = param {
             let ident = &t.ident;
 
-            // We are just interested in type parameters that are
-            // types of fields of the struct and that are bounded.
+            // We are just interested in type parameters that are types of
+            // fields and that have trait bounds
             if !t.bounds.is_empty() && field_type_params.contains(ident) {
                 // The lifetime of the DeserType
                 let mut lifetimes = Punctuated::new();
@@ -208,7 +213,7 @@ fn add_ser_deser_bounds<'a>(
                     bounds: Punctuated::new(),
                 }));
 
-                // Add the type bounds to the DeserType
+                // Add the trait bounds of the type to the DeserType
                 where_clause_des
                     .predicates
                     .push(WherePredicate::Type(PredicateType {
@@ -225,7 +230,7 @@ fn add_ser_deser_bounds<'a>(
                         bounds: t.bounds.clone(),
                     }));
 
-                // Add the type bounds to the SerType
+                // Add the trait bounds of the type to the SerType
                 where_clause_ser
                     .predicates
                     .push(WherePredicate::Type(PredicateType {
@@ -297,8 +302,11 @@ fn gen_ser_type_generics<'a>(
         .collect()
 }
 
-/// Generate where clauses for SerializeInner and DeserializeInner
-/// by adding trait bounds for all field types.
+/// Generates where clauses for SerializeInner and DeserializeInner
+/// implementation.
+///
+/// The where clauses bound all field types with the trait being implemented,
+/// thus propagating recursively (de)serializability.
 fn gen_where_clauses(field_types: &[syn::Type]) -> (WhereClause, WhereClause) {
     let mut where_clause_ser = empty_where_clause();
     let mut where_clause_des = empty_where_clause();
@@ -311,7 +319,7 @@ fn gen_where_clauses(field_types: &[syn::Type]) -> (WhereClause, WhereClause) {
     (where_clause_ser, where_clause_des)
 }
 
-/// Set of where clauses for traits handled by the `TypeInfo` derive macro.
+/// Set of where clauses for traits handled by the [`TypeInfo`] derive macro.
 struct TypeInfoWhereClauses {
     /// Where clause for `TypeHash` trait.
     type_hash: WhereClause,
@@ -321,42 +329,43 @@ struct TypeInfoWhereClauses {
     max_size_of: WhereClause,
 }
 
-fn gen_where_clause(
-    base_clause: &WhereClause,
-    field_types: &[&syn::Type],
-    trait_bound: Punctuated<TypeParamBound, Plus>,
-) -> WhereClause {
-    let mut where_clause = base_clause.clone();
-    for &ty in field_types {
-        where_clause
-            .predicates
-            .push(WherePredicate::Type(PredicateType {
-                lifetimes: None,
-                bounded_ty: ty.clone(),
-                colon_token: token::Colon::default(),
-                bounds: trait_bound.clone(),
-            }));
-    }
-
-    where_clause
-}
-
-/// Generates where clauses for traits handled by the `TypeInfo` derive macro.
+/// Generates all clauses in [`TypeInfoWhereClauses`].
 fn gen_type_info_where_clauses(
     base_clause: &WhereClause,
     field_types: &[&syn::Type],
 ) -> TypeInfoWhereClauses {
+    /// Generates one of the clauses in [`TypeInfoWhereClauses`]
+    /// by adding the given trait bound for all types of fields.
+    fn gen_type_info_where_clause(
+        base_clause: &WhereClause,
+        field_types: &[&syn::Type],
+        trait_bound: Punctuated<TypeParamBound, Plus>,
+    ) -> WhereClause {
+        let mut where_clause = base_clause.clone();
+        for &ty in field_types {
+            where_clause
+                .predicates
+                .push(WherePredicate::Type(PredicateType {
+                    lifetimes: None,
+                    bounded_ty: ty.clone(),
+                    colon_token: token::Colon::default(),
+                    bounds: trait_bound.clone(),
+                }));
+        }
+
+        where_clause
+    }
     let mut bound_type_hash = Punctuated::new();
     bound_type_hash.push(syn::parse_quote!(::epserde::traits::TypeHash));
-    let type_hash = gen_where_clause(base_clause, field_types, bound_type_hash);
+    let type_hash = gen_type_info_where_clause(base_clause, field_types, bound_type_hash);
 
     let mut bound_align_hash = Punctuated::new();
     bound_align_hash.push(syn::parse_quote!(::epserde::traits::AlignHash));
-    let align_hash = gen_where_clause(base_clause, field_types, bound_align_hash);
+    let align_hash = gen_type_info_where_clause(base_clause, field_types, bound_align_hash);
 
     let mut bound_max_size_of = Punctuated::new();
     bound_max_size_of.push(syn::parse_quote!(::epserde::traits::MaxSizeOf));
-    let max_size_of = gen_where_clause(base_clause, field_types, bound_max_size_of);
+    let max_size_of = gen_type_info_where_clause(base_clause, field_types, bound_max_size_of);
 
     TypeInfoWhereClauses {
         type_hash,
@@ -365,7 +374,7 @@ fn gen_type_info_where_clauses(
     }
 }
 
-/// Context structure for the `Epserde` derive macro.
+/// Context structure for the [`Epserde`] derive macro.
 struct EpserdeContext<'a> {
     /// The original derive input.
     derive_input: &'a DeriveInput,
@@ -373,10 +382,11 @@ struct EpserdeContext<'a> {
     name: syn::Ident,
     /// Identifiers of type and const parameters, in order of appearance.
     type_const_params: Vec<syn::Ident>,
-    /// Generics for the type as returned by `DeriveInput::split_for_impl`.
+    /// Generics for the type as returned by
+    /// [`split_for_impl`](syn::Generics::split_for_impl).
     generics: TypeGenerics<'a>,
     /// Generics for the `ìmpl` clause as returned by
-    /// `DeriveInput::split_for_impl`,
+    /// [`split_for_impl`](syn::Generics::split_for_impl).
     impl_generics: ImplGenerics<'a>,
     /// The where clause for the type being derived.
     where_clause: &'a WhereClause,
@@ -386,6 +396,170 @@ struct EpserdeContext<'a> {
     is_zero_copy: bool,
     /// Whether the type has `#[deep_copy]`
     is_deep_copy: bool,
+}
+
+/// Generate implementation for struct types
+fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
+    let mut fields_names = vec![];
+    let mut fields_types = vec![];
+    let mut field_type_params = HashSet::new();
+    let mut method_calls = vec![];
+    let type_const_params = ctx.type_const_params.iter().collect::<HashSet<_>>();
+
+    s.fields.iter().enumerate().for_each(|(field_idx, field)| {
+        let field_type = &field.ty;
+        let field_name = get_field_name(field, field_idx);
+
+        for &id in &type_const_params {
+            if type_equals_ident(field_type, id) {
+                field_type_params.insert(id);
+                break;
+            }
+        }
+
+        method_calls.push(gen_method_call(&field_name, field_type, &field_type_params));
+        fields_types.push(field_type.clone());
+        fields_names.push(field_name);
+    });
+
+    // Gather deserialization types of fields, as they are necessary to
+    // derive the deserialization type.
+    let deser_type_generics = gen_deser_type_generics(&ctx, &field_type_params);
+    let ser_type_generics = gen_ser_type_generics(&ctx, &field_type_params);
+
+    let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &fields_types);
+    let (mut where_clause_ser, mut where_clause_des) = gen_where_clauses(&fields_types);
+    let impl_generics = &ctx.impl_generics;
+    let generics = &ctx.generics;
+    let where_clause = &ctx.where_clause;
+    let name = &ctx.name;
+
+    if ctx.is_zero_copy {
+        // In zero-copy types we do not need to add bounds to
+        // the associated SerType/DeserType, as generics are not
+        // replaced with their SerType/DeserType.
+        quote! {
+            #[automatically_derived]
+            impl #impl_generics ::epserde::traits::CopyType for #name #generics #where_clause {
+                type Copy = ::epserde::traits::Zero;
+            }
+
+            #[automatically_derived]
+            impl #impl_generics ::epserde::ser::SerializeInner for #name #generics #where_clause_ser {
+                type SerType = Self;
+                // Compute whether the type could be zero copy
+                const IS_ZERO_COPY: bool = #is_zero_copy_expr;
+
+                // The type is declared as zero copy, so a fortiori there is no mismatch.
+                const ZERO_COPY_MISMATCH: bool = false;
+
+                #[inline(always)]
+                unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
+                    use ::epserde::traits::ZeroCopy;
+                    use ::epserde::ser::helpers;
+
+                    // No-op code that however checks that all fields are zero-copy.
+                    fn test<T: ZeroCopy>() {}
+                    #(
+                        test::<#fields_types>();
+                    )*
+                    helpers::serialize_zero(backend, self)
+                }
+            }
+
+            #[automatically_derived]
+            impl #impl_generics ::epserde::deser::DeserializeInner for #name #generics #where_clause_des
+            {
+                unsafe fn _deserialize_full_inner(
+                    backend: &mut impl ::epserde::deser::ReadWithPos,
+                ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
+                    use ::epserde::deser::helpers;
+
+                    helpers::deserialize_full_zero::<Self>(backend)
+                }
+
+                type DeserType<'epserde_desertype> = &'epserde_desertype Self;
+
+                unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
+                    backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
+                ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
+                {
+                    use ::epserde::deser::helpers;
+
+                    helpers::deserialize_eps_zero::<Self>(backend)
+                }
+            }
+        }
+    } else {
+        add_ser_deser_bounds(
+            &ctx.derive_input,
+            &field_type_params,
+            &mut where_clause_ser,
+            &mut where_clause_des,
+        );
+
+        let is_deep_copy = ctx.is_deep_copy;
+
+        quote! {
+            #[automatically_derived]
+            impl #impl_generics ::epserde::traits::CopyType for #name #generics #where_clause {
+                type Copy = ::epserde::traits::Deep;
+            }
+
+            #[automatically_derived]
+            impl #impl_generics ::epserde::ser::SerializeInner for #name #generics #where_clause_ser {
+                type SerType = #name<#(#ser_type_generics,)*>;
+                // Compute whether the type could be zero copy
+                const IS_ZERO_COPY: bool = #is_zero_copy_expr;
+
+                // Compute whether the type could be zero copy but it is not declared as such,
+                // and the attribute `deep_copy` is missing.
+                const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
+
+                #[inline(always)]
+                unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
+                    use ::epserde::ser::helpers;
+                    use ::epserde::ser::WriteWithNames;
+
+                    helpers::check_mismatch::<Self>();
+                    #(
+                        WriteWithNames::write(backend, stringify!(#fields_names), &self.#fields_names)?;
+                    )*
+                    Ok(())
+                }
+            }
+
+            #[automatically_derived]
+            impl #impl_generics ::epserde::deser::DeserializeInner for #name #generics #where_clause_des {
+                unsafe fn _deserialize_full_inner(
+                    backend: &mut impl ::epserde::deser::ReadWithPos,
+                ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
+                    use ::epserde::deser::DeserializeInner;
+
+                    Ok(#name{
+                        #(
+                            #fields_names: unsafe { <#fields_types as ::epserde::deser::DeserializeInner>::_deserialize_full_inner(backend)? },
+                        )*
+                    })
+                }
+
+                type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
+
+                unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
+                    backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
+                ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
+                {
+                    use ::epserde::deser::DeserializeInner;
+
+                    Ok(#name{
+                        #(
+                            #method_calls(backend)?,
+                        )*
+                    })
+                }
+            }
+        }
+    }
 }
 
 /// Generate implementation for enum types
@@ -661,172 +835,74 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
     }
 }
 
-/// Generate implementation for struct types
-fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
-    let mut fields_names = vec![];
-    let mut fields_types = vec![];
-    let mut field_type_params = HashSet::new();
-    let mut method_calls = vec![];
-    let type_const_params = ctx.type_const_params.iter().collect::<HashSet<_>>();
+/// Generate an ε-serde implementation for custom types.
+///
+/// It generates implementations for the traits `CopyType`,
+/// `MaxSizeOf`, `TypeHash`, `AlignHash`, `SerializeInner`,
+/// and `DeserializeInner`.
+///
+/// Presently we do not support unions.
+///
+/// The attribute `zero_copy` can be used to generate an implementation for a zero-copy
+/// type, but the type must be `repr(C)` and all fields must be zero-copy.
+///
+/// If you do not specify `zero_copy`, the macro assumes your structure is deep-copy.
+/// However, if you have a structure that could be zero-copy, but has no attribute,
+/// a warning will be issued every time you serialize. The warning can be silenced adding
+/// the explicit attribute `deep_copy`.
+#[proc_macro_derive(Epserde, attributes(zero_copy, deep_copy))]
+pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    // This part is in common with type_info_derive
+    let mut derive_input = parse_macro_input!(input as DeriveInput);
 
-    // Scan the struct to find which fields contain a generic
-    // type (i.e., they are themselves of a generic type,
-    // or of a type containing a generic type as a parameter).
-    s.fields.iter().enumerate().for_each(|(field_idx, field)| {
-        let field_type = &field.ty;
-        let field_name = get_field_name(field, field_idx);
-
-        for &id in &type_const_params {
-            if type_equals_ident(field_type, id) {
-                field_type_params.insert(id);
-                break;
-            }
-        }
-
-        method_calls.push(gen_method_call(&field_name, field_type, &field_type_params));
-        fields_types.push(field_type.clone());
-        fields_names.push(field_name);
-    });
-
-    // Gather deserialization types of fields, as they are necessary to
-    // derive the deserialization type.
-    let deser_type_generics = gen_deser_type_generics(&ctx, &field_type_params);
-    let ser_type_generics = gen_ser_type_generics(&ctx, &field_type_params);
-
-    let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &fields_types);
-    let (mut where_clause_ser, mut where_clause_des) = gen_where_clauses(&fields_types);
-    let impl_generics = &ctx.impl_generics;
-    let generics = &ctx.generics;
-    let where_clause = &ctx.where_clause;
-    let name = &ctx.name;
-
-    if ctx.is_zero_copy {
-        // In zero-copy types we do not need to add bounds to
-        // the associated SerType/DeserType, as generics are not
-        // replaced with their SerType/DeserType.
-        quote! {
-            #[automatically_derived]
-            impl #impl_generics ::epserde::traits::CopyType for #name #generics #where_clause {
-                type Copy = ::epserde::traits::Zero;
-            }
-
-            #[automatically_derived]
-            impl #impl_generics ::epserde::ser::SerializeInner for #name #generics #where_clause_ser {
-                type SerType = Self;
-                // Compute whether the type could be zero copy
-                const IS_ZERO_COPY: bool = #is_zero_copy_expr;
-
-                // The type is declared as zero copy, so a fortiori there is no mismatch.
-                const ZERO_COPY_MISMATCH: bool = false;
-
-                #[inline(always)]
-                unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
-                    use ::epserde::traits::ZeroCopy;
-                    use ::epserde::ser::helpers;
-
-                    // No-op code that however checks that all fields are zero-copy.
-                    fn test<T: ZeroCopy>() {}
-                    #(
-                        test::<#fields_types>();
-                    )*
-                    helpers::serialize_zero(backend, self)
-                }
-            }
-
-            #[automatically_derived]
-            impl #impl_generics ::epserde::deser::DeserializeInner for #name #generics #where_clause_des
-            {
-                unsafe fn _deserialize_full_inner(
-                    backend: &mut impl ::epserde::deser::ReadWithPos,
-                ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
-                    use ::epserde::deser::helpers;
-
-                    helpers::deserialize_full_zero::<Self>(backend)
-                }
-
-                type DeserType<'epserde_desertype> = &'epserde_desertype Self;
-
-                unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
-                    backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
-                {
-                    use ::epserde::deser::helpers;
-
-                    helpers::deserialize_eps_zero::<Self>(backend)
-                }
-            }
-        }
-    } else {
-        add_ser_deser_bounds(
-            &ctx.derive_input,
-            &field_type_params,
-            &mut where_clause_ser,
-            &mut where_clause_des,
-        );
-
-        let is_deep_copy = ctx.is_deep_copy;
-
-        quote! {
-            #[automatically_derived]
-            impl #impl_generics ::epserde::traits::CopyType for #name #generics #where_clause {
-                type Copy = ::epserde::traits::Deep;
-            }
-
-            #[automatically_derived]
-            impl #impl_generics ::epserde::ser::SerializeInner for #name #generics #where_clause_ser {
-                type SerType = #name<#(#ser_type_generics,)*>;
-                // Compute whether the type could be zero copy
-                const IS_ZERO_COPY: bool = #is_zero_copy_expr;
-
-                // Compute whether the type could be zero copy but it is not declared as such,
-                // and the attribute `deep_copy` is missing.
-                const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
-
-                #[inline(always)]
-                unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
-                    use ::epserde::ser::helpers;
-                    use ::epserde::ser::WriteWithNames;
-
-                    helpers::check_mismatch::<Self>();
-                    #(
-                        WriteWithNames::write(backend, stringify!(#fields_names), &self.#fields_names)?;
-                    )*
-                    Ok(())
-                }
-            }
-
-            #[automatically_derived]
-            impl #impl_generics ::epserde::deser::DeserializeInner for #name #generics #where_clause_des {
-                unsafe fn _deserialize_full_inner(
-                    backend: &mut impl ::epserde::deser::ReadWithPos,
-                ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
-                    use ::epserde::deser::DeserializeInner;
-
-                    Ok(#name{
-                        #(
-                            #fields_names: unsafe { <#fields_types as ::epserde::deser::DeserializeInner>::_deserialize_full_inner(backend)? },
-                        )*
-                    })
-                }
-
-                type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
-
-                unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
-                    backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
-                {
-                    use ::epserde::deser::DeserializeInner;
-
-                    Ok(#name{
-                        #(
-                            #method_calls(backend)?,
-                        )*
-                    })
-                }
-            }
-        }
+    if derive_input.generics.where_clause.is_some() {
+        panic!("The derive macros do not support where clauses on the original type.");
     }
+
+    derive_input.generics.make_where_clause();
+    let (impl_generics, generics, where_clause) = derive_input.generics.split_for_impl();
+    let where_clause = where_clause.unwrap();
+
+    let (is_repr_c, is_zero_copy, is_deep_copy) = check_attrs(&derive_input);
+    let (type_const_params, const_params) = get_type_const_params(&derive_input);
+    let name = derive_input.ident.clone();
+
+    let ctx = EpserdeContext {
+        derive_input: &derive_input,
+        name,
+        type_const_params,
+        generics,
+        impl_generics,
+        where_clause,
+        is_repr_c,
+        is_zero_copy,
+        is_deep_copy,
+    };
+
+    let mut out: proc_macro::TokenStream = match &derive_input.data {
+        Data::Struct(s) => gen_struct_impl(&ctx, s),
+        Data::Enum(e) => gen_enum_impl(&ctx, e),
+        _ => todo!("Union types are not currently supported"),
+    }
+    .into();
+
+    // Automatically derive type info
+    out.extend(_type_info_derive(
+        &derive_input,
+        ctx.type_const_params,
+        const_params,
+        ctx.generics,
+        ctx.impl_generics,
+        ctx.where_clause,
+        ctx.is_zero_copy,
+    ));
+
+    out
 }
+
+//
+// `TypeInfo` derive macro implementation
+//
 
 /// Context structure for the `TypeInfo` derive macro
 struct TypeInfoContext<'a> {
@@ -838,10 +914,11 @@ struct TypeInfoContext<'a> {
     type_const_params: Vec<syn::Ident>,
     /// Identifiers of const parameters, in order of appearance.
     const_params: Vec<syn::Ident>,
-    /// Generics for the type as returned by `DeriveInput::split_for_impl`.
+    /// Generics for the type as returned by
+    /// [`split_for_impl`](syn::Generics::split_for_impl).
     generics: TypeGenerics<'a>,
     /// Generics for the `ìmpl` clause as returned by
-    /// `DeriveInput::split_for_impl`,
+    /// [`split_for_impl`](syn::Generics::split_for_impl).
     impl_generics: ImplGenerics<'a>,
     /// The where clause for the type being derived.
     where_clause: &'a WhereClause,
@@ -923,7 +1000,7 @@ fn gen_struct_align_hash_body(
     }
 }
 
-/// Generate MaxSizeOf implementation body
+/// Generates `MaxSizeOf` implementation body.
 fn gen_max_size_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
     quote! {
         use ::std::mem;
@@ -940,7 +1017,8 @@ fn gen_max_size_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream
     }
 }
 
-/// Generates the implementations for TypeHash, AlignHash, and optionally MaxSizeOf.
+/// Generates the implementations for `TypeHash`, `AlignHash`, and optionally
+/// `MaxSizeOf`.
 fn gen_type_info_traits(
     ctx: &TypeInfoContext,
     where_clause_type_hash: &syn::WhereClause,
@@ -991,7 +1069,7 @@ fn gen_type_info_traits(
 }
 
 /// Generate TypeHash implementation for struct types
-fn gen_struct_type_hash(ctx: TypeInfoContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
+fn gen_struct_type_info(ctx: TypeInfoContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     let mut generic_types = vec![];
     let mut fields_names = vec![];
     let mut fields_types = vec![];
@@ -1050,7 +1128,7 @@ fn gen_struct_type_hash(ctx: TypeInfoContext, s: &syn::DataStruct) -> proc_macro
 }
 
 /// Generate TypeHash implementation for enum types
-fn gen_enum_type_hash(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
+fn gen_enum_type_info(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
     let mut var_type_hashes = vec![];
     let mut var_align_hashes = vec![];
     let mut var_max_size_ofs = vec![];
@@ -1202,71 +1280,6 @@ fn gen_enum_type_hash(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macro2::T
     )
 }
 
-/// Generate an ε-serde implementation for custom types.
-///
-/// It generates implementations for the traits `CopyType`,
-/// `MaxSizeOf`, `TypeHash`, `AlignHash`, `SerializeInner`,
-/// and `DeserializeInner`.
-///
-/// Presently we do not support unions.
-///
-/// The attribute `zero_copy` can be used to generate an implementation for a zero-copy
-/// type, but the type must be `repr(C)` and all fields must be zero-copy.
-///
-/// If you do not specify `zero_copy`, the macro assumes your structure is deep-copy.
-/// However, if you have a structure that could be zero-copy, but has no attribute,
-/// a warning will be issued every time you serialize. The warning can be silenced adding
-/// the explicit attribute `deep_copy`.
-#[proc_macro_derive(Epserde, attributes(zero_copy, deep_copy))]
-pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    // This part is in common with type_info_derive
-    let mut derive_input = parse_macro_input!(input as DeriveInput);
-
-    if derive_input.generics.where_clause.is_some() {
-        panic!("The derive macros do not support where clauses on the original type.");
-    }
-
-    derive_input.generics.make_where_clause();
-    let (impl_generics, generics, where_clause) = derive_input.generics.split_for_impl();
-    let where_clause = where_clause.unwrap();
-
-    let (is_repr_c, is_zero_copy, is_deep_copy) = check_attrs(&derive_input);
-    let (type_const_params, const_params) = get_type_const_params(&derive_input);
-    let name = derive_input.ident.clone();
-
-    let ctx = EpserdeContext {
-        derive_input: &derive_input,
-        name,
-        type_const_params,
-        generics,
-        impl_generics,
-        where_clause,
-        is_repr_c,
-        is_zero_copy,
-        is_deep_copy,
-    };
-
-    let mut out: proc_macro::TokenStream = match &derive_input.data {
-        Data::Struct(s) => gen_struct_impl(&ctx, s),
-        Data::Enum(e) => gen_enum_impl(&ctx, e),
-        _ => todo!("Union types are not currently supported"),
-    }
-    .into();
-
-    // Automatically derive type info
-    out.extend(_type_info_derive(
-        &derive_input,
-        ctx.type_const_params,
-        const_params,
-        ctx.generics,
-        ctx.impl_generics,
-        ctx.where_clause,
-        ctx.is_zero_copy,
-    ));
-
-    out
-}
-
 /// Generate a partial ε-serde implementation for custom types.
 ///
 /// It generates implementations just for the traits
@@ -1299,6 +1312,10 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     )
 }
 
+/// Completes the `TypeInfo` derive macro using precomuted data.
+///
+/// This method is used by the `Epserde` derive macro to
+/// avoid recomputing the same data twice.
 fn _type_info_derive(
     derive_input: &DeriveInput,
     type_const_params: Vec<syn::Ident>,
@@ -1330,8 +1347,8 @@ fn _type_info_derive(
     };
 
     match &derive_input.data {
-        Data::Struct(s) => gen_struct_type_hash(ctx, s),
-        Data::Enum(e) => gen_enum_type_hash(ctx, e),
+        Data::Struct(s) => gen_struct_type_info(ctx, s),
+        Data::Enum(e) => gen_enum_type_info(ctx, e),
         _ => todo!("Union types are not currently supported"),
     }
     .into()
