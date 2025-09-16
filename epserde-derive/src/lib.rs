@@ -319,21 +319,11 @@ fn gen_where_clauses(field_types: &[&syn::Type]) -> (WhereClause, WhereClause) {
     (where_clause_ser, where_clause_deser)
 }
 
-/// Set of where clauses for traits handled by the [`TypeInfo`] derive macro.
-struct TypeInfoWhereClauses {
-    /// Where clause for `TypeHash` trait.
-    type_hash: WhereClause,
-    /// Where clause for `AlignHash` trait.
-    align_hash: WhereClause,
-    /// Where clause for `MaxSizeOf` trait.
-    max_size_of: WhereClause,
-}
-
 /// Generates all clauses in [`TypeInfoWhereClauses`].
 fn gen_type_info_where_clauses(
     base_clause: &WhereClause,
     field_types: &[&syn::Type],
-) -> TypeInfoWhereClauses {
+) -> (WhereClause, WhereClause, WhereClause) {
     /// Generates one of the clauses in [`TypeInfoWhereClauses`]
     /// by adding the given trait bound for all types of fields.
     fn gen_type_info_where_clause(
@@ -367,11 +357,7 @@ fn gen_type_info_where_clauses(
     bound_max_size_of.push(syn::parse_quote!(::epserde::traits::MaxSizeOf));
     let max_size_of = gen_type_info_where_clause(base_clause, field_types, bound_max_size_of);
 
-    TypeInfoWhereClauses {
-        type_hash,
-        align_hash,
-        max_size_of,
-    }
+    (type_hash, align_hash, max_size_of)
 }
 
 /// Context structure for the [`Epserde`] derive macro.
@@ -398,8 +384,8 @@ struct EpserdeContext<'a> {
     is_deep_copy: bool,
 }
 
-/// Generates implementations for struct types.
-fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
+/// [`Epserde`] derive code for struct types.
+fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     let mut fields_names = vec![];
     let mut field_types = vec![];
     let mut method_calls = vec![];
@@ -549,8 +535,8 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
     }
 }
 
-/// Generates implementations for enum types.
-fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
+/// [`Epserde`] derive code for enum types.
+fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
     let mut variant_names = vec![];
     // For each variant, a match statement arm as a TokenStream
     let mut variant_arm = vec![];
@@ -641,6 +627,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                     .for_each(|(field_idx, unnamed)| {
                         let ty = &unnamed.ty;
                         let name = syn::Index::from(field_idx);
+
                         for id in &ctx.type_const_params {
                             if type_equals_ident(ty, id) {
                                 all_field_type_params.insert(&id);
@@ -653,10 +640,12 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                             proc_macro2::Span::call_site(),
                         )
                         .to_token_stream());
-                        field_types.push(ty);
-                        field_names_in_arm.push(syn::Index::from(field_idx));
 
                         method_calls.push(gen_method_call(&name.to_token_stream(), ty, &all_field_type_params));
+
+                        field_types.push(ty);
+                        field_names_in_arm.push(name);
+
                     });
 
                 all_fields_types.extend(&field_types);
@@ -830,21 +819,21 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
     }
 }
 
-/// Generate an ε-serde implementation for custom types.
+/// Generates an ε-serde implementation for custom types.
 ///
-/// It generates implementations for the traits `CopyType`,
-/// `MaxSizeOf`, `TypeHash`, `AlignHash`, `SerializeInner`,
-/// and `DeserializeInner`.
+/// It generates implementations for the traits `CopyType`, `MaxSizeOf`,
+/// `TypeHash`, `AlignHash`, `SerializeInner`, and `DeserializeInner`.
 ///
 /// Presently we do not support unions.
 ///
-/// The attribute `zero_copy` can be used to generate an implementation for a zero-copy
-/// type, but the type must be `repr(C)` and all fields must be zero-copy.
+/// The attribute `zero_copy` can be used to generate an implementation for a
+/// zero-copy type, but the type must be `repr(C)` and all fields must be
+/// zero-copy.
 ///
-/// If you do not specify `zero_copy`, the macro assumes your structure is deep-copy.
-/// However, if you have a structure that could be zero-copy, but has no attribute,
-/// a warning will be issued every time you serialize. The warning can be silenced adding
-/// the explicit attribute `deep_copy`.
+/// If you do not specify `zero_copy`, the macro assumes your structure is
+/// deep-copy. However, if you have a structure that could be zero-copy, but has
+/// no attribute, a warning will be issued every time you serialize. The warning
+/// can be silenced adding the explicit attribute `deep_copy`.
 #[proc_macro_derive(Epserde, attributes(zero_copy, deep_copy))]
 pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // This part is in common with type_info_derive
@@ -876,8 +865,8 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     };
 
     let mut out: proc_macro::TokenStream = match &derive_input.data {
-        Data::Struct(s) => gen_struct_impl(&ctx, s),
-        Data::Enum(e) => gen_enum_impl(&ctx, e),
+        Data::Struct(s) => gen_epserde_struct_impl(&ctx, s),
+        Data::Enum(e) => gen_epserde_enum_impl(&ctx, e),
         _ => todo!("Union types are not currently supported"),
     }
     .into();
@@ -963,7 +952,7 @@ fn gen_type_hash_body(
 }
 
 /// Generates `AlignHash` implementation body.
-fn gen_align_hash_body(
+fn gen_struct_align_hash_body(
     ctx: &TypeInfoContext,
     fields_types: &[&syn::Type],
 ) -> proc_macro2::TokenStream {
@@ -1003,8 +992,46 @@ fn gen_align_hash_body(
     }
 }
 
+fn gen_enum_align_hash_body(
+    ctx: &TypeInfoContext,
+    all_align_hashes: &[proc_macro2::TokenStream],
+) -> proc_macro2::TokenStream {
+    let repr = &ctx.repr;
+    if ctx.is_zero_copy {
+        quote! {
+            use ::core::hash::Hash;
+
+            // Hash in size, as padding is given by MaxSizeOf.
+            // and it is independent of the architecture.
+            Hash::hash(&::core::mem::size_of::<Self>(), hasher);
+
+            // Hash in representation data.
+            #(
+                Hash::hash(#repr, hasher);
+            )*
+
+            // Recurse on all fields.
+            let old_offset_of = *offset_of;
+            #(
+                *offset_of = old_offset_of;
+                #all_align_hashes
+            )*
+        }
+    } else {
+        quote! {
+            // Recurse on all variants starting at offset 0
+            // Note that we share var_align_hashes with the
+            // zero-copy case, so we cannot pass &mut 0.
+            #(
+                *offset_of = 0;
+                #all_align_hashes
+            )*
+        }
+    }
+}
+
 /// Generates `MaxSizeOf` implementation body.
-fn gen_max_size_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
+fn gen_struct_max_size_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
     quote! {
         use ::std::mem;
         use ::epserde::traits::MaxSizeOf;
@@ -1021,8 +1048,8 @@ fn gen_max_size_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream
     }
 }
 
-/// Generates the implementations for `TypeHash`, `AlignHash`, and optionally
-/// `MaxSizeOf`.
+/// Generates the implementations for `TypeHash`, `AlignHash`, and
+/// optionally `MaxSizeOf`.
 fn gen_type_info_traits(
     ctx: &TypeInfoContext,
     where_clause_type_hash: &syn::WhereClause,
@@ -1071,192 +1098,160 @@ fn gen_type_info_traits(
     }
 }
 
-/// Generate TypeHash implementation for struct types
-fn gen_struct_type_info(ctx: TypeInfoContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
-    let mut generic_types = vec![];
-    let mut fields_names = vec![];
-    let mut fields_types = vec![];
+/// [`TypeInfo`] derive code for struct types.
+fn gen_struct_type_info_impl(
+    ctx: TypeInfoContext,
+    s: &syn::DataStruct,
+) -> proc_macro2::TokenStream {
+    let mut field_names = vec![];
+    let mut field_types = vec![];
+    let mut field_type_params = HashSet::new();
 
     // Extract field information
     s.fields.iter().enumerate().for_each(|(field_idx, field)| {
-        let ty = &field.ty;
-        fields_names.push(get_field_name(field, field_idx));
-        fields_types.push(ty);
+        let field_type = &field.ty;
+        field_names.push(get_field_name(field, field_idx));
+        field_types.push(field_type);
 
-        if ctx
-            .type_const_params
-            .iter()
-            .any(|ident| type_equals_ident(&ty, ident))
-        {
-            generic_types.push(ty);
+        for &id in &ctx.type_const_params {
+            if type_equals_ident(field_type, id) {
+                field_type_params.insert(id);
+                break;
+            }
         }
     });
 
-    let TypeInfoWhereClauses {
-        type_hash: where_clause_type_hash,
-        align_hash: where_clause_align_hash,
-        max_size_of: where_clause_max_size_of,
-    } = gen_type_info_where_clauses(&ctx.where_clause, &fields_types);
+    let (type_hash_where_clause, align_hash_where_clause, max_size_of_where_clause) =
+        gen_type_info_where_clauses(&ctx.where_clause, &field_types);
 
     // Generate field hashes for TypeHash
-    let mut field_hashes: Vec<_> = fields_names
+    let mut field_hashes: Vec<_> = field_names
         .iter()
-        .map(|name| quote! {Hash::hash(stringify!(#name), hasher);})
+        .map(|name| quote! { Hash::hash(stringify!(#name), hasher); })
         .collect();
 
     field_hashes.extend(
-        fields_types
+        field_types
             .iter()
             .map(|ty| quote! {<#ty as TypeHash>::type_hash(hasher);}),
     );
 
     // Generate implementation bodies
     let type_hash_body = gen_type_hash_body(&ctx, &field_hashes);
-    let align_hash_body = gen_align_hash_body(&ctx, &fields_types);
+    let align_hash_body = gen_struct_align_hash_body(&ctx, &field_types);
     let max_size_of_body = if ctx.is_zero_copy {
-        Some(gen_max_size_of_body(&fields_types))
+        Some(gen_struct_max_size_of_body(&field_types))
     } else {
         None
     };
 
     gen_type_info_traits(
         &ctx,
-        &where_clause_type_hash,
-        &where_clause_align_hash,
-        &where_clause_max_size_of,
+        &type_hash_where_clause,
+        &align_hash_where_clause,
+        &max_size_of_where_clause,
         type_hash_body,
         align_hash_body,
         max_size_of_body,
     )
 }
 
-/// Generate TypeHash implementation for enum types
-fn gen_enum_type_info(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
-    let mut var_type_hashes = vec![];
-    let mut var_align_hashes = vec![];
-    let mut var_max_size_ofs = vec![];
-    let mut generic_types = vec![];
+/// [`TypeInfo`] derive code for enum types.
+fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
+    let mut all_type_hashes = vec![];
+    let mut all_align_hashes = vec![];
+    let mut all_max_size_ofs = vec![];
+    let mut all_field_type_params = vec![];
 
     // Process each variant
     e.variants.iter().for_each(|variant| {
-        let ident = variant.ident.to_owned();
+        let ident = &variant.ident;
         let mut var_type_hash = quote! { Hash::hash(stringify!(#ident), hasher); };
-        let mut var_align_hash = quote! {};
-        let mut var_max_size_of = quote! {};
+        let mut align_hash = quote! {};
+        let mut max_size_of = quote! {};
 
         match &variant.fields {
             syn::Fields::Unit => {}
+
             syn::Fields::Named(fields) => {
                 fields.named.iter().for_each(|field| {
-                    let ident = field.ident.as_ref().unwrap();
-                    let ty = &field.ty;
+                    let field_name = field.ident.as_ref().unwrap();
+                    let field_type = &field.ty;
 
                     var_type_hash.extend([quote! {
-                        Hash::hash(stringify!(#ident), hasher);
-                        <#ty as TypeHash>::type_hash(hasher);
+                        Hash::hash(stringify!(#field_name), hasher);
+                        <#field_type as TypeHash>::type_hash(hasher);
                     }]);
-                    var_align_hash.extend([quote! {
-                        <#ty as AlignHash>::align_hash(hasher, offset_of);
+
+                    align_hash.extend([quote! {
+                        <#field_type as AlignHash>::align_hash(hasher, offset_of);
                     }]);
-                    var_max_size_of.extend([quote! {
-                        if max_size_of < <#ty as MaxSizeOf>::max_size_of() {
-                            max_size_of = <#ty as MaxSizeOf>::max_size_of();
+
+                    max_size_of.extend([quote! {
+                        if max_size_of < <#field_type as MaxSizeOf>::max_size_of() {
+                            max_size_of = <#field_type as MaxSizeOf>::max_size_of();
                         }
                     }]);
 
                     if ctx
                         .type_const_params
                         .iter()
-                        .any(|ident| type_equals_ident(ty, ident))
+                        .any(|ident| type_equals_ident(field_type, ident))
                     {
-                        generic_types.push(ty);
+                        all_field_type_params.push(field_type);
                     }
                 });
             }
+
             syn::Fields::Unnamed(fields) => {
                 fields
                     .unnamed
                     .iter()
                     .enumerate()
                     .for_each(|(field_idx, field)| {
-                        let ty = &field.ty;
+                        let field_type = &field.ty;
                         let field_name = field_idx.to_string();
 
                         var_type_hash.extend([quote! {
                             Hash::hash(#field_name, hasher);
-                            <#ty as TypeHash>::type_hash(hasher);
+                            <#field_type as TypeHash>::type_hash(hasher);
                         }]);
-                        var_align_hash.extend([quote! {
-                            <#ty as AlignHash>::align_hash(hasher, offset_of);
+
+                        align_hash.extend([quote! {
+                            <#field_type as AlignHash>::align_hash(hasher, offset_of);
                         }]);
-                        var_max_size_of.extend([quote! {
-                            if max_size_of < <#ty as MaxSizeOf>::max_size_of() {
-                                max_size_of = <#ty as MaxSizeOf>::max_size_of();
+
+                        max_size_of.extend([quote! {
+                            if max_size_of < <#field_type as MaxSizeOf>::max_size_of() {
+                                max_size_of = <#field_type as MaxSizeOf>::max_size_of();
                             }
                         }]);
 
                         if ctx
                             .type_const_params
                             .iter()
-                            .any(|ident| type_equals_ident(ty, ident))
+                            .any(|ident| type_equals_ident(field_type, ident))
                         {
-                            generic_types.push(ty);
+                            all_field_type_params.push(field_type);
                         }
                     });
             }
         }
 
-        var_type_hashes.push(var_type_hash);
-        var_align_hashes.push(var_align_hash);
-        var_max_size_ofs.push(var_max_size_of);
+        all_type_hashes.push(var_type_hash);
+        all_align_hashes.push(align_hash);
+        all_max_size_ofs.push(max_size_of);
     });
 
-    // Generate where clauses
-    let where_clause = ctx.where_clause;
+    let (where_clause_type_hash, where_clause_align_hash, where_clause_max_size_of) =
+        gen_type_info_where_clauses(&ctx.where_clause, &all_field_type_params);
 
-    let TypeInfoWhereClauses {
-        type_hash: where_clause_type_hash,
-        align_hash: where_clause_align_hash,
-        max_size_of: where_clause_max_size_of,
-    } = gen_type_info_where_clauses(&where_clause, &generic_types);
-
-    // Generate implementation bodies
-    let type_hash_body = gen_type_hash_body(&ctx, &var_type_hashes);
-
-    let repr = &ctx.repr;
-    let align_hash_body = if ctx.is_zero_copy {
-        quote! {
-            use ::core::hash::Hash;
-            // Hash in size, as padding is given by MaxSizeOf.
-            // and it is independent of the architecture.
-            Hash::hash(&::core::mem::size_of::<Self>(), hasher);
-            // Hash in representation data.
-            #(
-                Hash::hash(#repr, hasher);
-            )*
-            // Recurse on all fields.
-            let old_offset_of = *offset_of;
-            #(
-                *offset_of = old_offset_of;
-                #var_align_hashes
-            )*
-        }
-    } else {
-        quote! {
-            // Recurse on all variants starting at offset 0
-            // Note that we share var_align_hashes with the
-            // zero-copy case, so we cannot pass &mut 0.
-            #(
-                *offset_of = 0;
-                #var_align_hashes
-            )*
-        }
-    };
-
+    let type_hash_body = gen_type_hash_body(&ctx, &all_type_hashes);
+    let align_hash_body = gen_enum_align_hash_body(&ctx, &all_align_hashes);
     let max_size_of_body = quote! {
         let mut max_size_of = std::mem::align_of::<Self>();
         #(
-            #var_max_size_ofs
+            #all_max_size_ofs
         )*
         max_size_of
     };
@@ -1278,14 +1273,13 @@ fn gen_enum_type_info(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macro2::T
     )
 }
 
-/// Generate a partial ε-serde implementation for custom types.
+/// Generates a partial ε-serde implementation for custom types.
 ///
-/// It generates implementations just for the traits
-/// `MaxSizeOf`, `TypeHash`, and `AlignHash`. See the documentation
-/// of [`epserde_derive`] for more information.
+/// It generates implementations just for the traits `CopyType`, `MaxSizeOf`,
+/// `TypeHash`, and `AlignHash`. See the documentation of [`epserde_derive`] for
+/// more information.
 #[proc_macro_derive(TypeInfo, attributes(zero_copy, deep_copy))]
 pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    // This part is in common with epserde_derive.
     let mut derive_input = parse_macro_input!(input as DeriveInput);
 
     if derive_input.generics.where_clause.is_some() {
@@ -1312,7 +1306,7 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
 /// Completes the `TypeInfo` derive macro using precomputed data.
 ///
-/// This method is used by the `Epserde` derive macro to
+/// This method is used by the [`Epserde`] derive macro to
 /// avoid recomputing the same data twice.
 fn _type_info_derive(
     derive_input: &DeriveInput,
@@ -1343,8 +1337,8 @@ fn _type_info_derive(
     };
 
     match &derive_input.data {
-        Data::Struct(s) => gen_struct_type_info(ctx, s),
-        Data::Enum(e) => gen_enum_type_info(ctx, e),
+        Data::Struct(s) => gen_struct_type_info_impl(ctx, s),
+        Data::Enum(e) => gen_enum_type_info_impl(ctx, e),
         _ => todo!("Union types are not currently supported"),
     }
     .into()
