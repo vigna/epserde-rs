@@ -190,7 +190,7 @@ fn add_ser_deser_bounds<'a>(
     derive_input: &'a DeriveInput,
     field_type_params: &HashSet<&syn::Ident>,
     where_clause_ser: &mut WhereClause,
-    where_clause_des: &mut WhereClause,
+    where_clause_deser: &mut WhereClause,
 ) {
     // If there are bounded type parameters which are fields of the struct, we
     // need to impose the same bounds on the associated SerType/DeserType.
@@ -214,7 +214,7 @@ fn add_ser_deser_bounds<'a>(
                 }));
 
                 // Add the trait bounds of the type to the DeserType
-                where_clause_des
+                where_clause_deser
                     .predicates
                     .push(WherePredicate::Type(PredicateType {
                         lifetimes: Some(BoundLifetimes {
@@ -250,7 +250,7 @@ fn add_ser_deser_bounds<'a>(
 /// in the serialization/deserialization where clauses.
 fn add_ser_deser_trait_bounds(
     where_clause_ser: &mut syn::WhereClause,
-    where_clause_des: &mut syn::WhereClause,
+    where_clause_deser: &mut syn::WhereClause,
     ty: &syn::Type,
 ) {
     add_trait_bound(
@@ -259,15 +259,15 @@ fn add_ser_deser_trait_bounds(
         syn::parse_quote!(::epserde::ser::SerializeInner),
     );
     add_trait_bound(
-        where_clause_des,
+        where_clause_deser,
         ty,
         syn::parse_quote!(::epserde::deser::DeserializeInner),
     );
 }
 
-/// Generates deserialization type generics by replacing type parameters
+/// Generates generics for the deserialization type by replacing type parameters
 /// that are types of fields with their associated DeserType.
-fn gen_deser_type_generics<'a>(
+fn gen_generics_for_deser_type<'a>(
     ctx: &EpserdeContext,
     field_type_params: &HashSet<&syn::Ident>,
 ) -> Vec<proc_macro2::TokenStream> {
@@ -284,9 +284,9 @@ fn gen_deser_type_generics<'a>(
         .collect()
 }
 
-/// Generates serialization type generics by replacing type parameters
+/// Generates generics for the serialization type by replacing type parameters
 /// that are types of fields with their associated SerType.
-fn gen_ser_type_generics<'a>(
+fn gen_generics_for_ser_type<'a>(
     ctx: &EpserdeContext,
     field_type_params: &HashSet<&syn::Ident>,
 ) -> Vec<proc_macro2::TokenStream> {
@@ -309,14 +309,14 @@ fn gen_ser_type_generics<'a>(
 /// thus propagating recursively (de)serializability.
 fn gen_where_clauses(field_types: &[&syn::Type]) -> (WhereClause, WhereClause) {
     let mut where_clause_ser = empty_where_clause();
-    let mut where_clause_des = empty_where_clause();
+    let mut where_clause_deser = empty_where_clause();
 
     // Add trait bounds for all field types
     for ty in field_types {
-        add_ser_deser_trait_bounds(&mut where_clause_ser, &mut where_clause_des, ty);
+        add_ser_deser_trait_bounds(&mut where_clause_ser, &mut where_clause_deser, ty);
     }
 
-    (where_clause_ser, where_clause_des)
+    (where_clause_ser, where_clause_deser)
 }
 
 /// Set of where clauses for traits handled by the [`TypeInfo`] derive macro.
@@ -384,10 +384,10 @@ struct EpserdeContext<'a> {
     type_const_params: Vec<&'a syn::Ident>,
     /// Generics for the type as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
-    type_generics: TypeGenerics<'a>,
+    generics_for_type: TypeGenerics<'a>,
     /// Generics for the `ìmpl` clause as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
-    impl_generics: ImplGenerics<'a>,
+    generics_for_impl: ImplGenerics<'a>,
     /// The where clause for the type being derived.
     where_clause: &'a WhereClause,
     /// Whether the type has `#[repr(C)]`
@@ -398,7 +398,7 @@ struct EpserdeContext<'a> {
     is_deep_copy: bool,
 }
 
-/// Generate implementation for struct types
+/// Generates implementations for struct types.
 fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     let mut fields_names = vec![];
     let mut field_types = vec![];
@@ -424,14 +424,14 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
 
     // Gather deserialization types of fields, as they are necessary to
     // derive the deserialization type.
-    let deser_type_generics = gen_deser_type_generics(&ctx, &field_type_params);
-    let ser_type_generics = gen_ser_type_generics(&ctx, &field_type_params);
+    let generics_for_deser_type = gen_generics_for_deser_type(&ctx, &field_type_params);
+    let generics_for_ser_type = gen_generics_for_ser_type(&ctx, &field_type_params);
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
-    let (mut where_clause_ser, mut where_clause_des) = gen_where_clauses(&field_types);
+    let (mut where_clause_ser, mut where_clause_deser) = gen_where_clauses(&field_types);
 
     let name = &ctx.name;
-    let type_generics = &ctx.type_generics;
-    let impl_generics = &ctx.impl_generics;
+    let generics_for_type = &ctx.generics_for_type;
+    let generics_for_impl = &ctx.generics_for_impl;
     let where_clause = &ctx.where_clause;
 
     if ctx.is_zero_copy {
@@ -440,12 +440,12 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
         // replaced with their SerType/DeserType.
         quote! {
             #[automatically_derived]
-            impl #impl_generics ::epserde::traits::CopyType for #name #type_generics #where_clause {
+            impl #generics_for_impl ::epserde::traits::CopyType for #name #generics_for_type #where_clause {
                 type Copy = ::epserde::traits::Zero;
             }
 
             #[automatically_derived]
-            impl #impl_generics ::epserde::ser::SerializeInner for #name #type_generics #where_clause_ser {
+            impl #generics_for_impl ::epserde::ser::SerializeInner for #name #generics_for_type #where_clause_ser {
                 type SerType = Self;
                 // Compute whether the type could be zero copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
@@ -465,7 +465,7 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
             }
 
             #[automatically_derived]
-            impl #impl_generics ::epserde::deser::DeserializeInner for #name #type_generics #where_clause_des
+            impl #generics_for_impl ::epserde::deser::DeserializeInner for #name #generics_for_type #where_clause_deser
             {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
@@ -488,20 +488,20 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
             &ctx.derive_input,
             &field_type_params,
             &mut where_clause_ser,
-            &mut where_clause_des,
+            &mut where_clause_deser,
         );
 
         let is_deep_copy = ctx.is_deep_copy;
 
         quote! {
             #[automatically_derived]
-            impl #impl_generics ::epserde::traits::CopyType for #name #type_generics #where_clause {
+            impl #generics_for_impl ::epserde::traits::CopyType for #name #generics_for_type #where_clause {
                 type Copy = ::epserde::traits::Deep;
             }
 
             #[automatically_derived]
-            impl #impl_generics ::epserde::ser::SerializeInner for #name #type_generics #where_clause_ser {
-                type SerType = #name<#(#ser_type_generics,)*>;
+            impl #generics_for_impl ::epserde::ser::SerializeInner for #name #generics_for_type #where_clause_ser {
+                type SerType = #name<#(#generics_for_ser_type,)*>;
                 // Compute whether the type could be zero copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
@@ -519,7 +519,7 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
             }
 
             #[automatically_derived]
-            impl #impl_generics ::epserde::deser::DeserializeInner for #name #type_generics #where_clause_des {
+            impl #generics_for_impl ::epserde::deser::DeserializeInner for #name #generics_for_type #where_clause_deser {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
@@ -532,7 +532,7 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
                     })
                 }
 
-                type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
+                type DeserType<'epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
 
                 unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
@@ -551,7 +551,7 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
     }
 }
 
-/// Generate implementation for enum types
+/// Generates implementations for enum types.
 fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
     let mut variant_names = vec![];
     // For each variant, a match statement arm as a TokenStream
@@ -563,135 +563,141 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
     // For each variant, ε-copy deserialization code
     let mut variant_eps_des = vec![];
     // Type parameters that are types of some fields in some variant
-    let mut field_type_params = HashSet::new();
+    let mut all_field_type_params = HashSet::new();
     // All field types for all variants
-    let mut fields_types = vec![];
-    let type_const_params = &ctx.type_const_params;
+    let mut all_fields_types = vec![];
 
     e.variants.iter().enumerate().for_each(|(variant_id, variant)| {
         variant_names.push(&variant.ident);
+        let ident = &variant.ident;
+
         match &variant.fields {
-        syn::Fields::Unit => {
-            variant_arm.push(variant.ident.to_token_stream());
-            variant_ser.push(quote! {{
-                WriteWithNames::write(backend, "tag", &#variant_id)?;
-            }});
-            variant_full_des.push(quote! {});
-            variant_eps_des.push(quote! {});
-        }
-        syn::Fields::Named(fields) => {
-            let mut var_fields_names = vec![];
-            let mut var_fields_types = vec![];
-            let mut method_calls: Vec<proc_macro2::TokenStream> = vec![];
-            fields
-                .named
-                .iter()
-                .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
-                .for_each(|(name, ty)| {
-                    for &id in type_const_params {
-                        if type_equals_ident(ty, id) {
-                            field_type_params.insert(id);
-                            break;
+            syn::Fields::Unit => {
+                variant_arm.push(quote! { #ident });
+                variant_ser.push(quote! {{
+                    WriteWithNames::write(backend, "tag", &#variant_id)?;
+                }});
+                variant_full_des.push(quote! {});
+                variant_eps_des.push(quote! {});
+            }
+            syn::Fields::Named(fields) => {
+                // The code in this arm is almost identical to the code for the
+                // next one, except for the handling of field names.
+                let mut field_names = vec![];
+                let mut field_types = vec![];
+                let mut method_calls = vec![];
+
+                fields
+                    .named
+                    .iter()
+                    .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
+                    .for_each(|(name, ty)| {
+                        for &id in &ctx.type_const_params {
+                            if type_equals_ident(ty, id) {
+                                all_field_type_params.insert(id);
+                                break;
+                            }
                         }
-                    }
 
-                    method_calls.push(gen_method_call(&name.to_token_stream(), ty, &field_type_params));
+                        field_names.push(quote! { #name });
+                        field_types.push(ty);
+                        method_calls.push(gen_method_call(&name.to_token_stream(), ty, &all_field_type_params));
+                    });
 
-                    var_fields_names.push(name.to_token_stream());
-                    var_fields_types.push(ty);
+                all_fields_types.extend(&field_types);
+
+                variant_arm.push(quote! {
+                    #ident{ #( #field_names, )* }
                 });
 
-            let ident = &variant.ident;
-            variant_arm.push(quote! {
-                #ident{ #( #var_fields_names, )* }
-            });
-            fields_types.extend(&var_fields_types);
-            variant_ser.push(quote! {
-                WriteWithNames::write(backend, "tag", &#variant_id)?;
-                #(
-                    WriteWithNames::write(backend, stringify!(#var_fields_names), #var_fields_names)?;
-                )*
-            });
-            variant_full_des.push(quote! {
-                #(
-                    #var_fields_names: unsafe { <#var_fields_types as DeserializeInner>::_deserialize_full_inner(backend)? },
-                )*
-            });
-            variant_eps_des.push(quote! {
-                #(
-                   #method_calls(backend)?,
-                )*
-            });
-        }
-        syn::Fields::Unnamed(fields) => {
-            let mut var_fields_names = vec![];
-            let mut var_fields_vars = vec![];
-            let mut var_fields_types = vec![];
-            let mut method_calls: Vec<proc_macro2::TokenStream> = vec![];
-
-            fields
-                .unnamed
-                .iter()
-                .enumerate()
-                .for_each(|(field_idx, unnamed)| {
-                    let ty = &unnamed.ty;
-                    let name = syn::Index::from(field_idx);
-                    for id in type_const_params {
-                        if type_equals_ident(ty, id) {
-                            field_type_params.insert(&id);
-                            break;
-                        }
-                    }
-
-                    var_fields_names.push(syn::Ident::new(
-                        &format!("v{}", field_idx),
-                        proc_macro2::Span::call_site(),
-                    )
-                    .to_token_stream());
-
-                    method_calls.push(gen_method_call(&name.to_token_stream(), ty, &field_type_params));
-
-                    var_fields_vars.push(syn::Index::from(field_idx));
-                    var_fields_types.push(ty);
+                variant_ser.push(quote! {
+                    WriteWithNames::write(backend, "tag", &#variant_id)?;
+                    #(
+                        WriteWithNames::write(backend, stringify!(#field_names), #field_names)?;
+                    )*
                 });
 
-            let ident = &variant.ident;
-            variant_arm.push(quote! {
-                #ident( #( #var_fields_names, )* )
-            });
-            fields_types.extend(&var_fields_types);
+                variant_full_des.push(quote! {
+                    #(
+                        #field_names: unsafe { <#field_types as DeserializeInner>::_deserialize_full_inner(backend)? },
+                    )*
+                });
 
-            variant_ser.push(quote! {
-                WriteWithNames::write(backend, "tag", &#variant_id)?;
-                #(
-                    WriteWithNames::write(backend, stringify!(#var_fields_names), #var_fields_names)?;
-                )*
-            });
-            variant_full_des.push(quote! {
-                #(
-                    #var_fields_vars : unsafe { <#var_fields_types as DeserializeInner>::_deserialize_full_inner(backend)? },
-                )*
-            });
-            variant_eps_des.push(quote! {
-                #(
-                    #method_calls(backend)?,
-                )*
-            });
-        }
+                variant_eps_des.push(quote! {
+                    #(
+                        #method_calls(backend)?,
+                    )*
+                });
+            }
+            syn::Fields::Unnamed(fields) => {
+                let mut field_indices = vec![];
+                let mut field_types = vec![];
+                // Names of the form v0, v1, ... used in the match arm
+                let mut field_names_in_arm = vec![];
+                let mut method_calls: Vec<proc_macro2::TokenStream> = vec![];
+
+                fields
+                    .unnamed
+                    .iter()
+                    .enumerate()
+                    .for_each(|(field_idx, unnamed)| {
+                        let ty = &unnamed.ty;
+                        let name = syn::Index::from(field_idx);
+                        for id in &ctx.type_const_params {
+                            if type_equals_ident(ty, id) {
+                                all_field_type_params.insert(&id);
+                                break;
+                            }
+                        }
+
+                        field_indices.push(syn::Ident::new(
+                            &format!("v{}", field_idx),
+                            proc_macro2::Span::call_site(),
+                        )
+                        .to_token_stream());
+                        field_types.push(ty);
+                        field_names_in_arm.push(syn::Index::from(field_idx));
+
+                        method_calls.push(gen_method_call(&name.to_token_stream(), ty, &all_field_type_params));
+                    });
+
+                all_fields_types.extend(&field_types);
+
+                variant_arm.push(quote! {
+                    #ident( #( #field_indices, )* )
+                });
+
+                variant_ser.push(quote! {
+                    WriteWithNames::write(backend, "tag", &#variant_id)?;
+                    #(
+                        WriteWithNames::write(backend, stringify!(#field_indices), #field_indices)?;
+                    )*
+                });
+
+                variant_full_des.push(quote! {
+                    #(
+                        #field_names_in_arm : unsafe { <#field_types as DeserializeInner>::_deserialize_full_inner(backend)? },
+                    )*
+                });
+
+                variant_eps_des.push(quote! {
+                    #(
+                        #method_calls(backend)?,
+                    )*
+                });
+            }
         }
     });
 
-    // Gather deserialization types of fields,
-    // which are necessary to derive the deserialization type.
-    let deser_type_generics = gen_deser_type_generics(&ctx, &field_type_params);
-    let ser_type_generics = gen_ser_type_generics(&ctx, &field_type_params);
+    let generics_for_deser_type = gen_generics_for_deser_type(&ctx, &all_field_type_params);
+    let generics_for_ser_type = gen_generics_for_ser_type(&ctx, &all_field_type_params);
     let tag = (0..variant_arm.len()).collect::<Vec<_>>();
 
-    let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &fields_types);
-    let (mut where_clause_ser, mut where_clause_des) = gen_where_clauses(&fields_types);
+    let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &all_fields_types);
+    let (mut where_clause_ser, mut where_clause_deser) = gen_where_clauses(&all_fields_types);
     let is_deep_copy = ctx.is_deep_copy;
-    let impl_generics = &ctx.impl_generics;
-    let generics = &ctx.type_generics;
+    let generics_for_impl = &ctx.generics_for_impl;
+    let generics = &ctx.generics_for_type;
     let where_clause = &ctx.where_clause;
     let name = &ctx.name;
 
@@ -702,11 +708,12 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
 
         quote! {
             #[automatically_derived]
-            impl #impl_generics ::epserde::traits::CopyType for #name #generics #where_clause {
+            impl #generics_for_impl ::epserde::traits::CopyType for #name #generics #where_clause {
                 type Copy = ::epserde::traits::Zero;
             }
+
             #[automatically_derived]
-            impl #impl_generics ::epserde::ser::SerializeInner for #name #generics #where_clause_ser {
+            impl #generics_for_impl ::epserde::ser::SerializeInner for #name #generics #where_clause_ser {
                 type SerType = Self;
 
                 // Compute whether the type could be zero copy
@@ -714,6 +721,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
 
                 // The type is declared as zero copy, so a fortiori there is no mismatch.
                 const ZERO_COPY_MISMATCH: bool = false;
+
                 #[inline(always)]
                 unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     use ::epserde::traits::ZeroCopy;
@@ -722,14 +730,14 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                     // No-op code that however checks that all fields are zero-copy.
                     fn test<T: ZeroCopy>() {}
                     #(
-                        test::<#fields_types>();
+                        test::<#all_fields_types>();
                     )*
                     helpers::serialize_zero(backend, self)
                 }
             }
 
             #[automatically_derived]
-            impl #impl_generics ::epserde::deser::DeserializeInner for #name #generics #where_clause_des {
+            impl #generics_for_impl ::epserde::deser::DeserializeInner for #name #generics #where_clause_deser {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
@@ -753,29 +761,28 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
     } else {
         add_ser_deser_bounds(
             &ctx.derive_input,
-            &field_type_params,
+            &all_field_type_params,
             &mut where_clause_ser,
-            &mut where_clause_des,
+            &mut where_clause_deser,
         );
-
-        let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &fields_types);
 
         quote! {
             #[automatically_derived]
-            impl #impl_generics ::epserde::traits::CopyType for #name #generics #where_clause {
+            impl #generics_for_impl ::epserde::traits::CopyType for #name #generics #where_clause {
                 type Copy = ::epserde::traits::Deep;
             }
             #[automatically_derived]
 
-            impl #impl_generics ::epserde::ser::SerializeInner for #name #generics #where_clause_ser {
-                type SerType = #name<#(#ser_type_generics,)*>;
+            impl #generics_for_impl ::epserde::ser::SerializeInner for #name #generics #where_clause_ser {
+                type SerType = #name<#(#generics_for_ser_type,)*>;
 
                 // Compute whether the type could be zero copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
                 // Compute whether the type could be zero copy but it is not declared as such,
                 // and the attribute `deep_copy` is missing.
-                const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#fields_types>::IS_ZERO_COPY)*;
+                const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*;
+
                 #[inline(always)]
                 unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     use ::epserde::ser::helpers;
@@ -791,7 +798,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                 }
             }
             #[automatically_derived]
-            impl #impl_generics ::epserde::deser::DeserializeInner for #name #generics #where_clause_des {
+            impl #generics_for_impl ::epserde::deser::DeserializeInner for #name #generics #where_clause_deser {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
@@ -806,7 +813,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                     }
                 }
 
-                type DeserType<'epserde_desertype> = #name<#(#deser_type_generics,)*>;
+                type DeserType<'epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
 
                 unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
@@ -852,7 +859,8 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     }
 
     derive_input.generics.make_where_clause();
-    let (impl_generics, type_generics, where_clause) = derive_input.generics.split_for_impl();
+    let (generics_for_impl, generics_for_type, where_clause) =
+        derive_input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 
     let (is_repr_c, is_zero_copy, is_deep_copy) = check_attrs(&derive_input);
@@ -863,8 +871,8 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         derive_input: &derive_input,
         name,
         type_const_params,
-        type_generics,
-        impl_generics,
+        generics_for_type,
+        generics_for_impl,
         where_clause,
         is_repr_c,
         is_zero_copy,
@@ -883,8 +891,8 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         &derive_input,
         ctx.type_const_params,
         const_params,
-        ctx.type_generics,
-        ctx.impl_generics,
+        ctx.generics_for_type,
+        ctx.generics_for_impl,
         ctx.where_clause,
         ctx.is_zero_copy,
     ));
@@ -898,8 +906,6 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 
 /// Context structure for the `TypeInfo` derive macro
 struct TypeInfoContext<'a> {
-    /// The original derive input
-    derive_input: &'a DeriveInput,
     /// The name of the type
     name: syn::Ident,
     /// Identifiers of type and const parameters, in order of appearance.
@@ -908,10 +914,10 @@ struct TypeInfoContext<'a> {
     const_params: Vec<&'a syn::Ident>,
     /// Generics for the type as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
-    type_generics: TypeGenerics<'a>,
+    generics_for_type: TypeGenerics<'a>,
     /// Generics for the `ìmpl` clause as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
-    impl_generics: ImplGenerics<'a>,
+    generics_for_impl: ImplGenerics<'a>,
     /// The where clause for the type being derived.
     where_clause: &'a WhereClause,
     /// Whether the type is zero-copy
@@ -1021,13 +1027,13 @@ fn gen_type_info_traits(
     max_size_of_body: Option<proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
     let name = &ctx.name;
-    let generics = &ctx.type_generics;
-    let impl_generics = &ctx.impl_generics;
+    let generics = &ctx.generics_for_type;
+    let generics_for_impl = &ctx.generics_for_impl;
 
     let max_size_of_impl = if let Some(max_size_of_body) = max_size_of_body {
         quote! {
             #[automatically_derived]
-            impl #impl_generics ::epserde::traits::MaxSizeOf for #name #generics #where_clause_max_size_of {
+            impl #generics_for_impl ::epserde::traits::MaxSizeOf for #name #generics #where_clause_max_size_of {
                 #[inline(always)]
                 fn max_size_of() -> usize {
                     #max_size_of_body
@@ -1040,14 +1046,14 @@ fn gen_type_info_traits(
 
     quote! {
         #[automatically_derived]
-        impl #impl_generics ::epserde::traits::TypeHash for #name #generics #where_clause_type_hash {
+        impl #generics_for_impl ::epserde::traits::TypeHash for #name #generics #where_clause_type_hash {
             #[inline(always)]
             fn type_hash(hasher: &mut impl ::core::hash::Hasher) {
                 #type_hash_body
             }
         }
         #[automatically_derived]
-        impl #impl_generics ::epserde::traits::AlignHash for #name #generics #where_clause_align_hash {
+        impl #generics_for_impl ::epserde::traits::AlignHash for #name #generics #where_clause_align_hash {
             #[inline(always)]
             fn align_hash(
                 hasher: &mut impl ::core::hash::Hasher,
@@ -1282,7 +1288,7 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     }
 
     derive_input.generics.make_where_clause();
-    let (impl_generics, generics, where_clause) = derive_input.generics.split_for_impl();
+    let (generics_for_impl, generics, where_clause) = derive_input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 
     let (_, is_zero_copy, _) = check_attrs(&derive_input);
@@ -1293,7 +1299,7 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         type_const_params,
         const_params,
         generics,
-        impl_generics,
+        generics_for_impl,
         where_clause,
         is_zero_copy,
     )
@@ -1307,8 +1313,8 @@ fn _type_info_derive(
     derive_input: &DeriveInput,
     type_const_params: Vec<&syn::Ident>,
     const_params: Vec<&syn::Ident>,
-    type_generics: TypeGenerics<'_>,
-    impl_generics: ImplGenerics<'_>,
+    generics_for_type: TypeGenerics<'_>,
+    generics_for_impl: ImplGenerics<'_>,
     where_clause: &WhereClause,
     is_zero_copy: bool,
 ) -> proc_macro::TokenStream {
@@ -1320,14 +1326,12 @@ fn _type_info_derive(
         .map(|x| x.meta.require_list().unwrap().tokens.to_string())
         .collect::<Vec<_>>();
 
-    let name = derive_input.ident.clone();
     let ctx = TypeInfoContext {
-        derive_input,
-        name,
+        name: derive_input.ident.clone(),
         type_const_params,
         const_params,
-        type_generics,
-        impl_generics,
+        generics_for_type,
+        generics_for_impl,
         where_clause,
         is_zero_copy,
         repr,
