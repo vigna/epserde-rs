@@ -151,8 +151,8 @@ fn get_type_const_params(
     let mut type_params = HashSet::new();
     let mut const_params = vec![];
 
-    input.generics.params.iter().for_each(|x| {
-        match x {
+    for param in &input.generics.params {
+        match param {
             syn::GenericParam::Type(t) => {
                 type_const_params.push(&t.ident);
                 type_params.insert(&t.ident);
@@ -163,7 +163,7 @@ fn get_type_const_params(
             }
             syn::GenericParam::Lifetime(_) => {}
         };
-    });
+    }
 
     (type_const_params, type_params, const_params)
 }
@@ -330,8 +330,8 @@ fn gen_ser_deser_where_clauses(field_types: &[&syn::Type]) -> (WhereClause, Wher
     let mut where_clause_deser = empty_where_clause();
 
     // Add trait bounds for all field types
-    for ty in field_types {
-        add_ser_deser_trait_bounds(ty, &mut where_clause_ser, &mut where_clause_deser);
+    for field_type in field_types {
+        add_ser_deser_trait_bounds(field_type, &mut where_clause_ser, &mut where_clause_deser);
     }
 
     (where_clause_ser, where_clause_deser)
@@ -350,12 +350,12 @@ fn gen_type_info_where_clauses(
         trait_bound: Punctuated<TypeParamBound, Plus>,
     ) -> WhereClause {
         let mut where_clause = base_clause.clone();
-        for &ty in field_types {
+        for &field_type in field_types {
             where_clause
                 .predicates
                 .push(WherePredicate::Type(PredicateType {
                     lifetimes: None,
-                    bounded_ty: ty.clone(),
+                    bounded_ty: field_type.clone(),
                     colon_token: token::Colon::default(),
                     bounds: trait_bound.clone(),
                 }));
@@ -412,7 +412,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     let mut method_calls = vec![];
     let mut field_type_params = HashSet::new();
 
-    s.fields.iter().enumerate().for_each(|(field_idx, field)| {
+    for (field_idx, field) in s.fields.iter().enumerate() {
         let field_name = get_field_name(field, field_idx);
         let field_type = &field.ty;
 
@@ -430,7 +430,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         ));
         fields_names.push(field_name);
         field_types.push(field_type);
-    });
+    }
 
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &field_type_params);
     let generics_for_ser_type = gen_generics_for_ser_type(ctx, &field_type_params);
@@ -573,7 +573,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     // All field types for all variants
     let mut all_fields_types = vec![];
 
-    e.variants.iter().enumerate().for_each(|(variant_id, variant)| {
+    for (variant_id, variant) in e.variants.iter().enumerate() {
         variant_names.push(&variant.ident);
         let ident = &variant.ident;
 
@@ -607,7 +607,11 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                         field_names.push(quote! { #field_name });
                         field_types.push(field_type);
-                        method_calls.push(gen_deser_method_call(&field_name.to_token_stream(), field_type, &all_field_type_params));
+                        method_calls.push(gen_deser_method_call(
+                            &field_name.to_token_stream(),
+                            field_type,
+                            &all_field_type_params,
+                        ));
                     });
 
                 all_fields_types.extend(&field_types);
@@ -649,7 +653,6 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     .for_each(|(field_idx, field)| {
                         let field_type = &field.ty;
                         let field_name = syn::Index::from(field_idx);
-
                         // We look for type parameters that are types of fields
                         if let Some(field_type_id) = get_ident(field_type) {
                             if ctx.type_params.contains(field_type_id) {
@@ -657,17 +660,22 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                             }
                         }
 
-                        field_indices.push(syn::Ident::new(
-                            &format!("v{}", field_idx),
-                            proc_macro2::Span::call_site(),
-                        )
-                        .to_token_stream());
+                        field_indices.push(
+                            syn::Ident::new(
+                                &format!("v{}", field_idx),
+                                proc_macro2::Span::call_site(),
+                            )
+                            .to_token_stream(),
+                        );
 
-                        method_calls.push(gen_deser_method_call(&field_name.to_token_stream(), field_type, &all_field_type_params));
+                        method_calls.push(gen_deser_method_call(
+                            &field_name.to_token_stream(),
+                            field_type,
+                            &all_field_type_params,
+                        ));
 
                         field_types.push(field_type);
                         field_names_in_arm.push(field_name);
-
                     });
 
                 all_fields_types.extend(&field_types);
@@ -696,7 +704,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 });
             }
         }
-    });
+    }
 
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &all_field_type_params);
     let generics_for_ser_type = gen_generics_for_ser_type(ctx, &all_field_type_params);
@@ -1124,7 +1132,7 @@ fn gen_struct_type_info_impl(
     let mut field_type_params = HashSet::new();
 
     // Extract field information
-    s.fields.iter().enumerate().for_each(|(field_idx, field)| {
+    for (field_idx, field) in s.fields.iter().enumerate() {
         let field_type = &field.ty;
         field_names.push(get_field_name(field, field_idx));
         field_types.push(field_type);
@@ -1135,7 +1143,7 @@ fn gen_struct_type_info_impl(
                 field_type_params.insert(field_type_id);
             }
         }
-    });
+    }
 
     let (type_hash_where_clause, align_hash_where_clause, max_size_of_where_clause) =
         gen_type_info_where_clauses(ctx.where_clause, &field_types);
@@ -1180,7 +1188,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
     let mut all_field_type_params = vec![];
 
     // Process each variant
-    e.variants.iter().for_each(|variant| {
+    for variant in &e.variants {
         let ident = &variant.ident;
         let mut var_type_hash = quote! { Hash::hash(stringify!(#ident), hasher); };
         let mut align_hash = quote! {};
@@ -1190,7 +1198,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
             syn::Fields::Unit => {}
 
             syn::Fields::Named(fields) => {
-                fields.named.iter().for_each(|field| {
+                for field in &fields.named {
                     let field_name = field.ident.as_ref().unwrap();
                     let field_type = &field.ty;
 
@@ -1215,47 +1223,43 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                             all_field_type_params.push(field_type);
                         }
                     }
-                });
+                }
             }
 
             syn::Fields::Unnamed(fields) => {
-                fields
-                    .unnamed
-                    .iter()
-                    .enumerate()
-                    .for_each(|(field_idx, field)| {
-                        let field_type = &field.ty;
-                        let field_name = field_idx.to_string();
+                for (field_idx, field) in fields.unnamed.iter().enumerate() {
+                    let field_type = &field.ty;
+                    let field_name = field_idx.to_string();
 
-                        var_type_hash.extend([quote! {
-                            Hash::hash(#field_name, hasher);
-                            <#field_type as TypeHash>::type_hash(hasher);
-                        }]);
+                    var_type_hash.extend([quote! {
+                        Hash::hash(#field_name, hasher);
+                        <#field_type as TypeHash>::type_hash(hasher);
+                    }]);
 
-                        align_hash.extend([quote! {
-                            <#field_type as AlignHash>::align_hash(hasher, offset_of);
-                        }]);
+                    align_hash.extend([quote! {
+                        <#field_type as AlignHash>::align_hash(hasher, offset_of);
+                    }]);
 
-                        max_size_of.extend([quote! {
-                            if max_size_of < <#field_type as MaxSizeOf>::max_size_of() {
-                                max_size_of = <#field_type as MaxSizeOf>::max_size_of();
-                            }
-                        }]);
-
-                        // We look for type parameters that are types of fields
-                        if let Some(field_type_id) = get_ident(field_type) {
-                            if ctx.type_params.contains(field_type_id) {
-                                all_field_type_params.push(field_type);
-                            }
+                    max_size_of.extend([quote! {
+                        if max_size_of < <#field_type as MaxSizeOf>::max_size_of() {
+                            max_size_of = <#field_type as MaxSizeOf>::max_size_of();
                         }
-                    });
+                    }]);
+
+                    // We look for type parameters that are types of fields
+                    if let Some(field_type_id) = get_ident(field_type) {
+                        if ctx.type_params.contains(field_type_id) {
+                            all_field_type_params.push(field_type);
+                        }
+                    }
+                }
             }
         }
 
         all_type_hashes.push(var_type_hash);
         all_align_hashes.push(align_hash);
         all_max_size_ofs.push(max_size_of);
-    });
+    }
 
     let (where_clause_type_hash, where_clause_align_hash, where_clause_max_size_of) =
         gen_type_info_where_clauses(ctx.where_clause, &all_field_type_params);
