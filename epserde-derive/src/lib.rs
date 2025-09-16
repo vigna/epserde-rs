@@ -88,7 +88,7 @@ fn type_equals_ident(ty: &syn::Type, ident: &syn::Ident) -> bool {
 fn gen_method_call(
     field_name: &proc_macro2::TokenStream,
     ty: &syn::Type,
-    field_type_params: &HashSet<syn::Ident>,
+    field_type_params: &HashSet<&syn::Ident>,
 ) -> proc_macro2::TokenStream {
     if let syn::Type::Path(syn::TypePath {
         qself: None,
@@ -183,7 +183,7 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
 /// type parameters that are the type of some fields.
 fn add_ser_deser_bounds<'a>(
     derive_input: &'a DeriveInput,
-    field_type_params: &HashSet<syn::Ident>,
+    field_type_params: &HashSet<&syn::Ident>,
     where_clause_ser: &mut WhereClause,
     where_clause_des: &mut WhereClause,
 ) {
@@ -263,8 +263,8 @@ fn add_ser_deser_trait_bounds(
 /// Generates deserialization type generics by replacing type parameters
 /// that are types of fields with their associated DeserType.
 fn gen_deser_type_generics<'a>(
-    ctx: &CodegenContext,
-    field_type_params: &HashSet<syn::Ident>,
+    ctx: &EpserdeContext,
+    field_type_params: &HashSet<&syn::Ident>,
 ) -> Vec<proc_macro2::TokenStream> {
     ctx.type_const_params
         .iter()
@@ -282,8 +282,8 @@ fn gen_deser_type_generics<'a>(
 /// Generates serialization type generics by replacing type parameters
 /// that are types of fields with their associated SerType.
 fn gen_ser_type_generics<'a>(
-    ctx: &CodegenContext,
-    field_type_params: &HashSet<syn::Ident>,
+    ctx: &EpserdeContext,
+    field_type_params: &HashSet<&syn::Ident>,
 ) -> Vec<proc_macro2::TokenStream> {
     ctx.type_const_params
         .iter()
@@ -311,8 +311,8 @@ fn gen_where_clauses(field_types: &[syn::Type]) -> (WhereClause, WhereClause) {
     (where_clause_ser, where_clause_des)
 }
 
-/// Set of where clauses for traits handled by the `TypeHash` derive macro.
-struct TypeHashWhereClauses {
+/// Set of where clauses for traits handled by the `TypeInfo` derive macro.
+struct TypeInfoWhereClauses {
     /// Where clause for `TypeHash` trait.
     type_hash: WhereClause,
     /// Where clause for `AlignHash` trait.
@@ -341,11 +341,11 @@ fn gen_where_clause(
     where_clause
 }
 
-/// Generates where clauses for traits handled by the `TypeHash` derive macro.
-fn gen_type_hash_where_clauses(
+/// Generates where clauses for traits handled by the `TypeInfo` derive macro.
+fn gen_type_info_where_clauses(
     base_clause: &WhereClause,
     field_types: &[&syn::Type],
-) -> TypeHashWhereClauses {
+) -> TypeInfoWhereClauses {
     let mut bound_type_hash = Punctuated::new();
     bound_type_hash.push(syn::parse_quote!(::epserde::traits::TypeHash));
     let type_hash = gen_where_clause(base_clause, field_types, bound_type_hash);
@@ -358,15 +358,15 @@ fn gen_type_hash_where_clauses(
     bound_max_size_of.push(syn::parse_quote!(::epserde::traits::MaxSizeOf));
     let max_size_of = gen_where_clause(base_clause, field_types, bound_max_size_of);
 
-    TypeHashWhereClauses {
+    TypeInfoWhereClauses {
         type_hash,
         align_hash,
         max_size_of,
     }
 }
 
-/// Context structure containing all the common parameters needed for code generation
-struct CodegenContext<'a> {
+/// Context structure for the `Epserde` derive macro.
+struct EpserdeContext<'a> {
     /// The original derive input.
     derive_input: &'a DeriveInput,
     /// The name of the type being derived
@@ -389,7 +389,7 @@ struct CodegenContext<'a> {
 }
 
 /// Generate implementation for enum types
-fn gen_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
+fn gen_enum_impl(ctx: EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
     let mut variants_names = vec![];
     let mut variants = vec![];
     let mut variant_ser = vec![];
@@ -425,7 +425,7 @@ fn gen_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::TokenSt
                 .for_each(|(name, ty)| {
                     for id in &type_const_params {
                         if type_equals_ident(ty, id) {
-                            field_type_params.insert(id.clone());
+                            field_type_params.insert(id);
                             break;
                         }
                     }
@@ -472,7 +472,7 @@ fn gen_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::TokenSt
                     let name = syn::Index::from(field_idx);
                     for id in &type_const_params {
                         if type_equals_ident(ty, id) {
-                            field_type_params.insert(id.clone());
+                            field_type_params.insert(&id);
                             break;
                         }
                     }
@@ -662,16 +662,12 @@ fn gen_enum_impl(ctx: CodegenContext, e: &syn::DataEnum) -> proc_macro2::TokenSt
 }
 
 /// Generate implementation for struct types
-fn gen_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
-    let mut fields_types = vec![];
+fn gen_struct_impl(ctx: EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     let mut fields_names = vec![];
+    let mut fields_types = vec![];
     let mut field_type_params = HashSet::new();
-    let mut method_calls: Vec<proc_macro2::TokenStream> = vec![];
-    let type_const_params = ctx
-        .type_const_params
-        .iter()
-        .cloned()
-        .collect::<HashSet<_>>();
+    let mut method_calls = vec![];
+    let type_const_params = ctx.type_const_params.iter().collect::<HashSet<_>>();
 
     // Scan the struct to find which fields contain a generic
     // type (i.e., they are themselves of a generic type,
@@ -680,9 +676,9 @@ fn gen_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2::Tok
         let field_type = &field.ty;
         let field_name = get_field_name(field, field_idx);
 
-        for id in &type_const_params {
+        for &id in &type_const_params {
             if type_equals_ident(field_type, id) {
-                field_type_params.insert(id.clone());
+                field_type_params.insert(id);
                 break;
             }
         }
@@ -832,8 +828,8 @@ fn gen_struct_impl(ctx: CodegenContext, s: &syn::DataStruct) -> proc_macro2::Tok
     }
 }
 
-/// Context structure for TypeHash code generation
-struct TypeHashContext<'a> {
+/// Context structure for the `TypeInfo` derive macro
+struct TypeInfoContext<'a> {
     /// The original derive input
     derive_input: &'a DeriveInput,
     /// The name of the type
@@ -856,8 +852,8 @@ struct TypeHashContext<'a> {
 }
 
 /// Generate TypeHash implementation body
-fn gen_type_hash_body(
-    ctx: &TypeHashContext,
+fn gen_type_info_body(
+    ctx: &TypeInfoContext,
     field_hashes: &[proc_macro2::TokenStream],
 ) -> proc_macro2::TokenStream {
     let copy_type = if ctx.is_zero_copy {
@@ -892,7 +888,7 @@ fn gen_type_hash_body(
 
 /// Generate AlignHash implementation body for structs
 fn gen_struct_align_hash_body(
-    ctx: &TypeHashContext,
+    ctx: &TypeInfoContext,
     fields_types: &[&syn::Type],
 ) -> proc_macro2::TokenStream {
     let repr = &ctx.repr;
@@ -945,8 +941,8 @@ fn gen_max_size_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream
 }
 
 /// Generates the implementations for TypeHash, AlignHash, and optionally MaxSizeOf.
-fn gen_type_hash_traits(
-    ctx: &TypeHashContext,
+fn gen_type_info_traits(
+    ctx: &TypeInfoContext,
     where_clause_type_hash: &syn::WhereClause,
     where_clause_align_hash: &syn::WhereClause,
     where_clause_max_size_of: &syn::WhereClause,
@@ -995,7 +991,7 @@ fn gen_type_hash_traits(
 }
 
 /// Generate TypeHash implementation for struct types
-fn gen_struct_type_hash(ctx: TypeHashContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
+fn gen_struct_type_hash(ctx: TypeInfoContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     let mut generic_types = vec![];
     let mut fields_names = vec![];
     let mut fields_types = vec![];
@@ -1015,11 +1011,11 @@ fn gen_struct_type_hash(ctx: TypeHashContext, s: &syn::DataStruct) -> proc_macro
         }
     });
 
-    let TypeHashWhereClauses {
+    let TypeInfoWhereClauses {
         type_hash: where_clause_type_hash,
         align_hash: where_clause_align_hash,
         max_size_of: where_clause_max_size_of,
-    } = gen_type_hash_where_clauses(&ctx.where_clause, &fields_types);
+    } = gen_type_info_where_clauses(&ctx.where_clause, &fields_types);
 
     // Generate field hashes for TypeHash
     let mut field_hashes: Vec<_> = fields_names
@@ -1034,7 +1030,7 @@ fn gen_struct_type_hash(ctx: TypeHashContext, s: &syn::DataStruct) -> proc_macro
     );
 
     // Generate implementation bodies
-    let type_hash_body = gen_type_hash_body(&ctx, &field_hashes);
+    let type_hash_body = gen_type_info_body(&ctx, &field_hashes);
     let align_hash_body = gen_struct_align_hash_body(&ctx, &fields_types);
     let max_size_of_body = if ctx.is_zero_copy {
         Some(gen_max_size_of_body(&fields_types))
@@ -1042,7 +1038,7 @@ fn gen_struct_type_hash(ctx: TypeHashContext, s: &syn::DataStruct) -> proc_macro
         None
     };
 
-    gen_type_hash_traits(
+    gen_type_info_traits(
         &ctx,
         &where_clause_type_hash,
         &where_clause_align_hash,
@@ -1054,7 +1050,7 @@ fn gen_struct_type_hash(ctx: TypeHashContext, s: &syn::DataStruct) -> proc_macro
 }
 
 /// Generate TypeHash implementation for enum types
-fn gen_enum_type_hash(ctx: TypeHashContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
+fn gen_enum_type_hash(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
     let mut var_type_hashes = vec![];
     let mut var_align_hashes = vec![];
     let mut var_max_size_ofs = vec![];
@@ -1142,14 +1138,14 @@ fn gen_enum_type_hash(ctx: TypeHashContext, e: &syn::DataEnum) -> proc_macro2::T
         .clone()
         .unwrap_or_else(empty_where_clause);
 
-    let TypeHashWhereClauses {
+    let TypeInfoWhereClauses {
         type_hash: where_clause_type_hash,
         align_hash: where_clause_align_hash,
         max_size_of: where_clause_max_size_of,
-    } = gen_type_hash_where_clauses(&where_clause, &generic_types);
+    } = gen_type_info_where_clauses(&where_clause, &generic_types);
 
     // Generate implementation bodies
-    let type_hash_body = gen_type_hash_body(&ctx, &var_type_hashes);
+    let type_hash_body = gen_type_info_body(&ctx, &var_type_hashes);
 
     let repr = &ctx.repr;
     let align_hash_body = if ctx.is_zero_copy {
@@ -1195,7 +1191,7 @@ fn gen_enum_type_hash(ctx: TypeHashContext, e: &syn::DataEnum) -> proc_macro2::T
         None
     };
 
-    gen_type_hash_traits(
+    gen_type_info_traits(
         &ctx,
         &where_clause_type_hash,
         &where_clause_align_hash,
@@ -1239,7 +1235,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     let (type_const_params, _) = get_type_const_params(&derive_input);
     let name = derive_input.ident.clone();
 
-    let ctx = CodegenContext {
+    let ctx = EpserdeContext {
         derive_input: &derive_input,
         name,
         type_const_params,
@@ -1293,7 +1289,7 @@ pub fn epserde_type_hash(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 
     let data = derive_input.data.to_owned();
     let name = derive_input.ident.clone();
-    let ctx = TypeHashContext {
+    let ctx = TypeInfoContext {
         derive_input: &derive_input,
         name,
         type_const_params,
