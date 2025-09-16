@@ -389,7 +389,7 @@ struct EpserdeContext<'a> {
 }
 
 /// Generate implementation for enum types
-fn gen_enum_impl(ctx: EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
+fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
     let mut variants_names = vec![];
     let mut variants = vec![];
     let mut variant_ser = vec![];
@@ -524,10 +524,10 @@ fn gen_enum_impl(ctx: EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenSt
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &fields_types);
     let (mut where_clause_ser, mut where_clause_des) = gen_where_clauses(&fields_types);
     let is_deep_copy = ctx.is_deep_copy;
-    let impl_generics = ctx.impl_generics;
-    let generics = ctx.generics;
-    let where_clause = ctx.where_clause;
-    let name = ctx.name;
+    let impl_generics = &ctx.impl_generics;
+    let generics = &ctx.generics;
+    let where_clause = &ctx.where_clause;
+    let name = &ctx.name;
 
     if ctx.is_zero_copy {
         // In zero-copy types we do not need to add bounds to
@@ -662,7 +662,7 @@ fn gen_enum_impl(ctx: EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenSt
 }
 
 /// Generate implementation for struct types
-fn gen_struct_impl(ctx: EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
+fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     let mut fields_names = vec![];
     let mut fields_types = vec![];
     let mut field_type_params = HashSet::new();
@@ -695,10 +695,10 @@ fn gen_struct_impl(ctx: EpserdeContext, s: &syn::DataStruct) -> proc_macro2::Tok
 
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &fields_types);
     let (mut where_clause_ser, mut where_clause_des) = gen_where_clauses(&fields_types);
-    let impl_generics = ctx.impl_generics;
-    let generics = ctx.generics;
-    let where_clause = ctx.where_clause;
-    let name = ctx.name;
+    let impl_generics = &ctx.impl_generics;
+    let generics = &ctx.generics;
+    let where_clause = &ctx.where_clause;
+    let name = &ctx.name;
 
     if ctx.is_zero_copy {
         // In zero-copy types we do not need to add bounds to
@@ -1219,8 +1219,7 @@ fn gen_enum_type_hash(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macro2::T
 /// the explicit attribute `deep_copy`.
 #[proc_macro_derive(Epserde, attributes(zero_copy, deep_copy))]
 pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    // Cloning input for type hash
-    let input_for_type_hash = input.clone();
+    // This part is in common with type_info_derive
     let mut derive_input = parse_macro_input!(input as DeriveInput);
 
     if derive_input.generics.where_clause.is_some() {
@@ -1232,7 +1231,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     let where_clause = where_clause.unwrap();
 
     let (is_repr_c, is_zero_copy, is_deep_copy) = check_attrs(&derive_input);
-    let (type_const_params, _) = get_type_const_params(&derive_input);
+    let (type_const_params, const_params) = get_type_const_params(&derive_input);
     let name = derive_input.ident.clone();
 
     let ctx = EpserdeContext {
@@ -1248,14 +1247,23 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     };
 
     let mut out: proc_macro::TokenStream = match &derive_input.data {
-        Data::Struct(s) => gen_struct_impl(ctx, s),
-        Data::Enum(e) => gen_enum_impl(ctx, e),
+        Data::Struct(s) => gen_struct_impl(&ctx, s),
+        Data::Enum(e) => gen_enum_impl(&ctx, e),
         _ => todo!("Union types are not currently supported"),
     }
     .into();
 
-    // automatically derive type hash
-    out.extend(epserde_type_hash(input_for_type_hash));
+    // Automatically derive type info
+    out.extend(_type_info_derive(
+        &derive_input,
+        ctx.type_const_params,
+        const_params,
+        ctx.generics,
+        ctx.impl_generics,
+        ctx.where_clause,
+        ctx.is_zero_copy,
+    ));
+
     out
 }
 
@@ -1265,7 +1273,8 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 /// `MaxSizeOf`, `TypeHash`, and `AlignHash`. See the documentation
 /// of [`epserde_derive`] for more information.
 #[proc_macro_derive(TypeInfo, attributes(zero_copy, deep_copy))]
-pub fn epserde_type_hash(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    // This part is in common with epserde_derive.
     let mut derive_input = parse_macro_input!(input as DeriveInput);
 
     if derive_input.generics.where_clause.is_some() {
@@ -1279,6 +1288,26 @@ pub fn epserde_type_hash(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     let (_, is_zero_copy, _) = check_attrs(&derive_input);
     let (type_const_params, const_params) = get_type_const_params(&derive_input);
 
+    _type_info_derive(
+        &derive_input,
+        type_const_params,
+        const_params,
+        generics,
+        impl_generics,
+        where_clause,
+        is_zero_copy,
+    )
+}
+
+fn _type_info_derive(
+    derive_input: &DeriveInput,
+    type_const_params: Vec<syn::Ident>,
+    const_params: Vec<syn::Ident>,
+    generics: TypeGenerics<'_>,
+    impl_generics: ImplGenerics<'_>,
+    where_clause: &WhereClause,
+    is_zero_copy: bool,
+) -> proc_macro::TokenStream {
     // Add reprs
     let repr = derive_input
         .attrs
@@ -1287,10 +1316,9 @@ pub fn epserde_type_hash(input: proc_macro::TokenStream) -> proc_macro::TokenStr
         .map(|x| x.meta.require_list().unwrap().tokens.to_string())
         .collect::<Vec<_>>();
 
-    let data = derive_input.data.to_owned();
     let name = derive_input.ident.clone();
     let ctx = TypeInfoContext {
-        derive_input: &derive_input,
+        derive_input,
         name,
         type_const_params,
         const_params,
@@ -1301,7 +1329,7 @@ pub fn epserde_type_hash(input: proc_macro::TokenStream) -> proc_macro::TokenStr
         repr,
     };
 
-    match &data {
+    match &derive_input.data {
         Data::Struct(s) => gen_struct_type_hash(ctx, s),
         Data::Enum(e) => gen_enum_type_hash(ctx, e),
         _ => todo!("Union types are not currently supported"),
