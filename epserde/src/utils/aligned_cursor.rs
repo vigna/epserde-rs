@@ -7,7 +7,7 @@
 use core::slice;
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use maligned::{Alignment, A16};
+use maligned::{A16, Alignment};
 use mem_dbg::{MemDbg, MemSize};
 
 /// An aligned version of [`Cursor`](std::io::Cursor).
@@ -174,7 +174,7 @@ impl<T: Alignment> Seek for AlignedCursor<T> {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     "cursor length would be greater than usize::MAX",
-                ))
+                ));
             }
             SeekFrom::Start(n) => {
                 self.pos = n as usize;
@@ -249,9 +249,11 @@ mod tests {
             assert_eq!((i * 2 + 1).to_ne_bytes(), buf);
         }
 
-        assert!(cursor
-            .seek(SeekFrom::End(-1001 * std::mem::size_of::<usize>() as i64,))
-            .is_err());
+        assert!(
+            cursor
+                .seek(SeekFrom::End(-1001 * std::mem::size_of::<usize>() as i64,))
+                .is_err()
+        );
 
         Ok(())
     }

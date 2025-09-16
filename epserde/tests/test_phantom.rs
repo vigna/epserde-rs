@@ -5,9 +5,9 @@
  */
 
 use core::marker::PhantomData;
-use epserde::prelude::*;
 use epserde::PhantomDeserData;
 use epserde::TypeInfo;
+use epserde::prelude::*;
 use maligned::A16;
 
 #[test]

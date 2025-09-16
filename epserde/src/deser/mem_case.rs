@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use crate::{deser::DeserType, DeserializeInner};
+use crate::{DeserializeInner, deser::DeserType};
 use bitflags::bitflags;
 use core::{fmt, mem::size_of};
 use maligned::A64;

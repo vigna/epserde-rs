@@ -29,6 +29,7 @@ pub mod traits;
 pub mod utils;
 
 pub mod prelude {
+    pub use crate::PhantomDeserData;
     pub use crate::deser;
     pub use crate::deser::DeserType;
     pub use crate::deser::Deserialize;
@@ -45,7 +46,6 @@ pub mod prelude {
     pub use crate::ser::SerializeInner;
     pub use crate::traits::*;
     pub use crate::utils::*;
-    pub use crate::PhantomDeserData;
     #[cfg(feature = "derive")]
     pub use epserde_derive::Epserde;
 }
