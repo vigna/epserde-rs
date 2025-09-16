@@ -90,7 +90,7 @@ pub trait Deserialize: DeserializeInner {
     unsafe fn load_full(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
         let mut buf_reader = BufReader::new(file);
-        Self::deserialize_full(&mut buf_reader).map_err(|e| e.into())
+        unsafe { Self::deserialize_full(&mut buf_reader).map_err(|e| e.into()) }
     }
 
     /// Read data from a reader into heap-allocated memory and ε-deserialize a
@@ -164,7 +164,7 @@ pub trait Deserialize: DeserializeInner {
         }
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_ref().unwrap() };
-        let s = Self::deserialize_eps(mem)?;
+        let s = unsafe { Self::deserialize_eps(mem) }?;
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(s);
@@ -190,7 +190,7 @@ pub trait Deserialize: DeserializeInner {
     unsafe fn load_mem(path: impl AsRef<Path>) -> anyhow::Result<MemCase<Self>> {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let file = std::fs::File::open(path)?;
-        Self::read_mem(file, file_len)
+        unsafe { Self::read_mem(file, file_len) }
     }
 
     /// Read data from a reader into `mmap()`-allocated memory and ε-deserialize
@@ -252,7 +252,7 @@ pub trait Deserialize: DeserializeInner {
         }
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_ref().unwrap() };
-        let s = Self::deserialize_eps(mem)?;
+        let s = unsafe { Self::deserialize_eps(mem) }?;
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(s);
@@ -281,7 +281,7 @@ pub trait Deserialize: DeserializeInner {
     unsafe fn load_mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let file = std::fs::File::open(path)?;
-        Self::read_mmap(file, file_len, flags)
+        unsafe { Self::read_mmap(file, file_len, flags) }
     }
 
     /// Memory map a file and ε-deserialize a data structure from it,
@@ -318,7 +318,7 @@ pub trait Deserialize: DeserializeInner {
 
         let mmap = unsafe { (*ptr).1.as_ref().unwrap() };
         // deserialize the data structure
-        let s = Self::deserialize_eps(mmap)?;
+        let s = unsafe { Self::deserialize_eps(mmap) }?;
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(s);
@@ -374,7 +374,7 @@ impl<T: TypeHash + AlignHash + DeserializeInner> Deserialize for T {
     unsafe fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self> {
         let mut backend = ReaderWithPos::new(backend);
         check_header::<Self>(&mut backend)?;
-        Self::_deserialize_full_inner(&mut backend)
+        unsafe { Self::_deserialize_full_inner(&mut backend) }
     }
 
     /// # Safety
@@ -383,7 +383,7 @@ impl<T: TypeHash + AlignHash + DeserializeInner> Deserialize for T {
     unsafe fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
         let mut backend = SliceWithPos::new(backend);
         check_header::<Self>(&mut backend)?;
-        Self::_deserialize_eps_inner(&mut backend)
+        unsafe { Self::_deserialize_eps_inner(&mut backend) }
     }
 }
 
@@ -491,7 +491,9 @@ pub enum Error {
         error("The current arch is little-endian but the data is big-endian.")
     )]
     EndiannessError,
-    #[error("Alignment error. Most likely you are deserializing from a memory region with insufficient alignment.")]
+    #[error(
+        "Alignment error. Most likely you are deserializing from a memory region with insufficient alignment."
+    )]
     /// Some fields are not properly aligned.
     AlignmentError,
     #[error("Major version mismatch. Expected {major} but got {0}.", major = VERSION.0)]

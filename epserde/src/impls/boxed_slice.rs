@@ -41,7 +41,7 @@ where
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        SerializeHelper::_serialize_inner(self, backend)
+        unsafe { SerializeHelper::_serialize_inner(self, backend) }
     }
 }
 
@@ -67,16 +67,22 @@ where
     type DeserType<'a> = <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_inner_impl(
-            backend,
-        )
+        unsafe {
+            <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_inner_impl(
+                backend,
+            )
+        }
     }
 
     #[inline(always)]
     unsafe fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>> {
-        <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_eps_inner_impl(backend)
+        unsafe {
+            <Box<[T]> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_eps_inner_impl(
+                backend,
+            )
+        }
     }
 }
 
@@ -85,13 +91,13 @@ impl<T: ZeroCopy + DeserializeInner> DeserializeHelper<Zero> for Box<[T]> {
     type DeserType<'a> = &'a [T];
     #[inline(always)]
     unsafe fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        Ok(deserialize_full_vec_zero::<T>(backend)?.into_boxed_slice())
+        Ok(unsafe { deserialize_full_vec_zero::<T>(backend) }?.into_boxed_slice())
     }
     #[inline(always)]
     unsafe fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
-        deserialize_eps_slice_zero(backend)
+        unsafe { deserialize_eps_slice_zero(backend) }
     }
 }
 

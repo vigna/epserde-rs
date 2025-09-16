@@ -59,8 +59,8 @@ where
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // SAFETY: the fake vector we create is never used, and we forget it immediately
         // after writing it to the backend.
-        let fake = Vec::from_raw_parts(self.as_ptr() as *mut T, self.len(), self.len());
-        ser::SerializeInner::_serialize_inner(&fake, backend)?;
+        let fake = unsafe { Vec::from_raw_parts(self.as_ptr() as *mut T, self.len(), self.len()) };
+        unsafe { ser::SerializeInner::_serialize_inner(&fake, backend) }?;
         core::mem::forget(fake);
         Ok(())
     }

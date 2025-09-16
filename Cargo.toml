@@ -7,5 +7,5 @@ members = [
 ]
 
 [workspace.dependencies]
-epserde = {path="./epserde", version="0.8.0"}
-epserde-derive = {path="./epserde-derive", version="0.8.0"}
+epserde = {path="./epserde", version="0.9.0"}
+epserde-derive = {path="./epserde-derive", version="0.9.0"}

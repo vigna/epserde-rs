@@ -17,8 +17,8 @@ use core::hash::Hash;
 use core::marker::PhantomData;
 use core::mem::size_of;
 use core::num::{
-    NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
-    NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
+    NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroIsize, NonZeroU8,
+    NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize,
 };
 use deser::*;
 use ser::*;
@@ -91,8 +91,12 @@ macro_rules! impl_prim_ser_des {
     )*};
 }
 
-impl_prim_type_hash!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32, f64);
-impl_prim_ser_des!(isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32, f64);
+impl_prim_type_hash!(
+    isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32, f64
+);
+impl_prim_ser_des!(
+    isize, i8, i16, i32, i64, i128, usize, u8, u16, u32, u64, u128, f32, f64
+);
 
 macro_rules! impl_nonzero_ser_des {
     ($($ty:ty),*) => {$(
@@ -182,7 +186,7 @@ impl SerializeInner for bool {
 impl DeserializeInner for bool {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<bool> {
-        Ok(u8::_deserialize_full_inner(backend)? != 0)
+        Ok(unsafe { u8::_deserialize_full_inner(backend) }? != 0)
     }
     type DeserType<'a> = Self;
     #[inline(always)]
@@ -204,21 +208,21 @@ impl SerializeInner for char {
 
     #[inline(always)]
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        (*self as u32)._serialize_inner(backend)
+        unsafe { (*self as u32)._serialize_inner(backend) }
     }
 }
 
 impl DeserializeInner for char {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        Ok(char::from_u32(u32::_deserialize_full_inner(backend)?).unwrap())
+        Ok(char::from_u32(unsafe { u32::_deserialize_full_inner(backend) }?).unwrap())
     }
     type DeserType<'a> = Self;
     #[inline(always)]
     unsafe fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        Ok(char::from_u32(u32::_deserialize_eps_inner(backend)?).unwrap())
+        Ok(char::from_u32(unsafe { u32::_deserialize_eps_inner(backend) }?).unwrap())
     }
 }
 
@@ -342,10 +346,10 @@ impl<T: SerializeInner + TypeHash + AlignHash> SerializeInner for Option<T> {
 impl<T: DeserializeInner> DeserializeInner for Option<T> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        let tag = u8::_deserialize_full_inner(backend)?;
+        let tag = unsafe { u8::_deserialize_full_inner(backend) }?;
         match tag {
             0 => Ok(None),
-            1 => Ok(Some(T::_deserialize_full_inner(backend)?)),
+            1 => Ok(Some(unsafe { T::_deserialize_full_inner(backend) }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
@@ -354,10 +358,10 @@ impl<T: DeserializeInner> DeserializeInner for Option<T> {
     unsafe fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let tag = u8::_deserialize_full_inner(backend)?;
+        let tag = unsafe { u8::_deserialize_full_inner(backend) }?;
         match tag {
             0 => Ok(None),
-            1 => Ok(Some(T::_deserialize_eps_inner(backend)?)),
+            1 => Ok(Some(unsafe { T::_deserialize_eps_inner(backend) }?)),
             _ => Err(deser::Error::InvalidTag(backend.data[0] as usize)),
         }
     }

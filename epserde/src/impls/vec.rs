@@ -47,7 +47,7 @@ where
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        SerializeHelper::_serialize_inner(self, backend)
+        unsafe { SerializeHelper::_serialize_inner(self, backend) }
     }
 }
 
@@ -73,14 +73,22 @@ where
     type DeserType<'a> = <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_inner_impl(backend)
+        unsafe {
+            <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_full_inner_impl(
+                backend,
+            )
+        }
     }
 
     #[inline(always)]
     unsafe fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>> {
-        <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_eps_inner_impl(backend)
+        unsafe {
+            <Vec<T> as DeserializeHelper<<T as CopyType>::Copy>>::_deserialize_eps_inner_impl(
+                backend,
+            )
+        }
     }
 }
 
@@ -89,13 +97,13 @@ impl<T: ZeroCopy + DeserializeInner> DeserializeHelper<Zero> for Vec<T> {
     type DeserType<'a> = &'a [T];
     #[inline(always)]
     unsafe fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        deserialize_full_vec_zero(backend)
+        unsafe { deserialize_full_vec_zero(backend) }
     }
     #[inline(always)]
     unsafe fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
-        deserialize_eps_slice_zero(backend)
+        unsafe { deserialize_eps_slice_zero(backend) }
     }
 }
 

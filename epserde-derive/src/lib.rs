@@ -7,14 +7,13 @@
 
 //! Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) crate.
 
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use std::{collections::HashSet, vec};
 use syn::{
-    parse_macro_input,
+    BoundLifetimes, Data, DeriveInput, GenericParam, ImplGenerics, LifetimeParam, PredicateType,
+    TypeGenerics, TypeParamBound, WhereClause, WherePredicate, parse_macro_input,
     punctuated::Punctuated,
     token::{self, Plus},
-    BoundLifetimes, Data, DeriveInput, GenericParam, ImplGenerics, LifetimeParam, PredicateType,
-    TypeGenerics, TypeParamBound, WhereClause, WherePredicate,
 };
 
 //
@@ -95,7 +94,7 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
 /// either an identifier (for named fields) or an index (for unnamed fields).
 fn gen_deser_method_call(
     field_name: &proc_macro2::TokenStream,
-    ty: &syn::Type,
+    field_type: &syn::Type,
     field_type_params: &HashSet<&syn::Ident>,
 ) -> proc_macro2::TokenStream {
     if let syn::Type::Path(syn::TypePath {
@@ -104,23 +103,24 @@ fn gen_deser_method_call(
             leading_colon: None,
             segments,
         },
-    }) = ty
+    }) = field_type
     {
         // This is a pretty weak check, as a user could define its own PhantomDeserData,
         // but it should be good enough in practice
-        if let Some(segment) = segments.last() {
-            if segment.ident == "PhantomDeserData" {
-                return syn::parse_quote!(#field_name: <#ty>::_deserialize_eps_inner_special);
-            }
+        if let Some(segment) = segments.last()
+            && segment.ident == "PhantomDeserData"
+        {
+            return syn::parse_quote!(#field_name: unsafe { <#field_type>::_deserialize_eps_inner_special(backend)? });
         }
 
-        // It's just a type, and it's the type of a field: ε-copy deserialization
+        // If it's just an identifier that is among the type parameters that
+        // are the type of some field we proceed with ε-copy deserialization
         if segments.len() == 1 && field_type_params.contains(&segments[0].ident) {
-            return syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_eps_inner);
+            return syn::parse_quote!(#field_name: unsafe  { <#field_type as DeserializeInner>::_deserialize_eps_inner(backend)? });
         }
     }
 
-    syn::parse_quote!(#field_name: <#ty as DeserializeInner>::_deserialize_full_inner)
+    syn::parse_quote!(#field_name: unsafe { <#field_type as DeserializeInner>::_deserialize_full_inner(backend)? })
 }
 
 /// Generates the `IS_ZERO_COPY` expression.
@@ -418,10 +418,10 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         let field_type = &field.ty;
 
         // We look for type parameters that are types of fields
-        if let Some(field_type_id) = get_ident(field_type) {
-            if ctx.type_params.contains(field_type_id) {
-                field_type_params.insert(field_type_id);
-            }
+        if let Some(field_type_id) = get_ident(field_type)
+            && ctx.type_params.contains(field_type_id)
+        {
+            field_type_params.insert(field_type_id);
         }
 
         method_calls.push(gen_deser_method_call(
@@ -478,7 +478,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
-                    ::epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
+                    unsafe { ::epserde::deser::helpers::deserialize_full_zero::<Self>(backend) }
                 }
 
                 type DeserType<'epserde_desertype> = &'epserde_desertype Self;
@@ -487,7 +487,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                 ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
-                    ::epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
+                    unsafe { ::epserde::deser::helpers::deserialize_eps_zero::<Self>(backend) }
                 }
             }
         }
@@ -513,13 +513,13 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 // Compute whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
-                // Compute whether the type could be zero-copy but it is not declared as such,
-                // and the attribute `deep_copy` is missing.
+                // Compute whether the type could be zero-copy but it is not
+                // declared as such, and the attribute `deep_copy` is missing.
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*;
 
                 unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     #(
-                        ::epserde::ser::WriteWithNames::write(backend, stringify!(#field_names), &self.#field_names)?;
+                        unsafe { ::epserde::ser::WriteWithNames::write(backend, stringify!(#field_names), &self.#field_names)?; }
                     )*
                     Ok(())
                 }
@@ -549,7 +549,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
                     Ok(#name{
                         #(
-                            #method_calls(backend)?,
+                            #method_calls,
                         )*
                     })
                 }
@@ -600,10 +600,10 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let field_type = &field.ty;
 
                     // We look for type parameters that are types of fields
-                    if let Some(field_type_id) = get_ident(field_type) {
-                        if ctx.type_params.contains(field_type_id) {
-                            all_field_type_params.insert(field_type_id);
-                        }
+                    if let Some(field_type_id) = get_ident(field_type)
+                        && ctx.type_params.contains(field_type_id)
+                    {
+                        all_field_type_params.insert(field_type_id);
                     }
 
                     method_calls.push(gen_deser_method_call(
@@ -636,7 +636,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 variant_eps_des.push(quote! {
                     #(
-                        #method_calls(backend)?,
+                        #method_calls,
                     )*
                 });
             }
@@ -652,10 +652,10 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let field_type = &field.ty;
 
                     // We look for type parameters that are types of fields
-                    if let Some(field_type_id) = get_ident(field_type) {
-                        if ctx.type_params.contains(field_type_id) {
-                            all_field_type_params.insert(field_type_id);
-                        }
+                    if let Some(field_type_id) = get_ident(field_type)
+                        && ctx.type_params.contains(field_type_id)
+                    {
+                        all_field_type_params.insert(field_type_id);
                     }
 
                     field_indices.push(
@@ -681,7 +681,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 variant_ser.push(quote! {
                     WriteWithNames::write(backend, "tag", &#variant_id)?;
                     #(
-                        WriteWithNames::write(backend, stringify!(#field_indices), #field_indices)?;
+                        unsafe { WriteWithNames::write(backend, stringify!(#field_indices), #field_indices)? };
                     )*
                 });
 
@@ -693,7 +693,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 variant_eps_des.push(quote! {
                     #(
-                        #method_calls(backend)?,
+                        #method_calls,
                     )*
                 });
             }
@@ -741,7 +741,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                         test::<#all_fields_types>();
                     )*
 
-                    ::epserde::ser::helpers::serialize_zero(backend, self)
+                    unsafe { ::epserde::ser::helpers::serialize_zero(backend, self) }
                 }
             }
 
@@ -750,7 +750,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
-                    ::epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
+                    unsafe { ::epserde::deser::helpers::deserialize_full_zero::<Self>(backend) }
                 }
 
                 type DeserType<'epserde_desertype> = &'epserde_desertype Self;
@@ -759,7 +759,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                 ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
-                    ::epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
+                    unsafe { ::epserde::deser::helpers::deserialize_eps_zero::<Self>(backend) }
                 }
             }
         }
@@ -784,8 +784,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 // Compute whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
-                // Compute whether the type could be zero-copy but it is not declared as such,
-                // and the attribute `deep_copy` is missing.
+                // Compute whether the type could be zero-copy but it is not
+                // declared as such, and the attribute `deep_copy` is missing.
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*;
 
                 unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
@@ -837,7 +837,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     }
 }
 
-/// Generates an ε-serde implementation for custom types.
+/// Generates an [ε-serde](Epserde) implementation for custom types.
 ///
 /// It generates implementations for the traits `CopyType`, `MaxSizeOf`,
 /// `TypeHash`, `AlignHash`, `SerializeInner`, and `DeserializeInner`.
@@ -1127,10 +1127,10 @@ fn gen_struct_type_info_impl(
         field_types.push(field_type);
 
         // We look for type parameters that are types of fields
-        if let Some(field_type_id) = get_ident(field_type) {
-            if ctx.type_params.contains(field_type_id) {
-                field_type_params.insert(field_type_id);
-            }
+        if let Some(field_type_id) = get_ident(field_type)
+            && ctx.type_params.contains(field_type_id)
+        {
+            field_type_params.insert(field_type_id);
         }
     }
 
@@ -1207,10 +1207,10 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                     }]);
 
                     // We look for type parameters that are types of fields
-                    if let Some(field_type_id) = get_ident(field_type) {
-                        if ctx.type_params.contains(field_type_id) {
-                            all_field_type_params.push(field_type);
-                        }
+                    if let Some(field_type_id) = get_ident(field_type)
+                        && ctx.type_params.contains(field_type_id)
+                    {
+                        all_field_type_params.push(field_type);
                     }
                 }
             }
@@ -1236,10 +1236,10 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                     }]);
 
                     // We look for type parameters that are types of fields
-                    if let Some(field_type_id) = get_ident(field_type) {
-                        if ctx.type_params.contains(field_type_id) {
-                            all_field_type_params.push(field_type);
-                        }
+                    if let Some(field_type_id) = get_ident(field_type)
+                        && ctx.type_params.contains(field_type_id)
+                    {
+                        all_field_type_params.push(field_type);
                     }
                 }
             }
@@ -1280,7 +1280,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
     )
 }
 
-/// Generates a partial ε-serde implementation for custom types.
+/// Generates a [partial ε-serde](TypeInfo) implementation for custom types.
 ///
 /// It generates implementations just for the traits `CopyType`, `MaxSizeOf`,
 /// `TypeHash`, and `AlignHash`. See the documentation of [`Epserde`] for

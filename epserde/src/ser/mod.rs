@@ -79,7 +79,7 @@ pub trait Serialize {
     /// See the [trait documentation](Serialize).
     unsafe fn serialize(&self, backend: &mut impl WriteNoStd) -> Result<usize> {
         let mut write_with_pos = WriterWithPos::new(backend);
-        self.serialize_on_field_write(&mut write_with_pos)?;
+        unsafe { self.serialize_on_field_write(&mut write_with_pos) }?;
         Ok(write_with_pos.pos())
     }
 
@@ -95,7 +95,7 @@ pub trait Serialize {
     unsafe fn serialize_with_schema(&self, backend: &mut impl WriteNoStd) -> Result<Schema> {
         let mut writer_with_pos = WriterWithPos::new(backend);
         let mut schema_writer = SchemaWriter::new(&mut writer_with_pos);
-        self.serialize_on_field_write(&mut schema_writer)?;
+        unsafe { self.serialize_on_field_write(&mut schema_writer) }?;
         Ok(schema_writer.schema)
     }
 
@@ -114,7 +114,7 @@ pub trait Serialize {
     unsafe fn store(&self, path: impl AsRef<Path>) -> Result<()> {
         let file = std::fs::File::create(path).map_err(Error::FileOpenError)?;
         let mut buf_writer = BufWriter::new(file);
-        self.serialize(&mut buf_writer)?;
+        unsafe { self.serialize(&mut buf_writer)? };
         Ok(())
     }
 }

@@ -90,13 +90,13 @@ macro_rules! impl_tuples {
 		impl<T: ZeroCopy + TypeHash + AlignHash> DeserializeInner for ($($t,)*) {
             type DeserType<'a> = &'a ($($t,)*);
             unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-                deserialize_full_zero::<($($t,)*)>(backend)
+                unsafe { deserialize_full_zero::<($($t,)*)>(backend) }
             }
 
             unsafe fn _deserialize_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
                 ) -> deser::Result<Self::DeserType<'a>> {
-                deserialize_eps_zero::<($($t,)*)>(backend)
+                unsafe { deserialize_eps_zero::<($($t,)*)>(backend) }
             }
         }
     };

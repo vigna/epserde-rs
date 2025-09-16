@@ -12,7 +12,7 @@ Helpers for deserialization.
 */
 
 use super::SliceWithPos;
-use super::{read::*, DeserializeInner};
+use super::{DeserializeInner, read::*};
 use crate::deser;
 use crate::traits::*;
 use core::mem::MaybeUninit;
@@ -49,7 +49,7 @@ pub unsafe fn deserialize_full_zero<T: ZeroCopy>(
 pub unsafe fn deserialize_full_vec_zero<T: DeserializeInner + ZeroCopy>(
     backend: &mut impl ReadWithPos,
 ) -> deser::Result<Vec<T>> {
-    let len = usize::_deserialize_full_inner(backend)?;
+    let len = unsafe { usize::_deserialize_full_inner(backend) }?;
     backend.align::<T>()?;
     let mut res = Vec::with_capacity(len);
     // SAFETY: we just allocated this vector so it is safe to set the length.
@@ -109,7 +109,7 @@ pub unsafe fn deserialize_eps_zero<'a, T: ZeroCopy>(
 pub unsafe fn deserialize_eps_slice_zero<'a, T: ZeroCopy>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<&'a [T]> {
-    let len = usize::_deserialize_full_inner(backend)?;
+    let len = unsafe { usize::_deserialize_full_inner(backend) }?;
     let bytes = len * core::mem::size_of::<T>();
     if core::mem::size_of::<T>() == 0 {
         // SAFETY: T is zero-sized (see the from_raw_parts docs)
