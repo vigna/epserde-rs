@@ -384,7 +384,7 @@ struct EpserdeContext<'a> {
     type_const_params: Vec<syn::Ident>,
     /// Generics for the type as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
-    generics: TypeGenerics<'a>,
+    type_generics: TypeGenerics<'a>,
     /// Generics for the `ìmpl` clause as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
     impl_generics: ImplGenerics<'a>,
@@ -406,8 +406,8 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
     let mut field_type_params = HashSet::new();
 
     s.fields.iter().enumerate().for_each(|(field_idx, field)| {
-        let field_type = &field.ty;
         let field_name = get_field_name(field, field_idx);
+        let field_type = &field.ty;
 
         // We look for type parameters that are types of fields
         for id in &ctx.type_const_params {
@@ -426,13 +426,13 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
     // derive the deserialization type.
     let deser_type_generics = gen_deser_type_generics(&ctx, &field_type_params);
     let ser_type_generics = gen_ser_type_generics(&ctx, &field_type_params);
-
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
     let (mut where_clause_ser, mut where_clause_des) = gen_where_clauses(&field_types);
-    let impl_generics = &ctx.impl_generics;
-    let generics = &ctx.generics;
-    let where_clause = &ctx.where_clause;
+
     let name = &ctx.name;
+    let type_generics = &ctx.type_generics;
+    let impl_generics = &ctx.impl_generics;
+    let where_clause = &ctx.where_clause;
 
     if ctx.is_zero_copy {
         // In zero-copy types we do not need to add bounds to
@@ -440,12 +440,12 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
         // replaced with their SerType/DeserType.
         quote! {
             #[automatically_derived]
-            impl #impl_generics ::epserde::traits::CopyType for #name #generics #where_clause {
+            impl #impl_generics ::epserde::traits::CopyType for #name #type_generics #where_clause {
                 type Copy = ::epserde::traits::Zero;
             }
 
             #[automatically_derived]
-            impl #impl_generics ::epserde::ser::SerializeInner for #name #generics #where_clause_ser {
+            impl #impl_generics ::epserde::ser::SerializeInner for #name #type_generics #where_clause_ser {
                 type SerType = Self;
                 // Compute whether the type could be zero copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
@@ -455,27 +455,22 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
 
                 #[inline(always)]
                 unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
-                    use ::epserde::traits::ZeroCopy;
-                    use ::epserde::ser::helpers;
-
                     // No-op code that however checks that all fields are zero-copy.
-                    fn test<T: ZeroCopy>() {}
+                    fn test<T: ::epserde::traits::ZeroCopy>() {}
                     #(
                         test::<#field_types>();
                     )*
-                    helpers::serialize_zero(backend, self)
+                    ::epserde::ser::helpers::serialize_zero(backend, self)
                 }
             }
 
             #[automatically_derived]
-            impl #impl_generics ::epserde::deser::DeserializeInner for #name #generics #where_clause_des
+            impl #impl_generics ::epserde::deser::DeserializeInner for #name #type_generics #where_clause_des
             {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
-                    use ::epserde::deser::helpers;
-
-                    helpers::deserialize_full_zero::<Self>(backend)
+                    ::epserde::deser::helpers::deserialize_full_zero::<Self>(backend)
                 }
 
                 type DeserType<'epserde_desertype> = &'epserde_desertype Self;
@@ -484,9 +479,7 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
                     backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                 ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
-                    use ::epserde::deser::helpers;
-
-                    helpers::deserialize_eps_zero::<Self>(backend)
+                    ::epserde::deser::helpers::deserialize_eps_zero::<Self>(backend)
                 }
             }
         }
@@ -502,12 +495,12 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
 
         quote! {
             #[automatically_derived]
-            impl #impl_generics ::epserde::traits::CopyType for #name #generics #where_clause {
+            impl #impl_generics ::epserde::traits::CopyType for #name #type_generics #where_clause {
                 type Copy = ::epserde::traits::Deep;
             }
 
             #[automatically_derived]
-            impl #impl_generics ::epserde::ser::SerializeInner for #name #generics #where_clause_ser {
+            impl #impl_generics ::epserde::ser::SerializeInner for #name #type_generics #where_clause_ser {
                 type SerType = #name<#(#ser_type_generics,)*>;
                 // Compute whether the type could be zero copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
@@ -518,19 +511,15 @@ fn gen_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::To
 
                 #[inline(always)]
                 unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
-                    use ::epserde::ser::helpers;
-                    use ::epserde::ser::WriteWithNames;
-
-                    helpers::check_mismatch::<Self>();
                     #(
-                        WriteWithNames::write(backend, stringify!(#fields_names), &self.#fields_names)?;
+                        ::epserde::ser::WriteWithNames::write(backend, stringify!(#fields_names), &self.#fields_names)?;
                     )*
                     Ok(())
                 }
             }
 
             #[automatically_derived]
-            impl #impl_generics ::epserde::deser::DeserializeInner for #name #generics #where_clause_des {
+            impl #impl_generics ::epserde::deser::DeserializeInner for #name #type_generics #where_clause_des {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
@@ -571,14 +560,10 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
     let mut variant_eps_des = vec![];
     let mut field_type_params = HashSet::new();
     let mut fields_types = vec![];
-    let type_const_params = ctx
-        .type_const_params
-        .iter()
-        .cloned()
-        .collect::<HashSet<_>>();
+    let type_const_params = &ctx.type_const_params;
 
     e.variants.iter().enumerate().for_each(|(variant_id, variant)| {
-        variants_names.push(variant.ident.to_token_stream());
+        variants_names.push(&variant.ident);
         match &variant.fields {
         syn::Fields::Unit => {
             variants.push(variant.ident.to_token_stream());
@@ -597,7 +582,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                 .iter()
                 .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
                 .for_each(|(name, ty)| {
-                    for id in &type_const_params {
+                    for id in type_const_params {
                         if type_equals_ident(ty, id) {
                             field_type_params.insert(id);
                             break;
@@ -644,7 +629,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
                 .for_each(|(field_idx, unnamed)| {
                     let ty = &unnamed.ty;
                     let name = syn::Index::from(field_idx);
-                    for id in &type_const_params {
+                    for id in type_const_params {
                         if type_equals_ident(ty, id) {
                             field_type_params.insert(&id);
                             break;
@@ -699,7 +684,7 @@ fn gen_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2::TokenS
     let (mut where_clause_ser, mut where_clause_des) = gen_where_clauses(&fields_types);
     let is_deep_copy = ctx.is_deep_copy;
     let impl_generics = &ctx.impl_generics;
-    let generics = &ctx.generics;
+    let generics = &ctx.type_generics;
     let where_clause = &ctx.where_clause;
     let name = &ctx.name;
 
@@ -871,7 +856,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         derive_input: &derive_input,
         name,
         type_const_params,
-        generics,
+        type_generics: generics,
         impl_generics,
         where_clause,
         is_repr_c,
@@ -891,7 +876,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         &derive_input,
         ctx.type_const_params,
         const_params,
-        ctx.generics,
+        ctx.type_generics,
         ctx.impl_generics,
         ctx.where_clause,
         ctx.is_zero_copy,
@@ -916,7 +901,7 @@ struct TypeInfoContext<'a> {
     const_params: Vec<syn::Ident>,
     /// Generics for the type as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
-    generics: TypeGenerics<'a>,
+    type_generics: TypeGenerics<'a>,
     /// Generics for the `ìmpl` clause as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
     impl_generics: ImplGenerics<'a>,
@@ -1029,7 +1014,7 @@ fn gen_type_info_traits(
     max_size_of_body: Option<proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
     let name = &ctx.name;
-    let generics = &ctx.generics;
+    let generics = &ctx.type_generics;
     let impl_generics = &ctx.impl_generics;
 
     let max_size_of_impl = if let Some(max_size_of_body) = max_size_of_body {
@@ -1312,7 +1297,7 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     )
 }
 
-/// Completes the `TypeInfo` derive macro using precomuted data.
+/// Completes the `TypeInfo` derive macro using precomputed data.
 ///
 /// This method is used by the `Epserde` derive macro to
 /// avoid recomputing the same data twice.
@@ -1320,7 +1305,7 @@ fn _type_info_derive(
     derive_input: &DeriveInput,
     type_const_params: Vec<syn::Ident>,
     const_params: Vec<syn::Ident>,
-    generics: TypeGenerics<'_>,
+    type_generics: TypeGenerics<'_>,
     impl_generics: ImplGenerics<'_>,
     where_clause: &WhereClause,
     is_zero_copy: bool,
@@ -1339,7 +1324,7 @@ fn _type_info_derive(
         name,
         type_const_params,
         const_params,
-        generics,
+        type_generics,
         impl_generics,
         where_clause,
         is_zero_copy,
