@@ -62,8 +62,7 @@ fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStr
         .unwrap_or_else(|| syn::Index::from(field_idx).to_token_stream())
 }
 
-/// Returns true if the given type is just given by the given identifier.
-fn type_equals_ident(ty: &syn::Type, ident: &syn::Ident) -> bool {
+fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
     if let syn::Type::Path(syn::TypePath {
         qself: None,
         path: syn::Path {
@@ -72,12 +71,12 @@ fn type_equals_ident(ty: &syn::Type, ident: &syn::Ident) -> bool {
         },
     }) = ty
     {
-        if segments.len() == 1 && segments[0].ident == *ident {
-            return true;
+        if segments.len() == 1 {
+            return Some(&segments[0].ident);
         }
     }
 
-    false
+    None
 }
 
 /// Generates a method call for field deserialization.
@@ -130,18 +129,18 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, fields_types: &[&syn::Type]) -> proc_m
 
 /// Returns the identifiers of type and const parameters in order of appearance,
 /// and the identifiers of const parameters only, also in order of appearance.
-fn get_type_const_params(input: &DeriveInput) -> (Vec<&syn::Ident>, Vec<&syn::Ident>) {
-    let mut type_const_params = vec![];
+fn get_type_const_params(input: &DeriveInput) -> (HashSet<&syn::Ident>, Vec<&syn::Ident>) {
+    let mut type_const_params = HashSet::new();
     let mut const_params = vec![];
 
     input.generics.params.iter().for_each(|x| {
         match x {
             syn::GenericParam::Type(t) => {
-                type_const_params.push(&t.ident);
+                type_const_params.insert(&t.ident);
             }
             syn::GenericParam::Const(c) => {
                 const_params.push(&c.ident);
-                type_const_params.push(&c.ident);
+                type_const_params.insert(&c.ident);
             }
             syn::GenericParam::Lifetime(_) => {}
         };
@@ -367,7 +366,7 @@ struct EpserdeContext<'a> {
     /// The name of the type being derived
     name: syn::Ident,
     /// Identifiers of type and const parameters, in order of appearance.
-    type_const_params: Vec<&'a syn::Ident>,
+    type_const_params: HashSet<&'a syn::Ident>,
     /// Generics for the type as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
     generics_for_type: TypeGenerics<'a>,
@@ -396,10 +395,9 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         let field_type = &field.ty;
 
         // We look for type parameters that are types of fields
-        for &id in &ctx.type_const_params {
-            if type_equals_ident(field_type, id) {
-                field_type_params.insert(id);
-                break;
+        if let Some(field_type_id) = get_ident(field_type) {
+            if ctx.type_const_params.contains(field_type_id) {
+                field_type_params.insert(field_type_id);
             }
         }
 
@@ -575,17 +573,17 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     .named
                     .iter()
                     .map(|named| (named.ident.as_ref().unwrap(), &named.ty))
-                    .for_each(|(name, ty)| {
-                        for &id in &ctx.type_const_params {
-                            if type_equals_ident(ty, id) {
-                                all_field_type_params.insert(id);
-                                break;
+                    .for_each(|(field_name, field_type)| {
+                        // We look for type parameters that are types of fields
+                        if let Some(field_type_id) = get_ident(field_type) {
+                            if ctx.type_const_params.contains(field_type_id) {
+                                all_field_type_params.insert(field_type_id);
                             }
                         }
 
-                        field_names.push(quote! { #name });
-                        field_types.push(ty);
-                        method_calls.push(gen_method_call(&name.to_token_stream(), ty, &all_field_type_params));
+                        field_names.push(quote! { #field_name });
+                        field_types.push(field_type);
+                        method_calls.push(gen_method_call(&field_name.to_token_stream(), field_type, &all_field_type_params));
                     });
 
                 all_fields_types.extend(&field_types);
@@ -625,13 +623,13 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     .iter()
                     .enumerate()
                     .for_each(|(field_idx, unnamed)| {
-                        let ty = &unnamed.ty;
-                        let name = syn::Index::from(field_idx);
+                        let field_type = &unnamed.ty;
+                        let field_name = syn::Index::from(field_idx);
 
-                        for id in &ctx.type_const_params {
-                            if type_equals_ident(ty, id) {
-                                all_field_type_params.insert(&id);
-                                break;
+                        // We look for type parameters that are types of fields
+                        if let Some(field_type_id) = get_ident(field_type) {
+                            if ctx.type_const_params.contains(field_type_id) {
+                                all_field_type_params.insert(field_type_id);
                             }
                         }
 
@@ -641,10 +639,10 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                         )
                         .to_token_stream());
 
-                        method_calls.push(gen_method_call(&name.to_token_stream(), ty, &all_field_type_params));
+                        method_calls.push(gen_method_call(&field_name.to_token_stream(), field_type, &all_field_type_params));
 
-                        field_types.push(ty);
-                        field_names_in_arm.push(name);
+                        field_types.push(field_type);
+                        field_names_in_arm.push(field_name);
 
                     });
 
@@ -894,7 +892,7 @@ struct TypeInfoContext<'a> {
     /// The name of the type
     name: syn::Ident,
     /// Identifiers of type and const parameters, in order of appearance.
-    type_const_params: Vec<&'a syn::Ident>,
+    type_const_params: HashSet<&'a syn::Ident>,
     /// Identifiers of const parameters, in order of appearance.
     const_params: Vec<&'a syn::Ident>,
     /// Generics for the type as returned by
@@ -1113,10 +1111,10 @@ fn gen_struct_type_info_impl(
         field_names.push(get_field_name(field, field_idx));
         field_types.push(field_type);
 
-        for &id in &ctx.type_const_params {
-            if type_equals_ident(field_type, id) {
-                field_type_params.insert(id);
-                break;
+        // We look for type parameters that are types of fields
+        if let Some(field_type_id) = get_ident(field_type) {
+            if ctx.type_const_params.contains(field_type_id) {
+                field_type_params.insert(field_type_id);
             }
         }
     });
@@ -1193,12 +1191,11 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                         }
                     }]);
 
-                    if ctx
-                        .type_const_params
-                        .iter()
-                        .any(|ident| type_equals_ident(field_type, ident))
-                    {
-                        all_field_type_params.push(field_type);
+                    // We look for type parameters that are types of fields
+                    if let Some(field_type_id) = get_ident(field_type) {
+                        if ctx.type_const_params.contains(field_type_id) {
+                            all_field_type_params.push(field_type);
+                        }
                     }
                 });
             }
@@ -1227,12 +1224,11 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                             }
                         }]);
 
-                        if ctx
-                            .type_const_params
-                            .iter()
-                            .any(|ident| type_equals_ident(field_type, ident))
-                        {
-                            all_field_type_params.push(field_type);
+                        // We look for type parameters that are types of fields
+                        if let Some(field_type_id) = get_ident(field_type) {
+                            if ctx.type_const_params.contains(field_type_id) {
+                                all_field_type_params.push(field_type);
+                            }
                         }
                     });
             }
@@ -1310,7 +1306,7 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// avoid recomputing the same data twice.
 fn _type_info_derive(
     derive_input: &DeriveInput,
-    type_const_params: Vec<&syn::Ident>,
+    type_const_params: HashSet<&syn::Ident>,
     const_params: Vec<&syn::Ident>,
     generics_for_type: TypeGenerics<'_>,
     generics_for_impl: ImplGenerics<'_>,
