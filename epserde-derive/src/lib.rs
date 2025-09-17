@@ -843,7 +843,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// It generates implementations for the traits `CopyType`, `MaxSizeOf`,
 /// `TypeHash`, `AlignHash`, `SerializeInner`, and `DeserializeInner`.
 ///
-/// Presently we do not support unions, or where clauses on the original type.
+/// Presently we do not support unions, where clauses on the original type,
+/// and lifetime generics.
 ///
 /// The attribute `zero_copy` can be used to generate an implementation for a
 /// zero-copy type, but the type must be `repr(C)` and all fields must be

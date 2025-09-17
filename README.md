@@ -599,6 +599,13 @@ let t: MemCase<Data<Vec<i32>>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::e
 
 The [`sux-rs`] crate provides several data structures that use ε-serde.
 
+## References and Smart Pointers
+
+You can serialize using just a (mutable) reference. Moreover, smart pointers
+such as [`Box`], [`Rc`], and [`Arc`] are supported by _erasure_—they
+dynamically removed from the type and dynamically reinstated at deserialization.
+Please see the documentation of the [`pointer`] module for more details.
+
 ## Design
 
 Every type serializable with ε-serde has three features that are in principle
@@ -743,3 +750,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [`Iterator`]: <https://doc.rust-lang.org/std/iter/trait.Iterator.html>
 [`SerIter`]: <https://docs.rs/epserde/latest/epserde/impls/iter/struct.SerIter.html>
 [`PhantomDeserData`]: <https://docs.rs/epserde/latest/epserde/struct.PhantomDeserData.html>
+[`Box`]: <https://doc.rust-lang.org/std/boxed/struct.Box.html>
+[`Rc`]: <https://doc.rust-lang.org/std/rc/struct.Rc.html>
+[`Arc`]: <https://doc.rust-lang.org/std/sync/struct.Arc.html>
+[`pointer`]: <https://docs.rs/epserde/latest/epserde/impls/pointer/index.html>

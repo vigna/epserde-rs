@@ -22,6 +22,9 @@
   `load_mmap` but accept any `Read` implementation and a length instead of file
   paths. They make writing unit tests involving `MemCase` much easier.
 
+* We now generate a syntax error for types with lifetimes and where clauses
+  (which never supported in the first place).
+
 ### Changed
 
 * All serialization and deserialization methods are now unsafe. See their
