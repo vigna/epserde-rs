@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.9.0] -
+## [0.9.0] - 2025-09-17
 
 ### New
 
@@ -24,6 +24,9 @@
 
 * We now generate a syntax error for types with lifetimes and where clauses
   (which never supported in the first place).
+
+* There is now support for serializing references, and support by erasure
+  for `Box`,  `Rc`, and `Arc` in the `pointer` module.
 
 ### Changed
 
