@@ -14,7 +14,7 @@ and [`DeserializeInner`](crate::deser::DeserializeInner) for standard Rust types
 
 pub mod array;
 pub mod boxed_slice;
-pub mod deref;
+pub mod containers;
 pub mod iter;
 pub mod prim;
 pub mod slice;
