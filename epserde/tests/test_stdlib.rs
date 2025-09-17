@@ -5,6 +5,7 @@
  */
 
 use epserde::prelude::*;
+use maligned::A16;
 
 fn test_generic<T>(s: T)
 where
@@ -12,32 +13,34 @@ where
     for<'a> <T as DeserializeInner>::DeserType<'a>: PartialEq<T> + core::fmt::Debug,
 {
     {
-        let mut v = vec![];
-        let mut cursor = std::io::Cursor::new(&mut v);
+        let mut cursor = <AlignedCursor<A16>>::new();
 
         let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
         schema.0.sort_by_key(|a| a.offset);
 
         cursor.set_position(0);
-        let full_copy = unsafe { <T>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
+        let full_copy = unsafe {
+            <T>::deserialize_full(&mut std::io::Cursor::new(&cursor.as_bytes())).unwrap()
+        };
         assert_eq!(s, full_copy);
 
-        let full_copy = unsafe { <T>::deserialize_eps(&v).unwrap() };
+        let bytes = cursor.as_bytes();
+        let full_copy = unsafe { <T>::deserialize_eps(bytes).unwrap() };
         assert_eq!(full_copy, s);
 
         let _ = schema.to_csv();
-        let _ = schema.debug(&v);
+        let _ = schema.debug(bytes);
     }
     {
-        let mut v = vec![];
-        let mut cursor = std::io::Cursor::new(&mut v);
+        let mut cursor = <AlignedCursor<A16>>::new();
         unsafe { s.serialize(&mut cursor).unwrap() };
 
         cursor.set_position(0);
-        let full_copy = unsafe { <T>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
+        let full_copy =
+            unsafe { <T>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes())).unwrap() };
         assert_eq!(s, full_copy);
 
-        let full_copy = unsafe { <T>::deserialize_eps(&v).unwrap() };
+        let full_copy = unsafe { <T>::deserialize_eps(cursor.as_bytes()).unwrap() };
         assert_eq!(full_copy, s);
     }
 }
