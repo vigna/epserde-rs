@@ -160,7 +160,9 @@ fn get_type_const_params(
                 type_const_params.push(&c.ident);
                 const_params.push(&c.ident);
             }
-            syn::GenericParam::Lifetime(_) => {}
+            syn::GenericParam::Lifetime(_) => {
+                panic!("Lifetime generics are not supported")
+            }
         };
     }
 
@@ -206,8 +208,8 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
 fn bind_ser_deser_types(
     derive_input: &DeriveInput,
     field_type_params: &HashSet<&syn::Ident>,
-    where_clause_ser: &mut WhereClause,
-    where_clause_deser: &mut WhereClause,
+    ser_where_clause: &mut WhereClause,
+    deser_where_clause: &mut WhereClause,
 ) {
     // If there are bounded type parameters which are fields of the struct, we
     // need to impose the same bounds on the associated SerType/DeserType.
@@ -231,7 +233,7 @@ fn bind_ser_deser_types(
                 }));
 
                 // Add the trait bounds of the type to the DeserType
-                where_clause_deser
+                deser_where_clause
                     .predicates
                     .push(WherePredicate::Type(PredicateType {
                         lifetimes: Some(BoundLifetimes {
@@ -248,7 +250,7 @@ fn bind_ser_deser_types(
                     }));
 
                 // Add the trait bounds of the type to the SerType
-                where_clause_ser
+                ser_where_clause
                     .predicates
                     .push(WherePredicate::Type(PredicateType {
                         lifetimes: None,
@@ -267,16 +269,16 @@ fn bind_ser_deser_types(
 /// binding the given type to `(De)serializeInner`.
 fn add_ser_deser_trait_bounds(
     ty: &syn::Type,
-    where_clause_ser: &mut syn::WhereClause,
-    where_clause_deser: &mut syn::WhereClause,
+    ser_where_clause: &mut syn::WhereClause,
+    deser_where_clause: &mut syn::WhereClause,
 ) {
     add_trait_bound(
-        where_clause_ser,
+        ser_where_clause,
         ty,
         syn::parse_quote!(::epserde::ser::SerializeInner),
     );
     add_trait_bound(
-        where_clause_deser,
+        deser_where_clause,
         ty,
         syn::parse_quote!(::epserde::deser::DeserializeInner),
     );
@@ -325,15 +327,15 @@ fn gen_generics_for_ser_type(
 /// The where clauses bound all field types with the trait being implemented,
 /// thus propagating recursively (de)serializability.
 fn gen_ser_deser_where_clauses(field_types: &[&syn::Type]) -> (WhereClause, WhereClause) {
-    let mut where_clause_ser = empty_where_clause();
-    let mut where_clause_deser = empty_where_clause();
+    let mut ser_where_clause = empty_where_clause();
+    let mut deser_where_clause = empty_where_clause();
 
     // Add trait bounds for all field types
     for field_type in field_types {
-        add_ser_deser_trait_bounds(field_type, &mut where_clause_ser, &mut where_clause_deser);
+        add_ser_deser_trait_bounds(field_type, &mut ser_where_clause, &mut deser_where_clause);
     }
 
-    (where_clause_ser, where_clause_deser)
+    (ser_where_clause, deser_where_clause)
 }
 
 /// Generates the where clauses for `TypeHash`, `AlignHash`, and `MaxSizeOf`.
@@ -1299,6 +1301,7 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
     let (_, is_zero_copy, _) = check_attrs(&derive_input);
     let (_, type_params, const_params) = get_type_const_params(&derive_input);
+
     _type_info_derive(
         &derive_input,
         type_params,

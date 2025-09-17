@@ -107,7 +107,9 @@ impl DeserializeInner for Box<str> {
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(unsafe { String::_deserialize_full_inner(backend) }?.into_boxed_str())
     }
+
     type DeserType<'a> = &'a str;
+
     #[inline(always)]
     unsafe fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,

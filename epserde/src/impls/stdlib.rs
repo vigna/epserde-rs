@@ -285,7 +285,6 @@ impl<T: SerializeInner + TypeHash + AlignHash> SerializeInner for core::ops::Bou
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
-    #[inline(always)]
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
             core::ops::Bound::Unbounded => backend.write("Tag", &0_u8),
@@ -302,7 +301,6 @@ impl<T: SerializeInner + TypeHash + AlignHash> SerializeInner for core::ops::Bou
 }
 
 impl<T: DeserializeInner> DeserializeInner for core::ops::Bound<T> {
-    #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let tag = unsafe { u8::_deserialize_full_inner(backend) }?;
         match tag {
@@ -316,8 +314,9 @@ impl<T: DeserializeInner> DeserializeInner for core::ops::Bound<T> {
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
+
     type DeserType<'a> = core::ops::Bound<<T as DeserializeInner>::DeserType<'a>>;
-    #[inline(always)]
+
     unsafe fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
@@ -361,7 +360,6 @@ impl<B: SerializeInner + TypeHash + AlignHash, C: SerializeInner + TypeHash + Al
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
-    #[inline(always)]
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
             core::ops::ControlFlow::Break(br) => {
@@ -377,7 +375,6 @@ impl<B: SerializeInner + TypeHash + AlignHash, C: SerializeInner + TypeHash + Al
 }
 
 impl<B: DeserializeInner, C: DeserializeInner> DeserializeInner for core::ops::ControlFlow<B, C> {
-    #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let tag = unsafe { u8::_deserialize_full_inner(backend) }?;
         match tag {
@@ -390,11 +387,12 @@ impl<B: DeserializeInner, C: DeserializeInner> DeserializeInner for core::ops::C
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
+
     type DeserType<'a> = core::ops::ControlFlow<
         <B as DeserializeInner>::DeserType<'a>,
         <C as DeserializeInner>::DeserType<'a>,
     >;
-    #[inline(always)]
+
     unsafe fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {

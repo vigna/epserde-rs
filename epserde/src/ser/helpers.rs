@@ -45,7 +45,6 @@ pub fn serialize_zero<V: ZeroCopy + SerializeInner>(
 ///
 /// Note that this method uses a single [`write_all`](std::io::Write::write_all)
 /// call to write the entire structure.
-#[inline(always)]
 pub fn serialize_zero_unchecked<V: ZeroCopy + SerializeInner>(
     backend: &mut impl WriteWithNames,
     value: &V,

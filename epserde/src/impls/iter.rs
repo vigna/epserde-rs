@@ -79,7 +79,6 @@ where
 impl<'a, T: ZeroCopy + SerializeInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>>
     SerializeHelper<Zero> for SerIter<'a, T, I>
 {
-    #[inline(always)]
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         check_zero_copy::<T>();
         // This code must be kept aligned with that of Vec<T> for zero-copy
@@ -109,7 +108,6 @@ impl<'a, T: ZeroCopy + SerializeInner + TypeHash + AlignHash, I: ExactSizeIterat
 impl<'a, T: DeepCopy + SerializeInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>>
     SerializeHelper<Deep> for SerIter<'a, T, I>
 {
-    #[inline(always)]
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         check_mismatch::<T>();
         // This code must be kept aligned with that of Vec<T> for deep-copy

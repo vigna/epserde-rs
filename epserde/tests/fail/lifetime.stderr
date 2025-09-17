@@ -1,0 +1,7 @@
+error: proc-macro derive panicked
+ --> tests/fail/lifetime.rs:9:10
+  |
+9 | #[derive(Epserde)]
+  |          ^^^^^^^
+  |
+  = help: message: Lifetime generics are not supported

@@ -31,7 +31,7 @@ macro_rules! impl_type_hash {
     ($($t:ident),*) => {
 		impl<$($t: TypeHash,)*> TypeHash for ($($t,)*)
         {
-            #[inline(always)]
+
             fn type_hash(
                 hasher: &mut impl core::hash::Hasher,
             ) {
@@ -53,7 +53,6 @@ macro_rules! impl_tuples {
 
 		impl<T: AlignHash> AlignHash for ($($t,)*)
         {
-            #[inline(always)]
             fn align_hash(
                 hasher: &mut impl core::hash::Hasher,
                 offset_of: &mut usize,
@@ -66,7 +65,6 @@ macro_rules! impl_tuples {
 
         impl<T: MaxSizeOf> MaxSizeOf for ($($t,)*)
         {
-            #[inline(always)]
             fn max_size_of() -> usize {
                 let mut max_size_of = 0;
                 $(if max_size_of < std::cmp::max(max_size_of, <$t>::max_size_of()) {

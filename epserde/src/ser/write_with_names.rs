@@ -161,7 +161,6 @@ pub struct SchemaWriter<'a, W> {
 }
 
 impl<'a, W: WriteWithPos> SchemaWriter<'a, W> {
-    #[inline(always)]
     /// Create a new empty [`SchemaWriter`] on top of a generic writer `W`.
     pub fn new(backend: &'a mut W) -> Self {
         Self {
@@ -190,7 +189,6 @@ impl<W: WriteWithPos> WriteWithPos for SchemaWriter<'_, W> {
 /// WARNING: these implementations must be kept in sync with the ones
 /// in the default implementation of [`WriteWithNames`].
 impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
-    #[inline(always)]
     fn align<T: MaxSizeOf>(&mut self) -> Result<()> {
         let padding = pad_align_to(self.pos(), T::max_size_of());
         if padding != 0 {
@@ -209,7 +207,6 @@ impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
         Ok(())
     }
 
-    #[inline(always)]
     fn write<V: SerializeInner>(&mut self, field_name: &str, value: &V) -> Result<()> {
         // prepare a row with the field name and the type
         self.path.push(field_name.into());
@@ -235,7 +232,6 @@ impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
         Ok(())
     }
 
-    #[inline(always)]
     fn write_bytes<V: SerializeInner + ZeroCopy>(&mut self, value: &[u8]) -> Result<()> {
         self.path.push("zero".to_string());
         // Note that we are writing the schema row of the field before

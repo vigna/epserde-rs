@@ -126,6 +126,7 @@ impl<T: ?Sized> CopyType for PhantomDeserData<T> {
 }
 
 impl<T: ?Sized> MaxSizeOf for PhantomDeserData<T> {
+    #[inline(always)]
     fn max_size_of() -> usize {
         0
     }

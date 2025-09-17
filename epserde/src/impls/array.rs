@@ -66,7 +66,6 @@ impl<T: ZeroCopy + SerializeInner + TypeHash + AlignHash, const N: usize> Serial
 }
 
 impl<T: DeepCopy + SerializeInner, const N: usize> SerializeHelper<Deep> for [T; N] {
-    #[inline(always)]
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         for item in self.iter() {
             backend.write("item", item)?;
@@ -80,6 +79,7 @@ where
     [T; N]: DeserializeHelper<<T as CopyType>::Copy, FullType = [T; N]>,
 {
     type DeserType<'a> = <[T; N] as DeserializeHelper<<T as CopyType>::Copy>>::DeserType<'a>;
+
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         unsafe {
@@ -104,7 +104,7 @@ where
 impl<T: ZeroCopy + DeserializeInner, const N: usize> DeserializeHelper<Zero> for [T; N] {
     type FullType = Self;
     type DeserType<'a> = &'a [T; N];
-    #[inline(always)]
+
     unsafe fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let mut res = MaybeUninit::<[T; N]>::uninit();
         backend.align::<T>()?;
@@ -115,7 +115,6 @@ impl<T: ZeroCopy + DeserializeInner, const N: usize> DeserializeHelper<Zero> for
         }
     }
 
-    #[inline(always)]
     unsafe fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
@@ -133,7 +132,7 @@ impl<T: ZeroCopy + DeserializeInner, const N: usize> DeserializeHelper<Zero> for
 impl<T: DeepCopy + DeserializeInner, const N: usize> DeserializeHelper<Deep> for [T; N] {
     type FullType = Self;
     type DeserType<'a> = [<T as DeserializeInner>::DeserType<'a>; N];
-    #[inline(always)]
+
     unsafe fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let mut res = MaybeUninit::<[T; N]>::uninit();
         for item in &mut unsafe { res.assume_init_mut().iter_mut() } {
@@ -141,7 +140,7 @@ impl<T: DeepCopy + DeserializeInner, const N: usize> DeserializeHelper<Deep> for
         }
         Ok(unsafe { res.assume_init() })
     }
-    #[inline(always)]
+
     unsafe fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
