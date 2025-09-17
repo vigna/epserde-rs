@@ -8,6 +8,8 @@ use core::hash::Hasher;
 use epserde::traits::TypeHash;
 use std::collections::HashMap;
 use xxhash_rust::xxh3::{Xxh3, Xxh3Builder};
+use anyhow::Result;
+
 macro_rules! impl_test {
     ($hashes:expr, $value:expr) => {{
         let mut hasher = Xxh3::with_seed(0);
@@ -25,7 +27,7 @@ macro_rules! impl_test {
 
 #[test]
 /// Check that we don't have any collision on most types
-fn test_type_hash_collision() {
+fn test_type_hash_collision() -> Result<()> {
     let mut hashes = HashMap::new();
     impl_test!(hashes, ());
     impl_test!(hashes, true);
@@ -53,10 +55,11 @@ fn test_type_hash_collision() {
     impl_test!(hashes, vec![1_i8, 2, 3, 4, 5].as_slice());
 
     dbg!(hashes);
+    Ok(())
 }
 
 #[test]
-fn test_type_hash_const_type_parameters() {
+fn test_type_hash_const_type_parameters() -> Result<()> {
     #[derive(epserde::Epserde)]
     struct S<const N: usize>(std::marker::PhantomData<[u8; N]>);
 
@@ -66,4 +69,5 @@ fn test_type_hash_const_type_parameters() {
     S::<1>::type_hash(&mut hasher1);
     dbg!(hasher0.finish(), hasher1.finish());
     assert_ne!(hasher0.finish(), hasher1.finish());
+    Ok(())
 }

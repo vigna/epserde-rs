@@ -7,6 +7,7 @@
 use epserde::prelude::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
+use anyhow::Result;
 
 fn get_type_hash<T: TypeHash + ?Sized>() -> u64 {
     let mut hasher = DefaultHasher::new();
@@ -22,7 +23,7 @@ fn get_align_hash<T: AlignHash + ?Sized>() -> u64 {
 }
 
 #[test]
-fn test_primitive_types() {
+fn test_primitive_types() -> Result<()> {
     assert_eq!(get_type_hash::<isize>(), 0xad77ef2a0c071b87);
     assert_eq!(get_align_hash::<isize>(), 0xd3eed631c35c21cf);
     assert_eq!(get_type_hash::<i8>(), 0x1bb527fe1af58754);
@@ -57,57 +58,65 @@ fn test_primitive_types() {
     assert_eq!(get_align_hash::<char>(), 0x6881f435bc0ca85f);
     assert_eq!(get_type_hash::<()>(), 0x2439715d39cd513);
     assert_eq!(get_align_hash::<()>(), 0x76be999e3e25b2a0);
+    Ok(())
 }
 
 #[test]
-fn test_option() {
+fn test_option() -> Result<()> {
     assert_eq!(get_type_hash::<Option<i32>>(), 0x36d9437e00a00833);
     assert_eq!(get_align_hash::<Option<i32>>(), 0x6881f435bc0ca85f);
+    Ok(())
 }
 
 #[test]
-fn test_string_types() {
+fn test_string_types() -> Result<()> {
     assert_eq!(get_type_hash::<String>(), 0xe4297f5be0f5dd50);
     assert_eq!(get_align_hash::<String>(), 0xd1fba762150c532c);
     assert_eq!(get_type_hash::<Box<str>>(), 0x19aa1d67f7ad7a3e);
     assert_eq!(get_align_hash::<Box<str>>(), 0xd1fba762150c532c);
     assert_eq!(get_type_hash::<str>(), 0x393e833de113cd8c);
+    Ok(())
 }
 
 #[test]
-fn test_array_types() {
+fn test_array_types() -> Result<()> {
     assert_eq!(get_type_hash::<[i32; 5]>(), 0xff020632241e51b0);
     assert_eq!(get_align_hash::<[i32; 5]>(), 0x6881f435bc0ca85f);
+    Ok(())
 }
 
 #[test]
-fn test_slice_types() {
+fn test_slice_types() -> Result<()> {
     assert_eq!(get_type_hash::<&[i32]>(), 0x117f4821c6983671);
     assert_eq!(get_align_hash::<&[i32]>(), 0x6881f435bc0ca85f);
     assert_eq!(get_type_hash::<[i32]>(), 0xe053d268c8ad5c04);
+    Ok(())
 }
 
 #[test]
-fn test_boxed_slice_types() {
+fn test_boxed_slice_types() -> Result<()> {
     assert_eq!(get_type_hash::<Box<[i32]>>(), 0x400f9211e94c1834);
     assert_eq!(get_align_hash::<Box<[i32]>>(), 0x6881f435bc0ca85f);
+    Ok(())
 }
 
 #[test]
-fn test_tuple_types() {
+fn test_tuple_types() -> Result<()> {
     assert_eq!(get_type_hash::<(i32,)>(), 0x4c6eb7a52a31e7b9);
     assert_eq!(get_align_hash::<(i32,)>(), 0x6881f435bc0ca85f);
     assert_eq!(get_type_hash::<(i32, f64)>(), 0x6c1bf8932e12dc1);
+    Ok(())
 }
 
 #[test]
-fn test_vec_types() {
+fn test_vec_types() -> Result<()> {
     assert_eq!(get_type_hash::<Vec<i32>>(), 0x117f4821c6983671);
     assert_eq!(get_align_hash::<Vec<i32>>(), 0x6881f435bc0ca85f);
+    Ok(())
 }
 
 #[test]
-fn test_stdlib_types() {
+fn test_stdlib_types() -> Result<()> {
     use core::ops::{
         Bound, ControlFlow, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
     };
@@ -135,6 +144,7 @@ fn test_stdlib_types() {
         get_align_hash::<ControlFlow<i32, f64>>(),
         0xc3caaeef7aa4605a
     );
+    Ok(())
 }
 
 #[derive(Epserde, Debug, PartialEq)]
@@ -173,40 +183,45 @@ struct MyStructConstThenType<const N: usize, T: PartialEq> {
 }
 
 #[test]
-fn test_derive_struct() {
+fn test_derive_struct() -> Result<()> {
     assert_eq!(get_type_hash::<MyStruct>(), 0x65125c7b120befff);
     assert_eq!(get_align_hash::<MyStruct>(), 0xc3caaeef7aa4605a);
+    Ok(())
 }
 
 #[test]
-fn test_derive_struct_generic() {
+fn test_derive_struct_generic() -> Result<()> {
     assert_eq!(get_type_hash::<MyStructGeneric<i32>>(), 0x6dced006dd1acb8f);
     assert_eq!(get_align_hash::<MyStructGeneric<i32>>(), 0x6881f435bc0ca85f);
+    Ok(())
 }
 
 #[test]
-fn test_derive_enum() {
+fn test_derive_enum() -> Result<()> {
     assert_eq!(get_type_hash::<MyEnum>(), 0xf5e19aa69f2d9fac);
     assert_eq!(get_align_hash::<MyEnum>(), 0x7c4ea1189a62724c);
+    Ok(())
 }
 
 #[test]
-fn test_derive_struct_const() {
+fn test_derive_struct_const() -> Result<()> {
     assert_eq!(get_type_hash::<MyStructConst<5>>(), 0x87c97042d431cbf7);
     assert_eq!(get_align_hash::<MyStructConst<5>>(), 0x6881f435bc0ca85f);
+    Ok(())
 }
 
 #[test]
-fn test_derive_struct_mixed() {
+fn test_derive_struct_mixed() -> Result<()> {
     assert_eq!(get_type_hash::<MyStructMixed<i32, 5>>(), 0xa8a943379dbe6ea7);
     assert_eq!(
         get_align_hash::<MyStructMixed<i32, 5>>(),
         0xde0fd80637b3a4da
     );
+    Ok(())
 }
 
 #[test]
-fn test_derive_struct_const_then_type() {
+fn test_derive_struct_const_then_type() -> Result<()> {
     assert_eq!(
         get_type_hash::<MyStructConstThenType<5, i32>>(),
         0xba025cd70e024ad5
@@ -215,4 +230,5 @@ fn test_derive_struct_const_then_type() {
         get_align_hash::<MyStructConstThenType<5, i32>>(),
         0xde0fd80637b3a4da
     );
+    Ok(())
 }

@@ -9,14 +9,15 @@ use epserde::prelude::*;
 use epserde::*;
 use maligned::A16;
 use xxhash_rust::xxh3::Xxh3;
+use anyhow::Result;
 
 #[test]
-fn test_wrong_endianness() {
+fn test_wrong_endianness() -> Result<()> {
     let data = 1337_usize;
 
     let mut cursor = <AlignedCursor<A16>>::new();
 
-    let schema = unsafe { data.serialize_with_schema(&mut cursor).unwrap() };
+    let schema = unsafe { data.serialize_with_schema(&mut cursor)? };
     println!("{}", schema.debug(cursor.as_bytes()));
     println!("{:02x?}", cursor.as_bytes());
 
@@ -115,7 +116,7 @@ fn test_wrong_endianness() {
             panic!("wrong error type: {:?}", err);
         }
     } else {
-        panic!("No error: {:?}", err);
+        panic!("No error: {:?}", result);
     }
 
     let result = unsafe { <i8>::deserialize_eps(cursor.as_bytes()) };
@@ -136,20 +137,22 @@ fn test_wrong_endianness() {
             panic!("wrong error type: {:?}", err);
         }
     } else {
-        panic!("No error: {:?}", err);
+        panic!("No error: {:?}", result);
     }
+    Ok(())
 }
 
 #[test]
-fn test_error_at_eof() {
+fn test_error_at_eof() -> Result<()> {
     let data = 1337_usize;
 
     let mut cursor = <AlignedCursor<A16>>::new();
 
-    unsafe { data.serialize(&mut cursor).unwrap() };
+    unsafe { data.serialize(&mut cursor)? };
     cursor.set_len(cursor.position() - 1);
     let err = unsafe { <usize>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes())) };
     assert!(err.is_err());
     let err = unsafe { <usize>::deserialize_eps(cursor.as_bytes()) };
     assert!(err.is_err());
+    Ok(())
 }

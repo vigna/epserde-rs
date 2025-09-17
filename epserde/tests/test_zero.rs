@@ -6,29 +6,30 @@
 
 use epserde::prelude::*;
 use maligned::A16;
+use anyhow::Result;
 
 macro_rules! impl_test {
     ($ty:ty, $data:expr) => {{
         let mut cursor = <AlignedCursor<A16>>::new();
 
-        let _ = unsafe { $data.serialize_with_schema(&mut cursor).unwrap() };
+        let _ = unsafe { $data.serialize_with_schema(&mut cursor)? };
 
         cursor.set_position(0);
-        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor).unwrap() };
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor)? };
         assert_eq!($data, full_copy);
 
-        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes()).unwrap() };
+        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes())? };
         assert_eq!($data, *eps_copy);
     }
     {
         let mut cursor = <AlignedCursor<A16>>::new();
-        unsafe { $data.serialize(&mut cursor).unwrap() };
+        unsafe { $data.serialize(&mut cursor)? };
 
         cursor.set_position(0);
-        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor).unwrap() };
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor)? };
         assert_eq!($data, full_copy);
 
-        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes()).unwrap() };
+        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes())? };
         assert_eq!($data, *eps_copy);
     }};
 }
@@ -36,8 +37,9 @@ macro_rules! impl_test {
 macro_rules! test_zero {
     ($test_name:ident, $ty:ty, $data: expr) => {
         #[test]
-        fn $test_name() {
+        fn $test_name() -> Result<()> {
             impl_test!($ty, $data);
+            Ok(())
         }
     };
 }

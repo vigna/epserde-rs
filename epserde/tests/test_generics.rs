@@ -7,6 +7,8 @@
 use epserde::prelude::*;
 use maligned::A16;
 use std::marker::PhantomData;
+use anyhow::Result;
+
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data<A: PartialEq = usize, const Q: usize = 3> {
     a: A,
@@ -14,7 +16,7 @@ struct Data<A: PartialEq = usize, const Q: usize = 3> {
 }
 
 #[test]
-fn test_inner_param_full() {
+fn test_inner_param_full() -> Result<()> {
     // Create a new value to serialize
     let person = Data {
         a: vec![0x89; 6],
@@ -22,19 +24,20 @@ fn test_inner_param_full() {
     };
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = unsafe { person.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { person.serialize(&mut cursor)? };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <Data<Vec<usize>, 2>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data<Vec<usize>, 2>>::deserialize_full(&mut cursor)? };
     assert_eq!(person, full);
 
     println!();
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <Data<Vec<usize>, 2>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data<Vec<usize>, 2>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(person.a, eps.a);
     assert_eq!(person.b, eps.b);
+    Ok(())
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
@@ -47,7 +50,7 @@ struct Data2<P, B> {
 }
 
 #[test]
-fn test_inner_param_eps() {
+fn test_inner_param_eps() -> Result<()> {
     // Create a new value to serialize
     let data = Data2::<usize, Vec<usize>> {
         a: vec![0x89; 6],
@@ -57,16 +60,17 @@ fn test_inner_param_eps() {
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = unsafe { data.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { data.serialize(&mut cursor)? };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <Data2<usize, Vec<usize>>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data2<usize, Vec<usize>>>::deserialize_full(&mut cursor)? };
     assert_eq!(data, full);
     // Do an ε-copy deserialization
 
-    let eps = unsafe { <Data2<usize, Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data2<usize, Vec<usize>>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(data.a, eps.a);
+    Ok(())
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Copy)]
@@ -75,13 +79,13 @@ fn test_inner_param_eps() {
 struct Data3<const N: usize = 10>;
 
 #[test]
-fn test_consts() {
+fn test_consts() -> Result<()> {
     // Create a new value to serialize
     let data = Data3::<11> {};
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = unsafe { data.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { data.serialize(&mut cursor)? };
     cursor.set_position(0);
 
     // with a different const the deserialization should fail
@@ -90,16 +94,17 @@ fn test_consts() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <Data3<11>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data3<11>>::deserialize_full(&mut cursor)? };
     assert_eq!(data, full);
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <Data3<11>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data3<11>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(&data, eps);
 
     // with a different const the deserialization should fail
     let eps = unsafe { <Data3<12>>::deserialize_eps(cursor.as_bytes()) };
     assert!(eps.is_err());
+    Ok(())
 }
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
@@ -108,7 +113,7 @@ struct DeepCopyParam<T> {
 }
 
 #[test]
-fn test_types_deep_copy_param() {
+fn test_types_deep_copy_param() -> Result<()> {
     let _test_usize: <DeepCopyParam<usize> as SerializeInner>::SerType = DeepCopyParam { data: 0 };
     let _test: <DeepCopyParam<usize> as DeserializeInner>::DeserType<'_> =
         DeepCopyParam { data: 0 };
@@ -117,6 +122,7 @@ fn test_types_deep_copy_param() {
     let _test: <DeepCopyParam<[i32; 4]> as DeserializeInner>::DeserType<'_> = DeepCopyParam {
         data: &[1, 2, 3, 4],
     };
+    Ok(())
 }
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
@@ -127,7 +133,7 @@ struct ZeroCopyParam<T: ZeroCopy> {
 }
 
 #[test]
-fn test_types_zero_copy_param() {
+fn test_types_zero_copy_param() -> Result<()> {
     let _test_usize: <ZeroCopyParam<usize> as SerializeInner>::SerType = ZeroCopyParam { data: 0 };
     let _test: <ZeroCopyParam<usize> as DeserializeInner>::DeserType<'_> =
         &ZeroCopyParam { data: 0 };
@@ -135,6 +141,7 @@ fn test_types_zero_copy_param() {
         ZeroCopyParam { data: [1, 2, 3, 4] };
     let _test: <ZeroCopyParam<[i32; 4]> as DeserializeInner>::DeserType<'_> =
         &ZeroCopyParam { data: [1, 2, 3, 4] };
+    Ok(())
 }
 
 // Check that bounds are propagated to associated (de)serialization types.

@@ -9,27 +9,29 @@ use epserde::PhantomDeserData;
 use epserde::TypeInfo;
 use epserde::prelude::*;
 use maligned::A16;
+use anyhow::Result;
 
 #[test]
 /// Test that we can serialize and deserialize a PhantomData
 /// This should be a NOOP
-fn test_phantom() {
+fn test_phantom() -> Result<()> {
     // Create a new value to serialize
     let obj = PhantomData::<usize>;
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { obj.serialize(&mut cursor)? };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <PhantomData<usize>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <PhantomData<usize>>::deserialize_full(&mut cursor)? };
     assert_eq!(obj, full);
 
     println!();
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <PhantomData<usize>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <PhantomData<usize>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(obj, eps);
+    Ok(())
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
@@ -44,17 +46,17 @@ struct NotSerializableType;
 /// in a full-copy type.
 /// This should be a no-op.
 #[test]
-fn test_not_serializable_in_phantom() {
+fn test_not_serializable_in_phantom() -> Result<()> {
     // Full copy with a non-serializable type
     let obj = <DataFull<NotSerializableType>>::default();
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { obj.serialize(&mut cursor)? };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <DataFull<NotSerializableType>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <DataFull<NotSerializableType>>::deserialize_full(&mut cursor)? };
     assert_eq!(obj, full);
 
     println!();
@@ -62,8 +64,9 @@ fn test_not_serializable_in_phantom() {
     // Do an ε-copy deserialization
     cursor.set_position(0);
     let eps =
-        unsafe { <DataFull<NotSerializableType>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+        unsafe { <DataFull<NotSerializableType>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(obj.a, eps.a);
+    Ok(())
 }
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
@@ -82,25 +85,26 @@ struct ZeroCopyType;
 /// Test that we can serialize a PhantomData in a zero-copy type if the argument
 /// of the PhantomData is zero-copy. This should be a no-op.
 #[test]
-fn test_phantom_zero_copy() {
+fn test_phantom_zero_copy() -> Result<()> {
     // Zero copy needs a zero-copy type, even if inside a PhantomData
     let obj = <DataZero<ZeroCopyType>>::default();
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { obj.serialize(&mut cursor)? };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let zero = unsafe { <DataZero<ZeroCopyType>>::deserialize_full(&mut cursor).unwrap() };
+    let zero = unsafe { <DataZero<ZeroCopyType>>::deserialize_full(&mut cursor)? };
     assert_eq!(obj, zero);
 
     println!();
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let eps = unsafe { <DataZero<ZeroCopyType>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <DataZero<ZeroCopyType>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(obj.a, eps.a);
+    Ok(())
 }
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
@@ -114,24 +118,24 @@ struct OnlyPhantom<A: Default + ZeroCopy> {
 /// Test that we can serialize a zero-copy type containing a single PhantomData.
 /// This should be a no-op.
 #[test]
-fn test_only_phantom() {
+fn test_only_phantom() -> Result<()> {
     // Zero copy needs a zero-copy type, even if inside a PhantomData
     let obj = <OnlyPhantom<ZeroCopyType>>::default();
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { obj.serialize(&mut cursor)? };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let zero = unsafe { <OnlyPhantom<ZeroCopyType>>::deserialize_full(&mut cursor).unwrap() };
+    let zero = unsafe { <OnlyPhantom<ZeroCopyType>>::deserialize_full(&mut cursor)? };
     assert_eq!(obj, zero);
 
     println!();
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let eps = unsafe { <OnlyPhantom<ZeroCopyType>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <OnlyPhantom<ZeroCopyType>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(obj.a, eps.a);
 
     // Zero copy needs a zero-copy type, even if inside a PhantomData
@@ -139,11 +143,11 @@ fn test_only_phantom() {
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = unsafe { vec.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { vec.serialize(&mut cursor)? };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let zero = unsafe { <Vec<OnlyPhantom<ZeroCopyType>>>::deserialize_full(&mut cursor).unwrap() };
+    let zero = unsafe { <Vec<OnlyPhantom<ZeroCopyType>>>::deserialize_full(&mut cursor)? };
     assert_eq!(vec, zero);
 
     println!();
@@ -151,8 +155,9 @@ fn test_only_phantom() {
     // Do an ε-copy deserialization
     cursor.set_position(0);
     let eps =
-        unsafe { <Vec<OnlyPhantom<ZeroCopyType>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+        unsafe { <Vec<OnlyPhantom<ZeroCopyType>>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(vec, eps);
+    Ok(())
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
@@ -164,7 +169,7 @@ struct DataWithPhantomDeserData<T> {
 /// Test that PhantomDeserData works correctly with generic types that are
 /// transformed during deserialization in a deep-copy type.
 #[test]
-fn test_deser_phantom_deep_copy() {
+fn test_deser_phantom_deep_copy() -> Result<()> {
     let obj = DataWithPhantomDeserData {
         data: vec![1, 2, 3, 4],
         phantom: PhantomDeserData(PhantomData),
@@ -172,18 +177,18 @@ fn test_deser_phantom_deep_copy() {
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { obj.serialize(&mut cursor)? };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
     let full =
-        unsafe { <DataWithPhantomDeserData<Vec<i32>>>::deserialize_full(&mut cursor).unwrap() };
+        unsafe { <DataWithPhantomDeserData<Vec<i32>>>::deserialize_full(&mut cursor)? };
     assert_eq!(obj, full);
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
     let eps = unsafe {
-        <DataWithPhantomDeserData<Vec<i32>>>::deserialize_eps(cursor.as_bytes()).unwrap()
+        <DataWithPhantomDeserData<Vec<i32>>>::deserialize_eps(cursor.as_bytes())?
     };
 
     // The data field should be transformed from Vec<i32> to &[i32]
@@ -192,6 +197,7 @@ fn test_deser_phantom_deep_copy() {
     // The phantom field should be PhantomData<&[i32]> (the DeserType of Vec<i32>)
     // We can't directly compare PhantomData types, but we can verify the deserialization worked
     let _phantom_check: PhantomDeserData<&[i32]> = eps.phantom;
+    Ok(())
 }
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
@@ -205,7 +211,7 @@ struct DataZeroWithPhantomDeserData<T: ZeroCopy> {
 /// Test that PhantomDeserData works correctly with generic types that are
 /// transformed during deserialization in a zero-copy type.
 #[test]
-fn test_deser_phantom_zero_copy() {
+fn test_deser_phantom_zero_copy() -> Result<()> {
     let obj = DataZeroWithPhantomDeserData {
         data: [1, 2, 3, 4],
         phantom: PhantomDeserData(PhantomData),
@@ -213,24 +219,25 @@ fn test_deser_phantom_zero_copy() {
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { obj.serialize(&mut cursor)? };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
     let full =
-        unsafe { <DataZeroWithPhantomDeserData<[i32; 4]>>::deserialize_full(&mut cursor).unwrap() };
+        unsafe { <DataZeroWithPhantomDeserData<[i32; 4]>>::deserialize_full(&mut cursor)? };
     assert_eq!(obj, full);
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
     let eps = unsafe {
-        <DataZeroWithPhantomDeserData<[i32; 4]>>::deserialize_eps(cursor.as_bytes()).unwrap()
+        <DataZeroWithPhantomDeserData<[i32; 4]>>::deserialize_eps(cursor.as_bytes())?
     };
 
     // The data field should be transformed from Vec<i32> to &[i32]
     assert_eq!(obj.data.as_slice(), eps.data);
 
-    // The phantom field should be PhantomDeserData<&[i32]> (the DeserType of Vec<i32>)
+    // The phantom field should be PhantomData<&[i32]> (the DeserType of Vec<i32>)
     // We can't directly compare PhantomData types, but we can verify the deserialization worked
     let _phantom_check: PhantomDeserData<[i32; 4]> = eps.phantom;
+    Ok(())
 }

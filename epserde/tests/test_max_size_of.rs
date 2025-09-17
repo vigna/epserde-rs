@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use anyhow::Result;
 use epserde::prelude::*;
 use maligned::{A16, A64};
 #[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,27 +33,27 @@ struct MyStruct {
 
 #[test]
 /// Check that we don't have any collision on most types
-fn test_max_size_of_align() {
+fn test_max_size_of_align() -> Result<()> {
     assert_eq!(64, MyStruct64::max_size_of());
     assert_eq!(MyStruct::max_size_of(), MyStruct2::max_size_of());
 
     let x = MyStruct { u: 0x89 };
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = unsafe { x.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { x.serialize(&mut cursor)? };
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <MyStruct>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <MyStruct>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(x, *eps);
 
     // Create a new value to serialize
     let x = MyStruct2 { u: 0x89 };
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let _bytes_written = unsafe { x.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { x.serialize(&mut cursor)? };
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <MyStruct2>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <MyStruct2>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(x, *eps);
 
     // Create a new value to serialize
@@ -60,9 +61,10 @@ fn test_max_size_of_align() {
     // We need a higher alignment
     let mut cursor = <AlignedCursor<A64>>::new();
     // Serialize
-    let _bytes_written = unsafe { x.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { x.serialize(&mut cursor)? };
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <MyStruct64>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <MyStruct64>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(x, *eps);
+    Ok(())
 }
