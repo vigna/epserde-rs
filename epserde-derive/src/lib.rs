@@ -108,8 +108,7 @@ fn gen_deser_method_call(
         // This is a pretty weak check, as a user could define its own PhantomDeserData,
         // but it should be good enough in practice
         if let Some(segment) = segments.last() {
-            if segment.ident == "PhantomDeserData"
-            {
+            if segment.ident == "PhantomDeserData" {
                 return syn::parse_quote!(#field_name: unsafe { <#field_type>::_deserialize_eps_inner_special(backend)? });
             }
         }
@@ -422,8 +421,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
         // We look for type parameters that are types of fields
         if let Some(field_type_id) = get_ident(field_type) {
-            if ctx.type_params.contains(field_type_id)
-            {
+            if ctx.type_params.contains(field_type_id) {
                 field_type_params.insert(field_type_id);
             }
         }
@@ -605,8 +603,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                     // We look for type parameters that are types of fields
                     if let Some(field_type_id) = get_ident(field_type) {
-                        if ctx.type_params.contains(field_type_id)
-                        {
+                        if ctx.type_params.contains(field_type_id) {
                             all_field_type_params.insert(field_type_id);
                         }
                     }
@@ -658,8 +655,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                     // We look for type parameters that are types of fields
                     if let Some(field_type_id) = get_ident(field_type) {
-                        if ctx.type_params.contains(field_type_id)
-                        {
+                        if ctx.type_params.contains(field_type_id) {
                             all_field_type_params.insert(field_type_id);
                         }
                     }
@@ -1135,8 +1131,7 @@ fn gen_struct_type_info_impl(
 
         // We look for type parameters that are types of fields
         if let Some(field_type_id) = get_ident(field_type) {
-            if ctx.type_params.contains(field_type_id)
-            {
+            if ctx.type_params.contains(field_type_id) {
                 field_type_params.insert(field_type_id);
             }
         }
@@ -1216,8 +1211,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 
                     // We look for type parameters that are types of fields
                     if let Some(field_type_id) = get_ident(field_type) {
-                        if ctx.type_params.contains(field_type_id)
-                        {
+                        if ctx.type_params.contains(field_type_id) {
                             all_field_type_params.push(field_type);
                         }
                     }
@@ -1246,8 +1240,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 
                     // We look for type parameters that are types of fields
                     if let Some(field_type_id) = get_ident(field_type) {
-                        if ctx.type_params.contains(field_type_id)
-                        {
+                        if ctx.type_params.contains(field_type_id) {
                             all_field_type_params.push(field_type);
                         }
                     }
