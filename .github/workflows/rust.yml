@@ -1,17 +1,46 @@
 name: Rust
 
-on: [push, pull_request]
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Check formatting
         run: cargo fmt -- --check
+      - name: Run clippy
+        run: cargo clippy
+
+  build:
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        rust:
+          - 1.85.0
+          - stable
+          - beta
+          - nightly
+        features:
+          - ""
+          - "--no-default-features"
+
+    steps:
+      - name: Install rust (${{ matrix.rust }})
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+      - uses: actions/checkout@v3
       - name: Build
         run: cargo build --verbose
       - name: Run tests
@@ -19,9 +48,24 @@ jobs:
       - name: Run examples
         working-directory: ./epserde
         run: for example in examples/*.rs ; do cargo run --example "$(basename "${example%.rs}")" ; done
-      - name: Run clippy
-        run: cargo clippy #-- -Dclippy::all -Dclippy::cargo
-      - name: Switch to nightly toolchain
-        run: rustup default nightly
-      - name: Test with miri
-        run: MIRIFLAGS="-Zmiri-disable-isolation" cargo test
+
+  coverage:
+    needs: build
+    name: coverage
+    runs-on: ubuntu-latest
+    container:
+      image: xd009642/tarpaulin:develop-nightly
+      options: --security-opt seccomp=unconfined
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Generate code coverage
+        run: |
+          cargo +nightly tarpaulin --verbose --engine llvm --all-features --workspace --out Lcov
+
+      - name: Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: "lcov.info"
