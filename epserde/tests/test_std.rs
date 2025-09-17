@@ -5,11 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use anyhow::Result;
 use epserde::prelude::*;
 use maligned::A16;
 use std::{rc::Rc, sync::Arc};
 
-fn test_generic<T>(s: T) -> Result<(), Box<dyn std::error::Error>>
+fn test_generic<T>(s: T) -> Result<()>
 where
     T: Serialize + Deserialize + PartialEq + core::fmt::Debug,
     for<'a> <T as DeserializeInner>::DeserType<'a>: PartialEq<T> + core::fmt::Debug,
@@ -17,10 +18,7 @@ where
     test_generic_split::<T, T, T>(s, |value| value)
 }
 
-fn test_generic_split<Ser, Deser, OwnedSer>(
-    s: Ser,
-    deref: impl Fn(&Ser) -> &OwnedSer,
-) -> Result<(), Box<dyn std::error::Error>>
+fn test_generic_split<Ser, Deser, OwnedSer>(s: Ser, deref: impl Fn(&Ser) -> &OwnedSer) -> Result<()>
 where
     Ser: Serialize,
     Deser: Deserialize + PartialEq<OwnedSer> + core::fmt::Debug,
@@ -61,7 +59,7 @@ where
 }
 
 #[test]
-fn test_containers() -> Result<(), Box<dyn std::error::Error>> {
+fn test_containers() -> Result<()> {
     test_generic::<Box<i32>>(Box::new(10))?;
     test_generic::<Arc<i32>>(Arc::new(10))?;
     test_generic::<Rc<i32>>(Rc::new(10))?;
@@ -69,14 +67,14 @@ fn test_containers() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_references() -> Result<(), Box<dyn std::error::Error>> {
+fn test_references() -> Result<()> {
     test_generic_split::<&i32, i32, i32>(&10, |n| *n)?;
     test_generic_split::<&mut i32, i32, i32>(&mut 10, |n| *n)?;
     Ok(())
 }
 
 #[test]
-fn test_erasure_vec() -> Result<(), Box<dyn std::error::Error>> {
+fn test_erasure_vec() -> Result<()> {
     let data = vec![1, 2, 3];
     let mut cursor = <AlignedCursor<A16>>::new();
     unsafe { data.serialize(&mut cursor)? };
@@ -129,7 +127,7 @@ fn test_erasure_vec() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_erasure_struct() -> Result<(), Box<dyn std::error::Error>> {
+fn test_erasure_struct() -> Result<()> {
     #[derive(Epserde, PartialEq, Eq, Debug)]
     struct Data<A>(A);
     let data = Data(vec![1, 2, 3]);

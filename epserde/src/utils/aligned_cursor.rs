@@ -204,12 +204,11 @@ impl<T: Alignment> Seek for AlignedCursor<T> {
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
-
     use super::*;
+    use anyhow::Result;
 
     #[test]
-    fn test_aligned_cursor() -> Result<(), Box<dyn Error>> {
+    fn test_aligned_cursor() -> Result<()> {
         let mut cursor = AlignedCursor::<A16>::new();
         for i in 0_usize..1000 {
             cursor.write_all(&i.to_ne_bytes()).unwrap();
