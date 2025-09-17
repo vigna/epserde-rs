@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+#![allow(clippy::collapsible_if)]
+
 //! Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) crate.
 
 use quote::{ToTokens, quote};
