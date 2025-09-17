@@ -1,0 +1,162 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Inria
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+//! Blanket implementations for references and smart pointers.
+//!
+//! This module provides blanket implementations of serialization traits for
+//! (mutable) references. Moreover, it provides (de)serialization support for
+//! [`Box`], [`Rc`](std::rc::Rc) and [`Arc`](std::sync::Arc) if the `std` or
+//! `alloc` feature is enabled.
+//!
+//! While references have the obvious semantics (we serialize the referred
+//! value), smart pointers are supported by erasure: if a type parameter has
+//! value `Box<T>`, `Rc<T>`, or `Arc<T>`, we serialize `T` in its place (with
+//! the exception of boxed slices, which [have their own
+//! treatment](crate::impls::boxed_slice)).
+//!
+//! Upon deserialization, if the type parameter is `T` we deserialize `T`, but
+//! if it is `Box<T>`, `Rc<T>`, or `Arc<T>` we deserialize `T` and then wrap
+//! it in the appropriate smart pointer.
+//!
+//! In particular, this means that it is always possible to wrap in a smart pointer
+//! type parameters, even if the serialized data did not come from a smart pointer.
+//!
+//! # Examples
+//!
+//! In this example we serialize a vector wrapped in an [`Rc`](std::rc::Rc),
+//! but then we deserialize it as a plain vector, or even wrapped with
+//! an [`Arc`](std::sync::Arc):
+//!
+//! ```
+//! # use epserde::prelude::*;
+//! # use maligned::A16;
+//! # use std::rc::Rc;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let v = vec![1, 2, 3, 4, 5];
+//! let mut cursor = <AlignedCursor<A16>>::new();
+//! unsafe { Rc::new(v).serialize(&mut cursor)?; }
+//! // Rc is erased
+//! cursor.set_position(0);
+//! let _no_rc: Vec<i32> = unsafe { <Vec<i32>>::deserialize_full(&mut cursor)? };
+//!
+//! // In fact, we can deserialize wrapping in any smart pointer
+//! cursor.set_position(0);
+//! let _no_rc_but_arc: Arc<Vec<i32>> =
+//!     unsafe { <Arc<Vec<i32>>>::deserialize_full(&mut cursor)? };
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! The same is true of fields, provided that their type is a type parameter:
+//! ```
+//! # use epserde::prelude::*;
+//! # use maligned::A16;
+//! # use std::rc::Rc;
+//! # use std::sync::Arc;
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! #[derive(Epserde)]
+//! struct Data<A>(A);
+//! let data = Data(Rc::new(vec![1, 2, 3, 4, 5]));
+//! let mut cursor = <AlignedCursor<A16>>::new();
+//! unsafe { data.serialize(&mut cursor)?; }
+//! // Rc is erased
+//! cursor.set_position(0);
+//! let _no_rc: Data<Vec<i32>> = unsafe { <Data<Vec<i32>>>::deserialize_full(&mut cursor)? };
+//!
+//! // In fact, we can deserialize wrapping in any smart pointer
+//! cursor.set_position(0);
+//! let _no_rc_but_arc: Data<Arc<Vec<i32>>> =
+//!     unsafe { <Data<Arc<Vec<i32>>>>::deserialize_full(&mut cursor)? };
+//! # Ok(())
+//! # }
+//! ```
+use crate::prelude::*;
+use ser::*;
+
+macro_rules! impl_ser {
+    ($type:ty) => {
+        impl<T: CopyType> CopyType for $type {
+            type Copy = <T as CopyType>::Copy;
+        }
+
+        impl<T: TypeHash> TypeHash for $type {
+            #[inline(always)]
+            fn type_hash(hasher: &mut impl core::hash::Hasher) {
+                <T as TypeHash>::type_hash(hasher)
+            }
+        }
+
+        impl<T: AlignHash> AlignHash for $type {
+            #[inline(always)]
+            fn align_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
+                <T as AlignHash>::align_hash(hasher, offset_of)
+            }
+        }
+
+        impl<T: SerializeInner> SerializeInner for $type {
+            type SerType = T;
+            const IS_ZERO_COPY: bool = <T as SerializeInner>::IS_ZERO_COPY;
+            const ZERO_COPY_MISMATCH: bool = <T as SerializeInner>::ZERO_COPY_MISMATCH;
+
+            #[inline(always)]
+            unsafe fn _serialize_inner(
+                &self,
+                backend: &mut impl WriteWithNames,
+            ) -> ser::Result<()> {
+                unsafe { <T as SerializeInner>::_serialize_inner(self, backend) }
+            }
+        }
+    };
+}
+
+macro_rules! impl_all {
+    ($type:ident) => {
+        impl_ser!($type<T>);
+
+        impl<T: DeserializeInner> DeserializeInner for $type<T> {
+            type DeserType<'a> = $type<<T as DeserializeInner>::DeserType<'a>>;
+
+            #[inline(always)]
+            unsafe fn _deserialize_full_inner(
+                backend: &mut impl ReadWithPos,
+            ) -> deser::Result<Self> {
+                unsafe { <T as DeserializeInner>::_deserialize_full_inner(backend).map($type::new) }
+            }
+            #[inline(always)]
+            unsafe fn _deserialize_eps_inner<'a>(
+                backend: &mut SliceWithPos<'a>,
+            ) -> deser::Result<Self::DeserType<'a>> {
+                unsafe { <T as DeserializeInner>::_deserialize_eps_inner(backend).map($type::new) }
+            }
+        }
+    };
+}
+
+impl_ser!(&T);
+impl_ser!(&mut T);
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+mod std_impl {
+    use super::*;
+
+    #[cfg(not(feature = "std"))]
+    mod imports {
+        pub use alloc::boxed::Box;
+        pub use alloc::rc::Rc;
+        pub use alloc::sync::Arc;
+    }
+    #[cfg(feature = "std")]
+    mod imports {
+        pub use std::rc::Rc;
+        pub use std::sync::Arc;
+    }
+    use imports::*;
+
+    impl_all!(Box);
+    impl_all!(Arc);
+    impl_all!(Rc);
+}
