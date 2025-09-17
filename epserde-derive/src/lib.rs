@@ -74,10 +74,9 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
             segments,
         },
     }) = ty
+        && segments.len() == 1
     {
-        if segments.len() == 1 {
-            return Some(&segments[0].ident);
-        }
+        return Some(&segments[0].ident);
     }
 
     None

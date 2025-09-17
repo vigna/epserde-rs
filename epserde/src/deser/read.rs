@@ -16,11 +16,10 @@ use crate::prelude::*;
 /// [`std::io::Read`]-like trait for serialization that does not
 /// depend on [`std`].
 ///
-/// In an [`std`] context, the user does not need to use directly
-/// this trait as we provide a blanket
-/// implementation that implements [`ReadNoStd`] for all types that implement
-/// [`std::io::Read`]. In particular, in such a context you can use [`std::io::Cursor`]
-/// for in-memory deserialization.
+/// In an [`std`] context, the user does not need to use directly this trait as
+/// we provide a blanket implementation that implements [`ReadNoStd`] for all
+/// types that implement [`std::io::Read`]. In particular, in such a context you
+/// can use [`AlignedCursor`] for ε-copy deserialization.
 pub trait ReadNoStd {
     /// Read some bytes
     fn read_exact(&mut self, buf: &mut [u8]) -> deser::Result<()>;

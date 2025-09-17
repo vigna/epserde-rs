@@ -13,9 +13,10 @@ use mem_dbg::{MemDbg, MemSize};
 /// An aligned version of [`Cursor`](std::io::Cursor).
 ///
 /// The standard library implementation of a [cursor](std::io::Cursor) is not
-/// aligned, and thus cannot be used to create examples or unit tests for
-/// ε-serde. This version has a [settable alignment](maligned::Alignment) that
-/// is guaranteed to be respected by the underlying storage.
+/// aligned, and thus cannot be used to create examples or unit tests involving
+/// ε-copy deserialization. This version has a [settable
+/// alignment](maligned::Alignment) that is guaranteed to be respected by the
+/// underlying storage.
 ///
 /// Note that length and position are stored as `usize` values, so the maximum
 /// length and position are `usize::MAX`. This is different from
