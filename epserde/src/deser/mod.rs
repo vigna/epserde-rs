@@ -430,7 +430,9 @@ pub fn check_header<T: Deserialize + TypeHash + AlignHash>(
     let ser_align_hash = unsafe { u64::_deserialize_full_inner(backend)? };
     let ser_type_name = unsafe { String::_deserialize_full_inner(backend)? };
 
-    if ser_type_hash != self_type_hash {
+    if ser_type_hash != self_type_hash
+        && !crate::impls::vec::compat_hash::<T>(self_type_hash, ser_type_hash)
+    {
         return Err(Error::WrongTypeHash {
             self_type_name,
             self_type_hash,
