@@ -17,9 +17,6 @@ use crate::ser;
 use crate::ser::helpers::*;
 use crate::ser::*;
 use crate::traits::*;
-use core::hash::Hash;
-use core::hash::Hasher;
-use std::hash::DefaultHasher;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::vec::Vec;
@@ -32,23 +29,6 @@ impl<T: TypeHash> TypeHash for Vec<T> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         Box::<[T]>::type_hash(hasher);
     }
-}
-
-pub(crate) fn compat_hash<T: TypeHash>(vec_hash: u64, boxed_slice_hash: u64) -> bool {
-    let mut hasher = DefaultHasher::new();
-    // Old type hash for vectors
-    "Vec".hash(&mut hasher);
-    T::type_hash(&mut hasher);
-    if vec_hash != hasher.finish() {
-        return false;
-    }
-
-    let mut hasher = DefaultHasher::new();
-    Box::<[T]>::type_hash(&mut hasher);
-    if boxed_slice_hash != hasher.finish() {
-        return false;
-    }
-    true
 }
 
 impl<T: AlignHash> AlignHash for Vec<T> {

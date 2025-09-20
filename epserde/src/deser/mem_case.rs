@@ -207,3 +207,43 @@ where
         self.uncase().as_ref()
     }
 }
+
+impl<Idx, S: DeserializeInner> core::ops::Index<Idx> for MemCase<S>
+where
+    for<'a> DeserType<'a, S>: core::ops::Index<Idx>,
+{
+    type Output = <DeserType<'static, S> as core::ops::Index<Idx>>::Output;
+
+    fn index(&self, index: Idx) -> &Self::Output {
+        unsafe { &self.uncase_static()[index] }
+    }
+}
+
+impl<S: DeserializeInner> PartialOrd<MemCase<S>> for MemCase<S>
+where
+    for<'a> DeserType<'a, S>: PartialOrd<DeserType<'a, S>>,
+{
+    fn partial_cmp(&self, other: &MemCase<S>) -> Option<core::cmp::Ordering> {
+        self.uncase().partial_cmp(other.uncase())
+    }
+}
+
+impl<S: DeserializeInner> Ord for MemCase<S>
+where
+    for<'a> DeserType<'a, S>: Ord,
+{
+    fn cmp(&self, other: &MemCase<S>) -> core::cmp::Ordering {
+        self.uncase().cmp(other.uncase())
+    }
+}
+
+impl<S: DeserializeInner> PartialEq<MemCase<S>> for MemCase<S>
+where
+    for<'a> DeserType<'a, S>: PartialEq<DeserType<'a, S>>,
+{
+    fn eq(&self, other: &MemCase<S>) -> bool {
+        self.uncase().eq(other.uncase())
+    }
+}
+
+impl<S: DeserializeInner> Eq for MemCase<S> where for<'a> DeserType<'a, S>: Eq {}

@@ -1,5 +1,12 @@
 # Change Log
 
+## [0.10.0] - 2025-09-20
+
+* Major disruptive change: vectors and boxed slices have now the same
+  `TypeHash`. This makes them interchangeable at will in (de)serialization,
+  which is an extremely useful feature. Unfortunately, old instances with type
+  parameters whose concrete type is a vector will no longer be deserializable.
+
 ## [0.9.0] - 2025-09-17
 
 ### New

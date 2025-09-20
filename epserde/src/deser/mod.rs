@@ -430,9 +430,7 @@ pub fn check_header<T: Deserialize + TypeHash + AlignHash>(
     let ser_align_hash = unsafe { u64::_deserialize_full_inner(backend)? };
     let ser_type_name = unsafe { String::_deserialize_full_inner(backend)? };
 
-    if ser_type_hash != self_type_hash
-        && !crate::impls::vec::compat_hash::<T>(self_type_hash, ser_type_hash)
-    {
+    if ser_type_hash != self_type_hash {
         return Err(Error::WrongTypeHash {
             self_type_name,
             self_type_hash,
@@ -520,7 +518,9 @@ pub enum Error {
     #[error(
         r#"Wrong type hash: actual = 0x{ser_type_hash:016x}, expected = 0x{self_type_hash:016x}.
 You are trying to deserialize a file with the wrong type. You might also be trying to deserialize
-a structure containing tuples that was serialized before 0.9.0. The serialized type is '{ser_type_name}',
+an instance containing tuples that was serialized before 0.9.0, or
+an instance containing a vector that was serialized before 0.10.0.
+The serialized type is '{ser_type_name}',
 but the type on which the deserialization method was invoked is '{self_type_name}'."#
     )]
     /// The type hash is wrong. Probably the user is trying to deserialize a
