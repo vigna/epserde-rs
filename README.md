@@ -723,6 +723,34 @@ the hood because [`BitFieldVec`] is ε-serde-aware, and in fact you will not eve
 notice the difference if you access both versions using the trait
 [`BitFieldSlice`].
 
+## Specification
+
+It this section we describe in a somewhat formal way the specification of 
+ε-serde. We suggest to get acquainted with the examples before reading it. 
+
+An ε-serde serialization process involves two types: 
+
+* `S`, the _serializable type_, which must implement SerializeInner (and thus Serializable), which in turn requires the implementation....
+
+* Its _serialization type_ S:SerType.
+
+In general the serialization type of S is S, but there is some normalization and erasure involved (e.g., vectors become boxed slices, and some smart pointers such as Rc are erased). Moreover, for convenience a few types that are not really serializable have a convenience serialization type (e.g., iterators become boxed slices). The derivation of the serialization type will be detailed later. 
+
+When you invoke serialize on an instance of S, ε-serde
+writes a type hash which is derived from S:SerType, and which represents the definition of the type (copy type, field names, types, etc.), an alignment hash which is derived from the alignment of S:SerType (essentially, recording where padding had been inserted in the zero-copy parts of the type), and then the data contained in the instance.
+
+An ε-serde deserialization process involves instead three types: 
+
+* D, the _deserializable type_, which must implement DeserializeInner (and thus Deserializable), which in turn requires the implementation....
+
+* The _serialization type_ of D, D:SerType.
+
+* The _deserialization type_ D:DeserType.
+
+You must invoke deserialize as a method of 'D', and pass it the bytes obtained by serialing S. Deserialization will happen only if the type hash of D:SerType matches that of S:SerType, and the same must happen for the alignment hash: otherwise, you'll get an error. Now, depending on which type of deserialization you requested (full or ε-copy) you will obtain an instance of D or D:DeserType.
+
+
+
 ## Derived and hand-made implementations
 
 We strongly suggest using the procedural macro [`Epserde`] to make your own
