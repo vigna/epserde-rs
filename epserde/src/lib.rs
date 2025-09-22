@@ -121,7 +121,7 @@ impl<T: DeserializeInner> PhantomDeserData<T> {
     }
 }
 
-impl<T: ?Sized> CopyType for PhantomDeserData<T> {
+unsafe impl<T: ?Sized> CopyType for PhantomDeserData<T> {
     type Copy = Zero;
 }
 

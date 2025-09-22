@@ -33,7 +33,7 @@ impl<T: TypeHash> TypeHash for [T] {
     }
 }
 
-impl<T> CopyType for &[T] {
+unsafe impl<T> CopyType for &[T] {
     type Copy = Deep;
 }
 

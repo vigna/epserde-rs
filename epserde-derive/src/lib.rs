@@ -453,7 +453,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         // replaced with their SerType/DeserType.
         quote! {
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::traits::CopyType for #name #generics_for_type #where_clause {
+            unsafe impl #generics_for_impl ::epserde::traits::CopyType for #name #generics_for_type #where_clause {
                 type Copy = ::epserde::traits::Zero;
             }
 
@@ -507,7 +507,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
         quote! {
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::traits::CopyType for #name #generics_for_type #where_clause {
+            unsafe impl #generics_for_impl ::epserde::traits::CopyType for #name #generics_for_type #where_clause {
                 type Copy = ::epserde::traits::Deep;
             }
 
@@ -724,7 +724,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
         // replaced with their SerType/DeserType.
         quote! {
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::traits::CopyType for #name #generics_for_type #where_clause {
+            unsafe impl #generics_for_impl ::epserde::traits::CopyType for #name #generics_for_type #where_clause {
                 type Copy = ::epserde::traits::Zero;
             }
 
@@ -777,7 +777,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
         quote! {
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::traits::CopyType for #name #generics_for_type #where_clause {
+            unsafe impl #generics_for_impl ::epserde::traits::CopyType for #name #generics_for_type #where_clause {
                 type Copy = ::epserde::traits::Deep;
             }
             #[automatically_derived]

@@ -79,7 +79,7 @@ use ser::*;
 
 macro_rules! impl_ser {
     ($type:ty) => {
-        impl<T: CopyType> CopyType for $type {
+        unsafe impl<T: CopyType> CopyType for $type {
             type Copy = <T as CopyType>::Copy;
         }
 

@@ -51,12 +51,17 @@ The trait comes in two flavors: `CopySelector<Type=Zero>` and
 dependent traits, [`ZeroCopy`] (which requires implementing [`MaxSizeOf`])
 and [`DeepCopy`], which are automatically
 implemented.
+
+The trait is `unsafe` because the user must guarantee that the choice
+between `Zero` and `Deep` is correct. If a type is marked as `Zero`
+but it's not zero-copy, the behavior is undefined.
+
 ```rust
 use epserde::traits::*;
 
 struct MyType {}
 
-impl CopyType for MyType {
+unsafe impl CopyType for MyType {
     type Copy = Deep;
 }
 // Now MyType implements DeepCopy
@@ -95,7 +100,7 @@ just have to add `#[zero_copy]` to your structures (if you want them to be zero-
 and ε-serde will do the rest.
 
 */
-pub trait CopyType: Sized {
+pub unsafe trait CopyType: Sized {
     type Copy: CopySelector;
 }
 

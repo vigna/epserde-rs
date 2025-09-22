@@ -21,7 +21,7 @@ use crate::traits::*;
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::vec::Vec;
 
-impl<T> CopyType for Vec<T> {
+unsafe impl<T> CopyType for Vec<T> {
     type Copy = Deep;
 }
 
