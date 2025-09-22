@@ -907,21 +907,6 @@ the alignment hash: otherwise, you will get an error. Note that the serialized d
 does not contain a structural copy of any type: it is the responsibility of the
 code performing deserialization to know the type of the data it is reading.
 
-## Derived and hand-made implementations
-
-We strongly suggest using the procedural macro [`Epserde`] to make your own
-types serializable and deserializable. Just invoking the macro on your structure
-will make it fully functional with ε-serde. The attribute `#[zero_copy]` can be
-used to make a structure zero-copy, albeit it must satisfy [a few
-prerequisites].
-
-You can also implement manually the traits [`CopyType`], [`MaxSizeOf`],
-[`TypeHash`], [`ReprHash`], [`SerializeInner`], and [`DeserializeInner`], but
-the process is error-prone, and you must be fully aware of ε-serde's
-conventions. The procedural macro [`TypeInfo`] can be used to generate
-automatically at least [`CopyType`], [`MaxSizeOf`], [`TypeHash`], and
-[`ReprHash`] automatically.
-
 ### Serialization and deserialization types
 
 Given a user-defined type `T`:
@@ -957,6 +942,21 @@ For standard types and [`PhantomDeserData`], we have:
   zero-copy; their (de)serialization type is themselves;
 
 * `ControlFlow<B, C>` behaves like a user-defined deep-copy type.
+
+## Derived and hand-made implementations
+
+We strongly suggest using the procedural macro [`Epserde`] to make your own
+types serializable and deserializable. Just invoking the macro on your structure
+will make it fully functional with ε-serde. The attribute `#[zero_copy]` can be
+used to make a structure zero-copy, albeit it must satisfy [a few
+prerequisites].
+
+You can also implement manually the traits [`CopyType`], [`MaxSizeOf`],
+[`TypeHash`], [`ReprHash`], [`SerializeInner`], and [`DeserializeInner`], but
+the process is error-prone, and you must be fully aware of ε-serde's
+conventions. The procedural macro [`TypeInfo`] can be used to generate
+automatically at least [`CopyType`], [`MaxSizeOf`], [`TypeHash`], and
+[`ReprHash`] automatically.
 
 ## Acknowledgments
 
