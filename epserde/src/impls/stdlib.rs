@@ -1,10 +1,15 @@
 /*
  * SPDX-FileCopyrightText: 2023 Tommaso Fontana
+ * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Implementation of traits for struts from the std library
+//! Implementation for structures from the standard library.
+//!
+//! Note that none of this types can be zero-copy (unless they are empty, as in
+//! the case of [`RangeFull`](core::ops::RangeFull)), because they are not
+//! `repr(C)`.
 use ser::WriteWithNames;
 
 use crate::prelude::*;
@@ -26,7 +31,7 @@ impl TypeHash for DefaultHasher {
 macro_rules! impl_ranges {
     ($ty:ident) => {
         impl<Idx: ZeroCopy> CopyType for core::ops::$ty<Idx> {
-            type Copy = Zero;
+            type Copy = Deep;
         }
 
         impl<Idx: ZeroCopy + TypeHash> TypeHash for core::ops::$ty<Idx> {
@@ -83,7 +88,7 @@ impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     for core::ops::Range<Idx>
 {
     type SerType = Self;
-    const IS_ZERO_COPY: bool = true;
+    const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
@@ -116,7 +121,7 @@ impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     for core::ops::RangeFrom<Idx>
 {
     type SerType = Self;
-    const IS_ZERO_COPY: bool = true;
+    const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
@@ -146,7 +151,7 @@ impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     for core::ops::RangeInclusive<Idx>
 {
     type SerType = Self;
-    const IS_ZERO_COPY: bool = true;
+    const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
@@ -184,7 +189,7 @@ impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     for core::ops::RangeTo<Idx>
 {
     type SerType = Self;
-    const IS_ZERO_COPY: bool = true;
+    const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
@@ -214,7 +219,7 @@ impl<Idx: ZeroCopy + SerializeInner + TypeHash + AlignHash> SerializeInner
     for core::ops::RangeToInclusive<Idx>
 {
     type SerType = Self;
-    const IS_ZERO_COPY: bool = true;
+    const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
@@ -242,7 +247,7 @@ impl<Idx: ZeroCopy + DeserializeInner> DeserializeInner for core::ops::RangeToIn
 
 impl SerializeInner for core::ops::RangeFull {
     type SerType = Self;
-    const IS_ZERO_COPY: bool = true;
+    const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
