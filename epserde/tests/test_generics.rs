@@ -6,7 +6,7 @@
 
 use epserde::prelude::*;
 use maligned::A16;
-use std::marker::PhantomData;
+use std::{hash::Hash, marker::PhantomData};
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data<A: PartialEq = usize, const Q: usize = 3> {
     a: A,
@@ -142,4 +142,59 @@ fn test_types_zero_copy_param() {
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone)]
 enum DeepCopyEnumParam<T: ZeroCopy> {
     A(T),
+}
+
+#[derive(Copy, Debug, PartialEq, Eq, Clone)]
+struct NewStr(&'static str);
+
+impl TypeHash for NewStr {
+    fn type_hash(mut _hasher: &mut impl core::hash::Hasher) {}
+}
+
+impl AlignHash for NewStr {
+    fn align_hash(mut _hasher: &mut impl core::hash::Hasher, _offset: &mut usize) {}
+}
+
+impl MaxSizeOf for NewStr {
+    fn max_size_of() -> usize {
+        0
+    }
+}
+
+impl CopyType for NewStr {
+    type Copy = Zero;
+}
+
+impl DeserializeInner for NewStr {
+    type DeserType<'a>
+        = &'a str
+    where
+        Self: 'a;
+
+    unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        todo!();
+    }
+
+    unsafe fn _deserialize_eps_inner<'a>(
+        _backend: &mut SliceWithPos<'a>,
+    ) -> deser::Result<Self::DeserType<'a>> {
+        todo!()
+    }
+}
+
+impl SerializeInner for NewStr {
+    const IS_ZERO_COPY: bool = true;
+    const ZERO_COPY_MISMATCH: bool = false;
+    type SerType = Self;
+
+    unsafe fn _serialize_inner(&self, _backend: &mut impl ser::WriteWithNames) -> ser::Result<()> {
+        todo!()
+    }
+}
+
+#[derive(Epserde, Copy, Clone)]
+#[repr(C)]
+#[zero_copy]
+struct S {
+    a: NewStr,
 }

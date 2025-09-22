@@ -656,7 +656,7 @@ orthogonal, but that in practice often condition one another:
 - the type has an *associated serialization type*, which is the type we
   write when serializing;
 - the type has an *associated deserialization type*, which is the type you
-  obtain upon deserialization;
+  obtain when deserialized;
 - the type can be either [`ZeroCopy`] or [`DeepCopy`]; it can also be neither.
 
 There is no constraint on the associated (de)serialization type: it can be
@@ -670,14 +670,17 @@ deserialize into themselves. Presently the associated serialization type is
 almost always `Self`, with the notable exception of references to slices and
 iterators, which are serialized for convenience as vectors/boxed slices.
 
-Being [`ZeroCopy`] or [`DeepCopy`] decides instead how the type will be treated
-when serializing and deserializing sequences, such as arrays, slices, boxed
-slices, and vectors. Sequences of zero-copy types are ε-copy deserialized using
-a reference, whereas sequences of deep-copy types are always recursively
-deserialized in allocated memory (to sequences of the associated deserialization
-types). It is important to remark that *you cannot serialize a sequence whose
-elements are of a type that is neither* [`ZeroCopy`] *nor* [`DeepCopy`] (see the
-[`CopyType`] documentation for a deeper explanation).
+Being [`ZeroCopy`] or [`DeepCopy`] decides how the type will be treated upon
+deserialization. Instances of zero-copy types are ε-copy deserialized as a
+reference, whereas instances of deep-copy types are are always recursively
+deserialized in allocated memory.
+
+Sequences of zero-copy types are ε-copy deserialized using a reference to a
+slice, whereas sequences of deep-copy types are deserialized in allocated memory
+(to sequences of the associated deserialization types). It is important to
+remark that *you cannot serialize a sequence whose elements are of a type that
+is neither* [`ZeroCopy`] *nor* [`DeepCopy`] (see the [`CopyType`] documentation
+for a deeper explanation).
 
 Logically, zero-copy types should be deserialized to references, and this indeed
 happens in most cases, and certainly in the derived code: however, *primitive
@@ -725,31 +728,184 @@ notice the difference if you access both versions using the trait
 
 ## Specification
 
-It this section we describe in a somewhat formal way the specification of 
-ε-serde. We suggest to get acquainted with the examples before reading it. 
+It this section we describe in a somewhat formal way the specification of
+ε-serde. We suggest to get acquainted with the examples before reading it.
 
-An ε-serde serialization process involves two types: 
+### Types
 
-* `S`, the _serializable type_, which must implement SerializeInner (and thus Serializable), which in turn requires the implementation....
+Within ε-serde, types are classified as [_deep-copy_] or [_zero-copy_], usually
+by implementing the unsafe [`CopyType`] trait with associated type
+[`CopyType::Copy`] equal to [`Deep`] or [`Zero`]; types without such an
+implementation are considered deep-copy. There is a blanket implementation for
+the [`DeepCopy`] marker trait for all types implementing [`CopyType`] with
+associated type [`CopyType::Copy`] equal to [`Deep`]. Zero-copy types must also
+implement [`Copy`], [`MaxSizeOf`]; they must also outlive `'static` lifetime, and be
+`repr(C)`. Under those conditions, there is a similar blanket implementation for
+the [`ZeroCopy`] marker trait. Zero-copy types cannot contain any reference, but
+this condition cannot be checked by the compiler (`'static` does not prevent,
+say, references to string constants), which is why [`CopyType`] is unsafe.
 
-* Its _serialization type_ S:SerType.
+Zero-copy types have the property that their memory representation can
+be serialized as a sequence of bytes; a reference to the sequence is then
+a valid reference to an instance of the type. This happens because `repr(C)`
+guarantees a fixed memory layout, and because the type does not contain any
+reference to other data.
 
-In general the serialization type of S is S, but there is some normalization and erasure involved (e.g., vectors become boxed slices, and some smart pointers such as Rc are erased). Moreover, for convenience a few types that are not really serializable have a convenience serialization type (e.g., iterators become boxed slices). The derivation of the serialization type will be detailed later. 
+Deep-copy types instead are types must can be serialized and deserialized
+field by field.
 
-When you invoke serialize on an instance of S, ε-serde
-writes a type hash which is derived from S:SerType, and which represents the definition of the type (copy type, field names, types, etc.), an alignment hash which is derived from the alignment of S:SerType (essentially, recording where padding had been inserted in the zero-copy parts of the type), and then the data contained in the instance.
+Note that all fields of a type you want to (de)serialize must be of a type
+implementing [`CopyType`] for the derive code to work.
 
-An ε-serde deserialization process involves instead three types: 
+### Replaceable and irreplaceable parameters
 
-* D, the _deserializable type_, which must implement DeserializeInner (and thus Deserializable), which in turn requires the implementation....
+Given a type `T`with generics, we say that a type parameter is _replaceable_ if
+it appears as the type of a field of `T`. We say instead that a type parameter
+is _irreplaceable_ if it is a generic parameter of the type of a field of `T`.
 
-* The _serialization type_ of D, D:SerType.
+The basic assumption in what follows, and in the derived code of ε-serde, is
+that no type parameter is both replaceable and irreplaceable. This means that
+you cannot have a type parameter that appears both as the type of a field and as
+a type parameter of the type of a field. If that happen, you will have to write
+the (de)serialization code by hand. For example, in the following structure
+```rust
+struct Bad<A> {
+    data: A,
+    vec: Vec<A>,
+}
+```
+the type parameter `A` is both replaceable (it is the type of the field `data`)
+and irreplaceable (it is a type parameter of the type of field `vec`).
 
-* The _deserialization type_ D:DeserType.
+The only exception to this rule is for type parameters that appear inside a
+[`PhantomDeserData`], which can be replaceable.
 
-You must invoke deserialize as a method of 'D', and pass it the bytes obtained by serialing S. Deserialization will happen only if the type hash of D:SerType matches that of S:SerType, and the same must happen for the alignment hash: otherwise, you'll get an error. Now, depending on which type of deserialization you requested (full or ε-copy) you will obtain an instance of D or D:DeserType.
+The fundamental idea at the basis of ε-serde is that replaceable parameters make
+it possible to refer to serialized zero-copy data without copying it. For
+example, given a structure
 
+```rust
+struct Good<A> {
+    data: A,
+}
+```
 
+if `A` is `Vec<Z>` and `Z` is zero-copy, then we can deserialize an instance of
+`Good<Vec<Z>>` from in-memory data by replacing `Vec<Z>` with `&[Z]`, and the
+resulting structure will have type `Good<&[Z]>`: the slice will refer directly
+to the serialized data, and only a small fraction of the structure (a pointer
+and an integer) will need to be allocated—hence, the term “ε-copy”.
+
+This replacement happens recursively thanks to Rust's type system. As long as
+`impl` sections are written in terms of traits implemented by both the original
+and the replaced type, the code will work transparently on both types; in this
+case, methods should be written with the bound `A: AsRef<[Z]>`.
+
+### Serialization and deserialization
+
+An ε-serde serialization process involves two types:
+
+* `S`, the _serializable type_, which is the type of the instance you want to
+  serialize. It must implement [`SerializeInner`] (which implies
+  [`Serialize`] by a blanket implementation).
+
+* Its associated _serialization type_ [`S:SerType`], which must implement
+  [`TypeHash`] and [`ReprHash`].
+
+In general the serialization type of `S` is `S`, but there is some normalization
+and erasure involved (e.g., vectors become boxed slices, and some smart pointers
+such as Rc are erased). Moreover, for convenience a few types that are not
+really serializable have a convenience serialization type (e.g., iterators
+become boxed slices). The derivation of the serialization type will be detailed
+later, but the key feature is that when deriving the serialization type of `S`
+replaceable type parameters of `S` are replaced with their
+serialization type.
+
+When you invoke serialize on an instance of type `S`, ε-serde writes a type hash
+which is derived from [`S:SerType`], and which represents the definition of the
+type (copy type, field names, types, etc.), an alignment hash which is derived
+from the alignment of [`S:SerType`] (essentially, recording where padding had
+been inserted in the zero-copy parts of the type), and then recursively the data
+contained in the instance.
+
+An ε-serde deserialization process involves instead three types:
+
+* `D`, the _deserializable type_, which must implement [`DeserializeInner`],
+  [`TypeHash`], and [`ReprHash`], so the blanket implementation For
+  [`Deserialize`] applies. This is the type on which deserialization
+  methods are invoked.
+
+* The associated _serialization type_ of `D`, [`D:SerType`].
+
+* The associated _deserialization type_ [`D:DeserType<'_>`].
+
+In general `D` is the same as `S`, but the only relevant condition for
+deserializing using the deserializable type `D` an instance serialized with
+serializable type `S` is that [`D:SerType`] is equal to [`S:SerType`].
+This gives some latitude in the choice of the deserializable type—for example, a
+boxed array instead of a vector for a replaceable parameter.
+
+The deserialization type, instead, is the main technical novelty of ε-serde: it
+is a reference, instead of an instance, for zero-copy types, and a reference to
+a slice, rather than owned data, for vectors, boxed slices, and arrays of such
+types. For vectors, boxed slices, and arrays of deep-copy types it is obtained
+by replacing their type parameter with its deserialization type. For more
+complex types, it is obtained by types filling replaceable parameters `R` with
+their deserialization type.
+
+For example:
+
+* `T:DeserType<'_>` is `&T` if `T` is zero-copy, but
+  `T` if `T` is deep-copy;
+
+* `<Vec<T>>:DeserType<'_>` is `&[T]` if `T` is zero-copy, but
+  `Vec<T>` if `T` is deep-copy;
+
+* `<Good<T>>:DeserType<'_>` is `Good<&T>` if `T` is zero-copy, but
+  `Good<T>` if `T` is deep-copy;
+
+* `Good<Vec<T>>:DeserType<'_>` is `Good<&[T]>` if `T` is zero-copy, but
+  `Good<Vec<T>>` if `T` is deep-copy;
+
+* `Good<Vec<Vec<T>>>:DeserType<'_>` is `Good<Vec<&[T]>>` if `T` is zero-copy,
+  but again `Good<Vec<Vec<T>>>` if `T` is deep-copy.
+
+We can describe the replacements leading to the deserialization type in a
+non-recursive way as follows: consider the syntax tree of the type `D`, in which
+the root, labeled by `D`, is connected to the root of the syntax trees of
+its fields, and each children is further labeled by the name of the field.
+Replacement happens in two cases:
+
+* There is a path starting at the root, traversing only fields whose type is a
+  replaceable parameter, and ending at node that is a vector/boxed slice/array:
+  it will be replaced with reference to a slice of the same type.
+
+* This is a _shortest_ path starting at the root, traversing only fields whose type is a
+  replaceable parameter, and ending at a node that is zero-copy: it will be
+  replaced with a reference to the same type.
+
+Note that shortest-path condition: this is necessary because when you reach a
+zero-copy type, the recursion in the definition of the deserialization type
+stops. Note also that if `D` is zero-copy the empty path satisfies the
+second condition, and indeed `D:DeserType<'_>` is `&D`.
+
+There are now two types of deserialization:
+
+* [`deserialize_full`] performs _full deserialization_, which reads recursively
+  the serialized data from a [`Read`] and builds an instance of `D`. This is
+  basically a standard deserialization, except that it is usually much faster if
+  you have large sequences of zero-copy types, as they are deserialized in a
+  single [`read_exact`].
+
+* [`deserialize_eps`] perform _ε-copy deserialization_, which accesses the
+  serialized data as a byte slice, and builds an instance of `D:DeserType<'_>`
+  that refers to the data inside the byte slice.
+
+Whichever method you invoke on `D`, deserialization will happen only if the type
+hash of [`D:SerType`] matches that of [`S:SerType`], and the same must happen for
+the alignment hash: otherwise, you will get an error. Note that the serialized data
+does not contain a structural copy of any type: it is the responsibility of the
+code performing deserialization to know the type of the data it is reading.
 
 ## Derived and hand-made implementations
 
@@ -765,6 +921,42 @@ the process is error-prone, and you must be fully aware of ε-serde's
 conventions. The procedural macro [`TypeInfo`] can be used to generate
 automatically at least [`CopyType`], [`MaxSizeOf`], [`TypeHash`], and
 [`ReprHash`] automatically.
+
+### Serialization and deserialization types
+
+Given a user-defined type `T`:
+
+- if `T` is zero-copy, the serialization type is `T`, and the deserialization
+  type is `&T`;
+
+- if `T` is deep-copy, the serialization type is `T`, and the deserialization
+  type derived by replacing all replaceable type parameters with their
+  associated serialization/deserialization type, respectively.
+
+For standard types and [`PhantomDeserData`], we have:
+
+* all primitive types, such as `u8`, `i32`, `f64`, `char`, `bool`, etc., `()`,
+  and `PhantomData<T>` are zero-copy and their (de)serialization type is
+  themselves;
+
+* `Option<T>` and `ControlFlow<B, C>`, and `PhantomDeserData<T>` are deep-copy
+  and their (de)serialization type is themselves, with `T`/`B`/`C` replaced by
+  their (de)serialization type;
+
+* `Vec<T>`, `Box<[T]>`, `&[T]` and `SerIter<T>` are deep-copy, and their
+  serialization type is `Box<[T]>` if `T` is zero-copy, but `Box<[T::SerType]>`
+  if `T` is deep-copy; the deserialization type of `Vec<T>`/`Box<[T]>` is `&[T]`
+  if `T` is zero-copy, and `Vec<T:DeserType<'_>>`/`Box<[T:DeserType<'_>]>` if
+  `T` is deep-copy; `&[T]` and `SerIter<T>` are not deserializable;
+
+* tuples up to size 12 made of the same zero-copy type `T` are zero-copy, their
+  serialization type is themselves, and their deserialization type is a
+  reference to themselves (the other cases by be covered using [newtypes];
+
+* all range types are zero-copy, provided that their type parameter is
+  zero-copy; their (de)serialization type is themselves;
+
+* `ControlFlow<B, C>` behaves like a user-defined deep-copy type.
 
 ## Acknowledgments
 
@@ -784,11 +976,14 @@ European Union nor the Italian MUR can be held responsible for them.
 [`TypeHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html>
 [`ReprHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.ReprHash.html>
 [`DeserializeInner`]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserializeInner.html>
+[`Deserialize`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html>
 [`SerializeInner`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerializeInner.html>
+[`Serialize`]: <https://docs.rs/epserde/latest/epserde/ser/trait.Serialize.html>
 [`TypeInfo`]: <https://docs.rs/epserde/latest/epserde/derive.TypeInfo.html>
 [`Epserde`]: <https://docs.rs/epserde/latest/epserde_derive/derive.Epserde.html>
 [`Deserialize::load_full`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_full>
 [`deserialize_full`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#tymethod.deserialize_full>
+[`deserialize_eps`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#tymethod.deserialize_eps>
 [`DeserType`]: <https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html>
 [`Deserialize::load_mem`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mem>
 [`Deserialize::load_mmap`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mmap>
@@ -816,3 +1011,13 @@ European Union nor the Italian MUR can be held responsible for them.
 [`pointer`]: <https://docs.rs/epserde/latest/epserde/impls/pointer/index.html>
 [`BitFieldVec`]: <https://docs.rs/sux/latest/sux/bits/bit_field_vec/struct.BitFieldVec.html>
 [`BitFieldSlice`]: <https://docs.rs/sux/latest/sux/traits/bit_field_slice/trait.BitFieldSlice.html>
+[`S:SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerializeInner.html#associatedtype.SerType>
+[`D:SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerializeInner.html#associatedtype.SerType>
+[`D:DeserType<'_>`]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserializeInner.html#associatedtype.DeserType>
+[`Read`]: <https://doc.rust-lang.org/std/io/trait.Read.html>
+[`read_exact`]: <https://doc.rust-lang.org/std/io/trait.Read.html#method.read_exact>
+[_deep-copy_]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.DeepCopy.html>
+[_zero-copy_]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.ZeroCopy.html>
+[`Deep`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/struct.Deep.html>
+[`Zero`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/struct.Zero.html>
+[newtypes]: <https://docs.rs/epserde/0.9.0/epserde/impls/tuple/index.html>

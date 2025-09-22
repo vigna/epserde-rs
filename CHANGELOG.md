@@ -2,10 +2,24 @@
 
 ## [0.10.0] - 2025-09-20
 
+### New
+
+* New delegations of standard-library traits to `MemCase`; in particular,
+  `Deref`.
+
+### Changed
+
 * Major disruptive change: vectors and boxed slices have now the same
   `TypeHash`. This makes them interchangeable at will in (de)serialization,
-  which is an extremely useful feature. Unfortunately, old instances with type
-  parameters whose concrete type is a vector will no longer be deserializable.
+  which is an extremely useful feature. Unfortunately, old instances with
+  replaceable type parameters whose concrete type is a vector will no longer be
+  deserializable.
+
+* `CopyType` is now unsafe as there is no way to check a type contains
+  no references.
+
+* `repr` attributes are now sorted lexicographically. This might cause minor
+  incompatibilities that can be solved by sorting the attribute in the code.
 
 ## [0.9.0] - 2025-09-17
 
