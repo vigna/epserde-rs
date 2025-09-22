@@ -19,10 +19,9 @@ use sealed::sealed;
 ///
 /// It has only two implementations, [`Zero`] and [`Deep`].
 ///
-/// In the first case, the type can be serialized
-/// from memory and deserialized to memory as a sequence of bytes;
-/// in the second case, one has to deserialize the type field
-/// by field.
+/// In the first case, the type can be serialized from memory and deserialized
+/// to memory as a sequence of bytes; in the second case, one has to
+/// (de)serialize the type field by field.
 #[sealed]
 pub trait CopySelector {
     const IS_ZERO_COPY: bool;

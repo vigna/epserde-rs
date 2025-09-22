@@ -118,8 +118,9 @@ impl MemBackend {
 /// [ε-copy deserialized](crate::deser::Deserialize::deserialize_eps) structures.
 ///
 /// We provide implementations for [`MemCase`] delegating basic traits from the
-/// standard library, such as [`AsRef`] and [`IntoIterator`] (the latter,
-/// implemented on a reference) to the inner structure.
+/// standard library, such as [`AsRef`], [`Deref`](std::ops::Deref) and
+/// [`IntoIterator`] (the latter, implemented on a reference) to the inner
+/// structure.
 ///
 /// Packages that are ε-serde–aware are encouraged to provide such delegations
 /// for their traits. Note that in case the traits contain associated types such
@@ -205,6 +206,17 @@ where
 {
     fn as_ref(&self) -> &A {
         self.uncase().as_ref()
+    }
+}
+
+impl<A: ?Sized, S: DeserializeInner> std::ops::Deref for MemCase<S>
+where
+    for<'a> DeserType<'a, S>: std::ops::Deref<Target = A>,
+{
+    type Target = <DeserType<'static, S> as std::ops::Deref>::Target;
+
+    fn deref(&self) -> &Self::Target {
+        self.uncase().deref()
     }
 }
 
