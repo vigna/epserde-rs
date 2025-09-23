@@ -1415,12 +1415,15 @@ fn _type_info_derive(
     is_zero_copy: bool,
 ) -> proc_macro::TokenStream {
     // Add reprs
-    let repr = derive_input
+    let mut repr = derive_input
         .attrs
         .iter()
         .filter(|x| x.meta.path().is_ident("repr"))
         .map(|x| x.meta.require_list().unwrap().tokens.to_string())
         .collect::<Vec<_>>();
+
+    // Order of repr attributes does not matter
+    repr.sort();
 
     let ctx = TypeInfoContext {
         name: &derive_input.ident,
