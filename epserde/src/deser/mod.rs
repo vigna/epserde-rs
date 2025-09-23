@@ -120,7 +120,10 @@ pub trait Deserialize: DeserializeInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
-    unsafe fn read_mem(mut read: impl std::io::Read, size: usize) -> anyhow::Result<MemCase<Self>> {
+    unsafe fn read_mem<'a>(
+        mut read: impl std::io::Read,
+        size: usize,
+    ) -> anyhow::Result<MemCase<'a, Self>> {
         let align_to = align_of::<MemoryAlignment>();
         if align_of::<Self>() > align_to {
             return Err(Error::AlignmentError.into());
@@ -184,7 +187,7 @@ pub trait Deserialize: DeserializeInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
-    unsafe fn load_mem(path: impl AsRef<Path>) -> anyhow::Result<MemCase<Self>> {
+    unsafe fn load_mem<'a>(path: impl AsRef<Path>) -> anyhow::Result<MemCase<'a, Self>> {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let file = std::fs::File::open(path)?;
         unsafe { Self::read_mem(file, file_len) }
@@ -223,11 +226,11 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// See the [trait documentation](Deserialize).
     #[cfg(feature = "mmap")]
-    unsafe fn read_mmap(
+    unsafe fn read_mmap<'a>(
         mut read: impl std::io::Read,
         size: usize,
         flags: Flags,
-    ) -> anyhow::Result<MemCase<Self>> {
+    ) -> anyhow::Result<MemCase<'a, Self>> {
         let capacity = size + crate::pad_align_to(size, 16);
 
         let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
@@ -275,7 +278,10 @@ pub trait Deserialize: DeserializeInner {
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s
     /// documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
-    unsafe fn load_mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
+    unsafe fn load_mmap<'a>(
+        path: impl AsRef<Path>,
+        flags: Flags,
+    ) -> anyhow::Result<MemCase<'a, Self>> {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let file = std::fs::File::open(path)?;
         unsafe { Self::read_mmap(file, file_len, flags) }
@@ -294,7 +300,7 @@ pub trait Deserialize: DeserializeInner {
     ///
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(feature = "mmap")]
-    unsafe fn mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
+    unsafe fn mmap<'a>(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<'a, Self>> {
         let file_len = path.as_ref().metadata()?.len();
         let file = std::fs::File::open(path)?;
 
