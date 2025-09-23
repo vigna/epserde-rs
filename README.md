@@ -891,7 +891,7 @@ second condition, and indeed `D::DeserType<'_>` is `&D`.
 
 There are now two types of deserialization:
 
-* [`deserialize_full`] performs _full deserialization_, which reads recursively
+* [`deserialize_full`] performs _full-copy deserialization_, which reads recursively
   the serialized data from a [`Read`] and builds an instance of `D`. This is
   basically a standard deserialization, except that it is usually much faster if
   you have large sequences of zero-copy types, as they are deserialized in a

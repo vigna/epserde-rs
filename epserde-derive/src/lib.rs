@@ -87,17 +87,21 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
 
 /// Generates a method call for field deserialization.
 ///
-/// This methods takes care of choosing `_deserialize_eps_inner` or
-/// `_deserialize_full_inner` depending on whether a field type is a type
-/// parameter or not, and to use the special method
-/// `_deserialize_eps_inner_special` for `PhantomDeserData`.
+/// This methods takes care of choosing
+/// [`_deserialize_eps_inner`](crate::deser::DeserializeInner::_deserialize_eps_inner)
+/// or
+/// [`_deserialize_full_inner`](crate::deser::DeserializeInner::_deserialize_full_inner)
+/// depending on whether a field type is a type parameter or not, and to use the
+/// special method
+/// [`_deserialize_eps_inner_special`](crate::PhantomDeserData::_deserialize_eps_inner_special)
+/// for [`PhantomDeserData`](crate::PhantomDeserData).
 ///
 /// The type of `field_name` is [`proc_macro2::TokenStream`] because it can be
 /// either an identifier (for named fields) or an index (for unnamed fields).
 fn gen_deser_method_call(
     field_name: &proc_macro2::TokenStream,
     field_type: &syn::Type,
-    repl_params: &HashSet<&syn::Ident>,
+    type_params: &HashSet<&syn::Ident>,
 ) -> proc_macro2::TokenStream {
     if let syn::Type::Path(syn::TypePath {
         qself: None,
@@ -107,17 +111,17 @@ fn gen_deser_method_call(
         },
     }) = field_type
     {
-        // This is a pretty weak check, as a user could define its own PhantomDeserData,
-        // but it should be good enough in practice
+        // This is a pretty weak check, as a user could define its own
+        // PhantomDeserData, but it should be good enough in practice
         if let Some(segment) = segments.last() {
             if segment.ident == "PhantomDeserData" {
                 return syn::parse_quote!(#field_name: unsafe { <#field_type>::_deserialize_eps_inner_special(backend)? });
             }
         }
 
-        // If it's just an identifier that is among the type parameters that
-        // are the type of some field we proceed with ε-copy deserialization
-        if segments.len() == 1 && repl_params.contains(&segments[0].ident) {
+        // If it's a replaceable type parameter we proceed with ε-copy
+        // deserialization
+        if segments.len() == 1 && type_params.contains(&segments[0].ident) {
             return syn::parse_quote!(#field_name: unsafe  { <#field_type as DeserializeInner>::_deserialize_eps_inner(backend)? });
         }
     }
@@ -343,8 +347,10 @@ fn gen_ser_deser_where_clauses(field_types: &[&syn::Type]) -> (WhereClause, Wher
 
 /// Generates the where clauses for `TypeHash`, `AlignHash`, and `MaxSizeOf`.
 ///
-/// The where clauses bound the serialized type of all field types with the
-/// trait being implemented, thus propagating the trait recursively.
+/// The where clauses bound all field types with the trait being implemented,
+/// thus propagating the trait recursively, with the proviso that in case of a
+/// replaceable type parameter of a deep-copy type we bound the associated
+/// serialization type instead.
 fn gen_type_info_where_clauses(
     base_clause: &WhereClause,
     is_zero_copy: bool,
@@ -359,8 +365,9 @@ fn gen_type_info_where_clauses(
             if !is_zero_copy {
                 if let Some(field_type_id) = get_ident(field_type) {
                     if repl_params.contains(field_type_id) {
-                        // If the field type is a replaceable parameter,
-                        // we add the bound to its associated SerType
+                        // If the field type is a replaceable parameter, and the
+                        // current type is not zero-copy, then we add the bound
+                        // to the associated SerType
                         where_clause
                             .predicates
                             .push(WherePredicate::Type(PredicateType {
@@ -453,7 +460,12 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             }
         }
 
-        method_calls.push(gen_deser_method_call(&field_name, field_type, &repl_params));
+        method_calls.push(gen_deser_method_call(
+            &field_name,
+            field_type,
+            &ctx.type_params,
+        ));
+
         field_names.push(field_name);
         field_types.push(field_type);
     }
@@ -461,7 +473,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &repl_params);
     let generics_for_ser_type = gen_generics_for_ser_type(ctx, &repl_params);
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
-    let (mut ser_where_wlcause, mut deser_where_clause) = gen_ser_deser_where_clauses(&field_types);
+    let (mut ser_where_clause, mut deser_where_clause) = gen_ser_deser_where_clauses(&field_types);
 
     let name = &ctx.derive_input.ident;
     let generics_for_impl = &ctx.generics_for_impl;
@@ -479,7 +491,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             }
 
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::ser::SerializeInner for #name #generics_for_type #ser_where_wlcause {
+            impl #generics_for_impl ::epserde::ser::SerializeInner for #name #generics_for_type #ser_where_clause {
                 type SerType = Self;
                 // Compute whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
@@ -520,7 +532,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         bind_ser_deser_types(
             ctx.derive_input,
             &repl_params,
-            &mut ser_where_wlcause,
+            &mut ser_where_clause,
             &mut deser_where_clause,
         );
 
@@ -533,7 +545,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             }
 
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::ser::SerializeInner for #name #generics_for_type #ser_where_wlcause {
+            impl #generics_for_impl ::epserde::ser::SerializeInner for #name #generics_for_type #ser_where_clause {
                 type SerType = #name<#(#generics_for_ser_type,)*>;
                 // Compute whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
@@ -590,7 +602,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     let mut variant_arm = vec![];
     // For each variant, serialization code
     let mut variant_ser = vec![];
-    // For each variant, full deserialization code
+    // For each variant, full-copy deserialization code
     let mut variant_full_des = vec![];
     // For each variant, ε-copy deserialization code
     let mut variant_eps_des = vec![];
@@ -951,7 +963,7 @@ struct TypeInfoContext<'a> {
     /// Whether the type is zero-copy
     is_zero_copy: bool,
     /// `repr` attributes
-    repr: Vec<String>,
+    repr_attrs: Vec<String>,
 }
 
 /// Generates the `TypeHash` implementation body.
@@ -1000,7 +1012,7 @@ fn gen_struct_align_hash_body(
     ctx: &TypeInfoContext,
     fields_types: &[proc_macro2::TokenStream],
 ) -> proc_macro2::TokenStream {
-    let repr = &ctx.repr;
+    let repr_attrs = &ctx.repr_attrs;
     if ctx.is_zero_copy {
         quote! {
             use ::core::hash::Hash;
@@ -1013,7 +1025,7 @@ fn gen_struct_align_hash_body(
 
             // Hash in representation data.
             #(
-                Hash::hash(#repr, hasher);
+                Hash::hash(#repr_attrs, hasher);
             )*
 
             // Hash in all fields
@@ -1041,7 +1053,7 @@ fn gen_enum_align_hash_body(
     ctx: &TypeInfoContext,
     all_align_hashes: &[proc_macro2::TokenStream],
 ) -> proc_macro2::TokenStream {
-    let repr = &ctx.repr;
+    let repr_attrs = &ctx.repr_attrs;
     if ctx.is_zero_copy {
         quote! {
             use ::core::hash::Hash;
@@ -1054,7 +1066,7 @@ fn gen_enum_align_hash_body(
 
             // Hash in representation data.
             #(
-                Hash::hash(#repr, hasher);
+                Hash::hash(#repr_attrs, hasher);
             )*
 
             // Hash in all fields
@@ -1160,12 +1172,11 @@ fn gen_struct_type_info_impl(
         field_names.push(get_field_name(field, field_idx));
         field_types.push(field_type);
 
-        // We look for type parameters that are types of fields
         if !ctx.is_zero_copy {
             if let Some(field_type_id) = get_ident(field_type) {
                 if ctx.type_params.contains(field_type_id) {
                     repl_params.insert(field_type_id);
-
+                    // Replaceable type parameter
                     field_types_ts.push(quote! { <#field_type as SerializeInner>::SerType });
                     continue;
                 }
@@ -1189,17 +1200,8 @@ fn gen_struct_type_info_impl(
         .map(|name| quote! { Hash::hash(stringify!(#name), hasher); })
         .collect();
 
-    field_hashes.extend(field_types.iter().map(|field_type| {
-        if ! ctx.is_zero_copy {
-            if let Some(field_type_id) = get_ident(field_type) {
-                if ctx.type_params.contains(field_type_id) {
-                    // Replaceable type parameter
-                    return quote! { <<#field_type as SerializeInner>::SerType as TypeHash>::type_hash(hasher); }
-                }
-            }
-        }
-
-        quote! { <#field_type as TypeHash>::type_hash(hasher); }
+    field_hashes.extend(field_types_ts.iter().map(|field_type_ts| {
+        quote! { <#field_type_ts as TypeHash>::type_hash(hasher); }
     }));
 
     // Generate implementation bodies
@@ -1415,7 +1417,7 @@ fn _type_info_derive(
     is_zero_copy: bool,
 ) -> proc_macro::TokenStream {
     // Add reprs
-    let mut repr = derive_input
+    let mut repr_attrs = derive_input
         .attrs
         .iter()
         .filter(|x| x.meta.path().is_ident("repr"))
@@ -1423,7 +1425,7 @@ fn _type_info_derive(
         .collect::<Vec<_>>();
 
     // Order of repr attributes does not matter
-    repr.sort();
+    repr_attrs.sort();
 
     let ctx = TypeInfoContext {
         name: &derive_input.ident,
@@ -1433,7 +1435,7 @@ fn _type_info_derive(
         generics_for_impl,
         where_clause,
         is_zero_copy,
-        repr,
+        repr_attrs,
     };
 
     match &derive_input.data {
