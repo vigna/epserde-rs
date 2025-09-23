@@ -5,15 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
-
-Traits and implementations to write named field during serialization.
-
-[`SerializeInner::_serialize_inner`] writes on a [`WriteWithNames`], rather
-than on a [`WriteWithPos`], with the purpose of easily recording write
-events happening during a serialization.
-
-*/
+//! Traits and implementations to write named field during serialization.
+//!
+//! [`SerializeInner::_serialize_inner`] writes on a [`WriteWithNames`], rather
+//! than on a [`WriteWithPos`], with the purpose of easily recording write
+//! events happening during a serialization.
 
 use super::*;
 use mem_dbg::{MemDbg, MemSize};

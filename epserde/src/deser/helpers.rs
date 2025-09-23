@@ -5,11 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
-
-Helpers for deserialization.
-
-*/
+//! Helpers for deserialization.
 
 use super::SliceWithPos;
 use super::{DeserializeInner, read::*};

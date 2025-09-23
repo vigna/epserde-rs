@@ -5,11 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
-
-No-std support for reading while keeping track of the current position.
-
- */
+//! No-std support for reading while keeping track of the current position.
 
 use crate::prelude::*;
 

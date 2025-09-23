@@ -5,11 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
-
-Implementations for strings.
-
-*/
+//! Implementations for strings.
 
 use crate::prelude::*;
 use core::hash::Hash;
