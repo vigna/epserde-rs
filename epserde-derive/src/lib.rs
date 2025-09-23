@@ -1039,6 +1039,7 @@ fn gen_struct_align_hash_body(
     } else {
         quote! {
             use ::epserde::traits::AlignHash;
+            use ::epserde::ser::SerializeInner;
 
             // Hash in all fields starting at offset 0
             #(
