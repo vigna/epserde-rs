@@ -14,7 +14,7 @@ fn main() {
     unsafe { v.serialize(&mut buffer).unwrap() };
     let cursor = Cursor::new(&buffer);
     let mem_case = unsafe { Vec::<i32>::read_mem(cursor, buffer.len()).unwrap() };
-    let v = mem_case.uncase();
+    let u = mem_case.uncase();
     drop(mem_case);
-    let _vv = v;
+    let _u = u;
 }

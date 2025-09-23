@@ -173,4 +173,13 @@ fn test_deref() {
     for (d, m) in data.iter().zip(mem_case.iter()) {
         assert_eq!(d, m);
     }
+
+    let mem_case = MemCase::encase(data.clone());
+
+    assert_eq!(&data[..], &*mem_case);
+    for (d, m) in data.iter().zip(mem_case.iter()) {
+        assert_eq!(d, m);
+    }
+
+    let _uncase: &Vec<i32> = mem_case.uncase();
 }

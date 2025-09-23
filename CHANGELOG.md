@@ -9,6 +9,9 @@
   the implementation `Deref` for `MemCase<S>` has target `S::DeserType<_>`,
   and analogously for `AsRef`.
 
+* New strategy for `MemCase::encase`, which uses a transparent wrapper to
+  being back the original functionality.
+
 ### Changed
 
 * Major disruptive change: vectors and boxed slices have now the same

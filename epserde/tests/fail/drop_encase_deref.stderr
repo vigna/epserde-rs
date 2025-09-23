@@ -1,11 +1,11 @@
 error[E0505]: cannot move out of `mem_case` because it is borrowed
-  --> tests/fail/drop_memcase.rs:18:10
+  --> tests/fail/drop_encase_deref.rs:14:10
    |
-16 |     let mem_case = unsafe { Vec::<i32>::read_mem(cursor, buffer.len()).unwrap() };
+12 |     let mem_case = MemCase::encase(v);
    |         -------- binding `mem_case` declared here
-17 |     let u = mem_case.uncase();
+13 |     let d = mem_case.deref();
    |             -------- borrow of `mem_case` occurs here
-18 |     drop(mem_case);
+14 |     drop(mem_case);
    |          ^^^^^^^^ move out of `mem_case` occurs here
-19 |     let _u = u;
+15 |     let _d = d;
    |              - borrow later used here

@@ -8,7 +8,7 @@
 //! deserialized](crate::deser::Deserialize::deserialize_eps) structures and the
 //! memory regions they point to.
 
-use crate::{DeserializeInner, deser::DeserType};
+use crate::{DeserializeInner, deser::DeserType, ser::SerializeInner};
 use bitflags::bitflags;
 use core::{fmt, mem::size_of};
 use maligned::A64;
@@ -104,6 +104,55 @@ impl MemBackend {
     }
 }
 
+/// A transparent wrapper that implement the ε-serde (de)serialization traits
+/// with (de)serialization type equal to `T`.
+///
+/// The only purpose of this wrapper is to make [encasing](MemCase::encase)
+/// possible.
+///
+/// All methods are unimplemented.
+#[derive(Debug, MemSize, MemDbg, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[repr(transparent)]
+pub struct EncaseWrapper<T>(T);
+
+impl<T> std::ops::Deref for EncaseWrapper<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: DeserializeInner> DeserializeInner for EncaseWrapper<T> {
+    type DeserType<'a> = T;
+
+    unsafe fn _deserialize_full_inner(
+        _backend: &mut impl super::ReadWithPos,
+    ) -> super::Result<Self> {
+        unimplemented!();
+    }
+
+    unsafe fn _deserialize_eps_inner<'a>(
+        _backend: &mut super::SliceWithPos<'a>,
+    ) -> super::Result<Self::DeserType<'a>> {
+        unimplemented!();
+    }
+}
+
+impl<T: SerializeInner> SerializeInner for EncaseWrapper<T> {
+    type SerType = T;
+
+    const IS_ZERO_COPY: bool = false;
+    const ZERO_COPY_MISMATCH: bool = false;
+
+    unsafe fn _serialize_inner(
+        &self,
+        _backend: &mut impl crate::ser::WriteWithNames,
+    ) -> crate::ser::Result<()> {
+        unimplemented!();
+    }
+}
+
 /// A wrapper keeping together an immutable structure and the [`MemBackend`] it
 /// was deserialized from. [`MemCase`] instances can not be cloned, but
 /// references to such instances can be shared freely.
@@ -154,12 +203,15 @@ where
 impl<S: DeserializeInner> MemCase<S> {
     /// Encases a data structure in a [`MemCase`] with no backend.
     ///
-    /// Note that since a [`MemCase`] stores a deserialization associated type,
-    /// this method is useful only for types that are equal to their own
-    /// deserialization type (e.g., they do not have type parameters).
-    /// Moreover, type inference will not be able to deduce `S` from the
-    /// argument, so you will need to specify it explicitly.
-    pub fn encase(s: DeserType<'static, S>) -> Self {
+    /// Note that since a [`MemCase`] must store a deserialization associated
+    /// type, this methods wraps its argument in a [`DeepWrapper`]. However,
+    /// [`DeepWrapper`] implements [`Deref`] to its inner type, so the resulting
+    /// [`MemCase`] will [`Deref`] to the inner type, too.
+    ///
+    /// Moreover, [`MemCase::uncase`] will return a reference to the inner type,
+    /// exactly like in the case of a [`MemCase`] created by
+    /// deserialization (e.g., using [`crate::deser::Deserialize::load_mmap`]).
+    pub fn encase(s: S) -> MemCase<EncaseWrapper<S>> {
         MemCase(s, MemBackend::None)
     }
 
