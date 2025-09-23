@@ -53,3 +53,27 @@ fn test_range() {
     struct Data(std::ops::Range<i32>);
     test_generic(Data(0..10));
 }
+
+#[test]
+fn test_ser_rc_ref() {
+    use std::rc::Rc;
+    let v = vec![0, 1, 2, 3];
+    let mut cursor = <AlignedCursor<A16>>::new();
+    unsafe { Rc::new(v.as_slice()).serialize(&mut cursor).unwrap() };
+    cursor.set_position(0);
+    let s = unsafe { <Rc<Box<[i32]>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    dbg!(s);
+}
+
+#[test]
+fn test_ref_field() {
+    use std::rc::Rc;
+    let v = vec![0, 1, 2, 3];
+    let mut cursor = <AlignedCursor<A16>>::new();
+    #[derive(Epserde, Debug)]
+    struct Data<A>(A);
+    unsafe { Rc::new(Data(v.as_slice())).serialize(&mut cursor).unwrap() };
+    cursor.set_position(0);
+    let s = unsafe { <Rc<Data<Box<[i32]>>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    dbg!(s);
+}

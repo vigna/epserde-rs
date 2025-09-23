@@ -5,11 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
-
-Traits computing information about a type.
-
-*/
+//! Traits computing information about a type.
 
 use crate::pad_align_to;
 use core::hash::Hash;

@@ -5,18 +5,15 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
+//! Deserialization traits and types
+//!
+//! [`Deserialize`] is the main deserialization trait, providing methods
+//! [`Deserialize::deserialize_eps`] and [`Deserialize::deserialize_full`] which
+//! implement ε-copy and full-copy deserialization, respectively. The
+//! implementation of this trait is based on [`DeserializeInner`], which is
+//! automatically derived with `#[derive(Deserialize)]`.
 
-Deserialization traits and types
-
-[`Deserialize`] is the main deserialization trait, providing methods
-[`Deserialize::deserialize_eps`] and [`Deserialize::deserialize_full`]
-which implement ε-copy and full-copy deserialization, respectively.
-The implementation of this trait is based on [`DeserializeInner`],
-which is automatically derived with `#[derive(Deserialize)]`.
-
-*/
-
+use crate::ser::SerializeInner;
 use crate::traits::*;
 use crate::{MAGIC, MAGIC_REV, VERSION};
 use core::mem::align_of;
@@ -367,7 +364,10 @@ pub trait DeserializeInner: Sized {
 /// by the blanket implementation of [`crate::ser::Serialize`] and then delegates to
 /// [`DeserializeInner::_deserialize_full_inner`] or
 /// [`DeserializeInner::_deserialize_eps_inner`].
-impl<T: TypeHash + AlignHash + DeserializeInner> Deserialize for T {
+impl<T: SerializeInner + DeserializeInner> Deserialize for T
+where
+    T::SerType: TypeHash + AlignHash,
+{
     /// # Safety
     ///
     /// See the documentation of [`Deserialize`].
@@ -390,17 +390,18 @@ impl<T: TypeHash + AlignHash + DeserializeInner> Deserialize for T {
 /// Common header check code for both ε-copy and full-copy deserialization.
 ///
 /// Must be kept in sync with [`crate::ser::write_header`].
-pub fn check_header<T: Deserialize + TypeHash + AlignHash>(
-    backend: &mut impl ReadWithPos,
-) -> Result<()> {
+pub fn check_header<T: SerializeInner>(backend: &mut impl ReadWithPos) -> Result<()>
+where
+    T::SerType: TypeHash + AlignHash,
+{
     let self_type_name = core::any::type_name::<T>().to_string();
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
-    T::type_hash(&mut type_hasher);
+    T::SerType::type_hash(&mut type_hasher);
     let self_type_hash = type_hasher.finish();
 
     let mut align_hasher = xxhash_rust::xxh3::Xxh3::new();
     let mut offset_of = 0;
-    T::align_hash(&mut align_hasher, &mut offset_of);
+    T::SerType::align_hash(&mut align_hasher, &mut offset_of);
     let self_align_hash = align_hasher.finish();
 
     let magic = unsafe { u64::_deserialize_full_inner(backend)? };
@@ -518,8 +519,9 @@ pub enum Error {
     #[error(
         r#"Wrong type hash: actual = 0x{ser_type_hash:016x}, expected = 0x{self_type_hash:016x}.
 You are trying to deserialize a file with the wrong type. You might also be trying to deserialize
-an instance containing tuples that was serialized before 0.9.0, or
-an instance containing a vector that was serialized before 0.10.0.
+a tuple of mixed zero-copy types, which is no longer supported since 0.8.0,
+an instance containing tuples, whose type hash was fixed in 0.9.0,
+or an instance containing a vector that was serialized before 0.10.0.
 The serialized type is '{ser_type_name}',
 but the type on which the deserialization method was invoked is '{self_type_name}'."#
     )]
@@ -539,9 +541,10 @@ but the type on which the deserialization method was invoked is '{self_type_name
 r#"Wrong alignment hash: actual = 0x{ser_align_hash:016x}, expected = 0x{self_align_hash:016x}.
 You might be trying to deserialize a file that was serialized on an architecture
 with different alignment requirements, or some of the fields of the type
-might have changed their copy type (zero or deep). You might also be trying to deserialize a
-tuple of mixed zero-copy types, which is no longer supported since 0.8.0, or to
-deserialize an array, whose alignment hash has been fixed in 0.8.0.
+might have changed their copy type (zero or deep). You might also be trying to deserialize
+an array, whose alignment hash has been fixed in 0.8.0. It is also
+possible that you are trying to deserialize a file serialized before version 0.10.0
+in which repr attributes were not sorted lexicographically.
 The serialized type is '{ser_type_name}',  but the type on which the the deserialization
 method was invoked is '{self_type_name}'."#
     )]

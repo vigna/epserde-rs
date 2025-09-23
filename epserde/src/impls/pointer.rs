@@ -79,24 +79,6 @@ use ser::*;
 
 macro_rules! impl_ser {
     ($type:ty) => {
-        impl<T: CopyType> CopyType for $type {
-            type Copy = <T as CopyType>::Copy;
-        }
-
-        impl<T: TypeHash> TypeHash for $type {
-            #[inline(always)]
-            fn type_hash(hasher: &mut impl core::hash::Hasher) {
-                <T as TypeHash>::type_hash(hasher)
-            }
-        }
-
-        impl<T: AlignHash> AlignHash for $type {
-            #[inline(always)]
-            fn align_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-                <T as AlignHash>::align_hash(hasher, offset_of)
-            }
-        }
-
         impl<T: SerializeInner> SerializeInner for $type {
             type SerType = T;
             const IS_ZERO_COPY: bool = <T as SerializeInner>::IS_ZERO_COPY;

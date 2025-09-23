@@ -82,9 +82,14 @@ fn test_array_types() {
 
 #[test]
 fn test_slice_types() {
-    assert_eq!(get_type_hash::<&[i32]>(), 0x400f9211e94c1834);
-    assert_eq!(get_align_hash::<&[i32]>(), 0x6881f435bc0ca85f);
-    assert_eq!(get_type_hash::<[i32]>(), 0xe053d268c8ad5c04);
+    assert_eq!(
+        get_type_hash::<<&[i32] as SerializeInner>::SerType>(),
+        0x400f9211e94c1834
+    );
+    assert_eq!(
+        get_align_hash::<<&[i32] as SerializeInner>::SerType>(),
+        0x6881f435bc0ca85f
+    );
 }
 
 #[test]

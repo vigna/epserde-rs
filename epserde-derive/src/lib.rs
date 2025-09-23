@@ -97,7 +97,7 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
 fn gen_deser_method_call(
     field_name: &proc_macro2::TokenStream,
     field_type: &syn::Type,
-    field_type_params: &HashSet<&syn::Ident>,
+    repl_params: &HashSet<&syn::Ident>,
 ) -> proc_macro2::TokenStream {
     if let syn::Type::Path(syn::TypePath {
         qself: None,
@@ -117,7 +117,7 @@ fn gen_deser_method_call(
 
         // If it's just an identifier that is among the type parameters that
         // are the type of some field we proceed with ε-copy deserialization
-        if segments.len() == 1 && field_type_params.contains(&segments[0].ident) {
+        if segments.len() == 1 && repl_params.contains(&segments[0].ident) {
             return syn::parse_quote!(#field_name: unsafe  { <#field_type as DeserializeInner>::_deserialize_eps_inner(backend)? });
         }
     }
@@ -210,7 +210,7 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
 /// associated (de)serialization types with the same trait bounds of the type.
 fn bind_ser_deser_types(
     derive_input: &DeriveInput,
-    field_type_params: &HashSet<&syn::Ident>,
+    repl_params: &HashSet<&syn::Ident>,
     ser_where_clause: &mut WhereClause,
     deser_where_clause: &mut WhereClause,
 ) {
@@ -222,7 +222,7 @@ fn bind_ser_deser_types(
 
             // We are just interested in type parameters that are types of
             // fields and that have trait bounds
-            if !t.bounds.is_empty() && field_type_params.contains(ident) {
+            if !t.bounds.is_empty() && repl_params.contains(ident) {
                 // The lifetime of the DeserType
                 let mut lifetimes = Punctuated::new();
                 lifetimes.push(GenericParam::Lifetime(LifetimeParam {
@@ -291,12 +291,12 @@ fn add_ser_deser_trait_bounds(
 /// that are types of fields with their associated deserialization type.
 fn gen_generics_for_deser_type(
     ctx: &EpserdeContext,
-    field_type_params: &HashSet<&syn::Ident>,
+    repl_params: &HashSet<&syn::Ident>,
 ) -> Vec<proc_macro2::TokenStream> {
     ctx.type_const_params
         .iter()
         .map(|ident| {
-            if field_type_params.contains(ident)
+            if repl_params.contains(ident)
             {
                 quote!(<#ident as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
             } else {
@@ -310,12 +310,12 @@ fn gen_generics_for_deser_type(
 /// that are types of fields with their associated serialization type.
 fn gen_generics_for_ser_type(
     ctx: &EpserdeContext,
-    field_type_params: &HashSet<&syn::Ident>,
+    repl_params: &HashSet<&syn::Ident>,
 ) -> Vec<proc_macro2::TokenStream> {
     ctx.type_const_params
         .iter()
         .map(|ident| {
-            if field_type_params.contains(ident) {
+            if repl_params.contains(ident) {
                 quote!(<#ident as ::epserde::ser::SerializeInner>::SerType)
             } else {
                 quote!(#ident)
@@ -343,21 +343,46 @@ fn gen_ser_deser_where_clauses(field_types: &[&syn::Type]) -> (WhereClause, Wher
 
 /// Generates the where clauses for `TypeHash`, `AlignHash`, and `MaxSizeOf`.
 ///
-/// The where clauses bound all field types with the trait being implemented,
-/// thus propagating the trait recursively.
+/// The where clauses bound the serialized type of all field types with the
+/// trait being implemented, thus propagating the trait recursively.
 fn gen_type_info_where_clauses(
     base_clause: &WhereClause,
+    is_zero_copy: bool,
     field_types: &[&syn::Type],
+    repl_params: &HashSet<&syn::Ident>,
 ) -> (WhereClause, WhereClause, WhereClause) {
-    /// Generates one of the clauses by adding the given trait bound for all
-    /// types of fields.
-    fn gen_type_info_where_clause(
-        base_clause: &WhereClause,
-        field_types: &[&syn::Type],
-        trait_bound: Punctuated<TypeParamBound, Plus>,
-    ) -> WhereClause {
+    // Generates one of the clauses by adding the given trait bound for all
+    // types of fields.
+    let gen_type_info_where_clause = |trait_bound: Punctuated<TypeParamBound, Plus>| {
         let mut where_clause = base_clause.clone();
         for &field_type in field_types {
+            if !is_zero_copy {
+                if let Some(field_type_id) = get_ident(field_type) {
+                    if repl_params.contains(field_type_id) {
+                        // If the field type is a replaceable parameter,
+                        // we add the bound to its associated SerType
+                        where_clause
+                            .predicates
+                            .push(WherePredicate::Type(PredicateType {
+                                lifetimes: None,
+                                bounded_ty: field_type.clone(),
+                                colon_token: token::Colon::default(),
+                                bounds: syn::parse_quote!(::epserde::ser::SerializeInner),
+                            }));
+                        where_clause
+                            .predicates
+                            .push(WherePredicate::Type(PredicateType {
+                                lifetimes: None,
+                                bounded_ty: syn::parse_quote!(
+                                    <#field_type as ::epserde::ser::SerializeInner>::SerType
+                                ),
+                                colon_token: token::Colon::default(),
+                                bounds: trait_bound.clone(),
+                            }));
+                        continue;
+                    }
+                }
+            }
             where_clause
                 .predicates
                 .push(WherePredicate::Type(PredicateType {
@@ -369,19 +394,19 @@ fn gen_type_info_where_clauses(
         }
 
         where_clause
-    }
+    };
 
     let mut bound_type_hash = Punctuated::new();
     bound_type_hash.push(syn::parse_quote!(::epserde::traits::TypeHash));
-    let type_hash = gen_type_info_where_clause(base_clause, field_types, bound_type_hash);
+    let type_hash = gen_type_info_where_clause(bound_type_hash);
 
     let mut bound_align_hash = Punctuated::new();
     bound_align_hash.push(syn::parse_quote!(::epserde::traits::AlignHash));
-    let align_hash = gen_type_info_where_clause(base_clause, field_types, bound_align_hash);
+    let align_hash = gen_type_info_where_clause(bound_align_hash);
 
     let mut bound_max_size_of = Punctuated::new();
     bound_max_size_of.push(syn::parse_quote!(::epserde::traits::MaxSizeOf));
-    let max_size_of = gen_type_info_where_clause(base_clause, field_types, bound_max_size_of);
+    let max_size_of = gen_type_info_where_clause(bound_max_size_of);
 
     (type_hash, align_hash, max_size_of)
 }
@@ -415,7 +440,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     let mut field_names = vec![];
     let mut field_types = vec![];
     let mut method_calls = vec![];
-    let mut field_type_params = HashSet::new();
+    let mut repl_params = HashSet::new();
 
     for (field_idx, field) in s.fields.iter().enumerate() {
         let field_name = get_field_name(field, field_idx);
@@ -424,21 +449,17 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         // We look for type parameters that are types of fields
         if let Some(field_type_id) = get_ident(field_type) {
             if ctx.type_params.contains(field_type_id) {
-                field_type_params.insert(field_type_id);
+                repl_params.insert(field_type_id);
             }
         }
 
-        method_calls.push(gen_deser_method_call(
-            &field_name,
-            field_type,
-            &field_type_params,
-        ));
+        method_calls.push(gen_deser_method_call(&field_name, field_type, &repl_params));
         field_names.push(field_name);
         field_types.push(field_type);
     }
 
-    let generics_for_deser_type = gen_generics_for_deser_type(ctx, &field_type_params);
-    let generics_for_ser_type = gen_generics_for_ser_type(ctx, &field_type_params);
+    let generics_for_deser_type = gen_generics_for_deser_type(ctx, &repl_params);
+    let generics_for_ser_type = gen_generics_for_ser_type(ctx, &repl_params);
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
     let (mut ser_where_wlcause, mut deser_where_clause) = gen_ser_deser_where_clauses(&field_types);
 
@@ -498,7 +519,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     } else {
         bind_ser_deser_types(
             ctx.derive_input,
-            &field_type_params,
+            &repl_params,
             &mut ser_where_wlcause,
             &mut deser_where_clause,
         );
@@ -574,7 +595,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     // For each variant, ε-copy deserialization code
     let mut variant_eps_des = vec![];
     // Type parameters that are types of some fields in some variant
-    let mut all_field_type_params = HashSet::new();
+    let mut all_repl_params = HashSet::new();
     // All field types for all variants
     let mut all_fields_types = vec![];
 
@@ -606,14 +627,14 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     // We look for type parameters that are types of fields
                     if let Some(field_type_id) = get_ident(field_type) {
                         if ctx.type_params.contains(field_type_id) {
-                            all_field_type_params.insert(field_type_id);
+                            all_repl_params.insert(field_type_id);
                         }
                     }
 
                     method_calls.push(gen_deser_method_call(
                         &field_name.to_token_stream(),
                         field_type,
-                        &all_field_type_params,
+                        &all_repl_params,
                     ));
                     field_names.push(quote! { #field_name });
                     field_types.push(field_type);
@@ -658,7 +679,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     // We look for type parameters that are types of fields
                     if let Some(field_type_id) = get_ident(field_type) {
                         if ctx.type_params.contains(field_type_id) {
-                            all_field_type_params.insert(field_type_id);
+                            all_repl_params.insert(field_type_id);
                         }
                     }
 
@@ -670,7 +691,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     method_calls.push(gen_deser_method_call(
                         &field_name.to_token_stream(),
                         field_type,
-                        &all_field_type_params,
+                        &all_repl_params,
                     ));
                     field_types.push(field_type);
                     field_names_in_arm.push(field_name);
@@ -704,8 +725,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
         }
     }
 
-    let generics_for_deser_type = gen_generics_for_deser_type(ctx, &all_field_type_params);
-    let generics_for_ser_type = gen_generics_for_ser_type(ctx, &all_field_type_params);
+    let generics_for_deser_type = gen_generics_for_deser_type(ctx, &all_repl_params);
+    let generics_for_ser_type = gen_generics_for_ser_type(ctx, &all_repl_params);
     let tag = (0..variant_arm.len()).collect::<Vec<_>>();
 
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &all_fields_types);
@@ -770,7 +791,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     } else {
         bind_ser_deser_types(
             ctx.derive_input,
-            &all_field_type_params,
+            &all_repl_params,
             &mut ser_where_clause,
             &mut deser_where_clause,
         );
@@ -949,6 +970,7 @@ fn gen_type_hash_body(
     quote! {
         use ::core::hash::Hash;
         use ::epserde::traits::TypeHash;
+        use ::epserde::ser::SerializeInner;
 
         // Hash in copy type
         Hash::hash(#copy_type, hasher);
@@ -976,13 +998,14 @@ fn gen_type_hash_body(
 /// Generates the `AlignHash` implementation body for struct types.
 fn gen_struct_align_hash_body(
     ctx: &TypeInfoContext,
-    fields_types: &[&syn::Type],
+    fields_types: &[proc_macro2::TokenStream],
 ) -> proc_macro2::TokenStream {
     let repr = &ctx.repr;
     if ctx.is_zero_copy {
         quote! {
             use ::core::hash::Hash;
             use ::epserde::traits::AlignHash;
+            use ::epserde::ser::SerializeInner;
 
             // Hash in size, as padding is given by MaxSizeOf.
             // and it is independent of the architecture.
@@ -1022,6 +1045,8 @@ fn gen_enum_align_hash_body(
     if ctx.is_zero_copy {
         quote! {
             use ::core::hash::Hash;
+            use ::epserde::traits::AlignHash;
+            use ::epserde::ser::SerializeInner;
 
             // Hash in size, as padding is given by MaxSizeOf.
             // and it is independent of the architecture.
@@ -1051,9 +1076,12 @@ fn gen_enum_align_hash_body(
 }
 
 /// Generates the `MaxSizeOf` implementation body for struct types.
-fn gen_struct_max_size_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
+fn gen_struct_max_size_of_body(
+    fields_types: &[proc_macro2::TokenStream],
+) -> proc_macro2::TokenStream {
     quote! {
         use ::epserde::traits::MaxSizeOf;
+        use ::epserde::ser::SerializeInner;
 
         let mut max_size_of = ::std::mem::align_of::<Self>();
 
@@ -1123,7 +1151,8 @@ fn gen_struct_type_info_impl(
 ) -> proc_macro2::TokenStream {
     let mut field_names = vec![];
     let mut field_types = vec![];
-    let mut field_type_params = HashSet::new();
+    let mut field_types_ts = vec![];
+    let mut repl_params = HashSet::new();
 
     // Extract field information
     for (field_idx, field) in s.fields.iter().enumerate() {
@@ -1132,15 +1161,27 @@ fn gen_struct_type_info_impl(
         field_types.push(field_type);
 
         // We look for type parameters that are types of fields
-        if let Some(field_type_id) = get_ident(field_type) {
-            if ctx.type_params.contains(field_type_id) {
-                field_type_params.insert(field_type_id);
+        if !ctx.is_zero_copy {
+            if let Some(field_type_id) = get_ident(field_type) {
+                if ctx.type_params.contains(field_type_id) {
+                    repl_params.insert(field_type_id);
+
+                    field_types_ts.push(quote! { <#field_type as SerializeInner>::SerType });
+                    continue;
+                }
             }
         }
+
+        field_types_ts.push(quote! { #field_type });
     }
 
     let (type_hash_where_clause, align_hash_where_clause, max_size_of_where_clause) =
-        gen_type_info_where_clauses(ctx.where_clause, &field_types);
+        gen_type_info_where_clauses(
+            ctx.where_clause,
+            ctx.is_zero_copy,
+            &field_types,
+            &repl_params,
+        );
 
     // Generate field hashes for TypeHash
     let mut field_hashes: Vec<_> = field_names
@@ -1148,17 +1189,24 @@ fn gen_struct_type_info_impl(
         .map(|name| quote! { Hash::hash(stringify!(#name), hasher); })
         .collect();
 
-    field_hashes.extend(
-        field_types
-            .iter()
-            .map(|ty| quote! {<#ty as TypeHash>::type_hash(hasher);}),
-    );
+    field_hashes.extend(field_types.iter().map(|field_type| {
+        if ! ctx.is_zero_copy {
+            if let Some(field_type_id) = get_ident(field_type) {
+                if ctx.type_params.contains(field_type_id) {
+                    // Replaceable type parameter
+                    return quote! { <<#field_type as SerializeInner>::SerType as TypeHash>::type_hash(hasher); }
+                }
+            }
+        }
+
+        quote! { <#field_type as TypeHash>::type_hash(hasher); }
+    }));
 
     // Generate implementation bodies
     let type_hash_body = gen_type_hash_body(&ctx, &field_hashes);
-    let align_hash_body = gen_struct_align_hash_body(&ctx, &field_types);
+    let align_hash_body = gen_struct_align_hash_body(&ctx, &field_types_ts);
     let max_size_of_body = if ctx.is_zero_copy {
-        Some(gen_struct_max_size_of_body(&field_types))
+        Some(gen_struct_max_size_of_body(&field_types_ts))
     } else {
         None
     };
@@ -1179,12 +1227,14 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
     let mut all_type_hashes = vec![];
     let mut all_align_hashes = vec![];
     let mut all_max_size_ofs = vec![];
-    let mut all_field_type_params = vec![];
+    let mut all_field_types = vec![];
+    let mut all_repl_params = HashSet::new();
 
     // Process each variant
     for variant in &e.variants {
         let ident = &variant.ident;
         let mut type_hash = quote! { Hash::hash(stringify!(#ident), hasher); };
+        let mut field_types = vec![];
         let mut align_hash = quote! {};
         let mut max_size_of = quote! {};
 
@@ -1195,26 +1245,40 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                 for field in &fields.named {
                     let field_name = field.ident.as_ref().unwrap();
                     let field_type = &field.ty;
+                    field_types.push(field_type);
+
+                    let mut field_type_ts = field_type.to_token_stream();
+
+                    if !ctx.is_zero_copy {
+                        if let Some(field_type_id) = get_ident(field_type) {
+                            if ctx.type_params.contains(field_type_id) {
+                                // Replaceable type parameter
+                                field_type_ts = quote! {<#field_type as SerializeInner>::SerType};
+                            }
+                        }
+                    }
 
                     type_hash.extend([quote! {
                         Hash::hash(stringify!(#field_name), hasher);
-                        <#field_type as TypeHash>::type_hash(hasher);
+                        <#field_type_ts as TypeHash>::type_hash(hasher);
                     }]);
 
                     align_hash.extend([quote! {
-                        <#field_type as AlignHash>::align_hash(hasher, offset_of);
+                        <#field_type_ts as AlignHash>::align_hash(hasher, offset_of);
                     }]);
 
                     max_size_of.extend([quote! {
-                        if max_size_of < <#field_type as MaxSizeOf>::max_size_of() {
-                            max_size_of = <#field_type as MaxSizeOf>::max_size_of();
+                        if max_size_of < <#field_type_ts as MaxSizeOf>::max_size_of() {
+                            max_size_of = <#field_type_ts as MaxSizeOf>::max_size_of();
                         }
                     }]);
 
-                    // We look for type parameters that are types of fields
-                    if let Some(field_type_id) = get_ident(field_type) {
-                        if ctx.type_params.contains(field_type_id) {
-                            all_field_type_params.push(field_type);
+                    if !ctx.is_zero_copy {
+                        // We look for type parameters that are types of fields
+                        if let Some(field_type_id) = get_ident(field_type) {
+                            if ctx.type_params.contains(field_type_id) {
+                                all_repl_params.insert(field_type_id);
+                            }
                         }
                     }
                 }
@@ -1222,28 +1286,42 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 
             syn::Fields::Unnamed(fields) => {
                 for (field_idx, field) in fields.unnamed.iter().enumerate() {
-                    let field_type = &field.ty;
                     let field_name = field_idx.to_string();
+                    let field_type = &field.ty;
+                    field_types.push(field_type);
+
+                    let mut field_type_ts = field_type.to_token_stream();
+
+                    if !ctx.is_zero_copy {
+                        if let Some(field_type_id) = get_ident(field_type) {
+                            if ctx.type_params.contains(field_type_id) {
+                                // Replaceable type parameter
+                                field_type_ts = quote! {<#field_type as SerializeInner>::SerType};
+                            }
+                        }
+                    }
 
                     type_hash.extend([quote! {
                         Hash::hash(#field_name, hasher);
-                        <#field_type as TypeHash>::type_hash(hasher);
+                        <#field_type_ts as TypeHash>::type_hash(hasher);
                     }]);
 
                     align_hash.extend([quote! {
-                        <#field_type as AlignHash>::align_hash(hasher, offset_of);
+                        <#field_type_ts as AlignHash>::align_hash(hasher, offset_of);
                     }]);
 
                     max_size_of.extend([quote! {
-                        if max_size_of < <#field_type as MaxSizeOf>::max_size_of() {
-                            max_size_of = <#field_type as MaxSizeOf>::max_size_of();
+                        if max_size_of < <#field_type_ts as MaxSizeOf>::max_size_of() {
+                            max_size_of = <#field_type_ts as MaxSizeOf>::max_size_of();
                         }
                     }]);
 
-                    // We look for type parameters that are types of fields
-                    if let Some(field_type_id) = get_ident(field_type) {
-                        if ctx.type_params.contains(field_type_id) {
-                            all_field_type_params.push(field_type);
+                    if !ctx.is_zero_copy {
+                        // We look for type parameters that are types of fields
+                        if let Some(field_type_id) = get_ident(field_type) {
+                            if ctx.type_params.contains(field_type_id) {
+                                all_repl_params.insert(field_type_id);
+                            }
                         }
                     }
                 }
@@ -1253,10 +1331,16 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
         all_type_hashes.push(type_hash);
         all_align_hashes.push(align_hash);
         all_max_size_ofs.push(max_size_of);
+        all_field_types.extend(field_types);
     }
 
     let (where_clause_type_hash, where_clause_align_hash, where_clause_max_size_of) =
-        gen_type_info_where_clauses(ctx.where_clause, &all_field_type_params);
+        gen_type_info_where_clauses(
+            ctx.where_clause,
+            ctx.is_zero_copy,
+            &all_field_types,
+            &all_repl_params,
+        );
 
     let type_hash_body = gen_type_hash_body(&ctx, &all_type_hashes);
     let align_hash_body = gen_enum_align_hash_body(&ctx, &all_align_hashes);

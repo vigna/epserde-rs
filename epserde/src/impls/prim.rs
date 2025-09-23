@@ -327,7 +327,7 @@ impl<T: AlignHash> AlignHash for Option<T> {
 }
 
 impl<T: SerializeInner + TypeHash + AlignHash> SerializeInner for Option<T> {
-    type SerType = Self;
+    type SerType = Option<T::SerType>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 

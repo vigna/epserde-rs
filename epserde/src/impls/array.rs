@@ -5,11 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
+//! Implementations for arrays.
 
-Implementations for arrays.
-
-*/
 use crate::prelude::*;
 use core::hash::Hash;
 use core::mem::MaybeUninit;

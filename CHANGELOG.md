@@ -5,7 +5,9 @@
 ### New
 
 * New delegations of standard-library traits to `MemCase`; in particular,
-  `Deref`.
+  `AsRef` and `Deref` are back, but with a slightly different semantics, as
+  the implementation `Deref` for `MemCase<S>` has target `S::DeserType<_>`,
+  and analogously for `AsRef`.
 
 ### Changed
 
@@ -18,8 +20,10 @@
 * `CopyType` is now unsafe as there is no way to check a type contains
   no references.
 
-* `repr` attributes are now sorted lexicographically. This might cause minor
-  incompatibilities that can be solved by sorting the attribute in the code.
+* `repr` attributes are now sorted lexicographically. This change was
+  necessary as the order of such attributes is irrelevant, but it might make
+  impossible to deserialize old instances whose type specifies `repr` attributes
+  in a different order.
 
 ## [0.9.0] - 2025-09-17
 

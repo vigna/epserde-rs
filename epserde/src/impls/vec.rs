@@ -5,11 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
+//! Implementations for vectors.
 
-Implementations for vectors.
-
-*/
 use crate::deser;
 use crate::deser::helpers::*;
 use crate::deser::*;
@@ -27,7 +24,7 @@ impl<T> CopyType for Vec<T> {
 
 impl<T: TypeHash> TypeHash for Vec<T> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        Box::<[T]>::type_hash(hasher);
+        <Box<[T]>>::type_hash(hasher);
     }
 }
 
@@ -41,7 +38,7 @@ impl<T: CopyType + SerializeInner + TypeHash + AlignHash> SerializeInner for Vec
 where
     Vec<T>: SerializeHelper<<T as CopyType>::Copy>,
 {
-    type SerType = Self;
+    type SerType = Box<[T]>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {

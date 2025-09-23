@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Mechanisms for keeping together [ε-copy
+//! deserialized](crate::deser::Deserialize::deserialize_eps) structures and the
+//! memory regions they point to.
+
 use crate::{DeserializeInner, deser::DeserType};
 use bitflags::bitflags;
 use core::{fmt, mem::size_of};

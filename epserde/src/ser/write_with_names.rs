@@ -52,6 +52,7 @@ pub trait WriteWithNames: WriteWithPos + Sized {
     /// The default implementation simply delegates to [`SerializeInner::_serialize_inner`].
     /// Other implementations might use the name information (e.g., [`SchemaWriter`]),
     /// but they must in the end delegate to [`SerializeInner::_serialize_inner`].
+    /// TODO: unsafe
     fn write<V: SerializeInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
         unsafe { value._serialize_inner(self) }
     }

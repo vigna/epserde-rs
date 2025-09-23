@@ -4,22 +4,19 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
-
-Implementations for exact-size iterators.
-
-In theory all types serialized by ε-serde must be immutable. However,
-we provide a convenience implementation that serializes
-[exact-size iterators](core::iter::ExactSizeIterator) returning
-references to `T` as vectors of `T`.
-
-More precisely, we provide a [`SerIter`] type that [wraps](SerIter::new)
-an iterator into a serializable type. We provide a [`From`] implementation for convenience.
-
-Note, however, that you must deserialize the iterator as a vector—see
-the example in the [crate-level documentation](crate).
-
-*/
+//! Implementations for exact-size iterators.
+//!
+//! In theory all types serialized by ε-serde must be immutable. However, we
+//! provide a convenience implementation that serializes [exact-size
+//! iterators](core::iter::ExactSizeIterator) returning references to `T` as
+//! vectors of `T`.
+//!
+//! More precisely, we provide a [`SerIter`] type that [wraps](SerIter::new) an
+//! iterator into a serializable type. We provide a [`From`] implementation for
+//! convenience.
+//!
+//! Note, however, that you must deserialize the iterator as a vector—see the
+//! example in the [crate-level documentation](crate).
 
 use core::{cell::RefCell, ops::DerefMut};
 
@@ -51,7 +48,7 @@ impl<'a, T: ZeroCopy + TypeHash, I: ExactSizeIterator<Item = &'a T>> TypeHash
     for SerIter<'a, T, I>
 {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        Vec::<T>::type_hash(hasher);
+        <Box<[T]>>::type_hash(hasher);
     }
 }
 
@@ -59,7 +56,7 @@ impl<'a, T: ZeroCopy + AlignHash, I: ExactSizeIterator<Item = &'a T>> AlignHash
     for SerIter<'a, T, I>
 {
     fn align_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        Vec::<T>::align_hash(hasher, offset_of);
+        <Box<[T]>>::align_hash(hasher, offset_of);
     }
 }
 
@@ -68,7 +65,7 @@ impl<'a, T: ZeroCopy + SerializeInner + TypeHash + AlignHash, I: ExactSizeIterat
 where
     SerIter<'a, T, I>: SerializeHelper<<T as CopyType>::Copy>,
 {
-    type SerType = Vec<T>;
+    type SerType = Box<[T]>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -81,7 +78,7 @@ impl<'a, T: ZeroCopy + SerializeInner + TypeHash + AlignHash, I: ExactSizeIterat
 {
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         check_zero_copy::<T>();
-        // This code must be kept aligned with that of Vec<T> for zero-copy
+        // This code must be kept aligned with that of Box<[T]> for zero-copy
         // types
         let mut iter = self.0.borrow_mut();
         let len = iter.len();

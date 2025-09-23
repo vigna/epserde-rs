@@ -23,7 +23,6 @@ impl CopyType for String {
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::string::String;
 
-#[cfg(feature = "alloc")]
 impl TypeHash for String {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "String".hash(hasher);

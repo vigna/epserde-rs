@@ -10,6 +10,7 @@
 //! Note that none of this types can be zero-copy (unless they are empty, as in
 //! the case of [`RangeFull`](core::ops::RangeFull)), because they are not
 //! `repr(C)`.
+//!
 use ser::WriteWithNames;
 
 use crate::prelude::*;

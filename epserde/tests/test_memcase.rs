@@ -159,3 +159,18 @@ fn test_into_iter() {
         assert_eq!(v, w);
     });
 }
+
+#[test]
+fn test_deref() {
+    let data = vec![100, 200, 300, 400, 500];
+
+    let mut buffer = Vec::new();
+    unsafe { data.serialize(&mut buffer).unwrap() };
+    let cursor = Cursor::new(&buffer);
+    let mem_case = unsafe { Vec::<i32>::read_mem(cursor, buffer.len()).unwrap() };
+
+    assert_eq!(&data[..], &*mem_case);
+    for (d, m) in data.iter().zip(mem_case.iter()) {
+        assert_eq!(d, m);
+    }
+}

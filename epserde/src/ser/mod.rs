@@ -5,19 +5,14 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
-
-Serialization traits and types.
-
-[`Serialize`] is the main serialization trait, providing a
-[`Serialize::serialize`] method that serializes the type into a
-generic [`WriteNoStd`] backend, and a [`Serialize::serialize_with_schema`] method
-that additionally returns a [`Schema`] describing the data that has been written.
-The implementation of this trait
-is based on [`SerializeInner`], which is automatically derived
-with `#[derive(Serialize)]`.
-
-*/
+//! Serialization traits and types.
+//!
+//! [`Serialize`] is the main serialization trait, providing a
+//! [`Serialize::serialize`] method that serializes the type into a generic
+//! [`WriteNoStd`] backend, and a [`Serialize::serialize_with_schema`] method
+//! that additionally returns a [`Schema`] describing the data that has been
+//! written. The implementation of this trait is based on [`SerializeInner`],
+//! which is automatically derived with `#[derive(Serialize)]`.
 
 use crate::traits::*;
 use crate::*;
@@ -53,7 +48,6 @@ pub type Result<T> = core::result::Result<T, Error>;
 ///
 /// #[repr(C)]
 /// #[repr(align(1024))]
-/// #[derive(Epserde, Clone, Copy, Debug, PartialEq)]
 /// #[zero_copy]
 ///
 /// struct Example(u8);
@@ -177,23 +171,25 @@ where
 
 /// Write the header.
 ///
+/// Note that `S` is the serialized type, not the serialization type.
+///
 /// Must be kept in sync with [`crate::deser::check_header`].
-pub fn write_header<T: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) -> Result<()> {
+pub fn write_header<S: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) -> Result<()> {
     backend.write("MAGIC", &MAGIC)?;
     backend.write("VERSION_MAJOR", &VERSION.0)?;
     backend.write("VERSION_MINOR", &VERSION.1)?;
     backend.write("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8))?;
 
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
-    T::type_hash(&mut type_hasher);
+    S::type_hash(&mut type_hasher);
 
     let mut align_hasher = xxhash_rust::xxh3::Xxh3::new();
     let mut offset_of = 0;
-    T::align_hash(&mut align_hasher, &mut offset_of);
+    S::align_hash(&mut align_hasher, &mut offset_of);
 
     backend.write("TYPE_HASH", &type_hasher.finish())?;
     backend.write("REPR_HASH", &align_hasher.finish())?;
-    backend.write("TYPE_NAME", &core::any::type_name::<T>().to_string())
+    backend.write("TYPE_NAME", &core::any::type_name::<S>().to_string())
 }
 
 /// A helper trait that makes it possible to implement differently serialization
