@@ -113,9 +113,15 @@ impl MemBackend {
 /// All methods are unimplemented.
 #[derive(Debug, MemSize, MemDbg, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(transparent)]
-pub struct EncaseWrapper<T>(T);
+pub struct Encase<T>(T);
 
-impl<T: DeserializeInner> DeserializeInner for EncaseWrapper<T> {
+impl<T> From<T> for MemCase<Encase<T>> {
+    fn from(t: T) -> Self {
+        <MemCase<Encase<T>>>::encase(t)
+    }
+}
+
+impl<T> DeserializeInner for Encase<T> {
     type DeserType<'a> = T;
 
     unsafe fn _deserialize_full_inner(
@@ -131,7 +137,7 @@ impl<T: DeserializeInner> DeserializeInner for EncaseWrapper<T> {
     }
 }
 
-impl<T: SerializeInner> SerializeInner for EncaseWrapper<T> {
+impl<T> SerializeInner for Encase<T> {
     type SerType = T;
 
     const IS_ZERO_COPY: bool = false;
@@ -203,7 +209,7 @@ impl<S: DeserializeInner> MemCase<S> {
     /// Moreover, [`MemCase::uncase`] will return a reference to the inner type,
     /// exactly like in the case of a [`MemCase`] created by
     /// deserialization (e.g., using [`crate::deser::Deserialize::load_mmap`]).
-    pub fn encase(s: S) -> MemCase<EncaseWrapper<S>> {
+    pub fn encase<T>(s: T) -> MemCase<Encase<T>> {
         MemCase(s, MemBackend::None)
     }
 
@@ -248,7 +254,7 @@ where
     }
 }
 
-impl<'a, T> IntoIterator for &'a EncaseWrapper<T>
+impl<'a, T> IntoIterator for &'a Encase<T>
 where
     for<'b> &'b T: IntoIterator,
 {
@@ -269,7 +275,7 @@ where
     }
 }
 
-impl<A, T: AsRef<A>> AsRef<A> for EncaseWrapper<T> {
+impl<A, T: AsRef<A>> AsRef<A> for Encase<T> {
     fn as_ref(&self) -> &A {
         self.0.as_ref()
     }
@@ -286,7 +292,7 @@ where
     }
 }
 
-impl<T> std::ops::Deref for EncaseWrapper<T> {
+impl<T> std::ops::Deref for Encase<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -305,7 +311,7 @@ where
     }
 }
 
-impl<Idx, T: core::ops::Index<Idx>> core::ops::Index<Idx> for EncaseWrapper<T> {
+impl<Idx, T: core::ops::Index<Idx>> core::ops::Index<Idx> for Encase<T> {
     type Output = <T as core::ops::Index<Idx>>::Output;
 
     fn index(&self, index: Idx) -> &Self::Output {
