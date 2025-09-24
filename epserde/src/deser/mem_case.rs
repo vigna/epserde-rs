@@ -309,58 +309,44 @@ impl<Idx, T: core::ops::Index<Idx>> core::ops::Index<Idx> for EncaseWrapper<T> {
     type Output = <T as core::ops::Index<Idx>>::Output;
 
     fn index(&self, index: Idx) -> &Self::Output {
-        unsafe { &self.0[index] }
+        &self.0[index]
     }
 }
 
-impl<S: DeserializeInner> PartialOrd<MemCase<S>> for MemCase<S>
+impl<S: DeserializeInner> PartialEq<MemCase<S>> for MemCase<S>
 where
-    for<'a> DeserType<'a, S>: PartialOrd<DeserType<'a, S>>,
-{
-    fn partial_cmp(&self, other: &MemCase<S>) -> Option<core::cmp::Ordering> {
-        self.uncase().partial_cmp(other.uncase())
-    }
-}
-
-impl<T: PartialOrd<T>> PartialOrd<EncaseWrapper<T>> for EncaseWrapper<T> {
-    fn partial_cmp(&self, other: &EncaseWrapper<T>) -> Option<core::cmp::Ordering> {
-        self.0.partial_cmp(&other.0)
-    }
-}
-
-impl<S: DeserializeInner> Ord for MemCase<S>
-where
-    for<'a> DeserType<'a, S>: Ord,
-{
-    fn cmp(&self, other: &MemCase<S>) -> core::cmp::Ordering {
-        self.uncase().cmp(other.uncase())
-    }
-}
-
-impl<T: Ord> Ord for EncaseWrapper<T> {
-    fn cmp(&self, other: &MemCase<S>) -> core::cmp::Ordering {
-        self.0.cmp(&other.0)
-    }
-}
-
-impl<S: DeserializeInner, T: DeserializeInner> PartialEq<MemCase<T>> for MemCase<S>
-where
-    for<'a, 'b> DeserType<'a, S>: PartialEq<DeserType<'b, T>>,
+    for<'a, 'b> DeserType<'a, S>: PartialEq<DeserType<'b, S>>,
 {
     fn eq(&self, other: &MemCase<S>) -> bool {
         self.uncase().eq(other.uncase())
     }
 }
 
-impl<T, U> PartialEq<EncaseWrapper<U>> for EncaseWrapper<T>
+impl<S: DeserializeInner> Eq for MemCase<S>
 where
-    T: PartialEq<U>,
+    for<'a, 'b> DeserType<'a, S>: PartialEq<DeserType<'b, S>>,
+    for<'a> DeserType<'a, S>: Eq,
 {
-    fn eq(&self, other: &EncaseWrapper<U>) -> bool {
-        self.0.eq(&other.0)
+}
+
+/* TODO
+ *
+impl<S: DeserializeInner> PartialOrd<MemCase<S>> for MemCase<S>
+where
+    for<'a, 'b> DeserType<'a, S>: PartialOrd<DeserType<'b, S>>,
+{
+    fn partial_cmp(&self, other: &MemCase<S>) -> Option<core::cmp::Ordering> {
+        self.uncase().partial_cmp(other.uncase())
     }
 }
 
-impl<S: DeserializeInner> Eq for MemCase<S> where for<'a> DeserType<'a, S>: Eq {}
-
-impl<T: Eq> Eq for EncaseWrapper<T> {}
+impl<S: DeserializeInner + Eq> Ord for MemCase<S>
+where
+    for<'a, 'b> DeserType<'a, S>: PartialEq<DeserType<'b, S>>,
+    for<'a> DeserType<'a, S>: Eq + Ord,
+{
+    fn cmp(&self, other: &MemCase<S>) -> core::cmp::Ordering {
+        self.uncase().cmp(other.uncase())
+    }
+}
+*/
