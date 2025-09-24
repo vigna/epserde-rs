@@ -87,14 +87,10 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
 
 /// Generates a method call for field deserialization.
 ///
-/// This methods takes care of choosing
-/// [`_deserialize_eps_inner`](crate::deser::DeserializeInner::_deserialize_eps_inner)
-/// or
-/// [`_deserialize_full_inner`](crate::deser::DeserializeInner::_deserialize_full_inner)
-/// depending on whether a field type is a type parameter or not, and to use the
-/// special method
-/// [`_deserialize_eps_inner_special`](crate::PhantomDeserData::_deserialize_eps_inner_special)
-/// for [`PhantomDeserData`](crate::PhantomDeserData).
+/// This methods takes care of choosing `_deserialize_eps_inner` or
+/// `_deserialize_full_inner` depending on whether a field type is a type
+/// parameter or not, and to use the special method
+/// `_deserialize_eps_inner_special` for `PhantomDeserData`.
 ///
 /// The type of `field_name` is [`proc_macro2::TokenStream`] because it can be
 /// either an identifier (for named fields) or an index (for unnamed fields).

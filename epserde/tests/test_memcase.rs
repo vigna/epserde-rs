@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use epserde::{deser::EncaseWrapper, prelude::*};
-use std::{io::Cursor, iter::zip, ops::Deref};
+use epserde::{deser::Owned, prelude::*};
+use std::{io::Cursor, iter::zip};
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct PersonVec<A, B> {
@@ -174,7 +174,7 @@ fn test_deref() {
         assert_eq!(d, m);
     }
 
-    let mem_case = MemCase::<EncaseWrapper<Vec<i32>>>::encase(data.clone());
+    let mem_case: MemCase<Owned<Vec<i32>>> = data.clone().into();
 
     assert_eq!(&data[..], &*mem_case);
     for (d, m) in data.iter().zip(mem_case.iter()) {

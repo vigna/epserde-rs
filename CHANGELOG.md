@@ -9,8 +9,8 @@
   the implementation `Deref` for `MemCase<S>` has target
   `S::DeserType<_>::Target`, and analogously for `AsRef`.
 
-* New strategy for `MemCase::encase`, which uses a transparent wrapper to
-  being back the original functionality.
+* New strategy for `MemCase::encase`, which uses a transparent wrapper `Owned`
+  to bring back the original functionality.
 
 ### Changed
 
