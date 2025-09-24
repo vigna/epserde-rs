@@ -238,7 +238,7 @@ unsafe impl<S: DeserializeInner + Sync> Sync for MemCase<S> {}
 
 impl<'a, S: DeserializeInner> IntoIterator for &'a MemCase<S>
 where
-    &'a DeserType<'a, S>: IntoIterator,
+    for<'b> &'b DeserType<'b, S>: IntoIterator,
 {
     type Item = <&'a DeserType<'a, S> as IntoIterator>::Item;
     type IntoIter = <&'a DeserType<'a, S> as IntoIterator>::IntoIter;
@@ -250,7 +250,7 @@ where
 
 impl<'a, T> IntoIterator for &'a EncaseWrapper<T>
 where
-    &'a T: IntoIterator,
+    for<'b> &'b T: IntoIterator,
 {
     type Item = <&'a T as IntoIterator>::Item;
     type IntoIter = <&'a T as IntoIterator>::IntoIter;
