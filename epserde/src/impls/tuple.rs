@@ -47,7 +47,7 @@ macro_rules! impl_type_hash {
 
 macro_rules! impl_tuples {
     ($($t:ident),*) => {
-        impl<T: ZeroCopy> CopyType for ($($t,)*)  {
+        unsafe impl<T: ZeroCopy> CopyType for ($($t,)*)  {
             type Copy = Zero;
 		}
 

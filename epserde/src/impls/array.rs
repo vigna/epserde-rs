@@ -13,7 +13,7 @@ use core::mem::MaybeUninit;
 use deser::*;
 use ser::*;
 
-impl<T: CopyType, const N: usize> CopyType for [T; N] {
+unsafe impl<T: CopyType, const N: usize> CopyType for [T; N] {
     type Copy = T::Copy;
 }
 

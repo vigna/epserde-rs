@@ -31,7 +31,7 @@ impl TypeHash for DefaultHasher {
 
 macro_rules! impl_ranges {
     ($ty:ident) => {
-        impl<Idx: ZeroCopy> CopyType for core::ops::$ty<Idx> {
+        unsafe impl<Idx: ZeroCopy> CopyType for core::ops::$ty<Idx> {
             type Copy = Deep;
         }
 
@@ -65,7 +65,7 @@ impl_ranges!(RangeToInclusive);
 
 // RangeFull is a zero-sized type, so it is always zero-copy.
 
-impl CopyType for core::ops::RangeFull {
+unsafe impl CopyType for core::ops::RangeFull {
     type Copy = Zero;
 }
 
@@ -271,7 +271,7 @@ impl DeserializeInner for core::ops::RangeFull {
     }
 }
 
-impl<T: CopyType> CopyType for core::ops::Bound<T> {
+unsafe impl<T: CopyType> CopyType for core::ops::Bound<T> {
     type Copy = Deep;
 }
 
@@ -340,7 +340,7 @@ impl<T: DeserializeInner> DeserializeInner for core::ops::Bound<T> {
     }
 }
 
-impl<B: CopyType, C: CopyType> CopyType for core::ops::ControlFlow<B, C> {
+unsafe impl<B: CopyType, C: CopyType> CopyType for core::ops::ControlFlow<B, C> {
     type Copy = Deep;
 }
 
