@@ -6,8 +6,8 @@
 
 * New delegations of standard-library traits to `MemCase`; in particular,
   `AsRef` and `Deref` are back, but with a slightly different semantics, as
-  the implementation `Deref` for `MemCase<S>` has target `S::DeserType<_>`,
-  and analogously for `AsRef`.
+  the implementation `Deref` for `MemCase<S>` has target
+  `S::DeserType<_>::Target`, and analogously for `AsRef`.
 
 * New strategy for `MemCase::encase`, which uses a transparent wrapper to
   being back the original functionality.

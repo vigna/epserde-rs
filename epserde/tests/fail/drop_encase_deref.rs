@@ -11,6 +11,7 @@ fn main() {
     let v = vec![0, 10, 20, 30, 40];
     let mem_case = MemCase::encase(v);
     let d = mem_case.deref();
+    let d = d.clone();
     drop(mem_case);
     let _d = d;
 }

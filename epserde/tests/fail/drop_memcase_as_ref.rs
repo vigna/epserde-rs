@@ -15,6 +15,7 @@ fn main() {
     let cursor = Cursor::new(&buffer);
     let mem_case = unsafe { Vec::<i32>::read_mem(cursor, buffer.len()).unwrap() };
     let r = mem_case.uncase().as_ref();
+    let r = r.clone();
     drop(mem_case);
     let _r = r;
 }
