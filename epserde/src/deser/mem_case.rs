@@ -115,14 +115,6 @@ impl MemBackend {
 #[repr(transparent)]
 pub struct EncaseWrapper<T>(T);
 
-impl<T> std::ops::Deref for EncaseWrapper<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl<T: DeserializeInner> DeserializeInner for EncaseWrapper<T> {
     type DeserType<'a> = T;
 
@@ -256,12 +248,30 @@ where
     }
 }
 
+impl<'a, T> IntoIterator for &'a EncaseWrapper<T>
+where
+    &'a T: IntoIterator,
+{
+    type Item = <&'a T as IntoIterator>::Item;
+    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 impl<A, S: DeserializeInner> AsRef<A> for MemCase<S>
 where
     for<'a> DeserType<'a, S>: AsRef<A>,
 {
     fn as_ref(&self) -> &A {
         self.uncase().as_ref()
+    }
+}
+
+impl<A, T: AsRef<A>> AsRef<A> for EncaseWrapper<T> {
+    fn as_ref(&self) -> &A {
+        self.0.as_ref()
     }
 }
 
@@ -276,6 +286,14 @@ where
     }
 }
 
+impl<T> std::ops::Deref for EncaseWrapper<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl<Idx, S: DeserializeInner> core::ops::Index<Idx> for MemCase<S>
 where
     for<'a> DeserType<'a, S>: core::ops::Index<Idx>,
@@ -284,6 +302,14 @@ where
 
     fn index(&self, index: Idx) -> &Self::Output {
         unsafe { &self.uncase_static()[index] }
+    }
+}
+
+impl<Idx, T: core::ops::Index<Idx>> core::ops::Index<Idx> for EncaseWrapper<T> {
+    type Output = <T as core::ops::Index<Idx>>::Output;
+
+    fn index(&self, index: Idx) -> &Self::Output {
+        unsafe { &self.0[index] }
     }
 }
 
@@ -296,6 +322,12 @@ where
     }
 }
 
+impl<T: PartialOrd<T>> PartialOrd<EncaseWrapper<T>> for EncaseWrapper<T> {
+    fn partial_cmp(&self, other: &EncaseWrapper<T>) -> Option<core::cmp::Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+
 impl<S: DeserializeInner> Ord for MemCase<S>
 where
     for<'a> DeserType<'a, S>: Ord,
@@ -305,13 +337,30 @@ where
     }
 }
 
-impl<S: DeserializeInner> PartialEq<MemCase<S>> for MemCase<S>
+impl<T: Ord> Ord for EncaseWrapper<T> {
+    fn cmp(&self, other: &MemCase<S>) -> core::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl<S: DeserializeInner, T: DeserializeInner> PartialEq<MemCase<T>> for MemCase<S>
 where
-    for<'a> DeserType<'a, S>: PartialEq<DeserType<'a, S>>,
+    for<'a, 'b> DeserType<'a, S>: PartialEq<DeserType<'b, T>>,
 {
     fn eq(&self, other: &MemCase<S>) -> bool {
         self.uncase().eq(other.uncase())
     }
 }
 
+impl<T, U> PartialEq<EncaseWrapper<U>> for EncaseWrapper<T>
+where
+    T: PartialEq<U>,
+{
+    fn eq(&self, other: &EncaseWrapper<U>) -> bool {
+        self.0.eq(&other.0)
+    }
+}
+
 impl<S: DeserializeInner> Eq for MemCase<S> where for<'a> DeserType<'a, S>: Eq {}
+
+impl<T: Eq> Eq for EncaseWrapper<T> {}
