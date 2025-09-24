@@ -21,7 +21,7 @@ use ser::*;
 
 macro_rules! impl_prim_type_hash {
     ($($ty:ty),*) => {$(
-        impl CopyType for $ty {
+        unsafe impl CopyType for $ty {
             type Copy = Zero;
         }
 
@@ -254,7 +254,7 @@ impl DeserializeInner for () {
 // but it does have to implement TypeHash, as we must be able to tell
 // apart structures with different type parameters stored in a PhantomData.
 
-impl<T: ?Sized> CopyType for PhantomData<T> {
+unsafe impl<T: ?Sized> CopyType for PhantomData<T> {
     type Copy = Zero;
 }
 
@@ -304,7 +304,7 @@ impl<T: ?Sized> DeserializeInner for PhantomData<T> {
 
 // Options are deep-copy types serialized as a one-byte tag (0 for None, 1 for Some) followed, in case, by the value.
 
-impl<T> CopyType for Option<T> {
+unsafe impl<T> CopyType for Option<T> {
     type Copy = Deep;
 }
 

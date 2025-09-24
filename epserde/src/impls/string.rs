@@ -12,7 +12,7 @@ use core::hash::Hash;
 use deser::*;
 use ser::*;
 
-impl CopyType for String {
+unsafe impl CopyType for String {
     type Copy = Deep;
 }
 
@@ -82,7 +82,7 @@ impl DeserializeInner for String {
     }
 }
 
-impl CopyType for Box<str> {
+unsafe impl CopyType for Box<str> {
     type Copy = Deep;
 }
 

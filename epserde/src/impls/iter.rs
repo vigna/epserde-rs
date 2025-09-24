@@ -26,7 +26,7 @@ use ser::*;
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct SerIter<'a, T: 'a, I: ExactSizeIterator<Item = &'a T>>(RefCell<I>);
 
-impl<'a, T: ZeroCopy + TypeHash, I: ExactSizeIterator<Item = &'a T>> CopyType
+unsafe impl<'a, T: ZeroCopy + TypeHash, I: ExactSizeIterator<Item = &'a T>> CopyType
     for SerIter<'a, T, I>
 {
     type Copy = Deep;

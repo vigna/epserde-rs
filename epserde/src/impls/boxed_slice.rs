@@ -13,7 +13,7 @@ use core::hash::Hash;
 use deser::*;
 use ser::*;
 
-impl<T> CopyType for Box<[T]> {
+unsafe impl<T> CopyType for Box<[T]> {
     type Copy = Deep;
 }
 

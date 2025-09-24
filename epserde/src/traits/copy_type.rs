@@ -83,7 +83,13 @@ impl CopySelector for Deep {
 /// If you use the provided derive macros all this logic will be hidden from
 /// you. You'll just have to add `#[zero_copy]` to your structures (if you want
 /// them to be zero-copy) and ε-serde will do the rest.
-pub trait CopyType: Sized {
+///
+/// # Safety
+/// The trait is unsafe because the user must guarantee that the type is either
+/// zero-copy or deep-copy, and this cannot be checked by the compiler. In
+/// particular, if you implement `CopyType` with `Copy = Zero` you must guarantee
+/// that the type is `repr(C)`, has no padding bytes, and no pointers.
+pub unsafe trait CopyType: Sized {
     type Copy: CopySelector;
 }
 
