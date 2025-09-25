@@ -85,14 +85,14 @@ impl<T: ZeroCopy + DeserInner> DeserHelper<Zero> for Box<[T]> {
     #[inline(always)]
     unsafe fn _deser_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
-    ) -> deser::Result<<Self as DeserInner>::DeserType<'a>> {
+    ) -> deser::Result<DeserType<'a, Self>> {
         unsafe { deser_eps_slice_zero(backend) }
     }
 }
 
 impl<T: DeepCopy + DeserInner> DeserHelper<Deep> for Box<[T]> {
     type FullType = Self;
-    type DeserType<'a> = Box<[<T as DeserInner>::DeserType<'a>]>;
+    type DeserType<'a> = Box<[DeserType<'a, T>]>;
     #[inline(always)]
     unsafe fn _deser_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(deser_full_vec_deep(backend)?.into_boxed_slice())
@@ -100,7 +100,7 @@ impl<T: DeepCopy + DeserInner> DeserHelper<Deep> for Box<[T]> {
     #[inline(always)]
     unsafe fn _deser_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
-    ) -> deser::Result<<Self as DeserInner>::DeserType<'a>> {
+    ) -> deser::Result<DeserType<'a, Self>> {
         Ok(deser_eps_vec_deep::<T>(backend)?.into_boxed_slice())
     }
 }

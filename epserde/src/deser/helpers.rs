@@ -9,7 +9,7 @@
 
 use super::SliceWithPos;
 use super::{DeserInner, read::*};
-use crate::deser;
+use crate::deser::{self, DeserType};
 use crate::traits::*;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
@@ -122,7 +122,7 @@ pub unsafe fn deser_eps_slice_zero<'a, T: ZeroCopy>(
 /// ε-copy deserialize a vector of deep-copy structures.
 pub fn deser_eps_vec_deep<'a, T: DeepCopy + DeserInner>(
     backend: &mut SliceWithPos<'a>,
-) -> deser::Result<Vec<<T as DeserInner>::DeserType<'a>>> {
+) -> deser::Result<Vec<DeserType<'a, T>>> {
     let len = unsafe { usize::_deser_full_inner(backend)? };
     let mut res = Vec::with_capacity(len);
     for _ in 0..len {

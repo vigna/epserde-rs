@@ -246,7 +246,7 @@ fn bind_ser_deser_types(
                             gt_token: token::Gt::default(),
                         }),
                         bounded_ty: syn::parse_quote!(
-                            <#ident as ::epserde::deser::DeserInner>::DeserType<'epserde_desertype>
+                            ::epserde::deser::DeserType<'epserde_desertype, #ident>
                         ),
                         colon_token: token::Colon::default(),
                         bounds: t.bounds.clone(),
@@ -297,7 +297,7 @@ fn gen_generics_for_deser_type(
         .iter()
         .map(|ident| {
             if repl_params.contains(ident) {
-                quote!(<#ident as ::epserde::deser::DeserInner>::DeserType<'epserde_desertype>)
+                quote!(::epserde::deser::DeserType<'epserde_desertype, #ident>)
             } else {
                 quote!(#ident)
             }

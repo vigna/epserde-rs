@@ -105,7 +105,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::Range<Idx> {
         let end = unsafe { Idx::_deser_full_inner(backend) }?;
         Ok(core::ops::Range { start, end })
     }
-    type DeserType<'a> = core::ops::Range<<Idx as DeserInner>::DeserType<'a>>;
+    type DeserType<'a> = core::ops::Range<DeserType<'a, Idx>>;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
@@ -134,7 +134,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeFrom<Idx> {
         let start = unsafe { Idx::_deser_full_inner(backend) }?;
         Ok(core::ops::RangeFrom { start })
     }
-    type DeserType<'a> = core::ops::RangeFrom<<Idx as DeserInner>::DeserType<'a>>;
+    type DeserType<'a> = core::ops::RangeFrom<DeserType<'a, Idx>>;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
@@ -167,7 +167,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeInclusive<Idx> {
         assert!(!exhausted, "cannot deserialize an exhausted range");
         Ok(start..=end)
     }
-    type DeserType<'a> = core::ops::RangeInclusive<<Idx as DeserInner>::DeserType<'a>>;
+    type DeserType<'a> = core::ops::RangeInclusive<DeserType<'a, Idx>>;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
@@ -198,7 +198,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeTo<Idx> {
         let end = unsafe { Idx::_deser_full_inner(backend) }?;
         Ok(..end)
     }
-    type DeserType<'a> = core::ops::RangeTo<<Idx as DeserInner>::DeserType<'a>>;
+    type DeserType<'a> = core::ops::RangeTo<DeserType<'a, Idx>>;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
@@ -228,7 +228,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeToInclusive<Idx>
         let end = unsafe { Idx::_deser_full_inner(backend) }?;
         Ok(..=end)
     }
-    type DeserType<'a> = core::ops::RangeToInclusive<<Idx as DeserInner>::DeserType<'a>>;
+    type DeserType<'a> = core::ops::RangeToInclusive<DeserType<'a, Idx>>;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
@@ -313,7 +313,7 @@ impl<T: DeserInner> DeserInner for core::ops::Bound<T> {
         }
     }
 
-    type DeserType<'a> = core::ops::Bound<<T as DeserInner>::DeserType<'a>>;
+    type DeserType<'a> = core::ops::Bound<DeserType<'a, T>>;
 
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
@@ -386,8 +386,7 @@ impl<B: DeserInner, C: DeserInner> DeserInner for core::ops::ControlFlow<B, C> {
         }
     }
 
-    type DeserType<'a> =
-        core::ops::ControlFlow<<B as DeserInner>::DeserType<'a>, <C as DeserInner>::DeserType<'a>>;
+    type DeserType<'a> = core::ops::ControlFlow<DeserType<'a, B>, DeserType<'a, C>>;
 
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,

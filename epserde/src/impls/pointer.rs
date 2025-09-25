@@ -97,7 +97,7 @@ macro_rules! impl_all {
         impl_ser!($type<T>);
 
         impl<T: DeserInner> DeserInner for $type<T> {
-            type DeserType<'a> = $type<<T as DeserInner>::DeserType<'a>>;
+            type DeserType<'a> = $type<DeserType<'a, T>>;
 
             #[inline(always)]
             unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {

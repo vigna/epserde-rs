@@ -19,7 +19,7 @@ enum Data<T = Vec<i32>> {
 }
 
 fn main() {
-    // Note that we need an explicity type annotation here,
+    // Note that we need an explicitly type annotation here,
     // as the type of the enum is not fully determined by the
     // value--we need to know the type of the parameter, which
     // is assumed to be `Vec<i32>` by default.
@@ -43,7 +43,7 @@ fn main() {
     let eps = unsafe { <Data>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<<Data as DeserInner>::DeserType<'_>>(),
+        std::any::type_name::<DeserType<'_, Data>>(),
     );
     println!("Value: {:x?}", eps);
 

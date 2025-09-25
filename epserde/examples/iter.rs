@@ -17,7 +17,7 @@ struct Data<A> {
 
 fn main() {
     let a = vec![0, 1, 2, 3];
-    // Turn it into an interator
+    // Turn it into an iterator
     let i: Iter<'_, i32> = a.iter();
 
     println!("Original type: {}", std::any::type_name::<Iter<'_, i32>>());
@@ -41,7 +41,7 @@ fn main() {
     let eps = unsafe { <Vec<i32>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<<Vec<i32> as DeserInner>::DeserType<'_>>(),
+        std::any::type_name::<DeserType<'_, Vec<i32>>>(),
     );
     println!("Value: {:x?}", eps);
 
@@ -78,7 +78,7 @@ fn main() {
     let eps = unsafe { <Data<Vec<i32>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<<Data<Vec<i32>> as DeserInner>::DeserType<'_>>(),
+        std::any::type_name::<DeserType<'_, Data<Vec<i32>>>>(),
     );
     println!("Value: {:x?}", eps);
 }

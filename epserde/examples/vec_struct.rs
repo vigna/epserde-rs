@@ -38,7 +38,7 @@ fn main() {
     let eps = unsafe { <Vec<Data>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<<Vec<Data> as DeserInner>::DeserType<'_>>(),
+        std::any::type_name::<DeserType<'_, Vec<Data>>>(),
     );
     println!("Value: {:x?}", eps);
 }

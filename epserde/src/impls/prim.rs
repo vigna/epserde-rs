@@ -349,7 +349,7 @@ impl<T: DeserInner> DeserInner for Option<T> {
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
-    type DeserType<'a> = Option<<T as DeserInner>::DeserType<'a>>;
+    type DeserType<'a> = Option<DeserType<'a, T>>;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,

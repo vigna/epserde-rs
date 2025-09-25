@@ -10,7 +10,7 @@ use maligned::A16;
 fn test_generic<T>(s: T)
 where
     T: Serialize + Deserialize + PartialEq + core::fmt::Debug,
-    for<'a> <T as DeserInner>::DeserType<'a>: PartialEq<T> + core::fmt::Debug,
+    for<'a> DeserType<'a, T>: PartialEq<T> + core::fmt::Debug,
 {
     {
         let mut cursor = <AlignedCursor<A16>>::new();

@@ -40,7 +40,7 @@ fn main() {
     let eps = unsafe { StringData::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<<StringData as DeserInner>::DeserType<'_>>(),
+        std::any::type_name::<DeserType<'_, StringData>>(),
     );
     println!("Value: {:x?}", eps);
 }

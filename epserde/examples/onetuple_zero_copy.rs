@@ -34,7 +34,7 @@ fn main() {
     let eps = unsafe { <(usize,)>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<<(usize,) as DeserInner>::DeserType<'_>>(),
+        std::any::type_name::<DeserType<'_, (usize,)>>(),
     );
     println!("Value: {:x?}", eps);
     assert_eq!(x, *eps);

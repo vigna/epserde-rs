@@ -31,7 +31,7 @@ fn main() {
     let eps = unsafe { <[usize; 100]>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<<[usize; 100] as DeserInner>::DeserType<'_>>(),
+        std::any::type_name::<DeserType<'_, [usize; 100]>>(),
     );
     println!("Value: {:x?}", eps);
 }

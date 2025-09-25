@@ -17,7 +17,7 @@ use core::{hash::Hash, marker::PhantomData, mem::transmute};
 pub use epserde_derive::{Epserde, TypeInfo};
 
 use crate::{
-    deser::{DeserInner, ReadWithPos, SliceWithPos},
+    deser::{DeserInner, DeserType, ReadWithPos, SliceWithPos},
     ser::{SerInner, WriteWithNames},
     traits::{AlignHash, CopyType, MaxSizeOf, TypeHash, Zero},
 };
@@ -113,10 +113,9 @@ impl<T: DeserInner> PhantomDeserData<T> {
     ) -> deser::Result<PhantomDeserData<T::DeserType<'a>>> {
         // SAFETY: types are zero-length
         Ok(unsafe {
-            transmute::<
-                <PhantomDeserData<T> as DeserInner>::DeserType<'a>,
-                PhantomDeserData<T::DeserType<'a>>,
-            >(PhantomDeserData(PhantomData))
+            transmute::<DeserType<'a, PhantomDeserData<T>>, PhantomDeserData<T::DeserType<'a>>>(
+                PhantomDeserData(PhantomData),
+            )
         })
     }
 }

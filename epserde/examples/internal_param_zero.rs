@@ -42,7 +42,7 @@ fn main() {
     let eps = unsafe { <Data<i32>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<<Data<i32> as DeserInner>::DeserType<'_>>(),
+        std::any::type_name::<DeserType<'_, Data<i32>>>(),
     );
     println!("Value: {:x?}", eps);
 }
