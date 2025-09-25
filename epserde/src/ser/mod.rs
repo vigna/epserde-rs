@@ -18,7 +18,6 @@ use crate::traits::*;
 use crate::*;
 
 use core::hash::Hasher;
-use std::{io::BufWriter, path::Path};
 
 pub mod write_with_names;
 pub use write_with_names::*;
@@ -26,6 +25,12 @@ pub mod helpers;
 pub use helpers::*;
 pub mod write;
 pub use write::*;
+
+#[cfg(not(feature = "std"))]
+use alloc::string::ToString;
+
+#[cfg(feature = "std")]
+use std::{io::BufWriter, path::Path};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -109,6 +114,7 @@ pub trait Serialize {
     /// # Safety
     ///
     /// See the [trait documentation](Serialize).
+    #[cfg(feature = "std")]
     unsafe fn store(&self, path: impl AsRef<Path>) -> Result<()> {
         let file = std::fs::File::create(path).map_err(Error::FileOpenError)?;
         let mut buf_writer = BufWriter::new(file);
@@ -210,18 +216,20 @@ pub enum Error {
     /// The underlying writer returned an error.
     WriteError,
     /// [`Serialize::store`] could not open the provided file.
+    #[cfg(feature = "std")]
     FileOpenError(std::io::Error),
     /// The declared length of an iterator did not match
     /// the actual length.
     IteratorLengthMismatch { actual: usize, expected: usize },
 }
 
-impl std::error::Error for Error {}
+impl core::error::Error for Error {}
 
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
             Self::WriteError => write!(f, "Write error during ε-serde serialization"),
+            #[cfg(feature = "std")]
             Self::FileOpenError(error) => {
                 write!(
                     f,

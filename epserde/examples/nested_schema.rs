@@ -50,7 +50,7 @@ fn main() {
     let full = unsafe { Struct::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
-        std::any::type_name::<Struct>(),
+        core::any::type_name::<Struct>(),
     );
     println!("Value: {:x?}", full);
     assert_eq!(person, full);
@@ -61,7 +61,7 @@ fn main() {
     let eps = unsafe { Struct::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<DeserType<'_, Struct>>(),
+        core::any::type_name::<DeserType<'_, Struct>>(),
     );
     println!("Value: {:x?}", eps);
     assert_eq!(person.a, eps.a);

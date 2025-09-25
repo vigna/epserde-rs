@@ -92,6 +92,22 @@ macro_rules! impl_ser {
     };
 }
 
+impl_ser!(&T);
+impl_ser!(&mut T);
+
+#[cfg(not(feature = "std"))]
+mod imports {
+    pub use alloc::boxed::Box;
+    pub use alloc::rc::Rc;
+    pub use alloc::sync::Arc;
+}
+#[cfg(feature = "std")]
+mod imports {
+    pub use std::rc::Rc;
+    pub use std::sync::Arc;
+}
+use imports::*;
+
 macro_rules! impl_all {
     ($type:ident) => {
         impl_ser!($type<T>);
@@ -113,27 +129,6 @@ macro_rules! impl_all {
     };
 }
 
-impl_ser!(&T);
-impl_ser!(&mut T);
-
-#[cfg(any(feature = "std", feature = "alloc"))]
-mod std_impl {
-    use super::*;
-
-    #[cfg(not(feature = "std"))]
-    mod imports {
-        pub use alloc::boxed::Box;
-        pub use alloc::rc::Rc;
-        pub use alloc::sync::Arc;
-    }
-    #[cfg(feature = "std")]
-    mod imports {
-        pub use std::rc::Rc;
-        pub use std::sync::Arc;
-    }
-    use imports::*;
-
-    impl_all!(Box);
-    impl_all!(Arc);
-    impl_all!(Rc);
-}
+impl_all!(Box);
+impl_all!(Arc);
+impl_all!(Rc);

@@ -16,10 +16,7 @@
 use crate::ser::SerInner;
 use crate::traits::*;
 use crate::{MAGIC, MAGIC_REV, VERSION};
-use core::mem::align_of;
-use core::ptr::addr_of_mut;
-use core::{hash::Hasher, mem::MaybeUninit};
-use std::{io::BufReader, path::Path};
+use core::hash::Hasher;
 
 pub mod helpers;
 pub use helpers::*;
@@ -31,6 +28,20 @@ pub mod reader_with_pos;
 pub use reader_with_pos::*;
 pub mod slice_with_pos;
 pub use slice_with_pos::*;
+
+#[cfg(not(feature = "std"))]
+use alloc::{
+    self,
+    string::{String, ToString},
+};
+#[cfg(feature = "std")]
+use std::alloc;
+
+#[cfg(feature = "std")]
+use std::{io::BufReader, path::Path};
+
+#[cfg(feature = "std")] // to avoid not used warning
+use core::{mem::MaybeUninit, ptr::addr_of_mut};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -85,6 +96,7 @@ pub trait Deserialize: DeserInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
+    #[cfg(feature = "std")]
     unsafe fn load_full(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
         let mut buf_reader = BufReader::new(file);
@@ -121,6 +133,7 @@ pub trait Deserialize: DeserInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
+    #[cfg(feature = "std")]
     unsafe fn read_mem(mut read: impl std::io::Read, size: usize) -> anyhow::Result<MemCase<Self>> {
         let align_to = align_of::<MemoryAlignment>();
         if align_of::<Self>() > align_to {
@@ -137,7 +150,7 @@ pub trait Deserialize: DeserInner {
         #[allow(invalid_value)]
         let mut aligned_vec = unsafe {
             <Vec<MemoryAlignment>>::from_raw_parts(
-                std::alloc::alloc(std::alloc::Layout::from_size_align(capacity, align_to)?)
+                alloc::alloc(core::alloc::Layout::from_size_align(capacity, align_to)?)
                     as *mut MemoryAlignment,
                 capacity / align_to,
                 capacity / align_to,
@@ -185,6 +198,7 @@ pub trait Deserialize: DeserInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
+    #[cfg(feature = "std")]
     unsafe fn load_mem(path: impl AsRef<Path>) -> anyhow::Result<MemCase<Self>> {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let file = std::fs::File::open(path)?;
@@ -223,7 +237,7 @@ pub trait Deserialize: DeserInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
-    #[cfg(feature = "mmap")]
+    #[cfg(all(feature = "mmap", feature = "std"))]
     unsafe fn read_mmap(
         mut read: impl std::io::Read,
         size: usize,
@@ -275,7 +289,7 @@ pub trait Deserialize: DeserInner {
     ///
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s
     /// documentation](mmap_rs::MmapOptions::with_file).
-    #[cfg(feature = "mmap")]
+    #[cfg(all(feature = "mmap", feature = "std"))]
     unsafe fn load_mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
         let file_len = path.as_ref().metadata()?.len() as usize;
         let file = std::fs::File::open(path)?;
@@ -294,7 +308,7 @@ pub trait Deserialize: DeserInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
-    #[cfg(feature = "mmap")]
+    #[cfg(all(feature = "mmap", feature = "std"))]
     unsafe fn mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
         let file_len = path.as_ref().metadata()?.len();
         let file = std::fs::File::open(path)?;
@@ -428,21 +442,21 @@ where
 
     let ser_type_hash = unsafe { u64::_deser_full_inner(backend)? };
     let ser_align_hash = unsafe { u64::_deser_full_inner(backend)? };
-    let ser_type_name = unsafe { String::_deser_full_inner(backend)? };
+    let ser_type_name = unsafe { String::_deser_full_inner(backend)? }.to_string();
 
     if ser_type_hash != self_type_hash {
         return Err(Error::WrongTypeHash {
             self_type_name,
-            self_type_hash,
             ser_type_name,
+            self_type_hash,
             ser_type_hash,
         });
     }
     if ser_align_hash != self_align_hash {
         return Err(Error::WrongAlignHash {
             self_type_name,
-            self_align_hash,
             ser_type_name,
+            self_align_hash,
             ser_align_hash,
         });
     }
@@ -475,6 +489,7 @@ pub trait DeserHelper<T: CopySelector> {
 pub enum Error {
     #[error("Error reading stats for file during ε-serde deserialization: {0}")]
     /// [`Deserialize::load_full`] could not open the provided file.
+    #[cfg(feature = "std")]
     FileOpenError(std::io::Error),
     #[error("Read error during ε-serde deserialization")]
     /// The underlying reader returned an error.

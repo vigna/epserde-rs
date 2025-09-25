@@ -1092,7 +1092,7 @@ fn gen_struct_max_size_of_body(
         use ::epserde::traits::MaxSizeOf;
         use ::epserde::ser::SerInner;
 
-        let mut max_size_of = ::std::mem::align_of::<Self>();
+        let mut max_size_of = ::core::mem::align_of::<Self>();
 
         #(
             if max_size_of < <#fields_types as MaxSizeOf>::max_size_of() {
@@ -1344,7 +1344,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
     let type_hash_body = gen_type_hash_body(&ctx, &all_type_hashes);
     let align_hash_body = gen_enum_align_hash_body(&ctx, &all_align_hashes);
     let max_size_of_body = quote! {
-        let mut max_size_of = std::mem::align_of::<Self>();
+        let mut max_size_of = core::mem::align_of::<Self>();
         #(
             #all_max_size_ofs
         )*

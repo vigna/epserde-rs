@@ -14,28 +14,27 @@ readme = "README.md"
 keywords = ["serialization", "zero-copy", "mmap"]
 
 [dependencies]
-mmap-rs = { version = "0.6.0", optional = true }
-bitflags = { version = "2.4.2", default-features = false }
-xxhash-rust = { version = "0.8.8", default-features = false, features = [
-	"xxh3",
-] }
-epserde-derive = { workspace = true, optional = true }
-anyhow = "1.0.79"
-thiserror = "2.0.11"
-sealed = "0.6.0"
-maligned = "0.2.1"
-common_traits = "0.12.0"
 mem_dbg = { version = "0.3.0", features = [
 	"maligned",
 	"derive",
-], default-features = false }
+], default-features = false, optional = true }
 
+mmap-rs = { version = "0.6.1", optional = true }
+bitflags = { version = "2.9.4", default-features = false }
+xxhash-rust = { version = "0.8.15", default-features = false, features = [
+	"xxh3",
+] }
+epserde-derive = { workspace = true, optional = true }
+anyhow = "1.0.100"
+thiserror = "2.0.16"
+sealed = "0.6.0"
+maligned = "0.2.1"
+common_traits = "0.12.0"
 [dev-dependencies]
-trybuild = "1.0.110"
+trybuild = "1.0.111"
 
 [features]
 default = ["std", "mmap", "derive"]
 derive = ["epserde-derive"]
-std = ["alloc", "mem_dbg/std"]
-alloc = []
+std = ["mem_dbg/std"]
 mmap = ["mmap-rs", "mem_dbg/mmap-rs"]

@@ -5,10 +5,13 @@
  */
 
 use core::slice;
+#[cfg(feature = "std")]
 use std::io::{Read, Seek, SeekFrom, Write};
 
 use maligned::{A16, Alignment};
-use mem_dbg::{MemDbg, MemSize};
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 /// An aligned version of [`Cursor`](std::io::Cursor).
 ///
@@ -21,7 +24,8 @@ use mem_dbg::{MemDbg, MemSize};
 /// Note that length and position are stored as `usize` values, so the maximum
 /// length and position are `usize::MAX`. This is different from
 /// [`Cursor`](std::io::Cursor), which uses a `u64`.
-#[derive(Debug, Clone, MemDbg, MemSize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub struct AlignedCursor<T: Alignment = A16> {
     vec: Vec<T>,
     pos: usize,
@@ -41,7 +45,7 @@ impl<T: Alignment> AlignedCursor<T> {
     /// Return a new empty [`AlignedCursor`] with a specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            vec: Vec::with_capacity(capacity.div_ceil(std::mem::size_of::<T>())),
+            vec: Vec::with_capacity(capacity.div_ceil(core::mem::size_of::<T>())),
             pos: 0,
             len: 0,
         }
@@ -101,9 +105,9 @@ impl<T: Alignment> AlignedCursor<T> {
     ///
     /// The underlying vector will be enlarged if necessary.
     pub fn set_len(&mut self, len: usize) {
-        if len > self.vec.len() * std::mem::size_of::<T>() {
+        if len > self.vec.len() * core::mem::size_of::<T>() {
             self.vec
-                .resize(len.div_ceil(std::mem::size_of::<T>()), T::default());
+                .resize(len.div_ceil(core::mem::size_of::<T>()), T::default());
         }
         self.len = len;
     }
@@ -115,6 +119,7 @@ impl<T: Alignment> Default for AlignedCursor<T> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T: Alignment> Read for AlignedCursor<T> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         if self.pos >= self.len {
@@ -122,13 +127,14 @@ impl<T: Alignment> Read for AlignedCursor<T> {
         }
         let pos = self.pos;
         let rem = self.len - pos;
-        let to_copy = std::cmp::min(buf.len(), rem) as usize;
+        let to_copy = core::cmp::min(buf.len(), rem) as usize;
         buf[..to_copy].copy_from_slice(&self.as_bytes()[pos..pos + to_copy]);
         self.pos += to_copy;
         Ok(to_copy)
     }
 }
 
+#[cfg(feature = "std")]
 impl<T: Alignment> Write for AlignedCursor<T> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let len = buf.len().min(usize::MAX - self.pos);
@@ -139,11 +145,11 @@ impl<T: Alignment> Write for AlignedCursor<T> {
             ));
         }
 
-        let cap = self.vec.len().saturating_mul(std::mem::size_of::<T>());
+        let cap = self.vec.len().saturating_mul(core::mem::size_of::<T>());
         let rem = cap - self.pos;
         if rem < len {
             self.vec.resize(
-                (self.pos + len).div_ceil(std::mem::size_of::<T>()),
+                (self.pos + len).div_ceil(core::mem::size_of::<T>()),
                 T::default(),
             );
         }
@@ -154,7 +160,7 @@ impl<T: Alignment> Write for AlignedCursor<T> {
         let bytes = unsafe {
             slice::from_raw_parts_mut(
                 self.vec.as_mut_ptr() as *mut u8,
-                self.vec.len() * std::mem::size_of::<T>(),
+                self.vec.len() * core::mem::size_of::<T>(),
             )
         };
         bytes[pos..pos + len].copy_from_slice(buf);
@@ -168,6 +174,7 @@ impl<T: Alignment> Write for AlignedCursor<T> {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T: Alignment> Seek for AlignedCursor<T> {
     fn seek(&mut self, style: SeekFrom) -> std::io::Result<u64> {
         let (base_pos, offset) = match style {
@@ -215,24 +222,24 @@ mod tests {
         }
 
         for i in (0..1000).rev() {
-            let mut buf = [0; std::mem::size_of::<usize>()];
-            cursor.set_position(i * std::mem::size_of::<usize>());
+            let mut buf = [0; core::mem::size_of::<usize>()];
+            cursor.set_position(i * core::mem::size_of::<usize>());
             cursor.read_exact(&mut buf).unwrap();
             assert_eq!(i.to_ne_bytes(), buf);
         }
 
         for i in (0..1000).rev() {
-            let mut buf = [0; std::mem::size_of::<usize>()];
-            let pos = cursor.seek(SeekFrom::Start(i * std::mem::size_of::<usize>() as u64))?;
+            let mut buf = [0; core::mem::size_of::<usize>()];
+            let pos = cursor.seek(SeekFrom::Start(i * core::mem::size_of::<usize>() as u64))?;
             assert_eq!(pos, cursor.position() as u64);
             cursor.read_exact(&mut buf).unwrap();
             assert_eq!(i.to_ne_bytes(), buf);
         }
 
         for i in (0..1000).rev() {
-            let mut buf = [0; std::mem::size_of::<usize>()];
+            let mut buf = [0; core::mem::size_of::<usize>()];
             let pos = cursor.seek(SeekFrom::End(
-                (-i - 1) * std::mem::size_of::<usize>() as i64,
+                (-i - 1) * core::mem::size_of::<usize>() as i64,
             ))?;
             assert_eq!(pos, cursor.position() as u64);
             cursor.read_exact(&mut buf).unwrap();
@@ -242,8 +249,8 @@ mod tests {
         cursor.set_position(0);
 
         for i in 0_usize..500 {
-            let mut buf = [0; std::mem::size_of::<usize>()];
-            let pos = cursor.seek(SeekFrom::Current(std::mem::size_of::<usize>() as i64))?;
+            let mut buf = [0; core::mem::size_of::<usize>()];
+            let pos = cursor.seek(SeekFrom::Current(core::mem::size_of::<usize>() as i64))?;
             assert_eq!(pos, cursor.position() as u64);
             cursor.read_exact(&mut buf).unwrap();
             assert_eq!((i * 2 + 1).to_ne_bytes(), buf);
@@ -251,7 +258,7 @@ mod tests {
 
         assert!(
             cursor
-                .seek(SeekFrom::End(-1001 * std::mem::size_of::<usize>() as i64,))
+                .seek(SeekFrom::End(-1001 * core::mem::size_of::<usize>() as i64,))
                 .is_err()
         );
 

@@ -40,7 +40,7 @@ fn main() {
     let full = unsafe { <Object<Vec<Point>>>::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
-        std::any::type_name::<Object<Vec<Point>>>(),
+        core::any::type_name::<Object<Vec<Point>>>(),
     );
     println!("Value: {:x?}", full);
     assert_eq!(point, full);
@@ -51,7 +51,7 @@ fn main() {
     let eps = unsafe { <Object<Vec<Point>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<DeserType<'_, Object<Vec<Point>>>>(),
+        core::any::type_name::<DeserType<'_, Object<Vec<Point>>>>(),
     );
     println!("Value: {:x?}", eps);
     assert_eq!(point.a, eps.a);

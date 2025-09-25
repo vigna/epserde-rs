@@ -9,10 +9,15 @@
 
 use super::SliceWithPos;
 use super::{DeserInner, read::*};
-use crate::deser::{self, DeserType};
+use crate::deser;
 use crate::traits::*;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
+
+use crate::deser::DeserType;
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 /// Full-copy deserialize a zero-copy structure.
 ///
@@ -109,7 +114,7 @@ pub unsafe fn deser_eps_slice_zero<'a, T: ZeroCopy>(
         // SAFETY: T is zero-sized (see the from_raw_parts docs)
         #[allow(invalid_value)]
         #[allow(clippy::uninit_assumed_init)]
-        return Ok(unsafe { std::slice::from_raw_parts(NonNull::dangling().as_ref(), len) });
+        return Ok(unsafe { core::slice::from_raw_parts(NonNull::dangling().as_ref(), len) });
     }
     backend.align::<T>()?;
     let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<T>() };

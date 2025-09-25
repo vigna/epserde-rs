@@ -8,7 +8,7 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 #![deny(unconditional_recursion)]
 #![cfg_attr(not(feature = "std"), no_std)]
-#[cfg(all(feature = "alloc", not(feature = "std")))]
+#[cfg(not(feature = "std"))]
 extern crate alloc;
 
 use core::{hash::Hash, marker::PhantomData, mem::transmute};
@@ -45,6 +45,7 @@ pub mod prelude {
     pub use crate::ser::SerInner;
     pub use crate::ser::Serialize;
     pub use crate::traits::*;
+    #[allow(unused_imports)] // with some features utils is empty
     pub use crate::utils::*;
     #[cfg(feature = "derive")]
     pub use epserde_derive::Epserde;

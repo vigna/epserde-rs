@@ -13,6 +13,9 @@ use core::hash::Hash;
 use deser::*;
 use ser::*;
 
+#[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
+
 unsafe impl<T> CopyType for Box<[T]> {
     type Copy = Deep;
 }

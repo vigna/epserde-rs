@@ -20,7 +20,7 @@ fn main() {
     // Turn it into an iterator
     let i: Iter<'_, i32> = a.iter();
 
-    println!("Original type: {}", std::any::type_name::<Iter<'_, i32>>());
+    println!("Original type: {}", core::any::type_name::<Iter<'_, i32>>());
 
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize the iterator
@@ -31,7 +31,7 @@ fn main() {
     let full = unsafe { <Vec<i32>>::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
-        std::any::type_name::<Vec<i32>>(),
+        core::any::type_name::<Vec<i32>>(),
     );
     println!("Value: {:x?}", full);
 
@@ -41,7 +41,7 @@ fn main() {
     let eps = unsafe { <Vec<i32>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<DeserType<'_, Vec<i32>>>(),
+        core::any::type_name::<DeserType<'_, Vec<i32>>>(),
     );
     println!("Value: {:x?}", eps);
 
@@ -56,7 +56,7 @@ fn main() {
 
     println!(
         "Original type: {}",
-        std::any::type_name::<Data<Data<SerIter<i32, Iter<'_, i32>>>>>()
+        core::any::type_name::<Data<Data<SerIter<i32, Iter<'_, i32>>>>>()
     );
 
     // Serialize the structure
@@ -68,7 +68,7 @@ fn main() {
     let full = unsafe { <Data<Vec<i32>>>::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
-        std::any::type_name::<Data<Vec<i32>>>(),
+        core::any::type_name::<Data<Vec<i32>>>(),
     );
     println!("Value: {:x?}", full);
 
@@ -78,7 +78,7 @@ fn main() {
     let eps = unsafe { <Data<Vec<i32>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<DeserType<'_, Data<Vec<i32>>>>(),
+        core::any::type_name::<DeserType<'_, Data<Vec<i32>>>>(),
     );
     println!("Value: {:x?}", eps);
 }

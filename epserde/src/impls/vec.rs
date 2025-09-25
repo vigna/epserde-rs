@@ -15,8 +15,8 @@ use crate::ser::helpers::*;
 use crate::ser::*;
 use crate::traits::*;
 
-#[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, vec::Vec};
 
 unsafe impl<T> CopyType for Vec<T> {
     type Copy = Deep;
