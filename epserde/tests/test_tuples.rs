@@ -11,7 +11,7 @@ macro_rules! impl_test {
     ($ty:ty, $data:expr) => {{
         let mut cursor = <AlignedCursor<A16>>::new();
 
-        let _ = unsafe { $data.ser_with_schema(&mut cursor).unwrap() };
+        let _ = unsafe { $data.serialize_with_schema(&mut cursor).unwrap() };
 
         cursor.set_position(0);
         let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor).unwrap() };

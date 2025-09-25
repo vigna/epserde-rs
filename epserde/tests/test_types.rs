@@ -13,7 +13,7 @@ macro_rules! impl_test {
         let a = $val;
         let mut cursor = <AlignedCursor<A16>>::new();
 
-        let mut schema = unsafe { a.ser_with_schema(&mut cursor).unwrap() };
+        let mut schema = unsafe { a.serialize_with_schema(&mut cursor).unwrap() };
         schema.0.sort_by_key(|a| a.offset);
         println!("{}", schema.to_csv());
 
@@ -31,7 +31,7 @@ fn test_array_usize() {
     let a = [1, 2, 3, 4, 5];
 
     let mut cursor = <AlignedCursor<A16>>::new();
-    let mut schema = unsafe { a.ser_with_schema(&mut cursor).unwrap() };
+    let mut schema = unsafe { a.serialize_with_schema(&mut cursor).unwrap() };
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
@@ -53,7 +53,7 @@ fn test_box_slice_usize() {
     let a = vec![1, 2, 3, 4, 5].into_boxed_slice();
 
     let mut cursor = <AlignedCursor<A16>>::new();
-    let mut schema = unsafe { a.ser_with_schema(&mut cursor).unwrap() };
+    let mut schema = unsafe { a.serialize_with_schema(&mut cursor).unwrap() };
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
@@ -70,7 +70,7 @@ fn test_box_slice_string() {
     let a = vec!["A".to_string(), "V".to_string()].into_boxed_slice();
 
     let mut cursor = <AlignedCursor<A16>>::new();
-    let mut schema = unsafe { a.ser_with_schema(&mut cursor).unwrap() };
+    let mut schema = unsafe { a.serialize_with_schema(&mut cursor).unwrap() };
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 

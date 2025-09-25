@@ -29,7 +29,7 @@ where
         let mut v = vec![];
         let mut cursor = std::io::Cursor::new(&mut v);
 
-        let mut schema = unsafe { s.ser_with_schema(&mut cursor)? };
+        let mut schema = unsafe { s.serialize_with_schema(&mut cursor)? };
         schema.0.sort_by_key(|a| a.offset);
 
         cursor.set_position(0);

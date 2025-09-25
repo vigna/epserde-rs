@@ -15,7 +15,7 @@ macro_rules! impl_test {
         let mut v = vec![];
         let mut cursor = std::io::Cursor::new(&mut v);
 
-        let _ = unsafe { $data.ser_with_schema(&mut cursor).unwrap() };
+        let _ = unsafe { $data.serialize_with_schema(&mut cursor).unwrap() };
 
         let full_copy = unsafe { <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
         assert_eq!($data, full_copy);
@@ -116,7 +116,7 @@ fn test_string() {
             let mut v = vec![];
             let mut cursor = std::io::Cursor::new(&mut v);
 
-            let mut schema = unsafe { s.ser_with_schema(&mut cursor).unwrap() };
+            let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
             schema.0.sort_by_key(|a| a.offset);
 
             cursor.set_position(0);
@@ -154,7 +154,7 @@ fn test_box_str() {
             let mut v = vec![];
             let mut cursor = std::io::Cursor::new(&mut v);
 
-            let mut schema = unsafe { s.ser_with_schema(&mut cursor).unwrap() };
+            let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
             schema.0.sort_by_key(|a| a.offset);
 
             cursor.set_position(0);

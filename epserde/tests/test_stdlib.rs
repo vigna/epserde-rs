@@ -15,7 +15,7 @@ where
     {
         let mut cursor = <AlignedCursor<A16>>::new();
 
-        let mut schema = unsafe { s.ser_with_schema(&mut cursor).unwrap() };
+        let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
         schema.0.sort_by_key(|a| a.offset);
 
         cursor.set_position(0);

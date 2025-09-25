@@ -40,7 +40,7 @@ fn main() {
     };
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let schema = unsafe { person.ser_with_schema(&mut cursor).unwrap() };
+    let schema = unsafe { person.serialize_with_schema(&mut cursor).unwrap() };
 
     // Show the schema
     println!("{}", schema.debug(cursor.as_bytes()));

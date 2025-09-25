@@ -9,7 +9,7 @@
 //!
 //! [`Serialize`] is the main serialization trait, providing a
 //! [`Serialize::serialize`] method that serializes the type into a generic
-//! [`WriteNoStd`] backend, and a [`Serialize::ser_with_schema`] method
+//! [`WriteNoStd`] backend, and a [`Serialize::serialize_with_schema`] method
 //! that additionally returns a [`Schema`] describing the data that has been
 //! written. The implementation of this trait is based on [`SerInner`],
 //! which is automatically derived with `#[derive(Serialize)]`.
@@ -86,7 +86,7 @@ pub trait Serialize {
     /// # Safety
     ///
     /// See the [trait documentation](Serialize).
-    unsafe fn ser_with_schema(&self, backend: &mut impl WriteNoStd) -> Result<Schema> {
+    unsafe fn serialize_with_schema(&self, backend: &mut impl WriteNoStd) -> Result<Schema> {
         let mut writer_with_pos = WriterWithPos::new(backend);
         let mut schema_writer = SchemaWriter::new(&mut writer_with_pos);
         unsafe { self.ser_on_field_write(&mut schema_writer) }?;
