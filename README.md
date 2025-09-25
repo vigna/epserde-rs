@@ -117,7 +117,6 @@ to such an array:
 
 ```rust
 # use epserde::prelude::*;
-
 let s = [0_usize; 1000];
 
 // Serialize it
@@ -181,7 +180,6 @@ slice.
 
 ```rust
 # use epserde::prelude::*;
-
 let s = vec![0; 1000];
 
 // Serialize it
@@ -237,7 +235,6 @@ fields to optimize memory usage):
 
 ```rust
 # use epserde::prelude::*;
-
 #[derive(Epserde, Debug, PartialEq, Copy, Clone)]
 #[repr(C)]
 #[zero_copy]
@@ -296,7 +293,6 @@ and a vector of integers that we want to ε-copy:
 
 ```rust
 # use epserde::prelude::*;
-
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStruct<A> {
     id: isize,
@@ -345,7 +341,6 @@ associated deserialized type; we can also use `type` to reduce the clutter:
 
 ```rust
 # use epserde::prelude::*;
-
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStructParam<A> {
     id: isize,
@@ -423,7 +418,6 @@ For example,
 
 ```rust
 # use epserde::prelude::*;
-
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStruct<A: DeepCopy + 'static>(Vec<A>);
 
@@ -455,7 +449,6 @@ example,
 
 ```rust
 # use epserde::prelude::*;
-
 #[derive(Epserde, Debug, PartialEq, Clone, Copy)]
 #[repr(C)]
 #[zero_copy]
@@ -475,7 +468,7 @@ let b = std::fs::read(&file)?;
 // The type of t is unchanged
 let t: &MyStruct<i32> =
     unsafe { <MyStruct<i32>>::deserialize_eps(b.as_ref())? };
-    
+
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
@@ -493,7 +486,6 @@ can become tricky. For example,
 
 ```rust
 # use epserde::prelude::*;
-
 #[derive(Epserde, Debug, PartialEq, Clone, Copy)]
 enum Enum<T=Vec<usize>> {
     A,
@@ -519,7 +511,6 @@ deserialize with the correct type. For example,
 
 ```rust
 # use epserde::prelude::*;
-
 let v = vec![0, 1, 2, 3];
 // This is a slice
 let s: &[i32] = v.as_ref();
@@ -574,8 +565,7 @@ serialization traits directly on [`Iterator`]. For example,
 
 ```rust
 # use epserde::prelude::*;
-use core::slice::Iter;
-
+# use core::slice::Iter;
 let v = vec![0, 1, 2, 3];
 // This is an iterator
 let i: Iter<'_, i32> = v.iter();
