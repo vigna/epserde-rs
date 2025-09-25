@@ -68,11 +68,10 @@ fn test_option() {
 
 #[test]
 fn test_string_types() {
-    assert_eq!(get_type_hash::<String>(), 0xe4297f5be0f5dd50);
+    assert_eq!(get_type_hash::<String>(), 0x19aa1d67f7ad7a3e);
     assert_eq!(get_align_hash::<String>(), 0xd1fba762150c532c);
     assert_eq!(get_type_hash::<Box<str>>(), 0x19aa1d67f7ad7a3e);
     assert_eq!(get_align_hash::<Box<str>>(), 0xd1fba762150c532c);
-    // TODO assert_eq!(get_type_hash::<str>(), 0x393e833de113cd8c);
 }
 
 #[test]

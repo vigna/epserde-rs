@@ -61,8 +61,8 @@ pub trait WriteWithPos: WriteNoStd {
     fn pos(&self) -> usize;
 }
 
-/// A wrapper for a [`WriteNoStd`] that implements [`WriteWithPos`]
-/// by keeping track of the current position.
+/// A wrapper for a [`WriteNoStd`] that implements [`WriteWithPos`] by keeping
+/// track of the current position.
 #[derive(Debug)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub struct WriterWithPos<'a, F: WriteNoStd> {

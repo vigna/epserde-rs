@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.10.1] - 2025-09-25
+
+### Fixed
+
+* Fixed type hash of strings.
+
 ## [0.10.0] - 2025-09-25
 
 ### New

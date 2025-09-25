@@ -20,23 +20,21 @@ use alloc::{
     vec::Vec,
 };
 
-/// Trait extending [`WriteWithPos`] with methods providing
-/// alignment, serialization of named data, and writing of byte slices
-/// of zero-copy types.
+/// Trait extending [`WriteWithPos`] with methods providing alignment,
+/// serialization of named data, and writing of byte slices of zero-copy types.
 ///
-/// The purpose of this trait is that of interposing between [`SerInner`]
-/// and the underlying [`WriteWithPos`] a layer in which serialization operations
+/// The purpose of this trait is that of interposing between [`SerInner`] and
+/// the underlying [`WriteWithPos`] a layer in which serialization operations
 /// can be easily intercepted and recorded. In particular, serialization methods
 /// must use the methods of this trait if they want to record the schema of the
 /// serialized data; this is true (maybe counterintuitively) even of ancillary
-/// data such as tags and slice lengths: see [`helpers`] or the
-/// [implementation of `Option`](impls::prim) for examples.
-/// All methods have a default
+/// data such as tags and slice lengths: see [`helpers`] or the [implementation
+/// of `Option`](impls::prim) for examples. All methods have a default
 /// implementation that must be replicated in other implementations.
 ///
 /// There are two implementations of [`WriteWithNames`]: [`WriterWithPos`],
-/// which uses the default implementation, and [`SchemaWriter`],
-/// which additionally records a [`Schema`] of the serialized data.
+/// which uses the default implementation, and [`SchemaWriter`], which
+/// additionally records a [`Schema`] of the serialized data.
 pub trait WriteWithNames: WriteWithPos + Sized {
     /// Add some zero padding so that `self.pos() % V:max_size_of() == 0.`
     ///

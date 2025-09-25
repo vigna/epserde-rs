@@ -23,16 +23,6 @@ use ser::*;
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 
-impl TypeHash for str {
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "str".hash(hasher);
-    }
-}
-
-impl AlignHash for str {
-    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
-}
-
 unsafe impl CopyType for String {
     type Copy = Deep;
 }
@@ -42,7 +32,7 @@ use alloc::string::String;
 
 impl TypeHash for String {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "String".hash(hasher);
+        <Box<str>>::type_hash(hasher);
     }
 }
 
