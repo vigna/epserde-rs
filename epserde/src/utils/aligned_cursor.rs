@@ -33,7 +33,7 @@ pub struct AlignedCursor<T: Alignment = A16> {
 }
 
 impl<T: Alignment> AlignedCursor<T> {
-    /// Return a new empty [`AlignedCursor`].
+    /// Returns a new empty [`AlignedCursor`].
     pub fn new() -> Self {
         Self {
             vec: Vec::new(),
@@ -42,7 +42,7 @@ impl<T: Alignment> AlignedCursor<T> {
         }
     }
 
-    /// Return a new empty [`AlignedCursor`] with a specified capacity.
+    /// Returns a new empty [`AlignedCursor`] with a specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             vec: Vec::with_capacity(capacity.div_ceil(core::mem::size_of::<T>())),
@@ -51,7 +51,7 @@ impl<T: Alignment> AlignedCursor<T> {
         }
     }
 
-    /// Make an [`AlignedCursor`] from a slice, this will copy all the data to
+    /// Makes an [`AlignedCursor`] from a slice, this will copy all the data to
     /// guarantee the alignment.
     pub fn from_slice(data: &[u8]) -> Self {
         #[cfg(not(feature = "std"))]
@@ -65,13 +65,13 @@ impl<T: Alignment> AlignedCursor<T> {
         cursor
     }
 
-    /// Consume this cursor, returning the underlying storage and the length of
+    /// Consumes this cursor, returning the underlying storage and the length of
     /// the data in bytes.
     pub fn into_parts(self) -> (Vec<T>, usize) {
         (self.vec, self.len)
     }
 
-    /// Return a reference to the underlying storage as bytes.
+    /// Returns a reference to the underlying storage as bytes.
     ///
     /// Only the first [len](AlignedCursor::len) bytes are valid.
     ///
@@ -82,7 +82,7 @@ impl<T: Alignment> AlignedCursor<T> {
         unsafe { slice::from_raw_parts(ptr, self.len) }
     }
 
-    /// Return a mutable reference to the underlying storage as bytes.
+    /// Returns a mutable reference to the underlying storage as bytes.
     ///
     /// Only the first [len](AlignedCursor::len) bytes are valid.
     ///
@@ -93,29 +93,29 @@ impl<T: Alignment> AlignedCursor<T> {
         unsafe { slice::from_raw_parts_mut(ptr, self.len) }
     }
 
-    /// Return the length in bytes of the data in this cursor.
+    /// Returns the length in bytes of the data in this cursor.
     pub fn len(&self) -> usize {
         self.len
     }
 
-    /// Return whether this cursor contains no data.
+    /// Returns whether this cursor contains no data.
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
-    /// Return the current position of this cursor.
+    /// Returns the current position of this cursor.
     pub fn position(&self) -> usize {
         self.pos
     }
 
-    /// Set the current position of this cursor.
+    /// Sets the current position of this cursor.
     ///
     /// Valid positions are all `usize` values.
     pub fn set_position(&mut self, pos: usize) {
         self.pos = pos;
     }
 
-    /// Set the length of this cursor.
+    /// Sets the length of this cursor.
     ///
     /// The underlying vector will be enlarged if necessary.
     pub fn set_len(&mut self, len: usize) {
