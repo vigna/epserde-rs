@@ -65,12 +65,12 @@ These are the main limitations you should be aware of before choosing to use
 - While we provide procedural macros that implement serialization and
   deserialization, they require that your type is written and used in a specific
   way for ε-copy deserialization to work properly; in particular, the fields you
-  want to ε-copy must be type parameters implementing [`DeserInner`], to
-  which a [deserialized type] is associated. For example, we provide
-  implementations for `Vec<T>`/`Box<[T]>`, where `T` is zero-copy, or
-  `String`/`Box<str>`, which have associated deserialized type `&[T]` or `&str`,
-  respectively. Vectors and boxed slices of types that are not zero-copy will be
-  deserialized recursively in memory instead.
+  want to ε-copy must be type parameters implementing [`DeserInner`], to which a
+  [deserialized type] is associated. For example, we provide implementations for
+  `Vec<T>`/`Box<[T]>`, where `T` is zero-copy, or `String`/`Box<str>`, which
+  have associated deserialized type `&[T]` or `&str`, respectively. Vectors and
+  boxed slices whose elements are not zero-copy will be deserialized recursively
+  in memory instead.
 
 - After deserialization of an instance of type `T`, you will obtain an instance
   of an associated deserialized type [`DeserType<'_,T>`], which will usually
@@ -786,7 +786,7 @@ the type parameter `A` is both replaceable (it is the type of the field `data`)
 and irreplaceable (it is a type parameter of the type of field `vec`).
 
 The only exception to this rule is for type parameters that appear inside a
-[`PhantomDeserData`], which can be replaceable.
+[`PhantomDeserData`], which must be replaceable.
 
 The fundamental idea at the basis of ε-serde is that replaceable parameters make
 it possible to refer to serialized zero-copy data without copying it. For
@@ -839,7 +839,7 @@ contained in the instance.
 An ε-serde deserialization process involves instead three types:
 
 * `D`, the _deserializable type_, which must implement [`DeserInner`],
-  [`TypeHash`], and [`ReprHash`], so the blanket implementation For
+  [`TypeHash`], and [`ReprHash`], so the blanket implementation for
   [`Deserialize`] applies. This is the type on which deserialization
   methods are invoked.
 
@@ -878,25 +878,6 @@ For example:
 * `Good<Vec<Vec<T>>>::DeserType<'_>` is `Good<Vec<&[T]>>` if `T` is zero-copy,
   but again `Good<Vec<Vec<T>>>` if `T` is deep-copy.
 
-We can describe the replacements leading to the deserialization type in a
-non-recursive way as follows: consider the syntax tree of the type `D`, in which
-the root, labeled by `D`, is connected to the root of the syntax trees of
-its fields, and each children is further labeled by the name of the field.
-Replacement happens in two cases:
-
-* There is a path starting at the root, traversing only fields whose type is a
-  replaceable parameter, and ending at node that is a vector/boxed slice/array:
-  it will be replaced with reference to a slice of the same type.
-
-* This is a _shortest_ path starting at the root, traversing only fields whose type is a
-  replaceable parameter, and ending at a node that is zero-copy: it will be
-  replaced with a reference to the same type.
-
-Note that shortest-path condition: this is necessary because when you reach a
-zero-copy type the recursion in the definition of the deserialization type
-stops. Note also that if `D` is zero-copy the empty path satisfies the
-second condition, and indeed `D::DeserType<'_>` is `&D`.
-
 There are now two types of deserialization:
 
 * [`deserialize_full`] performs _full-copy deserialization_, which reads recursively
@@ -910,10 +891,11 @@ There are now two types of deserialization:
   that refers to the data inside the byte slice.
 
 Whichever method you invoke on `D`, deserialization will happen only if the type
-hash of [`D::SerType`] matches that of [`S::SerType`], and the same must happen for
-the alignment hash: otherwise, you will get an error. Note that the serialized data
-does not contain a structural copy of any type: it is the responsibility of the
-code performing deserialization to know the type of the data it is reading.
+hash of [`D::SerType`] matches that of [`S::SerType`], and the same must happen
+for the alignment hash: otherwise, you will get an error. Note that the
+serialized data does not contain a structural copy of any type: it is the
+responsibility of the code invoking the deserialization method to know the type
+of the data it is reading.
 
 ### Serialization and deserialization types
 
@@ -927,7 +909,28 @@ Given a user-defined type `T`:
   `P₀`, `P₁`, `P₂`, … of a type definition (struct or enum) to concrete types
   `T₀`, `T₁`, `T₂`, …, then `T:(De)serType` is obtained by resolving each
   replaceable type parameter `Pᵢ` with the concrete type `Tᵢ:(De)serType`
-  instead.
+  instead. (Note that the first rule still applies, so if `Tᵢ` is zero-copy
+  the serialization type is `Tᵢ` and the deserialization type is `&Tᵢ`.)
+
+We can describe the replacements leading to the deserialization type in a
+non-recursive way as follows: consider the syntax tree of the type `D`, in which
+the root, labeled by `D`, is connected to the root of the syntax trees of
+its fields, and each children is further labeled by the name of the field.
+Replacement happens in two cases:
+
+* There is a path starting at the root, traversing only fields whose type is a
+  replaceable parameter, and ending at node that is a vector/boxed slice/array
+  whose elements are zero-copy: it will be replaced with a reference to a
+  slice.
+
+* This is a _shortest_ path starting at the root, traversing only fields whose type is a
+  replaceable parameter, and ending at a node that is zero-copy: it will be
+  replaced with a reference to the same type.
+
+Note that shortest-path condition: this is necessary because when you reach a
+zero-copy type the recursion in the definition of the deserialization type
+stops. Note also that if `D` is zero-copy the empty path satisfies the
+second condition, and indeed `D::DeserType<'_>` is `&D`.
 
   For standard types and [`PhantomDeserData`], we have:
 
@@ -935,9 +938,9 @@ Given a user-defined type `T`:
   and `PhantomData<T>` are zero-copy and their (de)serialization type is
   themselves;
 
-* `Option<T>` and `ControlFlow<B, C>`, and `PhantomDeserData<T>` are deep-copy
-  and their (de)serialization type is themselves, with `T`/`B`/`C` replaced by
-  their (de)serialization type;
+* `Option<T>` and `PhantomDeserData<T>` are deep-copy and their
+  (de)serialization type is themselves, with `T` replaced by its
+  (de)serialization type;
 
 * `Vec<T>`, `Box<[T]>`, `&[T]` and `SerIter<T>` are deep-copy, and their
   serialization type is `Box<[T]>` if `T` is zero-copy, but `Box<[T::SerType]>`
@@ -947,16 +950,16 @@ Given a user-defined type `T`:
   exception of `&[T]`, whose deserialization type is `&[T]` when `T` is
   zero-copy.
 
-* Arrays `[T; N]` are zero-copy if and only if `T` is zero-copy. their
+* arrays `[T; N]` are zero-copy if and only if `T` is zero-copy. their
   serialization type is `[T; N]` if `T` is zero-copy, but `[T::SerType; N]` if
   `T` is deep-copy; their deserialization type is `&[T; N]` if `T` is zero-copy,
   but `[T::DeserType<'_>; N]` if `T` is deep-copy;
 
 * tuples up to size 12 made of the same zero-copy type `T` are zero-copy, their
   serialization type is themselves, and their deserialization type is a
-  reference to themselves (the other cases must be covered using [newtypes];
+  reference to themselves (the other cases must be covered using [newtypes]);
 
-* Ranges and `ControlFlow<B, C>` behave like user-defined deep-copy types;
+* ranges and `ControlFlow<B, C>` behave like user-defined deep-copy types;
 
 * `Box<T>`, `Rc<T>`, and `Arc<T>`, for sized `T`, are deep-copy, and their
   serialization/deserialization type are the same of `T`.

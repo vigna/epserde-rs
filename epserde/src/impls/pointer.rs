@@ -80,7 +80,7 @@ use ser::*;
 macro_rules! impl_ser {
     ($type:ty) => {
         impl<T: SerInner> SerInner for $type {
-            type SerType = T;
+            type SerType = T::SerType;
             const IS_ZERO_COPY: bool = <T as SerInner>::IS_ZERO_COPY;
             const ZERO_COPY_MISMATCH: bool = <T as SerInner>::ZERO_COPY_MISMATCH;
 

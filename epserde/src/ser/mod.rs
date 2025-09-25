@@ -160,10 +160,7 @@ pub trait SerInner {
 ///
 /// This implementation [writes a header](`write_header`) containing some hashes
 /// and debug information and then delegates to [WriteWithNames::write].
-impl<T: SerInner> Serialize for T
-where
-    SerType<T>: TypeHash + AlignHash,
-{
+impl<T: SerInner<SerType: TypeHash + AlignHash>> Serialize for T {
     unsafe fn ser_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // write the header using the serialized type, not the type itself
         // this is done so that you can serialize types with reference to slices
