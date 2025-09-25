@@ -5,7 +5,7 @@
  */
 
 //! Mechanisms for keeping together [ε-copy
-//! deserialized](crate::deser::Deserialize::deser_eps) instances and the
+//! deserialized](crate::deser::Deserialize::deserialize_eps) instances and the
 //! memory regions they point to.
 //!
 //! Please refer to the documentation of [`MemCase`] for details.
@@ -136,7 +136,7 @@ impl<T> DeserInner for Owned<T> {
         unimplemented!();
     }
 
-    unsafe fn _deser_eps_inner<'a>(
+    unsafe fn _deser_epsinner<'a>(
         _backend: &mut super::SliceWithPos<'a>,
     ) -> super::Result<Self::DeserType<'a>> {
         unimplemented!();

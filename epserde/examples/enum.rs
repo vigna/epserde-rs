@@ -30,7 +30,7 @@ fn main() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <Data>::deser_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data>::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Data>(),
@@ -40,7 +40,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <Data>::deser_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<Data as DeserInner>::DeserType<'_>>(),
@@ -63,6 +63,6 @@ fn main() {
     // is different from the one we used.
     cursor.set_position(0);
     println!("Error in full-copy deserialization: {}", unsafe {
-        <Data>::deser_full(&mut cursor).err().unwrap()
+        <Data>::deserialize_full(&mut cursor).err().unwrap()
     });
 }

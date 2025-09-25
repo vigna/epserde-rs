@@ -14,10 +14,10 @@ macro_rules! impl_test {
         let _ = unsafe { $data.ser_with_schema(&mut cursor).unwrap() };
 
         cursor.set_position(0);
-        let full_copy = unsafe { <$ty>::deser_full(&mut cursor).unwrap() };
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor).unwrap() };
         assert_eq!($data, full_copy);
 
-        let eps_copy = unsafe { <$ty>::deser_eps(cursor.as_bytes()).unwrap() };
+        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes()).unwrap() };
         assert_eq!($data, *eps_copy);
     }
     {
@@ -25,10 +25,10 @@ macro_rules! impl_test {
         unsafe { $data.serialize(&mut cursor).unwrap() };
 
         cursor.set_position(0);
-        let full_copy = unsafe { <$ty>::deser_full(&mut cursor).unwrap() };
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor).unwrap() };
         assert_eq!($data, full_copy);
 
-        let eps_copy = unsafe { <$ty>::deser_eps(cursor.as_bytes()).unwrap() };
+        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes()).unwrap() };
         assert_eq!($data, *eps_copy);
     }};
 }

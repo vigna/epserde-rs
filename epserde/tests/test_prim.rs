@@ -17,10 +17,10 @@ macro_rules! impl_test {
 
         let _ = unsafe { $data.ser_with_schema(&mut cursor).unwrap() };
 
-        let full_copy = unsafe { <$ty>::deser_full(&mut std::io::Cursor::new(&v)).unwrap() };
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
         assert_eq!($data, full_copy);
 
-        let eps_copy = unsafe { <$ty>::deser_eps(&v).unwrap() };
+        let eps_copy = unsafe { <$ty>::deserialize_eps(&v).unwrap() };
         assert_eq!($data, eps_copy);
     }
     {
@@ -28,10 +28,10 @@ macro_rules! impl_test {
         let mut cursor = std::io::Cursor::new(&mut v);
         unsafe { $data.serialize(&mut cursor).unwrap() };
 
-        let full_copy = unsafe { <$ty>::deser_full(&mut std::io::Cursor::new(&v)).unwrap() };
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
         assert_eq!($data, full_copy);
 
-        let eps_copy = unsafe { <$ty>::deser_eps(&v).unwrap() };
+        let eps_copy = unsafe { <$ty>::deserialize_eps(&v).unwrap() };
         assert_eq!($data, eps_copy);
     }};
 }
@@ -120,10 +120,11 @@ fn test_string() {
             schema.0.sort_by_key(|a| a.offset);
 
             cursor.set_position(0);
-            let full_copy = unsafe { <String>::deser_full(&mut std::io::Cursor::new(&v)).unwrap() };
+            let full_copy =
+                unsafe { <String>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
             assert_eq!(s, full_copy);
 
-            let full_copy = unsafe { <String>::deser_eps(&v).unwrap() };
+            let full_copy = unsafe { <String>::deserialize_eps(&v).unwrap() };
             assert_eq!(s.as_str(), full_copy);
 
             let _ = schema.to_csv();
@@ -135,10 +136,11 @@ fn test_string() {
             unsafe { s.serialize(&mut cursor).unwrap() };
 
             cursor.set_position(0);
-            let full_copy = unsafe { <String>::deser_full(&mut std::io::Cursor::new(&v)).unwrap() };
+            let full_copy =
+                unsafe { <String>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
             assert_eq!(s, full_copy);
 
-            let full_copy = unsafe { <String>::deser_eps(&v).unwrap() };
+            let full_copy = unsafe { <String>::deserialize_eps(&v).unwrap() };
             assert_eq!(s.as_str(), full_copy);
         }
     }
@@ -157,10 +159,10 @@ fn test_box_str() {
 
             cursor.set_position(0);
             let full_copy =
-                unsafe { <Box<str>>::deser_full(&mut std::io::Cursor::new(&v)).unwrap() };
+                unsafe { <Box<str>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
             assert_eq!(s, full_copy);
 
-            let full_copy = unsafe { <Box<str>>::deser_eps(&v).unwrap() };
+            let full_copy = unsafe { <Box<str>>::deserialize_eps(&v).unwrap() };
             assert_eq!(s.as_ref(), full_copy);
         }
         {
@@ -170,10 +172,10 @@ fn test_box_str() {
 
             cursor.set_position(0);
             let full_copy =
-                unsafe { <Box<str>>::deser_full(&mut std::io::Cursor::new(&v)).unwrap() };
+                unsafe { <Box<str>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
             assert_eq!(s, full_copy);
 
-            let full_copy = unsafe { <Box<str>>::deser_eps(&v).unwrap() };
+            let full_copy = unsafe { <Box<str>>::deserialize_eps(&v).unwrap() };
             assert_eq!(s.as_ref(), full_copy);
         }
     }

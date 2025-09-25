@@ -106,9 +106,9 @@ impl<T: DeserInner> PhantomDeserData<T> {
     ///
     /// # Safety
     ///
-    /// See [`DeserInner::_deser_eps_inner`].
+    /// See [`DeserInner::_deser_epsinner`].
     #[inline(always)]
-    pub unsafe fn _deser_eps_inner_special<'a>(
+    pub unsafe fn _deser_epsinner_special<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<PhantomDeserData<T::DeserType<'a>>> {
         // SAFETY: types are zero-length
@@ -163,7 +163,7 @@ impl<T: DeserInner> DeserInner for PhantomDeserData<T> {
     }
     type DeserType<'a> = PhantomDeserData<T::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deser_eps_inner<'a>(
+    unsafe fn _deser_epsinner<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         Ok(PhantomDeserData(PhantomData))

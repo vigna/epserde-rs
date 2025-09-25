@@ -164,7 +164,7 @@
 
 ### Fixed
 
-* Renamed the lifetime `'a` in derives to `deser_eps_inner_lifetime`
+* Renamed the lifetime `'a` in derives to `deser_epsinner_lifetime`
   to avoid clashes.
 
 ## [0.5.0] - 2024-03-18

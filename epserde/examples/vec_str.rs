@@ -27,7 +27,7 @@ fn main() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { StringData::deser_full(&mut cursor).unwrap() };
+    let full = unsafe { StringData::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<StringData>(),
@@ -37,7 +37,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = unsafe { StringData::deser_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { StringData::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<StringData as DeserInner>::DeserType<'_>>(),

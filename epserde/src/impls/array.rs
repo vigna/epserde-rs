@@ -81,10 +81,10 @@ where
     }
 
     #[inline(always)]
-    unsafe fn _deser_eps_inner<'a>(
+    unsafe fn _deser_epsinner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<[T; N] as DeserHelper<<T as CopyType>::Copy>>::DeserType<'a>> {
-        unsafe { <[T; N] as DeserHelper<<T as CopyType>::Copy>>::_deser_eps_inner_impl(backend) }
+        unsafe { <[T; N] as DeserHelper<<T as CopyType>::Copy>>::_deser_epsinner_impl(backend) }
     }
 }
 
@@ -102,7 +102,7 @@ impl<T: ZeroCopy + DeserInner, const N: usize> DeserHelper<Zero> for [T; N] {
         }
     }
 
-    unsafe fn _deser_eps_inner_impl<'a>(
+    unsafe fn _deser_epsinner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserInner>::DeserType<'a>> {
         backend.align::<T>()?;
@@ -128,12 +128,12 @@ impl<T: DeepCopy + DeserInner, const N: usize> DeserHelper<Deep> for [T; N] {
         Ok(unsafe { res.assume_init() })
     }
 
-    unsafe fn _deser_eps_inner_impl<'a>(
+    unsafe fn _deser_epsinner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserInner>::DeserType<'a>> {
         let mut res = MaybeUninit::<<Self as DeserInner>::DeserType<'_>>::uninit();
         for item in &mut unsafe { res.assume_init_mut().iter_mut() } {
-            unsafe { std::ptr::write(item, T::_deser_eps_inner(backend)?) };
+            unsafe { std::ptr::write(item, T::_deser_epsinner(backend)?) };
         }
         Ok(unsafe { res.assume_init() })
     }

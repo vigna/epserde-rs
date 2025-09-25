@@ -68,10 +68,10 @@ impl DeserInner for String {
 
     type DeserType<'a> = &'a str;
 
-    unsafe fn _deser_eps_inner<'a>(
+    unsafe fn _deser_epsinner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let slice = unsafe { deser_eps_slice_zero(backend) }?;
+        let slice = unsafe { deser_epsslice_zero(backend) }?;
         // SAFETY: Actually this is unsafe if the data we read is not valid UTF-8
         Ok({
             unsafe {
@@ -106,9 +106,9 @@ impl DeserInner for Box<str> {
     type DeserType<'a> = &'a str;
 
     #[inline(always)]
-    unsafe fn _deser_eps_inner<'a>(
+    unsafe fn _deser_epsinner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        unsafe { String::_deser_eps_inner(backend) }
+        unsafe { String::_deser_epsinner(backend) }
     }
 }
