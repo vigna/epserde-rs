@@ -518,7 +518,7 @@ pub enum Error {
 You are trying to deserialize a file with the wrong type. You might also be trying to deserialize
 a tuple of mixed zero-copy types, which is no longer supported since 0.8.0,
 an instance containing tuples, whose type hash was fixed in 0.9.0,
-or an instance containing a vector that was serialized before 0.10.0.
+or an instance containing a vector or a string that was serialized before 0.10.0.
 The serialized type is '{ser_type_name}',
 but the type on which the deserialization method was invoked is '{self_type_name}'."#
     )]

@@ -5,13 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Implementations for (references to) slices.
+//! Convenience implementation for references to slices.
 //!
 //! In theory all types serialized by ε-serde must not contain references.
 //! However, we provide a convenience implementation that serializes references
-//! to slices as vectors. Moreover, we implement [`TypeHash`] and [`AlignHash`]
-//! for slices, so that they can be used with
-//! [`PhantomData`](std::marker::PhantomData).
+//! to slices as boxed slices.
 //!
 //! Note, however, that you must deserialize the slice as a vector, even when it
 //! appears a type parameter—see the example in the [crate-level

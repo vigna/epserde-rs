@@ -17,13 +17,17 @@
 * Major internal code restructuring: `TypeHash`/`AlignHash`/`MaxSizeOf` are now
   computed on the serialization type, not on the serializable type.
 
+* New convenience serialization implementation for `&str`, in the same vain as
+  that for `&[T]`.
+
 ### Changed
 
 * Major disruptive change: vectors and boxed slices have now the same
-  `TypeHash`. This makes them interchangeable at will in (de)serialization,
-  which is an extremely useful feature. Unfortunately, old instances with
-  replaceable type parameters whose concrete type is a vector will no longer be
-  deserializable.
+  serialization type. This makes them interchangeable at will in
+  (de)serialization, which is an extremely useful feature. Unfortunately, old
+  instances with replaceable type parameters whose concrete type is a vector
+  will no longer be deserializable. The same happens for `String` and
+  `Box<str>`.
 
 * `CopyType` is now unsafe as there is no way to check a type contains
   no references.
@@ -32,6 +36,9 @@
   necessary as the order of such attributes is irrelevant, but it might make
   impossible to deserialize old instances whose type specifies `repr` attributes
   in a different order.
+
+* A few `TypeHash`/`AlignHash` implementation that were not really necessary
+  have been removed.
 
 ## [0.9.0] - 2025-09-17
 

@@ -26,12 +26,6 @@ use ser::*;
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct SerIter<'a, T: 'a, I: ExactSizeIterator<Item = &'a T>>(RefCell<I>);
 
-unsafe impl<'a, T: ZeroCopy + TypeHash, I: ExactSizeIterator<Item = &'a T>> CopyType
-    for SerIter<'a, T, I>
-{
-    type Copy = Deep;
-}
-
 impl<'a, T: ZeroCopy + TypeHash, I: ExactSizeIterator<Item = &'a T>> SerIter<'a, T, I> {
     pub fn new(iter: I) -> Self {
         SerIter(RefCell::new(iter))
@@ -41,22 +35,6 @@ impl<'a, T: ZeroCopy + TypeHash, I: ExactSizeIterator<Item = &'a T>> SerIter<'a,
 impl<'a, T: ZeroCopy + TypeHash, I: ExactSizeIterator<Item = &'a T>> From<I> for SerIter<'a, T, I> {
     fn from(iter: I) -> Self {
         SerIter::new(iter)
-    }
-}
-
-impl<'a, T: ZeroCopy + TypeHash, I: ExactSizeIterator<Item = &'a T>> TypeHash
-    for SerIter<'a, T, I>
-{
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        <Box<[T]>>::type_hash(hasher);
-    }
-}
-
-impl<'a, T: ZeroCopy + AlignHash, I: ExactSizeIterator<Item = &'a T>> AlignHash
-    for SerIter<'a, T, I>
-{
-    fn align_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-        <Box<[T]>>::align_hash(hasher, offset_of);
     }
 }
 

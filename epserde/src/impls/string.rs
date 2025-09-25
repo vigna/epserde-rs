@@ -6,6 +6,14 @@
  */
 
 //! Implementations for strings.
+//!
+//! All string types have the same serialized type, `Box<str>`, and
+//! the same deserialized type, `&str`. Thus, you can serialize a `String` and
+//! fully deserialize it as `Box<str>`.
+//!
+//! Similarly to the case of [slices](crate::impls::slice), there is
+//! a convenience [`SerInner`] implementation for `&str` that
+//! serializes it as `Box<str>`.
 
 use crate::prelude::*;
 use core::hash::Hash;

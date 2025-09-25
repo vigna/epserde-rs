@@ -570,10 +570,10 @@ let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? 
 
 ## Example: (Structures containing) iterators
 
-ε-serde can serialize iterators returning references to a type. The resulting
-field can be deserialized as a vector/boxed slice. In this case we need to wrap
-the iterator in a [`SerIter`], as ε-serde cannot implement the serialization
-traits directly on [`Iterator`]. For example,
+ε-serde can serialize exact-size iterators returning references to a type. The
+resulting field can be deserialized as a vector/boxed slice. In this case we
+need to wrap the iterator in a [`SerIter`], as ε-serde cannot implement the
+serialization traits directly on [`Iterator`]. For example,
 
 ```rust
 # use epserde::prelude::*;
@@ -946,11 +946,9 @@ second condition, and indeed `D::DeserType<'_>` is `&D`.
   serialization type is `Box<[T]>` if `T` is zero-copy, but `Box<[T::SerType]>`
   if `T` is deep-copy; the deserialization type of `Vec<T>`/`Box<[T]>` is `&[T]`
   if `T` is zero-copy, and `Vec<T::DeserType<'_>>`/`Box<[T::DeserType<'_>]>` if
-  `T` is deep-copy; `&[T]` and `SerIter<T>` are not deserializable, with the
-  exception of `&[T]`, whose deserialization type is `&[T]` when `T` is
-  zero-copy.
+  `T` is deep-copy; `&[T]` and `SerIter<T>` are not deserializable.
 
-* arrays `[T; N]` are zero-copy if and only if `T` is zero-copy. their
+* arrays `[T; N]` are zero-copy if and only if `T` is zero-copy; their
   serialization type is `[T; N]` if `T` is zero-copy, but `[T::SerType; N]` if
   `T` is deep-copy; their deserialization type is `&[T; N]` if `T` is zero-copy,
   but `[T::DeserType<'_>; N]` if `T` is deep-copy;
@@ -958,6 +956,10 @@ second condition, and indeed `D::DeserType<'_>` is `&D`.
 * tuples up to size 12 made of the same zero-copy type `T` are zero-copy, their
   serialization type is themselves, and their deserialization type is a
   reference to themselves (the other cases must be covered using [newtypes]);
+
+* [`String`], `Box<str>` and `&str` are deep-copy, and their serialization type
+  is `Box<str>`; the deserialization type of [`String`] and `Box<str>` is `&str`,
+  whereas `&str` is not deserializable;
 
 * ranges and `ControlFlow<B, C>` behave like user-defined deep-copy types;
 
