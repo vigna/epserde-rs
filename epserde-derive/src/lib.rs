@@ -258,7 +258,7 @@ fn bind_ser_deser_types(
                     .push(WherePredicate::Type(PredicateType {
                         lifetimes: None,
                         bounded_ty: syn::parse_quote!(
-                            <#ident as ::epserde::ser::SerInner>::SerType
+                            ::epserde::ser::SerType<#ident>
                         ),
                         colon_token: token::Colon::default(),
                         bounds: t.bounds.clone(),
@@ -315,7 +315,7 @@ fn gen_generics_for_ser_type(
         .iter()
         .map(|ident| {
             if repl_params.contains(ident) {
-                quote!(<#ident as ::epserde::ser::SerInner>::SerType)
+                quote!(::epserde::ser::SerType<#ident>)
             } else {
                 quote!(#ident)
             }
@@ -376,7 +376,7 @@ fn gen_type_info_where_clauses(
                             .push(WherePredicate::Type(PredicateType {
                                 lifetimes: None,
                                 bounded_ty: syn::parse_quote!(
-                                    <#field_type as ::epserde::ser::SerInner>::SerType
+                                    ::epserde::ser::SerType<#field_type>
                                 ),
                                 colon_token: token::Colon::default(),
                                 bounds: trait_bound.clone(),
@@ -1174,7 +1174,7 @@ fn gen_struct_type_info_impl(
                 if ctx.type_params.contains(field_type_id) {
                     repl_params.insert(field_type_id);
                     // Replaceable type parameter
-                    field_types_ts.push(quote! { <#field_type as SerInner>::SerType });
+                    field_types_ts.push(quote! { ::epserde::ser::SerType<#field_type> });
                     continue;
                 }
             }
@@ -1252,7 +1252,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                         if let Some(field_type_id) = get_ident(field_type) {
                             if ctx.type_params.contains(field_type_id) {
                                 // Replaceable type parameter
-                                field_type_ts = quote! {<#field_type as SerInner>::SerType};
+                                field_type_ts = quote! { ::epserde::ser::SerType<#field_type> };
                             }
                         }
                     }
@@ -1295,7 +1295,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                         if let Some(field_type_id) = get_ident(field_type) {
                             if ctx.type_params.contains(field_type_id) {
                                 // Replaceable type parameter
-                                field_type_ts = quote! {<#field_type as SerInner>::SerType};
+                                field_type_ts = quote! { ::epserde::ser::SerType<#field_type> };
                             }
                         }
                     }

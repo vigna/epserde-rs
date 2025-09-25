@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use epserde::prelude::*;
+use epserde::{prelude::*, ser::SerType};
 use maligned::A16;
 use std::marker::PhantomData;
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
@@ -109,10 +109,9 @@ struct DeepCopyParam<T> {
 
 #[test]
 fn test_types_deep_copy_param() {
-    let _test_usize: <DeepCopyParam<usize> as SerInner>::SerType = DeepCopyParam { data: 0 };
+    let _test_usize: SerType<DeepCopyParam<usize>> = DeepCopyParam { data: 0 };
     let _test: DeserType<'_, DeepCopyParam<usize>> = DeepCopyParam { data: 0 };
-    let _test_array: <DeepCopyParam<[i32; 4]> as SerInner>::SerType =
-        DeepCopyParam { data: [1, 2, 3, 4] };
+    let _test_array: SerType<DeepCopyParam<[i32; 4]>> = DeepCopyParam { data: [1, 2, 3, 4] };
     let _test: DeserType<'_, DeepCopyParam<[i32; 4]>> = DeepCopyParam {
         data: &[1, 2, 3, 4],
     };
@@ -127,10 +126,9 @@ struct ZeroCopyParam<T: ZeroCopy> {
 
 #[test]
 fn test_types_zero_copy_param() {
-    let _test_usize: <ZeroCopyParam<usize> as SerInner>::SerType = ZeroCopyParam { data: 0 };
+    let _test_usize: SerType<ZeroCopyParam<usize>> = ZeroCopyParam { data: 0 };
     let _test: DeserType<'_, ZeroCopyParam<usize>> = &ZeroCopyParam { data: 0 };
-    let _test_array: <ZeroCopyParam<[i32; 4]> as SerInner>::SerType =
-        ZeroCopyParam { data: [1, 2, 3, 4] };
+    let _test_array: SerType<ZeroCopyParam<[i32; 4]>> = ZeroCopyParam { data: [1, 2, 3, 4] };
     let _test: DeserType<'_, ZeroCopyParam<[i32; 4]>> = &ZeroCopyParam { data: [1, 2, 3, 4] };
 }
 
