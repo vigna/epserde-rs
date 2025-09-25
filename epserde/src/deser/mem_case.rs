@@ -226,7 +226,7 @@ where
 /// # Examples
 ///
 /// ```
-/// # use epserde::deser::{MemCase, Owned};
+/// # use epserde::deser::MemOwned;
 /// let owned: MemOwned<Vec<usize>> = vec![1, 2, 3].into();
 /// assert_eq!(owned.uncase(), &[1, 2, 3]);
 /// ```

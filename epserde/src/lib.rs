@@ -74,6 +74,8 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
 /// still contain `T`. To fix this issue, you can use [`PhantomDeserData`]
 /// instead.
 ///
+/// Note that `T` must be sized.
+///
 /// # Examples
 ///
 /// This code will not compile:
@@ -98,7 +100,7 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PhantomDeserData<T: ?Sized>(pub PhantomData<T>);
 
-impl<T: ?Sized + DeserInner> PhantomDeserData<T> {
+impl<T: DeserInner> PhantomDeserData<T> {
     /// A custom deserialization method for [`PhantomDeserData`] that transmutes
     /// the inner type.
     ///
@@ -119,18 +121,18 @@ impl<T: ?Sized + DeserInner> PhantomDeserData<T> {
     }
 }
 
-unsafe impl<T: ?Sized> CopyType for PhantomDeserData<T> {
+unsafe impl<T> CopyType for PhantomDeserData<T> {
     type Copy = Zero;
 }
 
-impl<T: ?Sized> MaxSizeOf for PhantomDeserData<T> {
+impl<T> MaxSizeOf for PhantomDeserData<T> {
     #[inline(always)]
     fn max_size_of() -> usize {
         0
     }
 }
 
-impl<T: ?Sized + TypeHash> TypeHash for PhantomDeserData<T> {
+impl<T: TypeHash> TypeHash for PhantomDeserData<T> {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "PhantomDeserData".hash(hasher);
@@ -138,12 +140,12 @@ impl<T: ?Sized + TypeHash> TypeHash for PhantomDeserData<T> {
     }
 }
 
-impl<T: ?Sized> AlignHash for PhantomDeserData<T> {
+impl<T> AlignHash for PhantomDeserData<T> {
     #[inline(always)]
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl<T: ?Sized> SerInner for PhantomDeserData<T> {
+impl<T> SerInner for PhantomDeserData<T> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;

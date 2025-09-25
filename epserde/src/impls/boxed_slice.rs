@@ -86,7 +86,7 @@ impl<T: ZeroCopy + DeserInner> DeserHelper<Zero> for Box<[T]> {
     unsafe fn _deser_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserInner>::DeserType<'a>> {
-        unsafe { deser_epsslice_zero(backend) }
+        unsafe { deser_eps_slice_zero(backend) }
     }
 }
 
@@ -101,6 +101,6 @@ impl<T: DeepCopy + DeserInner> DeserHelper<Deep> for Box<[T]> {
     unsafe fn _deser_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserInner>::DeserType<'a>> {
-        Ok(deser_epsvec_deep::<T>(backend)?.into_boxed_slice())
+        Ok(deser_eps_vec_deep::<T>(backend)?.into_boxed_slice())
     }
 }

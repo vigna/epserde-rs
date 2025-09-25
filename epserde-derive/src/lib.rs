@@ -515,11 +515,11 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
                 type DeserType<'epserde_desertype> = &'epserde_desertype Self;
 
-                unsafe fn _deser_eps_inner<'deser_epsinner_lifetime>(
-                    backend: &mut ::epserde::deser::SliceWithPos<'deser_epsinner_lifetime>,
-                ) -> ::core::result::Result<Self::DeserType<'deser_epsinner_lifetime>, ::epserde::deser::Error>
+                unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
+                    backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
+                ) -> ::core::result::Result<Self::DeserType<'deser_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
-                    unsafe { ::epserde::deser::helpers::deser_epszero::<Self>(backend) }
+                    unsafe { ::epserde::deser::helpers::deser_eps_zero::<Self>(backend) }
                 }
             }
         }
@@ -573,9 +573,9 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
                 type DeserType<'epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
 
-                unsafe fn _deser_eps_inner<'deser_epsinner_lifetime>(
-                    backend: &mut ::epserde::deser::SliceWithPos<'deser_epsinner_lifetime>,
-                ) -> ::core::result::Result<Self::DeserType<'deser_epsinner_lifetime>, ::epserde::deser::Error>
+                unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
+                    backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
+                ) -> ::core::result::Result<Self::DeserType<'deser_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
                     use ::epserde::deser::DeserInner;
 
@@ -787,11 +787,11 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 type DeserType<'epserde_desertype> = &'epserde_desertype Self;
 
-                unsafe fn _deser_eps_inner<'deser_epsinner_lifetime>(
-                    backend: &mut ::epserde::deser::SliceWithPos<'deser_epsinner_lifetime>,
-                ) -> ::core::result::Result<Self::DeserType<'deser_epsinner_lifetime>, ::epserde::deser::Error>
+                unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
+                    backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
+                ) -> ::core::result::Result<Self::DeserType<'deser_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
-                    unsafe { ::epserde::deser::helpers::deser_epszero::<Self>(backend) }
+                    unsafe { ::epserde::deser::helpers::deser_eps_zero::<Self>(backend) }
                 }
             }
         }
@@ -850,9 +850,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 type DeserType<'epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
 
-                unsafe fn _deser_eps_inner<'deser_epsinner_lifetime>(
-                    backend: &mut ::epserde::deser::SliceWithPos<'deser_epsinner_lifetime>,
-                ) -> ::core::result::Result<Self::DeserType<'deser_epsinner_lifetime>, ::epserde::deser::Error>
+                unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
+                    backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
+                ) -> ::core::result::Result<Self::DeserType<'deser_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
                     use ::epserde::deser::DeserInner;
                     use ::epserde::deser::Error;

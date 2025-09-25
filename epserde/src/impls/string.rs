@@ -71,7 +71,7 @@ impl DeserInner for String {
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let slice = unsafe { deser_epsslice_zero(backend) }?;
+        let slice = unsafe { deser_eps_slice_zero(backend) }?;
         // SAFETY: Actually this is unsafe if the data we read is not valid UTF-8
         Ok({
             unsafe {

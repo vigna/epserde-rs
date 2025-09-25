@@ -46,14 +46,6 @@ impl CopySelector for Deep {
 /// [`MaxSizeOf`], and be `'static`) and [`DeepCopy`], which are automatically
 /// implemented.
 ///
-/// ```rust use
-/// epserde::traits::*;
-///
-/// struct MyType {}
-///
-/// impl CopyType for MyType { type Copy = Deep; } // Now MyType implements DeepCopy
-/// ```
-///
 /// You should not implement this trait manually, but rather use
 /// the provided [derive macro](epserde_derive::Epserde).
 ///
