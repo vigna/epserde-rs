@@ -56,3 +56,9 @@ test_zero!(
     ((i32, i32), (i32, i32)),
     ((-1_i32, 1_i32), (-1_i32, 1_i32))
 );
+
+#[derive(Epserde)]
+struct Bad<A> {
+    data: A,
+    vec: Vec<A>,
+}

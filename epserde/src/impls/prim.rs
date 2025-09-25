@@ -72,7 +72,7 @@ macro_rules! impl_prim_ser_des {
             }
             type DeserType<'a> = Self;
             #[inline(always)]
-            unsafe fn _deser_epsinner<'a>(
+            unsafe fn _deser_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
             ) -> deser::Result<Self::DeserType<'a>> {
                 let res = <$ty>::from_ne_bytes(
@@ -118,7 +118,7 @@ macro_rules! impl_nonzero_ser_des {
             }
             type DeserType<'a> = Self;
             #[inline(always)]
-            unsafe fn _deser_epsinner<'a>(
+            unsafe fn _deser_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
             ) -> deser::Result<Self::DeserType<'a>> {
                 let res = <$ty as NonZero>::BaseType::from_ne_bytes(
@@ -186,7 +186,7 @@ impl DeserInner for bool {
     }
     type DeserType<'a> = Self;
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let res = backend.data[0] != 0;
@@ -215,10 +215,10 @@ impl DeserInner for char {
     }
     type DeserType<'a> = Self;
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        Ok(char::from_u32(unsafe { u32::_deser_epsinner(backend) }?).unwrap())
+        Ok(char::from_u32(unsafe { u32::_deser_eps_inner(backend) }?).unwrap())
     }
 }
 
@@ -242,7 +242,7 @@ impl DeserInner for () {
     }
     type DeserType<'a> = Self;
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         Ok(())
@@ -295,7 +295,7 @@ impl<T: ?Sized> DeserInner for PhantomData<T> {
     }
     type DeserType<'a> = Self;
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         Ok(PhantomData)
@@ -351,13 +351,13 @@ impl<T: DeserInner> DeserInner for Option<T> {
     }
     type DeserType<'a> = Option<<T as DeserInner>::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
             0 => Ok(None),
-            1 => Ok(Some(unsafe { T::_deser_epsinner(backend) }?)),
+            1 => Ok(Some(unsafe { T::_deser_eps_inner(backend) }?)),
             _ => Err(deser::Error::InvalidTag(backend.data[0] as usize)),
         }
     }

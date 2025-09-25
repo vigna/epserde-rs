@@ -49,7 +49,7 @@ delegation a [`MemCase`] can be used almost transparently as said instance.
 
 Tommaso Fontana, while working at INRIA under the supervision of Stefano
 Zacchiroli, came up with the basic idea for ε-serde, that is, replacing
-structures with equivalent references. The code was developed jointly with
+instances with equivalent references. The code was developed jointly with
 Sebastiano Vigna, who came up with the [`MemCase`] and the
 [`ZeroCopy`]/[`DeepCopy`] logic. Valentin Lorentz joined later, providing
 major improvements in soundness.
@@ -100,9 +100,9 @@ These are the main limitations you should be aware of before choosing to use
 - The structure you get by deserialization has exactly the same performance as
   the structure you serialized. This is not the case with [zerovec] or [rkiv].
 
-- You can serialize structures containing references to slices, or even
+- You can serialize instances containing references to slices, or even
   exact-size iterators, and they will be deserialized as if you had written a
-  vector. It is thus possible to serialize structures larger than the available
+  vector. It is thus possible to serialize instances larger than the available
   memory.
 
 - You can deserialize from read-only supports, as all dynamic information
@@ -171,7 +171,7 @@ memory region containing the serialized data. When deserializing into a
 [`MemCase`], however, the lifetime is `'static`, as [`MemCase`] is an owned
 type.
 
-## Examples: ε-copy of standard structures
+## Examples: ε-copy of standard types
 
 Zero-copy deserialization is not that interesting because it can be applied only
 to data whose memory layout and size are fixed and known at compile time. This
@@ -227,7 +227,7 @@ If your code must work both with the original and the deserialized version,
 however, it must be written for a trait that is implemented by both types, such
 as `AsRef<[usize]>`.
 
-## Example: Zero-copy structures
+## Example: Zero-copy user-defined structures
 
 You can define your types to be zero-copy, in which case they will work like
 `usize` in the previous examples. This requires the structure to be made of
@@ -277,7 +277,15 @@ assert_eq!(s, **u.uncase());
 If a type is not zero-copy, instead, vectors/boxed slices will be always
 deserialized into vectors/boxed slices.
 
-## Example: Structures with parameters
+If you define a type that satisfies the requirements for being zero-copy, but
+has not been annotated with `#[zero_copy]`, ε-serde will print a warning message
+each time you serialize an instance of the type. You can use the `#[deep_copy]`
+annotation to silence the warning. The reason for this (annoying) message is
+that it is not possible to detect at compile time this missed opportunity. In
+some cases, however, you might want to have a deep-copy type (e.g., because
+field reordering is beneficial for memory usage).
+
+## Example: User-defined structures with parameters
 
 More flexibility can be obtained by defining types with fields whose types are
 defined by parameters. In this case, ε-serde will deserialize instances of the
@@ -404,14 +412,14 @@ The result will be an error message similar to the following:
 |                      - found this type parameter
 ```
 
-## Example: Deep-copy structures with internal parameters
+## Example: User-defined deep-copy structures with internal parameters
 
 Internal type parameters, that is, type parameters used by the types of your
 fields but that do not represent the type of a fields, are left untouched.
-However, to be serializable they must be classified as deep-copy or zero-copy,
-and in the first case they must have a `'static` lifetime. The only exception to
-this rule is for types inside a [`PhantomData`], which do not even need to be
-serializable. For example,
+However, to be serializable they must be classified as deep-copy or zero-copy.
+The only exception to this rule is for types inside a [`PhantomData`], which do
+not even need to be serializable, or for types inside a [`PhantomDeserData`].
+For example,
 
 ```rust
 # use epserde::prelude::*;
@@ -438,7 +446,7 @@ let t: MyStruct<Vec<isize>> =
 Note how the field originally of type `Vec<Vec<isize>>` remains of the same
 type.
 
-## Example: Zero-copy structures with parameters
+## Example: User-defined zero-copy structures with parameters
 
 For zero-copy types, things are slightly different because type parameters are
 not substituted, even if they are the type of a field. So all type parameters
@@ -473,7 +481,7 @@ let t: &MyStruct<i32> =
 
 Note how the field originally of type `i32` remains of the same type.
 
-## Example: Enums
+## Example: User-defined enum types
 
 Enums are supported, but there are two caveats: first, if you want them to be
 zero-copy, they must be `repr(C)`, and thus you will lose the possibility that
@@ -631,7 +639,7 @@ Please see the documentation of the [`pointer`] module for more details.
 
 Vectors and boxed slices are entirely interchangeable in ε-serde. In
 particular, you can serialize a vector and deserialize it as a boxed slice, or
-vice versa, even when they are fields of a structure (given, of course, that they
+vice versa, even when they are fields of a type (given, of course, that they
 are the concrete type of a type parameter).
 
 ## [`PhantomData`]
@@ -697,7 +705,7 @@ non-orthogonal choice:
 Since this is true only of primitive types, when deserializing a 1-tuple
 containing a primitive type one obtains a reference (and indeed this workaround
 can be used if you really need to deserialize a primitive type as a reference).
-The same happens if you deserialize a zero-copy struct containing a single field
+The same happens if you deserialize a zero-copy instance containing a single field
 of primitive type.
 
 Instances of deep-copy types instead are serialized and deserialized
@@ -716,15 +724,15 @@ for [`PhantomData`]).
 
 This approach makes it possible to write ε-serde-aware structures that hide from
 the user the substitution. A good example is the [`BitFieldVec`] structure from
-[`sux`], which exposes an array of fields of fixed bit width using (usually)
-a `Vec<usize>` as a backend; except for extension methods, all methods of
-[`BitFieldVec`] come from the trait [`BitFieldSlice`]. If you have your own struct
-and one of the fields is of type `A`, when serializing your struct with `A`
-equal to `BitFieldVec<Vec<usize>>`, upon ε-copy deserialization you will get a
-version of your struct with `BitFieldVec<&[usize]>`. All this will happen under
-the hood because [`BitFieldVec`] is ε-serde-aware, and in fact you will not even
-notice the difference if you access both versions using the trait
-[`BitFieldSlice`].
+[`sux`], which exposes an array of fields of fixed bit width using (usually) a
+`Vec<usize>` as a backend; except for extension methods, all methods of
+[`BitFieldVec`] come from the trait [`BitFieldSlice`]. If you have your own
+user-defined type and one of the fields is of type `A`, when serializing an
+instance with `A` equal to `BitFieldVec<Vec<usize>>`, upon ε-copy
+deserialization you will get a version of your instance of type
+`BitFieldVec<&[usize]>`. All this will happen under the hood because
+[`BitFieldVec`] is ε-serde-aware, and in fact you will not even notice the
+difference if you access both versions using the trait [`BitFieldSlice`].
 
 ## Specification
 
@@ -1030,4 +1038,4 @@ European Union nor the Italian MUR can be held responsible for them.
 [_zero-copy_]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.ZeroCopy.html>
 [`Deep`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/struct.Deep.html>
 [`Zero`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/struct.Zero.html>
-[newtypes]: <https://docs.rs/epserde/0.9.0/epserde/impls/tuple/index.html>
+[newtypes]: <https://docs.rs/epserde/latest/epserde/impls/tuple/index.html>

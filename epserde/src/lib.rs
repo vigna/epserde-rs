@@ -74,8 +74,6 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
 /// still contain `T`. To fix this issue, you can use [`PhantomDeserData`]
 /// instead.
 ///
-/// Note that `T` must be sized.
-///
 /// # Examples
 ///
 /// This code will not compile:
@@ -100,15 +98,15 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PhantomDeserData<T: ?Sized>(pub PhantomData<T>);
 
-impl<T: DeserInner> PhantomDeserData<T> {
+impl<T: ?Sized + DeserInner> PhantomDeserData<T> {
     /// A custom deserialization method for [`PhantomDeserData`] that transmutes
     /// the inner type.
     ///
     /// # Safety
     ///
-    /// See [`DeserInner::_deser_epsinner`].
+    /// See [`DeserInner::_deser_eps_inner`].
     #[inline(always)]
-    pub unsafe fn _deser_epsinner_special<'a>(
+    pub unsafe fn _deser_eps_inner_special<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<PhantomDeserData<T::DeserType<'a>>> {
         // SAFETY: types are zero-length
@@ -163,7 +161,7 @@ impl<T: DeserInner> DeserInner for PhantomDeserData<T> {
     }
     type DeserType<'a> = PhantomDeserData<T::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         Ok(PhantomDeserData(PhantomData))

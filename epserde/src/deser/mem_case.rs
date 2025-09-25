@@ -136,7 +136,7 @@ impl<T> DeserInner for Owned<T> {
         unimplemented!();
     }
 
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         _backend: &mut super::SliceWithPos<'a>,
     ) -> super::Result<Self::DeserType<'a>> {
         unimplemented!();

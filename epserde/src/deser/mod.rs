@@ -330,7 +330,7 @@ pub trait Deserialize: DeserInner {
 /// Inner trait to implement deserialization of a type. This trait exists to
 /// separate the user-facing [`Deserialize`] trait from the low-level
 /// deserialization mechanisms of [`DeserInner::_deser_full_inner`]
-/// and [`DeserInner::_deser_epsinner`]. Moreover, it makes it
+/// and [`DeserInner::_deser_eps_inner`]. Moreover, it makes it
 /// possible to behave slightly differently at the top of the recursion tree
 /// (e.g., to check the endianness marker), and to prevent the user from
 /// modifying the methods in [`Deserialize`].
@@ -353,7 +353,7 @@ pub trait DeserInner: Sized {
     /// # Safety
     ///
     /// See the documentation of [`Deserialize`].
-    unsafe fn _deser_epsinner<'a>(backend: &mut SliceWithPos<'a>) -> Result<Self::DeserType<'a>>;
+    unsafe fn _deser_eps_inner<'a>(backend: &mut SliceWithPos<'a>) -> Result<Self::DeserType<'a>>;
 }
 
 /// Blanket implementation that prevents the user from overwriting the
@@ -362,7 +362,7 @@ pub trait DeserInner: Sized {
 /// This implementation [checks the header](`check_header`) written
 /// by the blanket implementation of [`crate::ser::Serialize`] and then delegates to
 /// [`DeserInner::_deser_full_inner`] or
-/// [`DeserInner::_deser_epsinner`].
+/// [`DeserInner::_deser_eps_inner`].
 impl<T: SerInner + DeserInner> Deserialize for T
 where
     T::SerType: TypeHash + AlignHash,
@@ -382,7 +382,7 @@ where
     unsafe fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
         let mut backend = SliceWithPos::new(backend);
         check_header::<Self>(&mut backend)?;
-        unsafe { Self::_deser_epsinner(&mut backend) }
+        unsafe { Self::_deser_eps_inner(&mut backend) }
     }
 }
 
@@ -465,7 +465,7 @@ pub trait DeserHelper<T: CopySelector> {
     /// # Safety
     ///
     /// See the documentation of [`Deserialize`].
-    unsafe fn _deser_epsinner_impl<'a>(
+    unsafe fn _deser_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> Result<Self::DeserType<'a>>;
 }

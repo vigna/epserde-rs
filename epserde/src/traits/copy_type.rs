@@ -42,14 +42,19 @@ impl CopySelector for Deep {
 ///
 /// The trait comes in two flavors: `CopySelector<Type=Zero>` and
 /// `CopySelector<Type=Deep>`. To each of these flavors corresponds two
-/// dependent traits, [`ZeroCopy`] (which requires implementing [`MaxSizeOf`])
-/// and [`DeepCopy`], which are automatically implemented. ```rust use
+/// dependent traits, [`ZeroCopy`] (which requires implementing [`Copy`],
+/// [`MaxSizeOf`], and be `'static`) and [`DeepCopy`], which are automatically
+/// implemented.
+///
+/// ```rust use
 /// epserde::traits::*;
 ///
 /// struct MyType {}
 ///
-/// impl CopyType for MyType { type Copy = Deep; } // Now MyType implements
-/// DeepCopy ``` You should not implement this trait manually, but rather use
+/// impl CopyType for MyType { type Copy = Deep; } // Now MyType implements DeepCopy
+/// ```
+///
+/// You should not implement this trait manually, but rather use
 /// the provided [derive macro](epserde_derive::Epserde).
 ///
 /// We use this trait to implement a different behavior for [`ZeroCopy`] and
@@ -85,10 +90,9 @@ impl CopySelector for Deep {
 /// them to be zero-copy) and ε-serde will do the rest.
 ///
 /// # Safety
-/// The trait is unsafe because the user must guarantee that the type is either
-/// zero-copy or deep-copy, and this cannot be checked by the compiler. In
-/// particular, if you implement `CopyType` with `Copy = Zero` you must guarantee
-/// that the type is `repr(C)`, has no padding bytes, and no pointers.
+///
+/// The trait is unsafe because the user must guarantee that zero-copy types do
+/// not contain references, and this cannot be checked by the compiler.
 pub unsafe trait CopyType: Sized {
     type Copy: CopySelector;
 }

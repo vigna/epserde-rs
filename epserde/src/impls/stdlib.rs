@@ -107,11 +107,11 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::Range<Idx> {
     }
     type DeserType<'a> = core::ops::Range<<Idx as DeserInner>::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let start = unsafe { Idx::_deser_epsinner(backend) }?;
-        let end = unsafe { Idx::_deser_epsinner(backend) }?;
+        let start = unsafe { Idx::_deser_eps_inner(backend) }?;
+        let end = unsafe { Idx::_deser_eps_inner(backend) }?;
         Ok(core::ops::Range { start, end })
     }
 }
@@ -136,10 +136,10 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeFrom<Idx> {
     }
     type DeserType<'a> = core::ops::RangeFrom<<Idx as DeserInner>::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let start = unsafe { Idx::_deser_epsinner(backend) }?;
+        let start = unsafe { Idx::_deser_eps_inner(backend) }?;
         Ok(core::ops::RangeFrom { start })
     }
 }
@@ -169,11 +169,11 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeInclusive<Idx> {
     }
     type DeserType<'a> = core::ops::RangeInclusive<<Idx as DeserInner>::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let start = unsafe { Idx::_deser_epsinner(backend) }?;
-        let end = unsafe { Idx::_deser_epsinner(backend) }?;
+        let start = unsafe { Idx::_deser_eps_inner(backend) }?;
+        let end = unsafe { Idx::_deser_eps_inner(backend) }?;
         let exhausted = unsafe { bool::_deser_full_inner(backend) }?;
         assert!(!exhausted, "cannot deserialize an exhausted range");
         Ok(start..=end)
@@ -200,10 +200,10 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeTo<Idx> {
     }
     type DeserType<'a> = core::ops::RangeTo<<Idx as DeserInner>::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let end = unsafe { Idx::_deser_epsinner(backend) }?;
+        let end = unsafe { Idx::_deser_eps_inner(backend) }?;
         Ok(..end)
     }
 }
@@ -230,10 +230,10 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeToInclusive<Idx>
     }
     type DeserType<'a> = core::ops::RangeToInclusive<<Idx as DeserInner>::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let end = unsafe { Idx::_deser_epsinner(backend) }?;
+        let end = unsafe { Idx::_deser_eps_inner(backend) }?;
         Ok(..=end)
     }
 }
@@ -256,7 +256,7 @@ impl DeserInner for core::ops::RangeFull {
     }
     type DeserType<'a> = core::ops::RangeFull;
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         Ok(core::ops::RangeFull)
@@ -315,17 +315,17 @@ impl<T: DeserInner> DeserInner for core::ops::Bound<T> {
 
     type DeserType<'a> = core::ops::Bound<<T as DeserInner>::DeserType<'a>>;
 
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
             0 => Ok(core::ops::Bound::Unbounded),
             1 => Ok(core::ops::Bound::Included(unsafe {
-                T::_deser_epsinner(backend)
+                T::_deser_eps_inner(backend)
             }?)),
             2 => Ok(core::ops::Bound::Excluded(unsafe {
-                T::_deser_epsinner(backend)
+                T::_deser_eps_inner(backend)
             }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
@@ -389,16 +389,16 @@ impl<B: DeserInner, C: DeserInner> DeserInner for core::ops::ControlFlow<B, C> {
     type DeserType<'a> =
         core::ops::ControlFlow<<B as DeserInner>::DeserType<'a>, <C as DeserInner>::DeserType<'a>>;
 
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
             1 => Ok(core::ops::ControlFlow::Break(unsafe {
-                B::_deser_epsinner(backend)
+                B::_deser_eps_inner(backend)
             }?)),
             2 => Ok(core::ops::ControlFlow::Continue(unsafe {
-                C::_deser_epsinner(backend)
+                C::_deser_eps_inner(backend)
             }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }

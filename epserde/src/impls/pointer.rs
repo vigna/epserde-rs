@@ -104,10 +104,10 @@ macro_rules! impl_all {
                 unsafe { <T as DeserInner>::_deser_full_inner(backend).map($type::new) }
             }
             #[inline(always)]
-            unsafe fn _deser_epsinner<'a>(
+            unsafe fn _deser_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
             ) -> deser::Result<Self::DeserType<'a>> {
-                unsafe { <T as DeserInner>::_deser_epsinner(backend).map($type::new) }
+                unsafe { <T as DeserInner>::_deser_eps_inner(backend).map($type::new) }
             }
         }
     };

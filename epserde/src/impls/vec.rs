@@ -72,10 +72,10 @@ where
     }
 
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Vec<T> as DeserHelper<<T as CopyType>::Copy>>::DeserType<'a>> {
-        unsafe { <Vec<T> as DeserHelper<<T as CopyType>::Copy>>::_deser_epsinner_impl(backend) }
+        unsafe { <Vec<T> as DeserHelper<<T as CopyType>::Copy>>::_deser_eps_inner_impl(backend) }
     }
 }
 
@@ -87,7 +87,7 @@ impl<T: ZeroCopy + DeserInner> DeserHelper<Zero> for Vec<T> {
         unsafe { deser_full_vec_zero(backend) }
     }
     #[inline(always)]
-    unsafe fn _deser_epsinner_impl<'a>(
+    unsafe fn _deser_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserInner>::DeserType<'a>> {
         unsafe { deser_epsslice_zero(backend) }
@@ -102,7 +102,7 @@ impl<T: DeepCopy + DeserInner> DeserHelper<Deep> for Vec<T> {
         deser_full_vec_deep::<T>(backend)
     }
     #[inline(always)]
-    unsafe fn _deser_epsinner_impl<'a>(
+    unsafe fn _deser_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<<Self as DeserInner>::DeserType<'a>> {
         deser_epsvec_deep::<T>(backend)

@@ -87,10 +87,10 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
 
 /// Generates a method call for field deserialization.
 ///
-/// This methods takes care of choosing `_deser_epsinner` or
+/// This methods takes care of choosing `_deser_eps_inner` or
 /// `_deser_full_inner` depending on whether a field type is a type
 /// parameter or not, and to use the special method
-/// `_deser_epsinner_special` for `PhantomDeserData`.
+/// `_deser_eps_inner_special` for `PhantomDeserData`.
 ///
 /// The type of `field_name` is [`proc_macro2::TokenStream`] because it can be
 /// either an identifier (for named fields) or an index (for unnamed fields).
@@ -111,14 +111,14 @@ fn gen_deser_method_call(
         // PhantomDeserData, but it should be good enough in practice
         if let Some(segment) = segments.last() {
             if segment.ident == "PhantomDeserData" {
-                return syn::parse_quote!(#field_name: unsafe { <#field_type>::_deser_epsinner_special(backend)? });
+                return syn::parse_quote!(#field_name: unsafe { <#field_type>::_deser_eps_inner_special(backend)? });
             }
         }
 
         // If it's a replaceable type parameter we proceed with ε-copy
         // deserialization
         if segments.len() == 1 && type_params.contains(&segments[0].ident) {
-            return syn::parse_quote!(#field_name: unsafe  { <#field_type as DeserInner>::_deser_epsinner(backend)? });
+            return syn::parse_quote!(#field_name: unsafe  { <#field_type as DeserInner>::_deser_eps_inner(backend)? });
         }
     }
 
@@ -515,7 +515,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
                 type DeserType<'epserde_desertype> = &'epserde_desertype Self;
 
-                unsafe fn _deser_epsinner<'deser_epsinner_lifetime>(
+                unsafe fn _deser_eps_inner<'deser_epsinner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deser_epsinner_lifetime>,
                 ) -> ::core::result::Result<Self::DeserType<'deser_epsinner_lifetime>, ::epserde::deser::Error>
                 {
@@ -573,7 +573,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
                 type DeserType<'epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
 
-                unsafe fn _deser_epsinner<'deser_epsinner_lifetime>(
+                unsafe fn _deser_eps_inner<'deser_epsinner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deser_epsinner_lifetime>,
                 ) -> ::core::result::Result<Self::DeserType<'deser_epsinner_lifetime>, ::epserde::deser::Error>
                 {
@@ -787,7 +787,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 type DeserType<'epserde_desertype> = &'epserde_desertype Self;
 
-                unsafe fn _deser_epsinner<'deser_epsinner_lifetime>(
+                unsafe fn _deser_eps_inner<'deser_epsinner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deser_epsinner_lifetime>,
                 ) -> ::core::result::Result<Self::DeserType<'deser_epsinner_lifetime>, ::epserde::deser::Error>
                 {
@@ -850,7 +850,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 type DeserType<'epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
 
-                unsafe fn _deser_epsinner<'deser_epsinner_lifetime>(
+                unsafe fn _deser_eps_inner<'deser_epsinner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deser_epsinner_lifetime>,
                 ) -> ::core::result::Result<Self::DeserType<'deser_epsinner_lifetime>, ::epserde::deser::Error>
                 {
@@ -883,8 +883,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 ///
 /// If you do not specify `zero_copy`, the macro assumes your structure is
 /// deep-copy. However, if you have a structure that could be zero-copy, but has
-/// no attribute, a warning will be issued every time you serialize. The warning
-/// can be silenced adding the explicit attribute `deep_copy`.
+/// no attribute, a warning will be issued every time you serialize an instance
+/// of the type. The warning can be silenced adding the explicit attribute
+/// `deep_copy`.
 #[proc_macro_derive(Epserde, attributes(zero_copy, deep_copy))]
 pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // This part is in common with type_info_derive

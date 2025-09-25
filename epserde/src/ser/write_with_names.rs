@@ -43,7 +43,7 @@ pub trait WriteWithNames: WriteWithPos + Sized {
         Ok(())
     }
 
-    /// Write a value with an associated name.
+    /// Writes a value with an associated name.
     ///
     /// The default implementation simply delegates to [`SerInner::_ser_inner`].
     /// Other implementations might use the name information (e.g., [`SchemaWriter`]),
@@ -88,7 +88,7 @@ pub struct SchemaRow {
 pub struct Schema(pub Vec<SchemaRow>);
 
 impl Schema {
-    /// Return a CSV representation of the schema, including data.
+    /// Returns a CSV representation of the schema, including data.
     ///
     /// WARNING: the size of the CSV will be larger than the size of the
     /// serialized file, so it is not a good idea to call this method

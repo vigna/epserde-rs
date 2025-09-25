@@ -91,7 +91,7 @@ macro_rules! impl_tuples {
                 unsafe { deser_full_zero::<($($t,)*)>(backend) }
             }
 
-            unsafe fn _deser_epsinner<'a>(
+            unsafe fn _deser_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
                 ) -> deser::Result<Self::DeserType<'a>> {
                 unsafe { deser_epszero::<($($t,)*)>(backend) }

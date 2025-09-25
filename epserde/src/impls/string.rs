@@ -68,7 +68,7 @@ impl DeserInner for String {
 
     type DeserType<'a> = &'a str;
 
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let slice = unsafe { deser_epsslice_zero(backend) }?;
@@ -106,9 +106,9 @@ impl DeserInner for Box<str> {
     type DeserType<'a> = &'a str;
 
     #[inline(always)]
-    unsafe fn _deser_epsinner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        unsafe { String::_deser_epsinner(backend) }
+        unsafe { String::_deser_eps_inner(backend) }
     }
 }

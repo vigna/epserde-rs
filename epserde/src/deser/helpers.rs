@@ -126,7 +126,7 @@ pub fn deser_epsvec_deep<'a, T: DeepCopy + DeserInner>(
     let len = unsafe { usize::_deser_full_inner(backend)? };
     let mut res = Vec::with_capacity(len);
     for _ in 0..len {
-        res.push(unsafe { T::_deser_epsinner(backend)? });
+        res.push(unsafe { T::_deser_eps_inner(backend)? });
     }
     Ok(res)
 }
