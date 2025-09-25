@@ -29,6 +29,10 @@ pub use write::*;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
+/// A shorthand for the [serialized type associated with a
+/// serializable type](SerInner::SerType).
+pub type SerType<T> = <T as SerInner>::SerType;
+
 /// Main serialization trait. It is separated from [`SerInner`] to avoid
 /// that the user modify its behavior, and hide internal serialization methods.
 ///

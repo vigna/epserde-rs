@@ -34,7 +34,8 @@ pub use slice_with_pos::*;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-/// A shorthand for the [deserialized type associated with a type](DeserInner::DeserType).
+/// A shorthand for the [deserialized type associated with a
+/// deserializable type](DeserInner::DeserType).
 pub type DeserType<'a, T> = <T as DeserInner>::DeserType<'a>;
 
 /// Main deserialization trait. It is separated from [`DeserInner`] to

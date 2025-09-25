@@ -12,6 +12,11 @@
 * New strategy for `MemCase::encase`, which uses a transparent wrapper `Owned`
   to bring back the original functionality.
 
+* New `SerType` type alias, analogous to `DeserType`.
+
+* Major internal code restructuring: `TypeHash`/`AlignHash`/`MaxSizeOf` are now
+  computed on the serialization type, not on the serializable type.
+
 ### Changed
 
 * Major disruptive change: vectors and boxed slices have now the same
@@ -27,9 +32,6 @@
   necessary as the order of such attributes is irrelevant, but it might make
   impossible to deserialize old instances whose type specifies `repr` attributes
   in a different order.
-
-* Major internal code restructuring: `TypeHash`/`AlignHash`/`MaxSizeOf` are now
-  computed on the serialization type, not on the serializable type.
 
 ## [0.9.0] - 2025-09-17
 
