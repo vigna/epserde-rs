@@ -8,8 +8,7 @@
 //!
 //! This module provides blanket implementations of serialization traits for
 //! (mutable) references. Moreover, it provides (de)serialization support for
-//! [`Box`], [`Rc`](std::rc::Rc) and [`Arc`](std::sync::Arc) if the `std` or
-//! `alloc` feature is enabled.
+//! [`Box`], [`Rc`] and [`Arc`] if the `std` or `alloc` feature is enabled.
 //!
 //! While references have the obvious semantics (we serialize the referred
 //! value), smart pointers are supported by erasure: if a type parameter has
@@ -26,9 +25,8 @@
 //!
 //! # Examples
 //!
-//! In this example we serialize a vector wrapped in an [`Rc`](std::rc::Rc),
-//! but then we deserialize it as a plain vector, or even wrapped with
-//! an [`Arc`](std::sync::Arc):
+//! In this example we serialize a vector wrapped in an [`Rc`], but then we
+//! deserialize it as a plain vector, or even wrapped with an [`Arc`]:
 //!
 //! ```
 //! # use epserde::prelude::*;
