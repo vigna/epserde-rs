@@ -14,12 +14,21 @@ use super::ZeroCopy;
 
 /// Recursively compute a type hash for a type.
 ///
-/// [`TypeHash::type_hash`] is a recursive function that computes information
-/// about a type. It is used to check that the type of the data being
-/// deserialized matches syntactically the type of the data that was written.
+/// [`type_hash`](TypeHash::type_hash) is a recursive function that computes
+/// information about a type. It is used to check that the type of the data
+/// being deserialized matches syntactically the type of the data that was
+/// written.
 ///
 /// The type hasher should store information about the name and the type of the
 /// fields of a type, and the name of the type itself.
+///
+/// When serializing an instance of type `T`,
+/// [`SerType<T>`](crate::ser::SerInner::SerType) must implement this trait.
+///
+/// Additionally, it is recommended that commonly used types implement this
+/// trait, even if their serialized type is different, because it makes it
+/// possible to use [`PhantomData`](core::marker::PhantomData) and
+/// [`PhantomDeserData`](crate::PhantomDeserData).
 pub trait TypeHash {
     /// Accumulates type information in `hasher`.
     fn type_hash(hasher: &mut impl core::hash::Hasher);
@@ -32,10 +41,10 @@ pub trait TypeHash {
 
 /// Recursively compute an alignment hash for a type.
 ///
-/// [`AlignHash::align_hash`] is a recursive function that computes alignment
-/// information about zero-copy types. It is used to check that the alignment
-/// (and thus padding) of data that is zero-copied matches the alignment at
-/// serialization time.
+/// [`align_hash`](AlignHash::align_hash) is a recursive function that computes
+/// alignment information about zero-copy types. It is used to check that the
+/// alignment (and thus padding) of data that is zero-copied matches the
+/// alignment at serialization time.
 ///
 /// More precisely, at each call a zero-copy type looks at `offset_of`, assuming
 /// that the type is stored at that offset in the structure, hashes in the
@@ -47,8 +56,13 @@ pub trait TypeHash {
 /// implementations of their fields with offset argument `&mut 0` (or a mutable
 /// reference to a variable initialized to 0).
 ///
-/// If the fields have no alignement requirements (e.g., all types of strings),
-/// the implementation can be a no-op.
+/// If a type has inherently no alignment requirements (e.g., all types of
+/// strings), the implementation can be a no-op.
+///
+/// When serializing an instance of type `T`,
+/// [`SerType<T>`](crate::ser::SerInner::SerType) must implement this trait.
+/// Thus, if `T` different from its serialized type it is not necessary to
+/// implement this trait for `T`.
 pub trait AlignHash {
     /// Accumulates alignment information in `hasher` assuming to be positioned
     /// at `offset_of`.

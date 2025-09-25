@@ -41,12 +41,12 @@ impl<'a, T: ZeroCopy + TypeHash, I: ExactSizeIterator<Item = &'a T>> From<I> for
     }
 }
 
-impl<'a, T: ZeroCopy + SerInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>> SerInner
-    for SerIter<'a, T, I>
+impl<'a, T: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>, I: ExactSizeIterator<Item = &'a T>>
+    SerInner for SerIter<'a, T, I>
 where
     SerIter<'a, T, I>: SerHelper<<T as CopyType>::Copy>,
 {
-    type SerType = Box<[T]>;
+    type SerType = Box<[T::SerType]>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -54,7 +54,7 @@ where
     }
 }
 
-impl<'a, T: ZeroCopy + SerInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>>
+impl<'a, T: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>, I: ExactSizeIterator<Item = &'a T>>
     SerHelper<Zero> for SerIter<'a, T, I>
 {
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -83,7 +83,7 @@ impl<'a, T: ZeroCopy + SerInner + TypeHash + AlignHash, I: ExactSizeIterator<Ite
     }
 }
 
-impl<'a, T: DeepCopy + SerInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>>
+impl<'a, T: DeepCopy + SerInner<SerType: TypeHash + AlignHash>, I: ExactSizeIterator<Item = &'a T>>
     SerHelper<Deep> for SerIter<'a, T, I>
 {
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {

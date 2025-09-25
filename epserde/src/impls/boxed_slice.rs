@@ -33,11 +33,11 @@ impl<T: AlignHash> AlignHash for Box<[T]> {
     }
 }
 
-impl<T: CopyType + SerInner + TypeHash + AlignHash> SerInner for Box<[T]>
+impl<T: CopyType + SerInner<SerType: TypeHash + AlignHash>> SerInner for Box<[T]>
 where
     Box<[T]>: SerHelper<<T as CopyType>::Copy>,
 {
-    type SerType = Self;
+    type SerType = Box<[T::SerType]>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -45,14 +45,14 @@ where
     }
 }
 
-impl<T: ZeroCopy + SerInner> SerHelper<Zero> for Box<[T]> {
+impl<T: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerHelper<Zero> for Box<[T]> {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         ser_slice_zero(backend, self)
     }
 }
 
-impl<T: DeepCopy + SerInner> SerHelper<Deep> for Box<[T]> {
+impl<T: DeepCopy + SerInner<SerType: TypeHash + AlignHash>> SerHelper<Deep> for Box<[T]> {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         ser_slice_deep(backend, self)

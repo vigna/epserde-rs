@@ -68,8 +68,8 @@ fn test_option() {
 
 #[test]
 fn test_string_types() {
-    assert_eq!(get_type_hash::<String>(), 0x19aa1d67f7ad7a3e);
-    assert_eq!(get_align_hash::<String>(), 0xd1fba762150c532c);
+    assert_eq!(get_type_hash::<String>(), 0xe4297f5be0f5dd50);
+    assert_eq!(get_type_hash::<str>(), 0x393e833de113cd8c);
     assert_eq!(get_type_hash::<Box<str>>(), 0x19aa1d67f7ad7a3e);
     assert_eq!(get_align_hash::<Box<str>>(), 0xd1fba762150c532c);
 }
@@ -82,6 +82,7 @@ fn test_array_types() {
 
 #[test]
 fn test_slice_types() {
+    assert_eq!(get_type_hash::<[i32]>(), 0xe053d268c8ad5c04);
     assert_eq!(get_type_hash::<SerType<&[i32]>>(), 0x400f9211e94c1834);
     assert_eq!(get_align_hash::<SerType<&[i32]>>(), 0x6881f435bc0ca85f);
 }

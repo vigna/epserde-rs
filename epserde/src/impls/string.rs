@@ -14,6 +14,9 @@
 //! Similarly to the case of [slices](crate::impls::slice), there is
 //! a convenience [`SerInner`] implementation for `&str` that
 //! serializes it as `Box<str>`.
+//!
+//! We provide type hashes for `String` and `str` so that they can be used
+//! in [`PhantomData`](core::marker::PhantomData).
 
 use crate::prelude::*;
 use core::hash::Hash;
@@ -30,14 +33,11 @@ unsafe impl CopyType for String {
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
+// For use with PhantomData
 impl TypeHash for String {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        <Box<str>>::type_hash(hasher);
+        "String".hash(hasher);
     }
-}
-
-impl AlignHash for String {
-    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
 impl SerInner for String {
@@ -110,6 +110,13 @@ impl DeserInner for Box<str> {
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         unsafe { String::_deser_eps_inner(backend) }
+    }
+}
+
+// For use with PhantomData
+impl TypeHash for str {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "str".hash(hasher);
     }
 }
 

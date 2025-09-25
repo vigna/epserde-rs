@@ -1,5 +1,16 @@
 # Change Log
 
+## [0.10.2] - 2025-09-25
+
+### Fixed
+
+* Restored previous type hash of string (only for use with `PhantomData`).
+
+* Added back previous type hashes for `str` and `[T]` for use with
+  `PhantomData`.
+
+* Revised bound propagation (again).
+
 ## [0.10.1] - 2025-09-25
 
 ### Fixed

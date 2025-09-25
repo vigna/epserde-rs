@@ -146,6 +146,8 @@ impl<T> AlignHash for PhantomDeserData<T> {
 }
 
 impl<T> SerInner for PhantomDeserData<T> {
+    // This type is nominal only; nothing will be serialized
+    // or deserialized.
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;

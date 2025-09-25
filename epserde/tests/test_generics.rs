@@ -38,7 +38,7 @@ fn test_inner_param_full() {
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-struct Data2<P, B> {
+struct Data2<P: TypeHash, B> {
     a: B,
     // this should be ignored, but contains `P` in the type name so it might
     // be erroneously matched

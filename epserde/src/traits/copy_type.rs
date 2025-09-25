@@ -7,7 +7,11 @@
 
 //! Traits to mark types as zero-copy or deep-copy.
 
-use crate::prelude::MaxSizeOf;
+use crate::{
+    prelude::MaxSizeOf,
+    ser::SerInner,
+    traits::{AlignHash, TypeHash},
+};
 use sealed::sealed;
 
 /// Internal trait used to select whether a type is zero-copy
@@ -91,10 +95,23 @@ pub unsafe trait CopyType: Sized {
 
 /// Marker trait for zero-copy types. You should never implement
 /// this trait directly, but rather implement [`CopyType`] with `Copy=Zero`.
-pub trait ZeroCopy: CopyType<Copy = Zero> + Copy + MaxSizeOf + 'static {}
-impl<T: CopyType<Copy = Zero> + Copy + MaxSizeOf + 'static> ZeroCopy for T {}
+pub trait ZeroCopy:
+    CopyType<Copy = Zero> + Copy + TypeHash + AlignHash + MaxSizeOf + SerInner<SerType = Self> + 'static
+{
+}
+impl<
+    T: CopyType<Copy = Zero>
+        + Copy
+        + TypeHash
+        + AlignHash
+        + MaxSizeOf
+        + SerInner<SerType = Self>
+        + 'static,
+> ZeroCopy for T
+{
+}
 
 /// Marker trait for deep-copy types. You should never implement
 /// this trait directly, but rather implement [`CopyType`] with `Copy=Deep`.
-pub trait DeepCopy: CopyType<Copy = Deep> {}
-impl<T: CopyType<Copy = Deep>> DeepCopy for T {}
+pub trait DeepCopy: CopyType<Copy = Deep> + SerInner<SerType: TypeHash + AlignHash> {}
+impl<T: CopyType<Copy = Deep> + SerInner<SerType: TypeHash + AlignHash>> DeepCopy for T {}

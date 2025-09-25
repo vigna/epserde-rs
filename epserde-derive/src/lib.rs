@@ -272,19 +272,48 @@ fn bind_ser_deser_types(
 /// binding the given type to `(De)SerInner`.
 fn add_ser_deser_trait_bounds(
     ty: &syn::Type,
+    is_zero_copy: bool,
     ser_where_clause: &mut syn::WhereClause,
     deser_where_clause: &mut syn::WhereClause,
 ) {
-    add_trait_bound(
-        ser_where_clause,
-        ty,
-        syn::parse_quote!(::epserde::ser::SerInner),
-    );
-    add_trait_bound(
-        deser_where_clause,
-        ty,
-        syn::parse_quote!(::epserde::deser::DeserInner),
-    );
+    if is_zero_copy {
+        add_trait_bound(
+            ser_where_clause,
+            ty,
+            syn::parse_quote!(::epserde::ser::SerInner),
+        );
+        add_trait_bound(
+            ser_where_clause,
+            ty,
+            syn::parse_quote!(::epserde::traits::AlignHash),
+        );
+        add_trait_bound(
+            ser_where_clause,
+            ty,
+            syn::parse_quote!(::epserde::traits::TypeHash),
+        );
+        add_trait_bound(
+            ser_where_clause,
+            ty,
+            syn::parse_quote!(::epserde::traits::MaxSizeOf),
+        );
+        add_trait_bound(
+            deser_where_clause,
+            ty,
+            syn::parse_quote!(::epserde::deser::DeserInner),
+        );
+    } else {
+        add_trait_bound(
+            ser_where_clause,
+            ty,
+            syn::parse_quote!(::epserde::ser::SerInner<SerType: ::epserde::traits::TypeHash + ::epserde::traits::AlignHash>),
+        );
+        add_trait_bound(
+            deser_where_clause,
+            ty,
+            syn::parse_quote!(::epserde::deser::DeserInner),
+        );
+    }
 }
 
 /// Generates generics for the deserialization type by replacing type parameters
@@ -328,13 +357,21 @@ fn gen_generics_for_ser_type(
 ///
 /// The where clauses bound all field types with the trait being implemented,
 /// thus propagating recursively (de)serializability.
-fn gen_ser_deser_where_clauses(field_types: &[&syn::Type]) -> (WhereClause, WhereClause) {
+fn gen_ser_deser_where_clauses(
+    field_types: &[&syn::Type],
+    is_zero_copy: bool,
+) -> (WhereClause, WhereClause) {
     let mut ser_where_clause = empty_where_clause();
     let mut deser_where_clause = empty_where_clause();
 
     // Add trait bounds for all field types
     for field_type in field_types {
-        add_ser_deser_trait_bounds(field_type, &mut ser_where_clause, &mut deser_where_clause);
+        add_ser_deser_trait_bounds(
+            field_type,
+            is_zero_copy,
+            &mut ser_where_clause,
+            &mut deser_where_clause,
+        );
     }
 
     (ser_where_clause, deser_where_clause)
@@ -357,42 +394,39 @@ fn gen_type_info_where_clauses(
     let gen_type_info_where_clause = |trait_bound: Punctuated<TypeParamBound, Plus>| {
         let mut where_clause = base_clause.clone();
         for &field_type in field_types {
-            if !is_zero_copy {
-                if let Some(field_type_id) = get_ident(field_type) {
-                    if repl_params.contains(field_type_id) {
-                        // If the field type is a replaceable parameter, and the
-                        // current type is not zero-copy, then we add the bound
-                        // to the associated SerType
-                        where_clause
-                            .predicates
-                            .push(WherePredicate::Type(PredicateType {
-                                lifetimes: None,
-                                bounded_ty: field_type.clone(),
-                                colon_token: token::Colon::default(),
-                                bounds: syn::parse_quote!(::epserde::ser::SerInner),
-                            }));
-                        where_clause
-                            .predicates
-                            .push(WherePredicate::Type(PredicateType {
-                                lifetimes: None,
-                                bounded_ty: syn::parse_quote!(
-                                    ::epserde::ser::SerType<#field_type>
-                                ),
-                                colon_token: token::Colon::default(),
-                                bounds: trait_bound.clone(),
-                            }));
-                        continue;
-                    }
-                }
+            if is_zero_copy {
+                // In zero-copy types bounds are propagated on the type
+                // themselves, as the serialized types are always Self
+                where_clause
+                    .predicates
+                    .push(WherePredicate::Type(PredicateType {
+                        lifetimes: None,
+                        bounded_ty: field_type.clone(),
+                        colon_token: token::Colon::default(),
+                        bounds: trait_bound.clone(),
+                    }));
+            } else {
+                // In deep-copy types bounds are propagated on the
+                // associated serialized type
+                where_clause
+                    .predicates
+                    .push(WherePredicate::Type(PredicateType {
+                        lifetimes: None,
+                        bounded_ty: field_type.clone(),
+                        colon_token: token::Colon::default(),
+                        bounds: syn::parse_quote!(::epserde::ser::SerInner),
+                    }));
+                where_clause
+                    .predicates
+                    .push(WherePredicate::Type(PredicateType {
+                        lifetimes: None,
+                        bounded_ty: syn::parse_quote!(
+                            ::epserde::ser::SerType<#field_type>
+                        ),
+                        colon_token: token::Colon::default(),
+                        bounds: trait_bound.clone(),
+                    }));
             }
-            where_clause
-                .predicates
-                .push(WherePredicate::Type(PredicateType {
-                    lifetimes: None,
-                    bounded_ty: field_type.clone(),
-                    colon_token: token::Colon::default(),
-                    bounds: trait_bound.clone(),
-                }));
         }
 
         where_clause
@@ -468,7 +502,8 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &repl_params);
     let generics_for_ser_type = gen_generics_for_ser_type(ctx, &repl_params);
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
-    let (mut ser_where_clause, mut deser_where_clause) = gen_ser_deser_where_clauses(&field_types);
+    let (mut ser_where_clause, mut deser_where_clause) =
+        gen_ser_deser_where_clauses(&field_types, ctx.is_zero_copy);
 
     let name = &ctx.derive_input.ident;
     let generics_for_impl = &ctx.generics_for_impl;
@@ -738,7 +773,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &all_fields_types);
     let (mut ser_where_clause, mut deser_where_clause) =
-        gen_ser_deser_where_clauses(&all_fields_types);
+        gen_ser_deser_where_clauses(&all_fields_types, ctx.is_zero_copy);
 
     let name = &ctx.derive_input.ident;
     let is_deep_copy = ctx.is_deep_copy;
@@ -1085,9 +1120,7 @@ fn gen_enum_align_hash_body(
 }
 
 /// Generates the `MaxSizeOf` implementation body for struct types.
-fn gen_struct_max_size_of_body(
-    fields_types: &[proc_macro2::TokenStream],
-) -> proc_macro2::TokenStream {
+fn gen_struct_max_size_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
     quote! {
         use ::epserde::traits::MaxSizeOf;
         use ::epserde::ser::SerInner;
@@ -1169,18 +1202,7 @@ fn gen_struct_type_info_impl(
         field_names.push(get_field_name(field, field_idx));
         field_types.push(field_type);
 
-        if !ctx.is_zero_copy {
-            if let Some(field_type_id) = get_ident(field_type) {
-                if ctx.type_params.contains(field_type_id) {
-                    repl_params.insert(field_type_id);
-                    // Replaceable type parameter
-                    field_types_ts.push(quote! { ::epserde::ser::SerType<#field_type> });
-                    continue;
-                }
-            }
-        }
-
-        field_types_ts.push(quote! { #field_type });
+        field_types_ts.push(quote! { ::epserde::ser::SerType<#field_type> });
     }
 
     let (type_hash_where_clause, align_hash_where_clause, max_size_of_where_clause) =
@@ -1205,7 +1227,7 @@ fn gen_struct_type_info_impl(
     let type_hash_body = gen_type_hash_body(&ctx, &field_hashes);
     let align_hash_body = gen_struct_align_hash_body(&ctx, &field_types_ts);
     let max_size_of_body = if ctx.is_zero_copy {
-        Some(gen_struct_max_size_of_body(&field_types_ts))
+        Some(gen_struct_max_size_of_body(&field_types))
     } else {
         None
     };
@@ -1246,16 +1268,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                     let field_type = &field.ty;
                     field_types.push(field_type);
 
-                    let mut field_type_ts = field_type.to_token_stream();
-
-                    if !ctx.is_zero_copy {
-                        if let Some(field_type_id) = get_ident(field_type) {
-                            if ctx.type_params.contains(field_type_id) {
-                                // Replaceable type parameter
-                                field_type_ts = quote! { ::epserde::ser::SerType<#field_type> };
-                            }
-                        }
-                    }
+                    let field_type_ts = quote! { ::epserde::ser::SerType<#field_type> };
 
                     type_hash.extend([quote! {
                         Hash::hash(stringify!(#field_name), hasher);
@@ -1267,8 +1280,8 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                     }]);
 
                     max_size_of.extend([quote! {
-                        if max_size_of < <#field_type_ts as MaxSizeOf>::max_size_of() {
-                            max_size_of = <#field_type_ts as MaxSizeOf>::max_size_of();
+                        if max_size_of < <#field_type as MaxSizeOf>::max_size_of() {
+                            max_size_of = <#field_type as MaxSizeOf>::max_size_of();
                         }
                     }]);
 
@@ -1289,16 +1302,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                     let field_type = &field.ty;
                     field_types.push(field_type);
 
-                    let mut field_type_ts = field_type.to_token_stream();
-
-                    if !ctx.is_zero_copy {
-                        if let Some(field_type_id) = get_ident(field_type) {
-                            if ctx.type_params.contains(field_type_id) {
-                                // Replaceable type parameter
-                                field_type_ts = quote! { ::epserde::ser::SerType<#field_type> };
-                            }
-                        }
-                    }
+                    let field_type_ts = quote! { ::epserde::ser::SerType<#field_type> };
 
                     type_hash.extend([quote! {
                         Hash::hash(#field_name, hasher);
@@ -1310,8 +1314,8 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                     }]);
 
                     max_size_of.extend([quote! {
-                        if max_size_of < <#field_type_ts as MaxSizeOf>::max_size_of() {
-                            max_size_of = <#field_type_ts as MaxSizeOf>::max_size_of();
+                        if max_size_of < <#field_type as MaxSizeOf>::max_size_of() {
+                            max_size_of = <#field_type as MaxSizeOf>::max_size_of();
                         }
                     }]);
 

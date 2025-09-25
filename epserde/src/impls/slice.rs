@@ -14,6 +14,11 @@
 //! Note, however, that you must deserialize the slice as a vector, even when it
 //! appears a type parameter—see the example in the [crate-level
 //! documentation](crate).
+//!
+//! We provide a type hash for `[T]` so that it can be used in
+//! [`PhantomData`](`core::marker::PhantomData`).
+
+use core::hash::Hash;
 
 use crate::prelude::*;
 use ser::*;
@@ -21,11 +26,19 @@ use ser::*;
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};
 
-impl<T: CopyType + SerInner + TypeHash + AlignHash> SerInner for &[T]
+// For use with PhantomData
+impl<T: TypeHash> TypeHash for [T] {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "[]".hash(hasher);
+        T::type_hash(hasher);
+    }
+}
+
+impl<T: CopyType + SerInner<SerType: TypeHash + AlignHash>> SerInner for &[T]
 where
     Box<[T]>: SerHelper<<T as CopyType>::Copy>,
 {
-    type SerType = Box<[T]>;
+    type SerType = Box<[T::SerType]>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 

@@ -87,7 +87,7 @@ impl MaxSizeOf for core::ops::RangeFull {
     }
 }
 
-impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner for core::ops::Range<Idx> {
+impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner for core::ops::Range<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -118,7 +118,9 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::Range<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner for core::ops::RangeFrom<Idx> {
+impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner
+    for core::ops::RangeFrom<Idx>
+{
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -146,7 +148,9 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeFrom<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner for core::ops::RangeInclusive<Idx> {
+impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner
+    for core::ops::RangeInclusive<Idx>
+{
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -182,7 +186,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeInclusive<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner for core::ops::RangeTo<Idx> {
+impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner for core::ops::RangeTo<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -210,7 +214,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeTo<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner
+impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner
     for core::ops::RangeToInclusive<Idx>
 {
     type SerType = Self;
@@ -280,7 +284,7 @@ impl<T> AlignHash for core::ops::Bound<T> {
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl<T: SerInner + TypeHash + AlignHash> SerInner for core::ops::Bound<T> {
+impl<T: SerInner<SerType: TypeHash + AlignHash>> SerInner for core::ops::Bound<T> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -353,10 +357,10 @@ impl<B: AlignHash, C: AlignHash> AlignHash for core::ops::ControlFlow<B, C> {
     }
 }
 
-impl<B: SerInner + TypeHash + AlignHash, C: SerInner + TypeHash + AlignHash> SerInner
-    for core::ops::ControlFlow<B, C>
+impl<B: SerInner<SerType: TypeHash + AlignHash>, C: SerInner<SerType: TypeHash + AlignHash>>
+    SerInner for core::ops::ControlFlow<B, C>
 {
-    type SerType = Self;
+    type SerType = core::ops::ControlFlow<B::SerType, C::SerType>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 

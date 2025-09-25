@@ -41,11 +41,11 @@ impl<T: MaxSizeOf, const N: usize> MaxSizeOf for [T; N] {
     }
 }
 
-impl<T: CopyType + SerInner + TypeHash + AlignHash, const N: usize> SerInner for [T; N]
+impl<T: CopyType + SerInner<SerType: TypeHash + AlignHash>, const N: usize> SerInner for [T; N]
 where
     [T; N]: SerHelper<<T as CopyType>::Copy>,
 {
-    type SerType = Self;
+    type SerType = [T::SerType; N];
     const IS_ZERO_COPY: bool = T::IS_ZERO_COPY;
     const ZERO_COPY_MISMATCH: bool = T::ZERO_COPY_MISMATCH;
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -53,14 +53,18 @@ where
     }
 }
 
-impl<T: ZeroCopy + SerInner + TypeHash + AlignHash, const N: usize> SerHelper<Zero> for [T; N] {
+impl<T: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>, const N: usize> SerHelper<Zero>
+    for [T; N]
+{
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         ser_zero(backend, self)
     }
 }
 
-impl<T: DeepCopy + SerInner, const N: usize> SerHelper<Deep> for [T; N] {
+impl<T: DeepCopy + SerInner<SerType: TypeHash + AlignHash>, const N: usize> SerHelper<Deep>
+    for [T; N]
+{
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         for item in self.iter() {
             backend.write("item", item)?;

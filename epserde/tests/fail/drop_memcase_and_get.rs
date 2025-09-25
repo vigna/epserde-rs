@@ -5,14 +5,13 @@
  */
 
 use epserde::prelude::*;
-use std::io::Cursor;
 
 fn main() {
     let vec = vec!["foo".to_string(), "bar".to_string(), "baz".to_string()];
 
     let mut buffer = Vec::new();
     unsafe { vec.serialize(&mut buffer).unwrap() };
-    let cursor = Cursor::new(&buffer);
+    let cursor = <AlignedCursor>::from_slice(&buffer);
     let mem_case = unsafe { <Vec<String>>::read_mem(cursor, buffer.len()).unwrap() };
 
     let s = mem_case.uncase().get(0);
