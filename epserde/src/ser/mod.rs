@@ -70,7 +70,7 @@ pub type SerType<T> = <T as SerInner>::SerType;
 /// that they do not contain any padding (e.g., by creating explicit padding
 /// bytes).
 pub trait Serialize {
-    /// Serialize the type using the given backend.
+    /// Serializes the type using the given backend.
     ///
     /// # Safety
     ///
@@ -81,7 +81,7 @@ pub trait Serialize {
         Ok(write_with_pos.pos())
     }
 
-    /// Serialize the type using the given backend and return a [schema](Schema)
+    /// Serializes the type using the given backend and return a [schema](Schema)
     /// describing the data that has been written.
     ///
     /// This method is mainly useful for debugging and to check cross-language
@@ -97,7 +97,7 @@ pub trait Serialize {
         Ok(schema_writer.schema)
     }
 
-    /// Serialize the type using the given [`WriteWithNames`].
+    /// Serializes the type using the given [`WriteWithNames`].
     ///
     /// # Safety
     ///
@@ -147,7 +147,7 @@ pub trait SerInner {
     /// efficient.
     const ZERO_COPY_MISMATCH: bool;
 
-    /// Serialize this structure using the given backend.
+    /// Serializes this structure using the given backend.
     ///
     /// # Safety
     ///
@@ -174,7 +174,7 @@ where
     }
 }
 
-/// Write the header.
+/// Writes the header.
 ///
 /// Note that `S` is the serialized type, not the serialization type.
 ///

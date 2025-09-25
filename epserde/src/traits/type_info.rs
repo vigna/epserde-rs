@@ -21,10 +21,10 @@ use super::ZeroCopy;
 /// The type hasher should store information about the name and the type of the
 /// fields of a type, and the name of the type itself.
 pub trait TypeHash {
-    /// Accumulate type information in `hasher`.
+    /// Accumulates type information in `hasher`.
     fn type_hash(hasher: &mut impl core::hash::Hasher);
 
-    /// Call [`TypeHash::type_hash`] on a value.
+    /// Calls [`TypeHash::type_hash`] on a value.
     fn type_hash_val(&self, hasher: &mut impl core::hash::Hasher) {
         Self::type_hash(hasher);
     }
@@ -50,11 +50,11 @@ pub trait TypeHash {
 /// If the fields have no alignement requirements (e.g., all types of strings),
 /// the implementation can be a no-op.
 pub trait AlignHash {
-    /// Accumulate alignment information in `hasher` assuming to be positioned
+    /// Accumulates alignment information in `hasher` assuming to be positioned
     /// at `offset_of`.
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize);
 
-    /// Call [`AlignHash::align_hash`] on a value.
+    /// Calls [`AlignHash::align_hash`] on a value.
     fn align_hash_val(&self, hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
         Self::align_hash(hasher, offset_of);
     }

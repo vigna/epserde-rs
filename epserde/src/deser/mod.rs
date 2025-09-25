@@ -67,13 +67,13 @@ pub type DeserType<'a, T> = <T as DeserInner>::DeserType<'a>;
 ///   [`DeserInner::DeserType`] must be covariant (i.e., behave like a
 ///   structure, not a closure with a generic argument)
 pub trait Deserialize: DeserInner {
-    /// Fully deserialize a structure of this type from the given backend.
+    /// Fully deserializes a structure of this type from the given backend.
     ///
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
     unsafe fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self>;
-    /// ε-copy deserialize a structure of this type from the given backend.
+    /// ε-copy deserializes a structure of this type from the given backend.
     ///
     /// # Safety
     ///
@@ -91,7 +91,7 @@ pub trait Deserialize: DeserInner {
         unsafe { Self::deserialize_full(&mut buf_reader).map_err(|e| e.into()) }
     }
 
-    /// Read data from a reader into heap-allocated memory and ε-deserialize a
+    /// Reads data from a reader into heap-allocated memory and ε-deserialize a
     /// data structure from it, returning a [`MemCase`] containing the data
     /// structure and the memory. Excess bytes are zeroed out.
     ///
@@ -171,7 +171,7 @@ pub trait Deserialize: DeserInner {
         Ok(unsafe { uninit.assume_init() })
     }
 
-    /// Load a file into heap-allocated memory and ε-deserialize a data
+    /// Loads a file into heap-allocated memory and ε-deserialize a data
     /// structure from it, returning a [`MemCase`] containing the data structure
     /// and the memory. Excess bytes are zeroed out.
     ///
@@ -191,7 +191,7 @@ pub trait Deserialize: DeserInner {
         unsafe { Self::read_mem(file, file_len) }
     }
 
-    /// Read data from a reader into `mmap()`-allocated memory and ε-deserialize
+    /// Reads data from a reader into `mmap()`-allocated memory and ε-deserialize
     /// a data structure from it, returning a [`MemCase`] containing the data
     /// structure and the memory. Excess bytes are zeroed out.
     ///
@@ -259,7 +259,7 @@ pub trait Deserialize: DeserInner {
         Ok(unsafe { uninit.assume_init() })
     }
 
-    /// Load a file into `mmap()`-allocated memory and ε-deserialize a data
+    /// Loads a file into `mmap()`-allocated memory and ε-deserialize a data
     /// structure from it, returning a [`MemCase`] containing the data structure
     /// and the memory. Excess bytes are zeroed out.
     ///
@@ -282,7 +282,7 @@ pub trait Deserialize: DeserInner {
         unsafe { Self::read_mmap(file, file_len, flags) }
     }
 
-    /// Memory map a file and ε-deserialize a data structure from it,
+    /// Memory maps a file and ε-deserializes a data structure from it,
     /// returning a [`MemCase`] containing the data structure and the
     /// memory mapping.
     ///

@@ -488,7 +488,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             #[automatically_derived]
             impl #generics_for_impl ::epserde::ser::SerInner for #name #generics_for_type #ser_where_clause {
                 type SerType = Self;
-                // Compute whether the type could be zero-copy
+                // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
                 // The type is declared as zero-copy, so a fortiori there is no mismatch.
@@ -542,10 +542,10 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             #[automatically_derived]
             impl #generics_for_impl ::epserde::ser::SerInner for #name #generics_for_type #ser_where_clause {
                 type SerType = #name<#(#generics_for_ser_type,)*>;
-                // Compute whether the type could be zero-copy
+                // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
-                // Compute whether the type could be zero-copy but it is not
+                // Whether the type could be zero-copy but it is not
                 // declared as such, and the attribute `deep_copy` is missing.
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*;
 
@@ -760,7 +760,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
             impl #generics_for_impl ::epserde::ser::SerInner for #name #generics_for_type #ser_where_clause {
                 type SerType = Self;
 
-                // Compute whether the type could be zero-copy
+                // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
                 // The type is declared as zero-copy, so a fortiori there is no mismatch.
@@ -813,10 +813,10 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
             impl #generics_for_impl ::epserde::ser::SerInner for #name #generics_for_type #ser_where_clause {
                 type SerType = #name<#(#generics_for_ser_type,)*>;
 
-                // Compute whether the type could be zero-copy
+                // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
-                // Compute whether the type could be zero-copy but it is not
+                // Whether the type could be zero-copy but it is not
                 // declared as such, and the attribute `deep_copy` is missing.
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*;
 
