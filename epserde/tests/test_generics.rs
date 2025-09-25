@@ -109,12 +109,11 @@ struct DeepCopyParam<T> {
 
 #[test]
 fn test_types_deep_copy_param() {
-    let _test_usize: <DeepCopyParam<usize> as SerializeInner>::SerType = DeepCopyParam { data: 0 };
-    let _test: <DeepCopyParam<usize> as DeserializeInner>::DeserType<'_> =
-        DeepCopyParam { data: 0 };
-    let _test_array: <DeepCopyParam<[i32; 4]> as SerializeInner>::SerType =
+    let _test_usize: <DeepCopyParam<usize> as SerInner>::SerType = DeepCopyParam { data: 0 };
+    let _test: <DeepCopyParam<usize> as DeserInner>::DeserType<'_> = DeepCopyParam { data: 0 };
+    let _test_array: <DeepCopyParam<[i32; 4]> as SerInner>::SerType =
         DeepCopyParam { data: [1, 2, 3, 4] };
-    let _test: <DeepCopyParam<[i32; 4]> as DeserializeInner>::DeserType<'_> = DeepCopyParam {
+    let _test: <DeepCopyParam<[i32; 4]> as DeserInner>::DeserType<'_> = DeepCopyParam {
         data: &[1, 2, 3, 4],
     };
 }
@@ -128,12 +127,11 @@ struct ZeroCopyParam<T: ZeroCopy> {
 
 #[test]
 fn test_types_zero_copy_param() {
-    let _test_usize: <ZeroCopyParam<usize> as SerializeInner>::SerType = ZeroCopyParam { data: 0 };
-    let _test: <ZeroCopyParam<usize> as DeserializeInner>::DeserType<'_> =
-        &ZeroCopyParam { data: 0 };
-    let _test_array: <ZeroCopyParam<[i32; 4]> as SerializeInner>::SerType =
+    let _test_usize: <ZeroCopyParam<usize> as SerInner>::SerType = ZeroCopyParam { data: 0 };
+    let _test: <ZeroCopyParam<usize> as DeserInner>::DeserType<'_> = &ZeroCopyParam { data: 0 };
+    let _test_array: <ZeroCopyParam<[i32; 4]> as SerInner>::SerType =
         ZeroCopyParam { data: [1, 2, 3, 4] };
-    let _test: <ZeroCopyParam<[i32; 4]> as DeserializeInner>::DeserType<'_> =
+    let _test: <ZeroCopyParam<[i32; 4]> as DeserInner>::DeserType<'_> =
         &ZeroCopyParam { data: [1, 2, 3, 4] };
 }
 

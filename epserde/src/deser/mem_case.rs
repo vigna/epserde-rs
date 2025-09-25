@@ -10,14 +10,15 @@
 //!
 //! Please refer to the documentation of [`MemCase`] for details.
 
-use crate::{DeserializeInner, deser::DeserType, ser::SerializeInner};
+use crate::{DeserInner, deser::DeserType, ser::SerInner};
 use bitflags::bitflags;
 use core::{fmt, mem::size_of};
 use maligned::A64;
 use mem_dbg::{MemDbg, MemSize};
 
 bitflags! {
-    /// Flags for [`map`] and [`load_mmap`].
+    /// Flags for [`mmap`](crate::deser::Deserialize::mmap) and
+    ///  and [`load_mmap`](crate::deser::Deserialize::load_mmap).
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Flags: u32 {
         /// Suggest to map a region using transparent huge pages. This flag
@@ -70,7 +71,7 @@ impl Flags {
 pub type MemoryAlignment = A64;
 
 /// Possible backends of a [`MemCase`]. The [`None`](MemBackend::None) variant
-/// is used when the instance owned; the [`Memory`](MemBackend::Memory) variant
+/// is used when the instance is owned; the [`Memory`](MemBackend::Memory) variant
 /// is used when the instance has been deserialized a heap-allocated memory
 /// region; the [`Mmap`](MemBackend::Mmap) variant is used when the instance has
 /// been deserialized from a `mmap()`-based region, either coming from an
@@ -111,7 +112,7 @@ impl MemBackend {
 ///
 /// The only purpose of this wrapper is to make [encasing](MemCase::encase)
 /// of owned types possible, since [`MemCase`] must be parameterized by a type
-/// implementing [`DeserializeInner`].
+/// implementing [`DeserInner`].
 ///
 /// No instance of this structure will ever be accessible to the user. All
 /// methods are unimplemented.
@@ -119,7 +120,7 @@ impl MemBackend {
 #[repr(transparent)]
 pub struct Owned<T>(T);
 
-impl<T> DeserializeInner for Owned<T> {
+impl<T> DeserInner for Owned<T> {
     type DeserType<'a> = T;
 
     unsafe fn _deserialize_full_inner(
@@ -135,7 +136,7 @@ impl<T> DeserializeInner for Owned<T> {
     }
 }
 
-impl<T> SerializeInner for Owned<T> {
+impl<T> SerInner for Owned<T> {
     type SerType = T;
 
     const IS_ZERO_COPY: bool = false;
@@ -156,16 +157,16 @@ impl<T> SerializeInner for Owned<T> {
 /// can be shared freely. For convenience we provide delegations for [`AsRef`]
 /// and [`Deref`](std::ops::Deref), and an implementation of [`PartialEq`] and
 /// [`Eq`] whenever the inner type supports them.
-
+///
 /// A [`MemCase`] is parameterized by a type `S` implementing
-/// [`DeserializeInner`], but it stores an inner instance of type
+/// [`DeserInner`], but it stores an inner instance of type
 /// `DeserType<'static, S>`. The references contained in the latter point inside
 /// the [`MemBackend`] (i.e., a [`MemCase`] is in general self-referential).
 /// You must use [`uncase`](MemCase::uncase) to get a reference to the inner
 /// instance.
 ///
 /// [`MemCase`] instances can also be built from owned instances using the
-/// [`MemCase::encase`] method of the [convenient implementation of `From<T>`
+/// [`MemCase::encase`] method or the [convenient implementation of `From<T>`
 /// for `MemCase<Owned<T>>`](#impl-From<T>-for-MemCase<Owned<T>>).
 ///
 /// It is thus possible to treat ε-copy deserialized instances and owned
@@ -184,19 +185,19 @@ impl<T> SerializeInner for Owned<T> {
 /// inner instance implements [`Index<usize>`](std::ops::Index):
 ///
 /// ```
-/// use epserde::deser::{MemCase, DeserializeInner};
+/// use epserde::deser::{MemCase, DeserInner};
 /// use std::ops::Index;
 ///
-/// fn do_something<S: for<'a> DeserializeInner<DeserType<'a>: Index<usize, Output = usize>>>(
+/// fn do_something<S: for<'a> DeserInner<DeserType<'a>: Index<usize, Output = usize>>>(
 ///     indexable: MemCase<S>
 /// ) -> usize{
 ///     indexable.uncase()[0]
 /// }
 ///```
 #[derive(MemDbg, MemSize)]
-pub struct MemCase<S: DeserializeInner>(pub(crate) DeserType<'static, S>, pub(crate) MemBackend);
+pub struct MemCase<S: DeserInner>(pub(crate) DeserType<'static, S>, pub(crate) MemBackend);
 
-impl<S: DeserializeInner> fmt::Debug for MemCase<S>
+impl<S: DeserInner> fmt::Debug for MemCase<S>
 where
     DeserType<'static, S>: fmt::Debug,
 {
@@ -218,8 +219,8 @@ impl<T> From<T> for MemCase<Owned<T>> {
     }
 }
 
-impl<S: DeserializeInner> MemCase<S> {
-    /// Encases a data structure in a [`MemCase`] with no backend.
+impl<S: DeserInner> MemCase<S> {
+    /// Encases an owned instance in a [`MemCase`] with no backend.
     ///
     /// Note that since a [`MemCase`] must store a deserialization associated
     /// type, this methods wraps its argument in a [`Owned`] wrapper. Since the
@@ -241,18 +242,18 @@ impl<S: DeserializeInner> MemCase<S> {
     /// the inner deserialization type will be that of `self`.
     pub fn uncase<'a>(&'a self) -> &'a DeserType<'a, S> {
         // SAFETY: 'static outlives 'a, and DeserType<S, '_> is required to be
-        // covariant (i.e., it's a normal structure and not, say, a closure with
+        // covariant (i.e., it's a normal struct/enum and not, say, a closure with
         // 'a as argument)
         unsafe { core::mem::transmute::<&'a DeserType<'static, S>, &'a DeserType<'a, S>>(&self.0) }
     }
 
-    /// Returns a reference to the structure contained in this [`MemCase`]
+    /// Returns a reference to the instance contained in this [`MemCase`]
     /// with type `&DeserType<'static, S>`.
     ///
     /// # Safety
     ///
     /// The intended usage of this method is that of calling easily methods on
-    /// the inner structure, as in `mem_case.uncase_static().method()`. The
+    /// the inner instance, as in `mem_case.uncase_static().method()`. The
     /// returned reference is dangerous, as it is decoupled from the [`MemCase`]
     /// instance; even storing it in a variable can easily lead to undefined behavior
     /// (e.g., if the [`MemCase`] is dropped before the reference is used).
@@ -261,10 +262,10 @@ impl<S: DeserializeInner> MemCase<S> {
     }
 }
 
-unsafe impl<S: DeserializeInner + Send> Send for MemCase<S> {}
-unsafe impl<S: DeserializeInner + Sync> Sync for MemCase<S> {}
+unsafe impl<S: DeserInner + Send> Send for MemCase<S> {}
+unsafe impl<S: DeserInner + Sync> Sync for MemCase<S> {}
 
-impl<A, S: DeserializeInner> AsRef<A> for MemCase<S>
+impl<A, S: DeserInner> AsRef<A> for MemCase<S>
 where
     for<'a> DeserType<'a, S>: AsRef<A>,
 {
@@ -279,7 +280,7 @@ impl<A, T: AsRef<A>> AsRef<A> for Owned<T> {
     }
 }
 
-impl<A: ?Sized, S: DeserializeInner> std::ops::Deref for MemCase<S>
+impl<A: ?Sized, S: DeserInner> std::ops::Deref for MemCase<S>
 where
     for<'a> DeserType<'a, S>: std::ops::Deref<Target = A>,
 {
@@ -290,7 +291,7 @@ where
     }
 }
 
-impl<S: DeserializeInner> PartialEq<MemCase<S>> for MemCase<S>
+impl<S: DeserInner> PartialEq<MemCase<S>> for MemCase<S>
 where
     for<'a, 'b> DeserType<'a, S>: PartialEq<DeserType<'b, S>>,
 {
@@ -299,7 +300,7 @@ where
     }
 }
 
-impl<S: DeserializeInner> Eq for MemCase<S>
+impl<S: DeserInner> Eq for MemCase<S>
 where
     for<'a, 'b> DeserType<'a, S>: PartialEq<DeserType<'b, S>>,
     for<'a> DeserType<'a, S>: Eq,

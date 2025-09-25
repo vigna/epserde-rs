@@ -118,11 +118,11 @@ fn gen_deser_method_call(
         // If it's a replaceable type parameter we proceed with ε-copy
         // deserialization
         if segments.len() == 1 && type_params.contains(&segments[0].ident) {
-            return syn::parse_quote!(#field_name: unsafe  { <#field_type as DeserializeInner>::_deserialize_eps_inner(backend)? });
+            return syn::parse_quote!(#field_name: unsafe  { <#field_type as DeserInner>::_deserialize_eps_inner(backend)? });
         }
     }
 
-    syn::parse_quote!(#field_name: unsafe { <#field_type as DeserializeInner>::_deserialize_full_inner(backend)? })
+    syn::parse_quote!(#field_name: unsafe { <#field_type as DeserInner>::_deserialize_full_inner(backend)? })
 }
 
 /// Generates the `IS_ZERO_COPY` expression.
@@ -246,7 +246,7 @@ fn bind_ser_deser_types(
                             gt_token: token::Gt::default(),
                         }),
                         bounded_ty: syn::parse_quote!(
-                            <#ident as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>
+                            <#ident as ::epserde::deser::DeserInner>::DeserType<'epserde_desertype>
                         ),
                         colon_token: token::Colon::default(),
                         bounds: t.bounds.clone(),
@@ -258,7 +258,7 @@ fn bind_ser_deser_types(
                     .push(WherePredicate::Type(PredicateType {
                         lifetimes: None,
                         bounded_ty: syn::parse_quote!(
-                            <#ident as ::epserde::ser::SerializeInner>::SerType
+                            <#ident as ::epserde::ser::SerInner>::SerType
                         ),
                         colon_token: token::Colon::default(),
                         bounds: t.bounds.clone(),
@@ -269,7 +269,7 @@ fn bind_ser_deser_types(
 }
 
 /// Adds to the given (de)serialization where clause a bound
-/// binding the given type to `(De)serializeInner`.
+/// binding the given type to `(De)SerInner`.
 fn add_ser_deser_trait_bounds(
     ty: &syn::Type,
     ser_where_clause: &mut syn::WhereClause,
@@ -278,12 +278,12 @@ fn add_ser_deser_trait_bounds(
     add_trait_bound(
         ser_where_clause,
         ty,
-        syn::parse_quote!(::epserde::ser::SerializeInner),
+        syn::parse_quote!(::epserde::ser::SerInner),
     );
     add_trait_bound(
         deser_where_clause,
         ty,
-        syn::parse_quote!(::epserde::deser::DeserializeInner),
+        syn::parse_quote!(::epserde::deser::DeserInner),
     );
 }
 
@@ -296,9 +296,8 @@ fn gen_generics_for_deser_type(
     ctx.type_const_params
         .iter()
         .map(|ident| {
-            if repl_params.contains(ident)
-            {
-                quote!(<#ident as ::epserde::deser::DeserializeInner>::DeserType<'epserde_desertype>)
+            if repl_params.contains(ident) {
+                quote!(<#ident as ::epserde::deser::DeserInner>::DeserType<'epserde_desertype>)
             } else {
                 quote!(#ident)
             }
@@ -316,7 +315,7 @@ fn gen_generics_for_ser_type(
         .iter()
         .map(|ident| {
             if repl_params.contains(ident) {
-                quote!(<#ident as ::epserde::ser::SerializeInner>::SerType)
+                quote!(<#ident as ::epserde::ser::SerInner>::SerType)
             } else {
                 quote!(#ident)
             }
@@ -324,7 +323,7 @@ fn gen_generics_for_ser_type(
         .collect()
 }
 
-/// Generates where clauses for `SerializeInner` and `DeserializeInner`
+/// Generates where clauses for `SerInner` and `DeserInner`
 /// implementations.
 ///
 /// The where clauses bound all field types with the trait being implemented,
@@ -370,14 +369,14 @@ fn gen_type_info_where_clauses(
                                 lifetimes: None,
                                 bounded_ty: field_type.clone(),
                                 colon_token: token::Colon::default(),
-                                bounds: syn::parse_quote!(::epserde::ser::SerializeInner),
+                                bounds: syn::parse_quote!(::epserde::ser::SerInner),
                             }));
                         where_clause
                             .predicates
                             .push(WherePredicate::Type(PredicateType {
                                 lifetimes: None,
                                 bounded_ty: syn::parse_quote!(
-                                    <#field_type as ::epserde::ser::SerializeInner>::SerType
+                                    <#field_type as ::epserde::ser::SerInner>::SerType
                                 ),
                                 colon_token: token::Colon::default(),
                                 bounds: trait_bound.clone(),
@@ -487,7 +486,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             }
 
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::ser::SerializeInner for #name #generics_for_type #ser_where_clause {
+            impl #generics_for_impl ::epserde::ser::SerInner for #name #generics_for_type #ser_where_clause {
                 type SerType = Self;
                 // Compute whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
@@ -506,7 +505,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             }
 
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::deser::DeserializeInner for #name #generics_for_type #deser_where_clause
+            impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause
             {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
@@ -541,7 +540,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             }
 
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::ser::SerializeInner for #name #generics_for_type #ser_where_clause {
+            impl #generics_for_impl ::epserde::ser::SerInner for #name #generics_for_type #ser_where_clause {
                 type SerType = #name<#(#generics_for_ser_type,)*>;
                 // Compute whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
@@ -559,15 +558,15 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             }
 
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::deser::DeserializeInner for #name #generics_for_type #deser_where_clause {
+            impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
-                    use ::epserde::deser::DeserializeInner;
+                    use ::epserde::deser::DeserInner;
 
                     Ok(#name{
                         #(
-                            #field_names: unsafe { <#field_types as ::epserde::deser::DeserializeInner>::_deserialize_full_inner(backend)? },
+                            #field_names: unsafe { <#field_types as ::epserde::deser::DeserInner>::_deserialize_full_inner(backend)? },
                         )*
                     })
                 }
@@ -578,7 +577,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                 ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
-                    use ::epserde::deser::DeserializeInner;
+                    use ::epserde::deser::DeserInner;
 
                     Ok(#name{
                         #(
@@ -663,7 +662,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 variant_full_des.push(quote! {
                     #(
-                        #field_names: unsafe { <#field_types as DeserializeInner>::_deserialize_full_inner(backend)? },
+                        #field_names: unsafe { <#field_types as DeserInner>::_deserialize_full_inner(backend)? },
                     )*
                 });
 
@@ -720,7 +719,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 variant_full_des.push(quote! {
                     #(
-                        #field_names_in_arm : unsafe { <#field_types as DeserializeInner>::_deserialize_full_inner(backend)? },
+                        #field_names_in_arm : unsafe { <#field_types as DeserInner>::_deserialize_full_inner(backend)? },
                     )*
                 });
 
@@ -758,7 +757,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
             }
 
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::ser::SerializeInner for #name #generics_for_type #ser_where_clause {
+            impl #generics_for_impl ::epserde::ser::SerInner for #name #generics_for_type #ser_where_clause {
                 type SerType = Self;
 
                 // Compute whether the type could be zero-copy
@@ -779,7 +778,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
             }
 
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::deser::DeserializeInner for #name #generics_for_type #deser_where_clause {
+            impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
@@ -811,7 +810,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
             }
             #[automatically_derived]
 
-            impl #generics_for_impl ::epserde::ser::SerializeInner for #name #generics_for_type #ser_where_clause {
+            impl #generics_for_impl ::epserde::ser::SerInner for #name #generics_for_type #ser_where_clause {
                 type SerType = #name<#(#generics_for_ser_type,)*>;
 
                 // Compute whether the type could be zero-copy
@@ -834,14 +833,14 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 }
             }
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::deser::DeserializeInner for #name #generics_for_type #deser_where_clause {
+            impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause {
                 unsafe fn _deserialize_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
-                    use ::epserde::deser::DeserializeInner;
+                    use ::epserde::deser::DeserInner;
                     use ::epserde::deser::Error;
 
-                    match unsafe { <usize as DeserializeInner>::_deserialize_full_inner(backend)? } {
+                    match unsafe { <usize as DeserInner>::_deserialize_full_inner(backend)? } {
                         #(
                             #tag => Ok(Self::#variant_ids{ #variant_full_des }),
                         )*
@@ -855,10 +854,10 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
                 ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
-                    use ::epserde::deser::DeserializeInner;
+                    use ::epserde::deser::DeserInner;
                     use ::epserde::deser::Error;
 
-                    match unsafe { <usize as DeserializeInner>::_deserialize_full_inner(backend)? } {
+                    match unsafe { <usize as DeserInner>::_deserialize_full_inner(backend)? } {
                         #(
                             #tag => Ok(Self::DeserType::<'_>::#variant_ids{ #variant_eps_des }),
                         )*
@@ -873,7 +872,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// Generates an [ε-serde](Epserde) implementation for custom types.
 ///
 /// It generates implementations for the traits `CopyType`, `MaxSizeOf`,
-/// `TypeHash`, `AlignHash`, `SerializeInner`, and `DeserializeInner`.
+/// `TypeHash`, `AlignHash`, `SerInner`, and `DeserInner`.
 ///
 /// Presently we do not support unions, where clauses on the original type,
 /// and lifetime generics.
@@ -978,7 +977,7 @@ fn gen_type_hash_body(
     quote! {
         use ::core::hash::Hash;
         use ::epserde::traits::TypeHash;
-        use ::epserde::ser::SerializeInner;
+        use ::epserde::ser::SerInner;
 
         // Hash in copy type
         Hash::hash(#copy_type, hasher);
@@ -1013,7 +1012,7 @@ fn gen_struct_align_hash_body(
         quote! {
             use ::core::hash::Hash;
             use ::epserde::traits::AlignHash;
-            use ::epserde::ser::SerializeInner;
+            use ::epserde::ser::SerInner;
 
             // Hash in size, as padding is given by MaxSizeOf.
             // and it is independent of the architecture.
@@ -1035,7 +1034,7 @@ fn gen_struct_align_hash_body(
     } else {
         quote! {
             use ::epserde::traits::AlignHash;
-            use ::epserde::ser::SerializeInner;
+            use ::epserde::ser::SerInner;
 
             // Hash in all fields starting at offset 0
             #(
@@ -1055,7 +1054,7 @@ fn gen_enum_align_hash_body(
         quote! {
             use ::core::hash::Hash;
             use ::epserde::traits::AlignHash;
-            use ::epserde::ser::SerializeInner;
+            use ::epserde::ser::SerInner;
 
             // Hash in size, as padding is given by MaxSizeOf.
             // and it is independent of the architecture.
@@ -1090,7 +1089,7 @@ fn gen_struct_max_size_of_body(
 ) -> proc_macro2::TokenStream {
     quote! {
         use ::epserde::traits::MaxSizeOf;
-        use ::epserde::ser::SerializeInner;
+        use ::epserde::ser::SerInner;
 
         let mut max_size_of = ::std::mem::align_of::<Self>();
 
@@ -1174,7 +1173,7 @@ fn gen_struct_type_info_impl(
                 if ctx.type_params.contains(field_type_id) {
                     repl_params.insert(field_type_id);
                     // Replaceable type parameter
-                    field_types_ts.push(quote! { <#field_type as SerializeInner>::SerType });
+                    field_types_ts.push(quote! { <#field_type as SerInner>::SerType });
                     continue;
                 }
             }
@@ -1252,7 +1251,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                         if let Some(field_type_id) = get_ident(field_type) {
                             if ctx.type_params.contains(field_type_id) {
                                 // Replaceable type parameter
-                                field_type_ts = quote! {<#field_type as SerializeInner>::SerType};
+                                field_type_ts = quote! {<#field_type as SerInner>::SerType};
                             }
                         }
                     }
@@ -1295,7 +1294,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                         if let Some(field_type_id) = get_ident(field_type) {
                             if ctx.type_params.contains(field_type_id) {
                                 // Replaceable type parameter
-                                field_type_ts = quote! {<#field_type as SerializeInner>::SerType};
+                                field_type_ts = quote! {<#field_type as SerInner>::SerType};
                             }
                         }
                     }

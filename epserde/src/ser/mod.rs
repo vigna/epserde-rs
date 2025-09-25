@@ -11,7 +11,7 @@
 //! [`Serialize::serialize`] method that serializes the type into a generic
 //! [`WriteNoStd`] backend, and a [`Serialize::serialize_with_schema`] method
 //! that additionally returns a [`Schema`] describing the data that has been
-//! written. The implementation of this trait is based on [`SerializeInner`],
+//! written. The implementation of this trait is based on [`SerInner`],
 //! which is automatically derived with `#[derive(Serialize)]`.
 
 use crate::traits::*;
@@ -29,7 +29,7 @@ pub use write::*;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-/// Main serialization trait. It is separated from [`SerializeInner`] to avoid
+/// Main serialization trait. It is separated from [`SerInner`] to avoid
 /// that the user modify its behavior, and hide internal serialization methods.
 ///
 /// It provides a convenience method [`Serialize::store`] that serializes the
@@ -115,12 +115,12 @@ pub trait Serialize {
 
 /// Inner trait to implement serialization of a type. This trait exists
 /// to separate the user-facing [`Serialize`] trait from the low-level
-/// serialization mechanism of [`SerializeInner::_serialize_inner`]. Moreover,
+/// serialization mechanism of [`SerInner::_serialize_inner`]. Moreover,
 /// it makes it possible to behave slightly differently at the top
 /// of the recursion tree (e.g., to write the endianness marker).
 ///
 /// The user should not implement this trait directly, but rather derive it.
-pub trait SerializeInner {
+pub trait SerInner {
     /// This is the type that will be written in the header of the file, and
     /// thus the type that will be deserialized. In most cases it is `Self`, but
     /// in some cases, as for [references to slices](crate::impls::slice),
@@ -155,15 +155,15 @@ pub trait SerializeInner {
 ///
 /// This implementation [writes a header](`write_header`) containing some hashes
 /// and debug information and then delegates to [WriteWithNames::write].
-impl<T: SerializeInner> Serialize for T
+impl<T: SerInner> Serialize for T
 where
-    <T as SerializeInner>::SerType: TypeHash + AlignHash,
+    <T as SerInner>::SerType: TypeHash + AlignHash,
 {
     unsafe fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // write the header using the serialized type, not the type itself
         // this is done so that you can serialize types with reference to slices
         // that can then be deserialized as vectors.
-        write_header::<<Self as SerializeInner>::SerType>(backend)?;
+        write_header::<<Self as SerInner>::SerType>(backend)?;
         backend.write("ROOT", self)?;
         backend.flush()
     }

@@ -83,11 +83,11 @@ fn test_array_types() {
 #[test]
 fn test_slice_types() {
     assert_eq!(
-        get_type_hash::<<&[i32] as SerializeInner>::SerType>(),
+        get_type_hash::<<&[i32] as SerInner>::SerType>(),
         0x400f9211e94c1834
     );
     assert_eq!(
-        get_align_hash::<<&[i32] as SerializeInner>::SerType>(),
+        get_align_hash::<<&[i32] as SerInner>::SerType>(),
         0x6881f435bc0ca85f
     );
 }

@@ -49,7 +49,7 @@ impl AlignHash for str {
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl SerializeInner for String {
+impl SerInner for String {
     type SerType = Self;
     // Vec<$ty> can, but Vec<Vec<$ty>> cannot!
     const IS_ZERO_COPY: bool = false;
@@ -60,7 +60,7 @@ impl SerializeInner for String {
     }
 }
 
-impl DeserializeInner for String {
+impl DeserInner for String {
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let slice = unsafe { deserialize_full_vec_zero(backend) }?;
         Ok(String::from_utf8(slice).unwrap())
@@ -86,7 +86,7 @@ unsafe impl CopyType for Box<str> {
     type Copy = Deep;
 }
 
-impl SerializeInner for Box<str> {
+impl SerInner for Box<str> {
     type SerType = Self;
     // Box<[$ty]> can, but Vec<Box<[$ty]>> cannot!
     const IS_ZERO_COPY: bool = false;
@@ -97,7 +97,7 @@ impl SerializeInner for Box<str> {
     }
 }
 
-impl DeserializeInner for Box<str> {
+impl DeserInner for Box<str> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(unsafe { String::_deserialize_full_inner(backend) }?.into_boxed_str())

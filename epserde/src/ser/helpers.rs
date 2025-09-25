@@ -7,11 +7,11 @@
 
 //! Helpers for serialization.
 
-use super::{SerializeInner, WriteWithNames};
+use super::{SerInner, WriteWithNames};
 use crate::ser;
 use crate::traits::*;
 
-pub fn check_zero_copy<V: SerializeInner>() {
+pub fn check_zero_copy<V: SerInner>() {
     if !V::IS_ZERO_COPY {
         panic!(
             "Cannot serialize type {} declared as zero-copy as it is not zero-copy",
@@ -21,12 +21,12 @@ pub fn check_zero_copy<V: SerializeInner>() {
 }
 
 /// Serialize a zero-copy structure checking [that the type is actually
-/// zero-copy](SerializeInner::IS_ZERO_COPY) and [aligning the stream
+/// zero-copy](SerInner::IS_ZERO_COPY) and [aligning the stream
 /// beforehand](WriteWithNames::align).
 ///
 /// This function makes the appropriate checks, write the necessary padding and
 /// then calls [`serialize_zero_unchecked`].
-pub fn serialize_zero<V: ZeroCopy + SerializeInner>(
+pub fn serialize_zero<V: ZeroCopy + SerInner>(
     backend: &mut impl WriteWithNames,
     value: &V,
 ) -> ser::Result<()> {
@@ -36,12 +36,12 @@ pub fn serialize_zero<V: ZeroCopy + SerializeInner>(
 }
 
 /// Serialize a zero-copy structure without checking [that the type is actually
-/// zero-copy](SerializeInner::IS_ZERO_COPY) and without [aligning the
+/// zero-copy](SerInner::IS_ZERO_COPY) and without [aligning the
 /// stream](WriteWithNames::align).
 ///
 /// Note that this method uses a single [`write_all`](std::io::Write::write_all)
 /// call to write the entire structure.
-pub fn serialize_zero_unchecked<V: ZeroCopy + SerializeInner>(
+pub fn serialize_zero_unchecked<V: ZeroCopy + SerInner>(
     backend: &mut impl WriteWithNames,
     value: &V,
 ) -> ser::Result<()> {
@@ -57,8 +57,8 @@ pub fn serialize_zero_unchecked<V: ZeroCopy + SerializeInner>(
 /// Note that this method uses a single `write_all`
 /// call to write the entire slice.
 ///
-/// Here we check [that the type is actually zero-copy](SerializeInner::IS_ZERO_COPY).
-pub fn serialize_slice_zero<V: SerializeInner + ZeroCopy>(
+/// Here we check [that the type is actually zero-copy](SerInner::IS_ZERO_COPY).
+pub fn serialize_slice_zero<V: SerInner + ZeroCopy>(
     backend: &mut impl WriteWithNames,
     data: &[V],
 ) -> ser::Result<()> {
@@ -72,7 +72,7 @@ pub fn serialize_slice_zero<V: SerializeInner + ZeroCopy>(
     backend.write_bytes::<V>(buffer)
 }
 
-pub fn check_mismatch<V: SerializeInner>() {
+pub fn check_mismatch<V: SerInner>() {
     if V::ZERO_COPY_MISMATCH {
         eprintln!(
             "Type {} is zero-copy, but it has not declared as such; use the #[deep_copy] attribute to silence this warning",
@@ -84,8 +84,8 @@ pub fn check_mismatch<V: SerializeInner>() {
 /// Serialize a slice of deep-copy structures by encoding
 /// its length first, and then the contents item by item.
 ///
-/// Here we warn [that the type might actually be zero-copy](SerializeInner::ZERO_COPY_MISMATCH).
-pub fn serialize_slice_deep<V: SerializeInner>(
+/// Here we warn [that the type might actually be zero-copy](SerInner::ZERO_COPY_MISMATCH).
+pub fn serialize_slice_deep<V: SerInner>(
     backend: &mut impl WriteWithNames,
     data: &[V],
 ) -> ser::Result<()> {

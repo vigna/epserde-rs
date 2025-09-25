@@ -49,7 +49,7 @@ macro_rules! impl_prim_type_hash {
 
 macro_rules! impl_prim_ser_des {
     ($($ty:ty),*) => {$(
-		impl SerializeInner for $ty {
+		impl SerInner for $ty {
             type SerType = Self;
             // Note that primitive types are declared zero-copy to be able to
             // be part of zero-copy types, but we actually deserialize
@@ -63,7 +63,7 @@ macro_rules! impl_prim_ser_des {
             }
         }
 
-		impl DeserializeInner for $ty {
+		impl DeserInner for $ty {
             #[inline(always)]
             unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
                 let mut buf = [0; size_of::<$ty>()];
@@ -96,7 +96,7 @@ impl_prim_ser_des!(
 
 macro_rules! impl_nonzero_ser_des {
     ($($ty:ty),*) => {$(
-		impl SerializeInner for $ty {
+		impl SerInner for $ty {
             type SerType = Self;                // Note that primitive types are declared zero-copy to be able to
             // be part of zero-copy types, but we actually deserialize
             // them in isolation as values.
@@ -109,7 +109,7 @@ macro_rules! impl_nonzero_ser_des {
             }
         }
 
-		impl DeserializeInner for $ty {
+		impl DeserInner for $ty {
             #[inline(always)]
             unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
                 let mut buf = [0; size_of::<$ty>()];
@@ -167,7 +167,7 @@ impl_prim_type_hash!(bool, char, ());
 
 // Booleans are zero-copy serialized as u8.
 
-impl SerializeInner for bool {
+impl SerInner for bool {
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -179,7 +179,7 @@ impl SerializeInner for bool {
     }
 }
 
-impl DeserializeInner for bool {
+impl DeserInner for bool {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<bool> {
         Ok(unsafe { u8::_deserialize_full_inner(backend) }? != 0)
@@ -197,7 +197,7 @@ impl DeserializeInner for bool {
 
 // Chars are zero-copy serialized as u32.
 
-impl SerializeInner for char {
+impl SerInner for char {
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -208,7 +208,7 @@ impl SerializeInner for char {
     }
 }
 
-impl DeserializeInner for char {
+impl DeserInner for char {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(char::from_u32(unsafe { u32::_deserialize_full_inner(backend) }?).unwrap())
@@ -224,7 +224,7 @@ impl DeserializeInner for char {
 
 // () is zero-copy. No reading or writing is performed when (de)serializing it.
 
-impl SerializeInner for () {
+impl SerInner for () {
     type SerType = ();
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -235,7 +235,7 @@ impl SerializeInner for () {
     }
 }
 
-impl DeserializeInner for () {
+impl DeserInner for () {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(())
@@ -277,7 +277,7 @@ impl<T: ?Sized> AlignHash for PhantomData<T> {
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl<T: ?Sized> SerializeInner for PhantomData<T> {
+impl<T: ?Sized> SerInner for PhantomData<T> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -288,7 +288,7 @@ impl<T: ?Sized> SerializeInner for PhantomData<T> {
     }
 }
 
-impl<T: ?Sized> DeserializeInner for PhantomData<T> {
+impl<T: ?Sized> DeserInner for PhantomData<T> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomData::<T>)
@@ -322,7 +322,7 @@ impl<T: AlignHash> AlignHash for Option<T> {
     }
 }
 
-impl<T: SerializeInner + TypeHash + AlignHash> SerializeInner for Option<T> {
+impl<T: SerInner + TypeHash + AlignHash> SerInner for Option<T> {
     type SerType = Option<T::SerType>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -339,7 +339,7 @@ impl<T: SerializeInner + TypeHash + AlignHash> SerializeInner for Option<T> {
     }
 }
 
-impl<T: DeserializeInner> DeserializeInner for Option<T> {
+impl<T: DeserInner> DeserInner for Option<T> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let tag = unsafe { u8::_deserialize_full_inner(backend) }?;
@@ -349,7 +349,7 @@ impl<T: DeserializeInner> DeserializeInner for Option<T> {
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
-    type DeserType<'a> = Option<<T as DeserializeInner>::DeserType<'a>>;
+    type DeserType<'a> = Option<<T as DeserInner>::DeserType<'a>>;
     #[inline(always)]
     unsafe fn _deserialize_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,

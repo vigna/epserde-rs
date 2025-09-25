@@ -17,8 +17,8 @@ use core::{hash::Hash, marker::PhantomData, mem::transmute};
 pub use epserde_derive::{Epserde, TypeInfo};
 
 use crate::{
-    deser::{DeserializeInner, ReadWithPos, SliceWithPos},
-    ser::{SerializeInner, WriteWithNames},
+    deser::{DeserInner, ReadWithPos, SliceWithPos},
+    ser::{SerInner, WriteWithNames},
     traits::{AlignHash, CopyType, MaxSizeOf, TypeHash, Zero},
 };
 
@@ -31,19 +31,19 @@ pub mod utils;
 pub mod prelude {
     pub use crate::PhantomDeserData;
     pub use crate::deser;
+    pub use crate::deser::DeserInner;
     pub use crate::deser::DeserType;
     pub use crate::deser::Deserialize;
     pub use crate::deser::DeserializeHelper;
-    pub use crate::deser::DeserializeInner;
     pub use crate::deser::Flags;
     pub use crate::deser::MemCase;
     pub use crate::deser::ReadWithPos;
     pub use crate::deser::SliceWithPos;
     pub use crate::impls::iter::SerIter;
     pub use crate::ser;
+    pub use crate::ser::SerInner;
     pub use crate::ser::Serialize;
     pub use crate::ser::SerializeHelper;
-    pub use crate::ser::SerializeInner;
     pub use crate::traits::*;
     pub use crate::utils::*;
     #[cfg(feature = "derive")]
@@ -100,13 +100,13 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PhantomDeserData<T: ?Sized>(pub PhantomData<T>);
 
-impl<T: DeserializeInner> PhantomDeserData<T> {
+impl<T: DeserInner> PhantomDeserData<T> {
     /// A custom deserialization method for [`PhantomDeserData`] that transmutes
     /// the inner type.
     ///
     /// # Safety
     ///
-    /// See [`DeserializeInner::_deserialize_eps_inner`].
+    /// See [`DeserInner::_deserialize_eps_inner`].
     #[inline(always)]
     pub unsafe fn _deserialize_eps_inner_special<'a>(
         _backend: &mut SliceWithPos<'a>,
@@ -114,7 +114,7 @@ impl<T: DeserializeInner> PhantomDeserData<T> {
         // SAFETY: types are zero-length
         Ok(unsafe {
             transmute::<
-                <PhantomDeserData<T> as DeserializeInner>::DeserType<'a>,
+                <PhantomDeserData<T> as DeserInner>::DeserType<'a>,
                 PhantomDeserData<T::DeserType<'a>>,
             >(PhantomDeserData(PhantomData))
         })
@@ -145,7 +145,7 @@ impl<T: ?Sized> AlignHash for PhantomDeserData<T> {
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl<T: ?Sized> SerializeInner for PhantomDeserData<T> {
+impl<T: ?Sized> SerInner for PhantomDeserData<T> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -156,7 +156,7 @@ impl<T: ?Sized> SerializeInner for PhantomDeserData<T> {
     }
 }
 
-impl<T: DeserializeInner> DeserializeInner for PhantomDeserData<T> {
+impl<T: DeserInner> DeserInner for PhantomDeserData<T> {
     #[inline(always)]
     unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomDeserData(PhantomData))

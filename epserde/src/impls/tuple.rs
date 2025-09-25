@@ -74,7 +74,7 @@ macro_rules! impl_tuples {
             }
         }
 
-		impl<T: ZeroCopy + TypeHash + AlignHash> SerializeInner for ($($t,)*) {
+		impl<T: ZeroCopy + TypeHash + AlignHash> SerInner for ($($t,)*) {
             type SerType = Self;
             const IS_ZERO_COPY: bool = true;
             const ZERO_COPY_MISMATCH: bool = false;
@@ -85,7 +85,7 @@ macro_rules! impl_tuples {
             }
         }
 
-		impl<T: ZeroCopy + TypeHash + AlignHash> DeserializeInner for ($($t,)*) {
+		impl<T: ZeroCopy + TypeHash + AlignHash> DeserInner for ($($t,)*) {
             type DeserType<'a> = &'a ($($t,)*);
             unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
                 unsafe { deserialize_full_zero::<($($t,)*)>(backend) }

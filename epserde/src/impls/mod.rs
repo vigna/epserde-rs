@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Implementations of [`SerializeInner`](crate::ser::SerializeInner) and
-//! [`DeserializeInner`](crate::deser::DeserializeInner) for standard Rust
+//! Implementations of [`SerInner`](crate::ser::SerInner) and
+//! [`DeserInner`](crate::deser::DeserInner) for standard Rust
 //! types.
 
 pub mod array;

@@ -64,7 +64,7 @@ fn main() {
     let eps = unsafe { Struct::deserialize_eps(&file).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<<Struct as DeserializeInner>::DeserType<'_>>(),
+        std::any::type_name::<<Struct as DeserInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);
     assert_eq!(s.a, eps.a);

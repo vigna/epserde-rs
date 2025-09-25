@@ -10,10 +10,10 @@
 //! [`Deserialize`] is the main deserialization trait, providing methods
 //! [`Deserialize::deserialize_eps`] and [`Deserialize::deserialize_full`] which
 //! implement ε-copy and full-copy deserialization, respectively. The
-//! implementation of this trait is based on [`DeserializeInner`], which is
+//! implementation of this trait is based on [`DeserInner`], which is
 //! automatically derived with `#[derive(Deserialize)]`.
 
-use crate::ser::SerializeInner;
+use crate::ser::SerInner;
 use crate::traits::*;
 use crate::{MAGIC, MAGIC_REV, VERSION};
 use core::mem::align_of;
@@ -34,10 +34,10 @@ pub use slice_with_pos::*;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-/// A shorthand for the [deserialized type associated with a type](DeserializeInner::DeserType).
-pub type DeserType<'a, T> = <T as DeserializeInner>::DeserType<'a>;
+/// A shorthand for the [deserialized type associated with a type](DeserInner::DeserType).
+pub type DeserType<'a, T> = <T as DeserInner>::DeserType<'a>;
 
-/// Main deserialization trait. It is separated from [`DeserializeInner`] to
+/// Main deserialization trait. It is separated from [`DeserInner`] to
 /// avoid that the user modify its behavior, and hide internal serialization
 /// methods.
 ///
@@ -63,9 +63,9 @@ pub type DeserType<'a, T> = <T as DeserializeInner>::DeserType<'a>;
 /// - Memory-mapped files might be modified externally.
 /// - If you use a method coupling a deserialized structure with its serialized
 ///   support using [`MemCase`] (e.g., [`Deserialize::mmap`]),
-///   [`DeserializeInner::DeserType`] must be covariant (i.e., behave like a
+///   [`DeserInner::DeserType`] must be covariant (i.e., behave like a
 ///   structure, not a closure with a generic argument)
-pub trait Deserialize: DeserializeInner {
+pub trait Deserialize: DeserInner {
     /// Fully deserialize a structure of this type from the given backend.
     ///
     /// # Safety
@@ -328,8 +328,8 @@ pub trait Deserialize: DeserializeInner {
 #[allow(clippy::missing_safety_doc)] // Clippy bug
 /// Inner trait to implement deserialization of a type. This trait exists to
 /// separate the user-facing [`Deserialize`] trait from the low-level
-/// deserialization mechanisms of [`DeserializeInner::_deserialize_full_inner`]
-/// and [`DeserializeInner::_deserialize_eps_inner`]. Moreover, it makes it
+/// deserialization mechanisms of [`DeserInner::_deserialize_full_inner`]
+/// and [`DeserInner::_deserialize_eps_inner`]. Moreover, it makes it
 /// possible to behave slightly differently at the top of the recursion tree
 /// (e.g., to check the endianness marker), and to prevent the user from
 /// modifying the methods in [`Deserialize`].
@@ -339,7 +339,7 @@ pub trait Deserialize: DeserializeInner {
 /// # Safety
 ///
 /// See [`Deserialize`].
-pub trait DeserializeInner: Sized {
+pub trait DeserInner: Sized {
     /// The deserialization type associated with this type. It can be retrieved
     /// conveniently with the alias [`DeserType`].
     type DeserType<'a>;
@@ -362,9 +362,9 @@ pub trait DeserializeInner: Sized {
 ///
 /// This implementation [checks the header](`check_header`) written
 /// by the blanket implementation of [`crate::ser::Serialize`] and then delegates to
-/// [`DeserializeInner::_deserialize_full_inner`] or
-/// [`DeserializeInner::_deserialize_eps_inner`].
-impl<T: SerializeInner + DeserializeInner> Deserialize for T
+/// [`DeserInner::_deserialize_full_inner`] or
+/// [`DeserInner::_deserialize_eps_inner`].
+impl<T: SerInner + DeserInner> Deserialize for T
 where
     T::SerType: TypeHash + AlignHash,
 {
@@ -390,7 +390,7 @@ where
 /// Common header check code for both ε-copy and full-copy deserialization.
 ///
 /// Must be kept in sync with [`crate::ser::write_header`].
-pub fn check_header<T: SerializeInner>(backend: &mut impl ReadWithPos) -> Result<()>
+pub fn check_header<T: SerInner>(backend: &mut impl ReadWithPos) -> Result<()>
 where
     T::SerType: TypeHash + AlignHash,
 {

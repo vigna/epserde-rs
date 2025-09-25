@@ -20,7 +20,7 @@
 use crate::prelude::*;
 use ser::*;
 
-impl<T: CopyType + SerializeInner + TypeHash + AlignHash> SerializeInner for &[T]
+impl<T: CopyType + SerInner + TypeHash + AlignHash> SerInner for &[T]
 where
     Box<[T]>: SerializeHelper<<T as CopyType>::Copy>,
 {
@@ -33,7 +33,7 @@ where
         // it immediately after writing it to the backend.
         let fake = unsafe { Vec::from_raw_parts(self.as_ptr() as *mut T, self.len(), self.len()) }
             .into_boxed_slice();
-        unsafe { ser::SerializeInner::_serialize_inner(&fake, backend) }?;
+        unsafe { ser::SerInner::_serialize_inner(&fake, backend) }?;
         core::mem::forget(fake);
         Ok(())
     }

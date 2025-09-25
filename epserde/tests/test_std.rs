@@ -13,7 +13,7 @@ use std::{rc::Rc, sync::Arc};
 fn test_generic<T>(s: T) -> Result<()>
 where
     T: Serialize + Deserialize + PartialEq + core::fmt::Debug,
-    for<'a> <T as DeserializeInner>::DeserType<'a>: PartialEq<T> + core::fmt::Debug,
+    for<'a> <T as DeserInner>::DeserType<'a>: PartialEq<T> + core::fmt::Debug,
 {
     test_generic_split::<T, T, T>(s, |value| value)
 }
@@ -23,7 +23,7 @@ where
     Ser: Serialize,
     Deser: Deserialize + PartialEq<OwnedSer> + core::fmt::Debug,
     OwnedSer: core::fmt::Debug,
-    for<'a> <Deser as DeserializeInner>::DeserType<'a>: PartialEq<OwnedSer> + core::fmt::Debug,
+    for<'a> <Deser as DeserInner>::DeserType<'a>: PartialEq<OwnedSer> + core::fmt::Debug,
 {
     {
         let mut v = vec![];

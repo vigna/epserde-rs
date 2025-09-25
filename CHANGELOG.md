@@ -41,7 +41,7 @@
   `AsRef` traits, and it is no longer possible to pass a `MemCase` as type
   parameter when the trait bound is `Deref` or `AsRef` to the underlying type.
   Moreover, `encase` still exists, but it accepts only types implementing
-  `DeserializeInner` and whose deserialization types is `Self`. Using a
+  `DeserInner` and whose deserialization types is `Self`. Using a
   structure of type `S`and a `MemCase<S>` interchangeably now requires
   implementing the same traits in both cases. For some elaboration, see the
   `MemCase` documentation.
@@ -109,7 +109,7 @@
 
 ### New
 
-* Now `SerializeInner` inner has an associated type `SerType` that is used to
+* Now `SerInner` inner has an associated type `SerType` that is used to
   write the file header. This is done so `Data<&[u32]>` can be conveniently
   serialized as if it were `Data<Vec<u32>>`. There is no change in the file
   format.
@@ -125,7 +125,7 @@
 ### Improved
 
 * Added missing implementation of `TypeHash`, `ReprHash`, `MaxSizeOf`,
-  `SerializeInner`, `DeserializeInner` for `Range`, `RangeFrom`, `RangeFull`,
+  `SerInner`, `DeserInner` for `Range`, `RangeFrom`, `RangeFull`,
   `RangeInclusive`, `RangeTo`, `RangeToInclusive`, `Bound`, `ControlFlow`.
 
 ### Fixed

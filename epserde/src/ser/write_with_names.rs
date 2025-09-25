@@ -7,7 +7,7 @@
 
 //! Traits and implementations to write named field during serialization.
 //!
-//! [`SerializeInner::_serialize_inner`] writes on a [`WriteWithNames`], rather
+//! [`SerInner::_serialize_inner`] writes on a [`WriteWithNames`], rather
 //! than on a [`WriteWithPos`], with the purpose of easily recording write
 //! events happening during a serialization.
 
@@ -18,7 +18,7 @@ use mem_dbg::{MemDbg, MemSize};
 /// alignment, serialization of named data, and writing of byte slices
 /// of zero-copy types.
 ///
-/// The purpose of this trait is that of interposing between [`SerializeInner`]
+/// The purpose of this trait is that of interposing between [`SerInner`]
 /// and the underlying [`WriteWithPos`] a layer in which serialization operations
 /// can be easily intercepted and recorded. In particular, serialization methods
 /// must use the methods of this trait if they want to record the schema of the
@@ -45,11 +45,11 @@ pub trait WriteWithNames: WriteWithPos + Sized {
 
     /// Write a value with an associated name.
     ///
-    /// The default implementation simply delegates to [`SerializeInner::_serialize_inner`].
+    /// The default implementation simply delegates to [`SerInner::_serialize_inner`].
     /// Other implementations might use the name information (e.g., [`SchemaWriter`]),
-    /// but they must in the end delegate to [`SerializeInner::_serialize_inner`].
+    /// but they must in the end delegate to [`SerInner::_serialize_inner`].
     /// TODO: unsafe
-    fn write<V: SerializeInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
+    fn write<V: SerInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
         unsafe { value._serialize_inner(self) }
     }
 
@@ -58,7 +58,7 @@ pub trait WriteWithNames: WriteWithPos + Sized {
     /// The default implementation simply delegates to [`WriteNoStd::write_all`].
     /// Other implementations might use the type information in `V` (e.g., [`SchemaWriter`]),
     /// but they must in the end delegate to [`WriteNoStd::write_all`].
-    fn write_bytes<V: SerializeInner + ZeroCopy>(&mut self, value: &[u8]) -> Result<()> {
+    fn write_bytes<V: SerInner + ZeroCopy>(&mut self, value: &[u8]) -> Result<()> {
         self.write_all(value)
     }
 }
@@ -204,7 +204,7 @@ impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
         Ok(())
     }
 
-    fn write<V: SerializeInner>(&mut self, field_name: &str, value: &V) -> Result<()> {
+    fn write<V: SerInner>(&mut self, field_name: &str, value: &V) -> Result<()> {
         // prepare a row with the field name and the type
         self.path.push(field_name.into());
         let pos = self.pos();
@@ -229,7 +229,7 @@ impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
         Ok(())
     }
 
-    fn write_bytes<V: SerializeInner + ZeroCopy>(&mut self, value: &[u8]) -> Result<()> {
+    fn write_bytes<V: SerInner + ZeroCopy>(&mut self, value: &[u8]) -> Result<()> {
         self.path.push("zero".to_string());
         // Note that we are writing the schema row of the field before
         // having written its content.

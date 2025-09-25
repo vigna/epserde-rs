@@ -79,17 +79,17 @@ use ser::*;
 
 macro_rules! impl_ser {
     ($type:ty) => {
-        impl<T: SerializeInner> SerializeInner for $type {
+        impl<T: SerInner> SerInner for $type {
             type SerType = T;
-            const IS_ZERO_COPY: bool = <T as SerializeInner>::IS_ZERO_COPY;
-            const ZERO_COPY_MISMATCH: bool = <T as SerializeInner>::ZERO_COPY_MISMATCH;
+            const IS_ZERO_COPY: bool = <T as SerInner>::IS_ZERO_COPY;
+            const ZERO_COPY_MISMATCH: bool = <T as SerInner>::ZERO_COPY_MISMATCH;
 
             #[inline(always)]
             unsafe fn _serialize_inner(
                 &self,
                 backend: &mut impl WriteWithNames,
             ) -> ser::Result<()> {
-                unsafe { <T as SerializeInner>::_serialize_inner(self, backend) }
+                unsafe { <T as SerInner>::_serialize_inner(self, backend) }
             }
         }
     };
@@ -99,20 +99,20 @@ macro_rules! impl_all {
     ($type:ident) => {
         impl_ser!($type<T>);
 
-        impl<T: DeserializeInner> DeserializeInner for $type<T> {
-            type DeserType<'a> = $type<<T as DeserializeInner>::DeserType<'a>>;
+        impl<T: DeserInner> DeserInner for $type<T> {
+            type DeserType<'a> = $type<<T as DeserInner>::DeserType<'a>>;
 
             #[inline(always)]
             unsafe fn _deserialize_full_inner(
                 backend: &mut impl ReadWithPos,
             ) -> deser::Result<Self> {
-                unsafe { <T as DeserializeInner>::_deserialize_full_inner(backend).map($type::new) }
+                unsafe { <T as DeserInner>::_deserialize_full_inner(backend).map($type::new) }
             }
             #[inline(always)]
             unsafe fn _deserialize_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
             ) -> deser::Result<Self::DeserType<'a>> {
-                unsafe { <T as DeserializeInner>::_deserialize_eps_inner(backend).map($type::new) }
+                unsafe { <T as DeserInner>::_deserialize_eps_inner(backend).map($type::new) }
             }
         }
     };

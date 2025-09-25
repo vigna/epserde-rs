@@ -65,7 +65,7 @@ These are the main limitations you should be aware of before choosing to use
 - While we provide procedural macros that implement serialization and
   deserialization, they require that your type is written and used in a specific
   way for ε-copy deserialization to work properly; in particular, the fields you
-  want to ε-copy must be type parameters implementing [`DeserializeInner`], to
+  want to ε-copy must be type parameters implementing [`DeserInner`], to
   which a [deserialized type] is associated. For example, we provide
   implementations for `Vec<T>`/`Box<[T]>`, where `T` is zero-copy, or
   `String`/`Box<str>`, which have associated deserialized type `&[T]` or `&str`,
@@ -399,7 +399,7 @@ The result will be an error message similar to the following:
 ```text
 |
 | #[derive(Epserde, Debug, PartialEq)]
-|          ^^^^^^^ expected `Vec<<A as DeserializeInner>::DeserType<'_>>`, found `Vec<A>`
+|          ^^^^^^^ expected `Vec<<A as DeserInner>::DeserType<'_>>`, found `Vec<A>`
 | struct MyStructParam<A> {
 |                      - found this type parameter
 ```
@@ -806,7 +806,7 @@ case, methods should be written with the bound `A: AsRef<[Z]>`.
 An ε-serde serialization process involves two types:
 
 * `S`, the _serializable type_, which is the type of the instance you want to
-  serialize. It must implement [`SerializeInner`] (which implies
+  serialize. It must implement [`SerInner`] (which implies
   [`Serialize`] by a blanket implementation).
 
 * Its associated _serialization type_ [`S::SerType`], which must implement
@@ -814,7 +814,7 @@ An ε-serde serialization process involves two types:
 
 In general the serialization type of `S` is `S`, but there is some normalization
 and erasure involved (e.g., vectors become boxed slices, and some smart pointers
-such as Rc are erased). Moreover, for convenience a few types that are not
+such as [`Rc`] are erased). Moreover, for convenience a few types that are not
 really serializable have a convenience serialization type (e.g., iterators
 become boxed slices). The derivation of the serialization type will be detailed
 later, but the key feature is that when deriving the serialization type of `S`
@@ -830,12 +830,12 @@ contained in the instance.
 
 An ε-serde deserialization process involves instead three types:
 
-* `D`, the _deserializable type_, which must implement [`DeserializeInner`],
+* `D`, the _deserializable type_, which must implement [`DeserInner`],
   [`TypeHash`], and [`ReprHash`], so the blanket implementation For
   [`Deserialize`] applies. This is the type on which deserialization
   methods are invoked.
 
-* The associated _serialization type_ of `D`, [`D::SerType`].
+* The associated _serialization type_  [`D::SerType`].
 
 * The associated _deserialization type_ [`D::DeserType<'_>`].
 
@@ -850,7 +850,7 @@ is a reference, instead of an instance, for zero-copy types, and a reference to
 a slice, rather than owned data, for vectors, boxed slices, and arrays of such
 types. For vectors, boxed slices, and arrays of deep-copy types it is obtained
 by replacing their type parameter with its deserialization type. For more
-complex types, it is obtained by types filling replaceable parameters `R` with
+complex types, it is obtained by the replacing replaceable parameters with
 their deserialization type.
 
 For example:
@@ -914,11 +914,13 @@ Given a user-defined type `T`:
 - if `T` is zero-copy, the serialization type is `T`, and the deserialization
   type is `&T`;
 
-- if `T` is deep-copy, the serialization type is `T`, and the deserialization
-  type derived by replacing all replaceable type parameters with their
-  associated serialization/deserialization type, respectively.
+- if `T` is deep-copy, the (de)serialization type is obtained as follow.
+  Assuming `T` is a concrete type obtained by resolving the type parameters
+  `P₀`, `P₁`, `P₂`, … of a type definition (struct or enum) to concrete types
+  `T₀`, `T₁`, `T₂`, …, then `T:(De)serType` is obtained by resolving each
+  replaceable type parameter `Pᵢ` with the concrete type `Tᵢ:(De)serType` instead.
 
-For standard types and [`PhantomDeserData`], we have:
+  For standard types and [`PhantomDeserData`], we have:
 
 * all primitive types, such as `u8`, `i32`, `f64`, `char`, `bool`, etc., `()`,
   and `PhantomData<T>` are zero-copy and their (de)serialization type is
@@ -957,7 +959,7 @@ used to make a structure zero-copy, albeit it must satisfy [a few
 prerequisites].
 
 You can also implement manually the traits [`CopyType`], [`MaxSizeOf`],
-[`TypeHash`], [`ReprHash`], [`SerializeInner`], and [`DeserializeInner`], but
+[`TypeHash`], [`ReprHash`], [`SerInner`], and [`DeserInner`], but
 the process is error-prone, and you must be fully aware of ε-serde's
 conventions. The procedural macro [`TypeInfo`] can be used to generate
 automatically at least [`CopyType`], [`MaxSizeOf`], [`TypeHash`], and
@@ -980,9 +982,9 @@ European Union nor the Italian MUR can be held responsible for them.
 [`MaxSizeOf`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.MaxSizeOf.html>
 [`TypeHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html>
 [`ReprHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.ReprHash.html>
-[`DeserializeInner`]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserializeInner.html>
+[`DeserInner`]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html>
 [`Deserialize`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html>
-[`SerializeInner`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerializeInner.html>
+[`SerInner`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html>
 [`Serialize`]: <https://docs.rs/epserde/latest/epserde/ser/trait.Serialize.html>
 [`TypeInfo`]: <https://docs.rs/epserde/latest/epserde/derive.TypeInfo.html>
 [`Epserde`]: <https://docs.rs/epserde/latest/epserde_derive/derive.Epserde.html>
@@ -996,7 +998,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [`Deserialize::read_mmap`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.read_mmap>
 [`Deserialize::mmap`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.mmap>
 [a few prerequisites]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html>
-[deserialized type]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserializeInner.html#associatedtype.DeserType>
+[deserialized type]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html#associatedtype.DeserType>
 [`DeserType<'_,T>`]: <https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html>
 [`sux`]: <http://crates.io/sux/>
 [serde]: <https://serde.rs/>
@@ -1016,13 +1018,15 @@ European Union nor the Italian MUR can be held responsible for them.
 [`pointer`]: <https://docs.rs/epserde/latest/epserde/impls/pointer/index.html>
 [`BitFieldVec`]: <https://docs.rs/sux/latest/sux/bits/bit_field_vec/struct.BitFieldVec.html>
 [`BitFieldSlice`]: <https://docs.rs/sux/latest/sux/traits/bit_field_slice/trait.BitFieldSlice.html>
-[`S::SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerializeInner.html#associatedtype.SerType>
-[`D::SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerializeInner.html#associatedtype.SerType>
-[`D::DeserType<'_>`]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserializeInner.html#associatedtype.DeserType>
+[`S::SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType>
+[`D::SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType>
+[`D::DeserType<'_>`]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html#associatedtype.DeserType>
 [`Read`]: <https://doc.rust-lang.org/std/io/trait.Read.html>
 [`read_exact`]: <https://doc.rust-lang.org/std/io/trait.Read.html#method.read_exact>
 [_deep-copy_]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.DeepCopy.html>
 [_zero-copy_]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.ZeroCopy.html>
 [`Deep`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/struct.Deep.html>
 [`Zero`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/struct.Zero.html>
+[newtypes]: <https://docs.rs/epserde/0.9.0/epserde/impls/tuple/index.html>
+e/struct.Zero.html>
 [newtypes]: <https://docs.rs/epserde/0.9.0/epserde/impls/tuple/index.html>

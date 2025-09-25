@@ -30,7 +30,7 @@ impl<T: AlignHash> AlignHash for Box<[T]> {
     }
 }
 
-impl<T: CopyType + SerializeInner + TypeHash + AlignHash> SerializeInner for Box<[T]>
+impl<T: CopyType + SerInner + TypeHash + AlignHash> SerInner for Box<[T]>
 where
     Box<[T]>: SerializeHelper<<T as CopyType>::Copy>,
 {
@@ -42,14 +42,14 @@ where
     }
 }
 
-impl<T: ZeroCopy + SerializeInner> SerializeHelper<Zero> for Box<[T]> {
+impl<T: ZeroCopy + SerInner> SerializeHelper<Zero> for Box<[T]> {
     #[inline(always)]
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         serialize_slice_zero(backend, self)
     }
 }
 
-impl<T: DeepCopy + SerializeInner> SerializeHelper<Deep> for Box<[T]> {
+impl<T: DeepCopy + SerInner> SerializeHelper<Deep> for Box<[T]> {
     #[inline(always)]
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         serialize_slice_deep(backend, self)
@@ -57,7 +57,7 @@ impl<T: DeepCopy + SerializeInner> SerializeHelper<Deep> for Box<[T]> {
 }
 
 // This delegates to a private helper trait which we can specialize on in stable rust
-impl<T: DeserializeInner + CopyType> DeserializeInner for Box<[T]>
+impl<T: DeserInner + CopyType> DeserInner for Box<[T]>
 where
     Box<[T]>: DeserializeHelper<<T as CopyType>::Copy, FullType = Box<[T]>>,
 {
@@ -83,7 +83,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + DeserializeInner> DeserializeHelper<Zero> for Box<[T]> {
+impl<T: ZeroCopy + DeserInner> DeserializeHelper<Zero> for Box<[T]> {
     type FullType = Self;
     type DeserType<'a> = &'a [T];
     #[inline(always)]
@@ -93,14 +93,14 @@ impl<T: ZeroCopy + DeserializeInner> DeserializeHelper<Zero> for Box<[T]> {
     #[inline(always)]
     unsafe fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
-    ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
+    ) -> deser::Result<<Self as DeserInner>::DeserType<'a>> {
         unsafe { deserialize_eps_slice_zero(backend) }
     }
 }
 
-impl<T: DeepCopy + DeserializeInner> DeserializeHelper<Deep> for Box<[T]> {
+impl<T: DeepCopy + DeserInner> DeserializeHelper<Deep> for Box<[T]> {
     type FullType = Self;
-    type DeserType<'a> = Box<[<T as DeserializeInner>::DeserType<'a>]>;
+    type DeserType<'a> = Box<[<T as DeserInner>::DeserType<'a>]>;
     #[inline(always)]
     unsafe fn _deserialize_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(deserialize_full_vec_deep(backend)?.into_boxed_slice())
@@ -108,7 +108,7 @@ impl<T: DeepCopy + DeserializeInner> DeserializeHelper<Deep> for Box<[T]> {
     #[inline(always)]
     unsafe fn _deserialize_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
-    ) -> deser::Result<<Self as DeserializeInner>::DeserType<'a>> {
+    ) -> deser::Result<<Self as DeserInner>::DeserType<'a>> {
         Ok(deserialize_eps_vec_deep::<T>(backend)?.into_boxed_slice())
     }
 }

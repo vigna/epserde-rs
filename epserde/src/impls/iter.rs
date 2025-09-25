@@ -60,8 +60,8 @@ impl<'a, T: ZeroCopy + AlignHash, I: ExactSizeIterator<Item = &'a T>> AlignHash
     }
 }
 
-impl<'a, T: ZeroCopy + SerializeInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>>
-    SerializeInner for SerIter<'a, T, I>
+impl<'a, T: ZeroCopy + SerInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>> SerInner
+    for SerIter<'a, T, I>
 where
     SerIter<'a, T, I>: SerializeHelper<<T as CopyType>::Copy>,
 {
@@ -73,7 +73,7 @@ where
     }
 }
 
-impl<'a, T: ZeroCopy + SerializeInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>>
+impl<'a, T: ZeroCopy + SerInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>>
     SerializeHelper<Zero> for SerIter<'a, T, I>
 {
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -102,7 +102,7 @@ impl<'a, T: ZeroCopy + SerializeInner + TypeHash + AlignHash, I: ExactSizeIterat
     }
 }
 
-impl<'a, T: DeepCopy + SerializeInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>>
+impl<'a, T: DeepCopy + SerInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>>
     SerializeHelper<Deep> for SerIter<'a, T, I>
 {
     unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {

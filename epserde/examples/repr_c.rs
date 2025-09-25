@@ -51,7 +51,7 @@ fn main() {
     let eps = unsafe { <Object<Vec<Point>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<<Object<Vec<Point>> as DeserializeInner>::DeserType<'_>>(),
+        std::any::type_name::<<Object<Vec<Point>> as DeserInner>::DeserType<'_>>(),
     );
     println!("Value: {:x?}", eps);
     assert_eq!(point.a, eps.a);
