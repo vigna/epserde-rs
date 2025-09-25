@@ -26,13 +26,13 @@ fn test_inner_param_full() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <Data<Vec<usize>, 2>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data<Vec<usize>, 2>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(person, full);
 
     println!();
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <Data<Vec<usize>, 2>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data<Vec<usize>, 2>>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(person.a, eps.a);
     assert_eq!(person.b, eps.b);
 }
@@ -61,11 +61,11 @@ fn test_inner_param_eps() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <Data2<usize, Vec<usize>>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data2<usize, Vec<usize>>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(data, full);
     // Do an ε-copy deserialization
 
-    let eps = unsafe { <Data2<usize, Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data2<usize, Vec<usize>>>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(data.a, eps.a);
 }
 
@@ -85,20 +85,20 @@ fn test_consts() {
     cursor.set_position(0);
 
     // with a different const the deserialization should fail
-    let eps = unsafe { <Data3<12>>::deserialize_full(&mut cursor) };
+    let eps = unsafe { <Data3<12>>::deser_full(&mut cursor) };
     assert!(eps.is_err());
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <Data3<11>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data3<11>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(data, full);
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <Data3<11>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data3<11>>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(&data, eps);
 
     // with a different const the deserialization should fail
-    let eps = unsafe { <Data3<12>>::deserialize_eps(cursor.as_bytes()) };
+    let eps = unsafe { <Data3<12>>::deser_eps(cursor.as_bytes()) };
     assert!(eps.is_err());
 }
 

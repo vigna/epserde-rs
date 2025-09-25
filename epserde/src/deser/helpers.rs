@@ -19,9 +19,7 @@ use core::ptr::NonNull;
 /// # Safety
 ///
 /// See the documentation of [`Deserialize`](super::Deserialize).
-pub unsafe fn deserialize_full_zero<T: ZeroCopy>(
-    backend: &mut impl ReadWithPos,
-) -> deser::Result<T> {
+pub unsafe fn deser_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> deser::Result<T> {
     backend.align::<T>()?;
     unsafe {
         let mut buf: MaybeUninit<T> = MaybeUninit::uninit();
@@ -42,10 +40,10 @@ pub unsafe fn deserialize_full_zero<T: ZeroCopy>(
 /// # Safety
 ///
 /// See the documentation of [`Deserialize`](super::Deserialize).
-pub unsafe fn deserialize_full_vec_zero<T: DeserInner + ZeroCopy>(
+pub unsafe fn deser_full_vec_zero<T: DeserInner + ZeroCopy>(
     backend: &mut impl ReadWithPos,
 ) -> deser::Result<Vec<T>> {
-    let len = unsafe { usize::_deserialize_full_inner(backend) }?;
+    let len = unsafe { usize::_deser_full_inner(backend) }?;
     backend.align::<T>()?;
     let mut res = Vec::with_capacity(len);
     // SAFETY: we just allocated this vector so it is safe to set the length.
@@ -60,13 +58,13 @@ pub unsafe fn deserialize_full_vec_zero<T: DeserInner + ZeroCopy>(
 }
 
 /// Full-copy deserialize a vector of deep-copy structures.
-pub fn deserialize_full_vec_deep<T: DeserInner + DeepCopy>(
+pub fn deser_full_vec_deep<T: DeserInner + DeepCopy>(
     backend: &mut impl ReadWithPos,
 ) -> deser::Result<Vec<T>> {
-    let len = unsafe { usize::_deserialize_full_inner(backend)? };
+    let len = unsafe { usize::_deser_full_inner(backend)? };
     let mut res = Vec::with_capacity(len);
     for _ in 0..len {
-        res.push(unsafe { T::_deserialize_full_inner(backend)? });
+        res.push(unsafe { T::_deser_full_inner(backend)? });
     }
     Ok(res)
 }
@@ -77,7 +75,7 @@ pub fn deserialize_full_vec_deep<T: DeserInner + DeepCopy>(
 /// # Safety
 ///
 /// See the documentation of [`Deserialize`](super::Deserialize).
-pub unsafe fn deserialize_eps_zero<'a, T: ZeroCopy>(
+pub unsafe fn deser_eps_zero<'a, T: ZeroCopy>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<&'a T> {
     let bytes = core::mem::size_of::<T>();
@@ -102,10 +100,10 @@ pub unsafe fn deserialize_eps_zero<'a, T: ZeroCopy>(
 /// # Safety
 ///
 /// See the documentation of [`Deserialize`](super::Deserialize).
-pub unsafe fn deserialize_eps_slice_zero<'a, T: ZeroCopy>(
+pub unsafe fn deser_eps_slice_zero<'a, T: ZeroCopy>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<&'a [T]> {
-    let len = unsafe { usize::_deserialize_full_inner(backend) }?;
+    let len = unsafe { usize::_deser_full_inner(backend) }?;
     let bytes = len * core::mem::size_of::<T>();
     if core::mem::size_of::<T>() == 0 {
         // SAFETY: T is zero-sized (see the from_raw_parts docs)
@@ -122,13 +120,13 @@ pub unsafe fn deserialize_eps_slice_zero<'a, T: ZeroCopy>(
 }
 
 /// ε-copy deserialize a vector of deep-copy structures.
-pub fn deserialize_eps_vec_deep<'a, T: DeepCopy + DeserInner>(
+pub fn deser_eps_vec_deep<'a, T: DeepCopy + DeserInner>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<Vec<<T as DeserInner>::DeserType<'a>>> {
-    let len = unsafe { usize::_deserialize_full_inner(backend)? };
+    let len = unsafe { usize::_deser_full_inner(backend)? };
     let mut res = Vec::with_capacity(len);
     for _ in 0..len {
-        res.push(unsafe { T::_deserialize_eps_inner(backend)? });
+        res.push(unsafe { T::_deser_eps_inner(backend)? });
     }
     Ok(res)
 }

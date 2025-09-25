@@ -13,15 +13,15 @@ macro_rules! impl_test {
         let a = $val;
         let mut cursor = <AlignedCursor<A16>>::new();
 
-        let mut schema = unsafe { a.serialize_with_schema(&mut cursor).unwrap() };
+        let mut schema = unsafe { a.ser_with_schema(&mut cursor).unwrap() };
         schema.0.sort_by_key(|a| a.offset);
         println!("{}", schema.to_csv());
 
         cursor.set_position(0);
-        let a1 = unsafe { <$ty>::deserialize_full(&mut cursor).unwrap() };
+        let a1 = unsafe { <$ty>::deser_full(&mut cursor).unwrap() };
         assert_eq!(a, a1);
 
-        let a2 = unsafe { <$ty>::deserialize_eps(cursor.as_bytes()).unwrap() };
+        let a2 = unsafe { <$ty>::deser_eps(cursor.as_bytes()).unwrap() };
         assert_eq!(a, a2);
     }};
 }
@@ -31,15 +31,15 @@ fn test_array_usize() {
     let a = [1, 2, 3, 4, 5];
 
     let mut cursor = <AlignedCursor<A16>>::new();
-    let mut schema = unsafe { a.serialize_with_schema(&mut cursor).unwrap() };
+    let mut schema = unsafe { a.ser_with_schema(&mut cursor).unwrap() };
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
     cursor.set_position(0);
-    let a1 = unsafe { <[usize; 5]>::deserialize_full(&mut cursor).unwrap() };
+    let a1 = unsafe { <[usize; 5]>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, a1);
 
-    let a2 = unsafe { <[usize; 5]>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let a2 = unsafe { <[usize; 5]>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(a, *a2);
 }
 
@@ -53,15 +53,15 @@ fn test_box_slice_usize() {
     let a = vec![1, 2, 3, 4, 5].into_boxed_slice();
 
     let mut cursor = <AlignedCursor<A16>>::new();
-    let mut schema = unsafe { a.serialize_with_schema(&mut cursor).unwrap() };
+    let mut schema = unsafe { a.ser_with_schema(&mut cursor).unwrap() };
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
     cursor.set_position(0);
-    let a1 = unsafe { <Box<[usize]>>::deserialize_full(&mut cursor).unwrap() };
+    let a1 = unsafe { <Box<[usize]>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, a1);
 
-    let a2 = unsafe { <Box<[usize]>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let a2 = unsafe { <Box<[usize]>>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(a, a2.into());
 }
 
@@ -70,15 +70,15 @@ fn test_box_slice_string() {
     let a = vec!["A".to_string(), "V".to_string()].into_boxed_slice();
 
     let mut cursor = <AlignedCursor<A16>>::new();
-    let mut schema = unsafe { a.serialize_with_schema(&mut cursor).unwrap() };
+    let mut schema = unsafe { a.ser_with_schema(&mut cursor).unwrap() };
     schema.0.sort_by_key(|a| a.offset);
     println!("{}", schema.to_csv());
 
     cursor.set_position(0);
-    let a1 = unsafe { <Box<[String]>>::deserialize_full(&mut cursor).unwrap() };
+    let a1 = unsafe { <Box<[String]>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, a1);
 
-    let a2 = unsafe { <Box<[String]>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let a2 = unsafe { <Box<[String]>>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(a.len(), a2.len());
     a.iter().zip(a2.iter()).for_each(|(a, a2)| {
         assert_eq!(a, a2);
@@ -151,11 +151,11 @@ fn test_struct_deep() {
     let _bytes_written = unsafe { a.serialize(&mut cursor).unwrap() };
 
     cursor.set_position(0);
-    let full = unsafe { <Struct>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Struct>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
 
     cursor.set_position(0);
-    let eps = unsafe { <Struct>::deserialize_full(&mut cursor).unwrap() };
+    let eps = unsafe { <Struct>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, eps);
 }
 
@@ -175,11 +175,11 @@ fn test_struct_zero() {
     let _bytes_written = unsafe { a.serialize(&mut cursor).unwrap() };
 
     cursor.set_position(0);
-    let full = unsafe { <Struct>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Struct>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
 
     cursor.set_position(0);
-    let eps = unsafe { <Struct>::deserialize_full(&mut cursor).unwrap() };
+    let eps = unsafe { <Struct>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, eps);
 }
 
@@ -193,10 +193,10 @@ fn test_tuple_struct_deep() {
     let _bytes_written = unsafe { a.serialize(&mut cursor).unwrap() };
 
     cursor.set_position(0);
-    let full = unsafe { <Tuple>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Tuple>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
 
-    let eps = unsafe { <Tuple>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Tuple>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(a, eps);
 }
 
@@ -212,10 +212,10 @@ fn test_tuple_struct_zero() {
     let _bytes_written = unsafe { a.serialize(&mut cursor).unwrap() };
 
     cursor.set_position(0);
-    let full = unsafe { <Tuple>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Tuple>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
 
-    let eps = unsafe { <Tuple>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Tuple>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(a, *eps);
 }
 
@@ -234,27 +234,27 @@ fn test_enum_deep() {
     let a = Data::A;
     unsafe { a.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
-    let full = unsafe { <Data>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
-    let eps = unsafe { <Data>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data>::deser_eps(cursor.as_bytes()).unwrap() };
     assert!(matches!(eps, Data::A));
 
     let mut cursor = <AlignedCursor<A16>>::new();
     let a = Data::B(3);
     unsafe { a.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
-    let full = unsafe { <Data>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
-    let eps = unsafe { <Data>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data>::deser_eps(cursor.as_bytes()).unwrap() };
     assert!(matches!(eps, Data::B(3)));
 
     let mut cursor = <AlignedCursor<A16>>::new();
     let a = Data::C(4, vec![1, 2, 3]);
     unsafe { a.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
-    let full = unsafe { <Data>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
-    let eps = unsafe { <Data>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data>::deser_eps(cursor.as_bytes()).unwrap() };
     assert!(matches!(eps, Data::C(4, _)));
 
     let mut cursor = <AlignedCursor<A16>>::new();
@@ -264,27 +264,27 @@ fn test_enum_deep() {
     };
     unsafe { a.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
-    let full = unsafe { <Data<Vec<i32>>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data<Vec<i32>>>::deser_full(&mut cursor).unwrap() };
     assert!(matches!(full, Data::D { a: 1, b: _ }));
-    let eps = unsafe { <Data<Vec<i32>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data<Vec<i32>>>::deser_eps(cursor.as_bytes()).unwrap() };
     assert!(matches!(eps, Data::D { a: 1, b: [1, 2] }));
 
     let mut cursor = <AlignedCursor<A16>>::new();
     let a = Data::E;
     unsafe { a.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
-    let full = unsafe { <Data>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
-    let eps = unsafe { <Data>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data>::deser_eps(cursor.as_bytes()).unwrap() };
     assert!(matches!(eps, Data::E));
 
     let mut cursor = <AlignedCursor<A16>>::new();
     let a = Vec::from_iter(iter::repeat(Data::A).take(10));
     unsafe { a.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
-    let full = unsafe { <Vec<Data>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Vec<Data>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
-    let eps = unsafe { <Vec<Data>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Vec<Data>>::deser_eps(cursor.as_bytes()).unwrap() };
     for e in eps {
         assert!(matches!(e, Data::A));
     }
@@ -306,44 +306,44 @@ fn test_enum_zero() {
     let a = Data::A;
     unsafe { a.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
-    let full = unsafe { <Data>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
-    let eps = unsafe { <Data>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(a, *eps);
 
     let mut cursor = <AlignedCursor<A16>>::new();
     let a = Data::B(3);
     unsafe { a.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
-    let full = unsafe { <Data>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
-    let eps = unsafe { <Data>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(a, *eps);
 
     let mut cursor = <AlignedCursor<A16>>::new();
     let a = Data::C(4);
     unsafe { a.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
-    let full = unsafe { <Data>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
-    let eps = unsafe { <Data>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(a, *eps);
 
     let mut cursor = <AlignedCursor<A16>>::new();
     let a = Data::D { a: 1, b: 2 };
     unsafe { a.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
-    let full = unsafe { <Data>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
-    let eps = unsafe { <Data>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(a, *eps);
 
     let mut cursor = <AlignedCursor<A16>>::new();
     let a = Vec::from_iter(iter::repeat(Data::A).take(10));
     unsafe { a.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
-    let full = unsafe { <Vec<Data>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Vec<Data>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(a, full);
-    let eps = unsafe { <Vec<Data>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Vec<Data>>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(a, *eps);
 }

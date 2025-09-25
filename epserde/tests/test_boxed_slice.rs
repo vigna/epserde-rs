@@ -21,14 +21,14 @@ fn test_boxed_slices() -> Result<()> {
     unsafe { a.serialize(&mut cursor)? };
 
     cursor.set_position(0);
-    let b = unsafe { Box::<[i32]>::deserialize_full(&mut cursor)? };
+    let b = unsafe { Box::<[i32]>::deser_full(&mut cursor)? };
     assert_eq!(a, b);
     cursor.set_position(0);
-    let _ = unsafe { Vec::<i32>::deserialize_full(&mut cursor)? };
+    let _ = unsafe { Vec::<i32>::deser_full(&mut cursor)? };
 
-    let b = unsafe { Box::<[i32]>::deserialize_eps(cursor.as_bytes())? };
+    let b = unsafe { Box::<[i32]>::deser_eps(cursor.as_bytes())? };
     assert_eq!(b, a.as_ref());
-    let _ = unsafe { Vec::<i32>::deserialize_eps(cursor.as_bytes())? };
+    let _ = unsafe { Vec::<i32>::deser_eps(cursor.as_bytes())? };
 
     cursor.set_position(0);
     let d = Data {
@@ -38,20 +38,20 @@ fn test_boxed_slices() -> Result<()> {
     unsafe { d.serialize(&mut cursor)? };
 
     cursor.set_position(0);
-    let e = unsafe { Data::<Box<[i32]>>::deserialize_full(&mut cursor)? };
+    let e = unsafe { Data::<Box<[i32]>>::deser_full(&mut cursor)? };
     assert_eq!(&e, &d);
 
     cursor.set_position(0);
-    let _ = unsafe { Data::<Vec<i32>>::deserialize_full(&mut cursor)? };
+    let _ = unsafe { Data::<Vec<i32>>::deser_full(&mut cursor)? };
 
     cursor.set_position(0);
     let d = Data { a, b: [1, 2, 3] };
     unsafe { d.serialize(&mut cursor)? };
 
     cursor.set_position(0);
-    let e = unsafe { Data::<Box<[i32]>>::deserialize_eps(cursor.as_bytes())? };
+    let e = unsafe { Data::<Box<[i32]>>::deser_eps(cursor.as_bytes())? };
     assert_eq!(e.a, d.a.as_ref());
-    let _ = unsafe { Data::<Vec<i32>>::deserialize_eps(cursor.as_bytes())? };
+    let _ = unsafe { Data::<Vec<i32>>::deser_eps(cursor.as_bytes())? };
 
     Ok(())
 }

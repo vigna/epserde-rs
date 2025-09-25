@@ -8,7 +8,7 @@
 //! Deserialization traits and types
 //!
 //! [`Deserialize`] is the main deserialization trait, providing methods
-//! [`Deserialize::deserialize_eps`] and [`Deserialize::deserialize_full`] which
+//! [`Deserialize::deser_eps`] and [`Deserialize::deser_full`] which
 //! implement ε-copy and full-copy deserialization, respectively. The
 //! implementation of this trait is based on [`DeserInner`], which is
 //! automatically derived with `#[derive(Deserialize)]`.
@@ -71,13 +71,13 @@ pub trait Deserialize: DeserInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
-    unsafe fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self>;
+    unsafe fn deser_full(backend: &mut impl ReadNoStd) -> Result<Self>;
     /// ε-copy deserialize a structure of this type from the given backend.
     ///
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
-    unsafe fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
+    unsafe fn deser_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
 
     /// Convenience method to fully deserialize from a file.
     ///
@@ -87,7 +87,7 @@ pub trait Deserialize: DeserInner {
     unsafe fn load_full(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
         let mut buf_reader = BufReader::new(file);
-        unsafe { Self::deserialize_full(&mut buf_reader).map_err(|e| e.into()) }
+        unsafe { Self::deser_full(&mut buf_reader).map_err(|e| e.into()) }
     }
 
     /// Read data from a reader into heap-allocated memory and ε-deserialize a
@@ -161,7 +161,7 @@ pub trait Deserialize: DeserInner {
         }
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_ref().unwrap() };
-        let s = unsafe { Self::deserialize_eps(mem) }?;
+        let s = unsafe { Self::deser_eps(mem) }?;
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(s);
@@ -249,7 +249,7 @@ pub trait Deserialize: DeserInner {
         }
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_ref().unwrap() };
-        let s = unsafe { Self::deserialize_eps(mem) }?;
+        let s = unsafe { Self::deser_eps(mem) }?;
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(s);
@@ -315,7 +315,7 @@ pub trait Deserialize: DeserInner {
 
         let mmap = unsafe { (*ptr).1.as_ref().unwrap() };
         // deserialize the data structure
-        let s = unsafe { Self::deserialize_eps(mmap) }?;
+        let s = unsafe { Self::deser_eps(mmap) }?;
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(s);
@@ -328,8 +328,8 @@ pub trait Deserialize: DeserInner {
 #[allow(clippy::missing_safety_doc)] // Clippy bug
 /// Inner trait to implement deserialization of a type. This trait exists to
 /// separate the user-facing [`Deserialize`] trait from the low-level
-/// deserialization mechanisms of [`DeserInner::_deserialize_full_inner`]
-/// and [`DeserInner::_deserialize_eps_inner`]. Moreover, it makes it
+/// deserialization mechanisms of [`DeserInner::_deser_full_inner`]
+/// and [`DeserInner::_deser_eps_inner`]. Moreover, it makes it
 /// possible to behave slightly differently at the top of the recursion tree
 /// (e.g., to check the endianness marker), and to prevent the user from
 /// modifying the methods in [`Deserialize`].
@@ -347,14 +347,12 @@ pub trait DeserInner: Sized {
     /// # Safety
     ///
     /// See the documentation of [`Deserialize`].
-    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> Result<Self>;
+    unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> Result<Self>;
 
     /// # Safety
     ///
     /// See the documentation of [`Deserialize`].
-    unsafe fn _deserialize_eps_inner<'a>(
-        backend: &mut SliceWithPos<'a>,
-    ) -> Result<Self::DeserType<'a>>;
+    unsafe fn _deser_eps_inner<'a>(backend: &mut SliceWithPos<'a>) -> Result<Self::DeserType<'a>>;
 }
 
 /// Blanket implementation that prevents the user from overwriting the
@@ -362,8 +360,8 @@ pub trait DeserInner: Sized {
 ///
 /// This implementation [checks the header](`check_header`) written
 /// by the blanket implementation of [`crate::ser::Serialize`] and then delegates to
-/// [`DeserInner::_deserialize_full_inner`] or
-/// [`DeserInner::_deserialize_eps_inner`].
+/// [`DeserInner::_deser_full_inner`] or
+/// [`DeserInner::_deser_eps_inner`].
 impl<T: SerInner + DeserInner> Deserialize for T
 where
     T::SerType: TypeHash + AlignHash,
@@ -371,19 +369,19 @@ where
     /// # Safety
     ///
     /// See the documentation of [`Deserialize`].
-    unsafe fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self> {
+    unsafe fn deser_full(backend: &mut impl ReadNoStd) -> Result<Self> {
         let mut backend = ReaderWithPos::new(backend);
         check_header::<Self>(&mut backend)?;
-        unsafe { Self::_deserialize_full_inner(&mut backend) }
+        unsafe { Self::_deser_full_inner(&mut backend) }
     }
 
     /// # Safety
     ///
     /// See the documentation of [`Deserialize`].
-    unsafe fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
+    unsafe fn deser_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>> {
         let mut backend = SliceWithPos::new(backend);
         check_header::<Self>(&mut backend)?;
-        unsafe { Self::_deserialize_eps_inner(&mut backend) }
+        unsafe { Self::_deser_eps_inner(&mut backend) }
     }
 }
 
@@ -404,32 +402,32 @@ where
     T::SerType::align_hash(&mut align_hasher, &mut offset_of);
     let self_align_hash = align_hasher.finish();
 
-    let magic = unsafe { u64::_deserialize_full_inner(backend)? };
+    let magic = unsafe { u64::_deser_full_inner(backend)? };
     match magic {
         MAGIC => Ok(()),
         MAGIC_REV => Err(Error::EndiannessError),
         magic => Err(Error::MagicCookieError(magic)),
     }?;
 
-    let major = unsafe { u16::_deserialize_full_inner(backend)? };
+    let major = unsafe { u16::_deser_full_inner(backend)? };
     if major != VERSION.0 {
         return Err(Error::MajorVersionMismatch(major));
     }
-    let minor = unsafe { u16::_deserialize_full_inner(backend)? };
+    let minor = unsafe { u16::_deser_full_inner(backend)? };
     if minor > VERSION.1 {
         return Err(Error::MinorVersionMismatch(minor));
     };
 
-    let usize_size = unsafe { u8::_deserialize_full_inner(backend)? };
+    let usize_size = unsafe { u8::_deser_full_inner(backend)? };
     let usize_size = usize_size as usize;
     let native_usize_size = core::mem::size_of::<usize>();
     if usize_size != native_usize_size {
         return Err(Error::UsizeSizeMismatch(usize_size));
     };
 
-    let ser_type_hash = unsafe { u64::_deserialize_full_inner(backend)? };
-    let ser_align_hash = unsafe { u64::_deserialize_full_inner(backend)? };
-    let ser_type_name = unsafe { String::_deserialize_full_inner(backend)? };
+    let ser_type_hash = unsafe { u64::_deser_full_inner(backend)? };
+    let ser_align_hash = unsafe { u64::_deser_full_inner(backend)? };
+    let ser_type_name = unsafe { String::_deser_full_inner(backend)? };
 
     if ser_type_hash != self_type_hash {
         return Err(Error::WrongTypeHash {
@@ -454,21 +452,19 @@ where
 /// A helper trait that makes it possible to implement differently
 /// deserialization for [`crate::traits::ZeroCopy`] and [`crate::traits::DeepCopy`] types.
 /// See [`crate::traits::CopyType`] for more information.
-pub trait DeserializeHelper<T: CopySelector> {
+pub trait DeserHelper<T: CopySelector> {
     type FullType;
     type DeserType<'a>;
 
     /// # Safety
     ///
     /// See the documentation of [`Deserialize`].
-    unsafe fn _deserialize_full_inner_impl(
-        backend: &mut impl ReadWithPos,
-    ) -> Result<Self::FullType>;
+    unsafe fn _deser_full_inner_impl(backend: &mut impl ReadWithPos) -> Result<Self::FullType>;
 
     /// # Safety
     ///
     /// See the documentation of [`Deserialize`].
-    unsafe fn _deserialize_eps_inner_impl<'a>(
+    unsafe fn _deser_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> Result<Self::DeserType<'a>>;
 }

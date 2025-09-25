@@ -91,7 +91,7 @@ impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner for core::ops::Ra
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         backend.write("start", &self.start)?;
         backend.write("end", &self.end)?;
         Ok(())
@@ -100,18 +100,18 @@ impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner for core::ops::Ra
 
 impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::Range<Idx> {
     #[inline(always)]
-    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        let start = unsafe { Idx::_deserialize_full_inner(backend) }?;
-        let end = unsafe { Idx::_deserialize_full_inner(backend) }?;
+    unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        let start = unsafe { Idx::_deser_full_inner(backend) }?;
+        let end = unsafe { Idx::_deser_full_inner(backend) }?;
         Ok(core::ops::Range { start, end })
     }
     type DeserType<'a> = core::ops::Range<<Idx as DeserInner>::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let start = unsafe { Idx::_deserialize_eps_inner(backend) }?;
-        let end = unsafe { Idx::_deserialize_eps_inner(backend) }?;
+        let start = unsafe { Idx::_deser_eps_inner(backend) }?;
+        let end = unsafe { Idx::_deser_eps_inner(backend) }?;
         Ok(core::ops::Range { start, end })
     }
 }
@@ -122,7 +122,7 @@ impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner for core::ops::Ra
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         backend.write("start", &self.start)?;
         Ok(())
     }
@@ -130,16 +130,16 @@ impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner for core::ops::Ra
 
 impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeFrom<Idx> {
     #[inline(always)]
-    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        let start = unsafe { Idx::_deserialize_full_inner(backend) }?;
+    unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        let start = unsafe { Idx::_deser_full_inner(backend) }?;
         Ok(core::ops::RangeFrom { start })
     }
     type DeserType<'a> = core::ops::RangeFrom<<Idx as DeserInner>::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let start = unsafe { Idx::_deserialize_eps_inner(backend) }?;
+        let start = unsafe { Idx::_deser_eps_inner(backend) }?;
         Ok(core::ops::RangeFrom { start })
     }
 }
@@ -150,7 +150,7 @@ impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner for core::ops::Ra
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         backend.write("start", self.start())?;
         backend.write("end", self.end())?;
         backend.write("exhausted", &matches!(self.end_bound(), Bound::Excluded(_)))?;
@@ -160,21 +160,21 @@ impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner for core::ops::Ra
 
 impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeInclusive<Idx> {
     #[inline(always)]
-    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        let start = unsafe { Idx::_deserialize_full_inner(backend) }?;
-        let end = unsafe { Idx::_deserialize_full_inner(backend) }?;
-        let exhausted = unsafe { bool::_deserialize_full_inner(backend) }?;
+    unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        let start = unsafe { Idx::_deser_full_inner(backend) }?;
+        let end = unsafe { Idx::_deser_full_inner(backend) }?;
+        let exhausted = unsafe { bool::_deser_full_inner(backend) }?;
         assert!(!exhausted, "cannot deserialize an exhausted range");
         Ok(start..=end)
     }
     type DeserType<'a> = core::ops::RangeInclusive<<Idx as DeserInner>::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let start = unsafe { Idx::_deserialize_eps_inner(backend) }?;
-        let end = unsafe { Idx::_deserialize_eps_inner(backend) }?;
-        let exhausted = unsafe { bool::_deserialize_full_inner(backend) }?;
+        let start = unsafe { Idx::_deser_eps_inner(backend) }?;
+        let end = unsafe { Idx::_deser_eps_inner(backend) }?;
+        let exhausted = unsafe { bool::_deser_full_inner(backend) }?;
         assert!(!exhausted, "cannot deserialize an exhausted range");
         Ok(start..=end)
     }
@@ -186,7 +186,7 @@ impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner for core::ops::Ra
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         backend.write("end", &self.end)?;
         Ok(())
     }
@@ -194,16 +194,16 @@ impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner for core::ops::Ra
 
 impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeTo<Idx> {
     #[inline(always)]
-    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        let end = unsafe { Idx::_deserialize_full_inner(backend) }?;
+    unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        let end = unsafe { Idx::_deser_full_inner(backend) }?;
         Ok(..end)
     }
     type DeserType<'a> = core::ops::RangeTo<<Idx as DeserInner>::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let end = unsafe { Idx::_deserialize_eps_inner(backend) }?;
+        let end = unsafe { Idx::_deser_eps_inner(backend) }?;
         Ok(..end)
     }
 }
@@ -216,7 +216,7 @@ impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         backend.write("end", &self.end)?;
         Ok(())
     }
@@ -224,16 +224,16 @@ impl<Idx: ZeroCopy + SerInner + TypeHash + AlignHash> SerInner
 
 impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeToInclusive<Idx> {
     #[inline(always)]
-    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        let end = unsafe { Idx::_deserialize_full_inner(backend) }?;
+    unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        let end = unsafe { Idx::_deser_full_inner(backend) }?;
         Ok(..=end)
     }
     type DeserType<'a> = core::ops::RangeToInclusive<<Idx as DeserInner>::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let end = unsafe { Idx::_deserialize_eps_inner(backend) }?;
+        let end = unsafe { Idx::_deser_eps_inner(backend) }?;
         Ok(..=end)
     }
 }
@@ -244,19 +244,19 @@ impl SerInner for core::ops::RangeFull {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    unsafe fn _serialize_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
         Ok(())
     }
 }
 
 impl DeserInner for core::ops::RangeFull {
     #[inline(always)]
-    unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+    unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(core::ops::RangeFull)
     }
     type DeserType<'a> = core::ops::RangeFull;
     #[inline(always)]
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         Ok(core::ops::RangeFull)
@@ -283,7 +283,7 @@ impl<T: SerInner + TypeHash + AlignHash> SerInner for core::ops::Bound<T> {
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
             core::ops::Bound::Unbounded => backend.write("Tag", &0_u8),
             core::ops::Bound::Included(val) => {
@@ -299,15 +299,15 @@ impl<T: SerInner + TypeHash + AlignHash> SerInner for core::ops::Bound<T> {
 }
 
 impl<T: DeserInner> DeserInner for core::ops::Bound<T> {
-    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        let tag = unsafe { u8::_deserialize_full_inner(backend) }?;
+    unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
             0 => Ok(core::ops::Bound::Unbounded),
             1 => Ok(core::ops::Bound::Included(unsafe {
-                T::_deserialize_full_inner(backend)
+                T::_deser_full_inner(backend)
             }?)),
             2 => Ok(core::ops::Bound::Excluded(unsafe {
-                T::_deserialize_full_inner(backend)
+                T::_deser_full_inner(backend)
             }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
@@ -315,17 +315,17 @@ impl<T: DeserInner> DeserInner for core::ops::Bound<T> {
 
     type DeserType<'a> = core::ops::Bound<<T as DeserInner>::DeserType<'a>>;
 
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let tag = unsafe { u8::_deserialize_full_inner(backend) }?;
+        let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
             0 => Ok(core::ops::Bound::Unbounded),
             1 => Ok(core::ops::Bound::Included(unsafe {
-                T::_deserialize_eps_inner(backend)
+                T::_deser_eps_inner(backend)
             }?)),
             2 => Ok(core::ops::Bound::Excluded(unsafe {
-                T::_deserialize_eps_inner(backend)
+                T::_deser_eps_inner(backend)
             }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
@@ -358,7 +358,7 @@ impl<B: SerInner + TypeHash + AlignHash, C: SerInner + TypeHash + AlignHash> Ser
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
             core::ops::ControlFlow::Break(br) => {
                 backend.write("Tag", &0_u8)?;
@@ -373,14 +373,14 @@ impl<B: SerInner + TypeHash + AlignHash, C: SerInner + TypeHash + AlignHash> Ser
 }
 
 impl<B: DeserInner, C: DeserInner> DeserInner for core::ops::ControlFlow<B, C> {
-    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        let tag = unsafe { u8::_deserialize_full_inner(backend) }?;
+    unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
             1 => Ok(core::ops::ControlFlow::Break(unsafe {
-                B::_deserialize_full_inner(backend)
+                B::_deser_full_inner(backend)
             }?)),
             2 => Ok(core::ops::ControlFlow::Continue(unsafe {
-                C::_deserialize_full_inner(backend)
+                C::_deser_full_inner(backend)
             }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
@@ -389,16 +389,16 @@ impl<B: DeserInner, C: DeserInner> DeserInner for core::ops::ControlFlow<B, C> {
     type DeserType<'a> =
         core::ops::ControlFlow<<B as DeserInner>::DeserType<'a>, <C as DeserInner>::DeserType<'a>>;
 
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let tag = unsafe { u8::_deserialize_full_inner(backend) }?;
+        let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
             1 => Ok(core::ops::ControlFlow::Break(unsafe {
-                B::_deserialize_eps_inner(backend)
+                B::_deser_eps_inner(backend)
             }?)),
             2 => Ok(core::ops::ControlFlow::Continue(unsafe {
-                C::_deserialize_eps_inner(backend)
+                C::_deser_eps_inner(backend)
             }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }

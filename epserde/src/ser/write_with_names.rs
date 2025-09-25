@@ -7,7 +7,7 @@
 
 //! Traits and implementations to write named field during serialization.
 //!
-//! [`SerInner::_serialize_inner`] writes on a [`WriteWithNames`], rather
+//! [`SerInner::_ser_inner`] writes on a [`WriteWithNames`], rather
 //! than on a [`WriteWithPos`], with the purpose of easily recording write
 //! events happening during a serialization.
 
@@ -45,12 +45,12 @@ pub trait WriteWithNames: WriteWithPos + Sized {
 
     /// Write a value with an associated name.
     ///
-    /// The default implementation simply delegates to [`SerInner::_serialize_inner`].
+    /// The default implementation simply delegates to [`SerInner::_ser_inner`].
     /// Other implementations might use the name information (e.g., [`SchemaWriter`]),
-    /// but they must in the end delegate to [`SerInner::_serialize_inner`].
+    /// but they must in the end delegate to [`SerInner::_ser_inner`].
     /// TODO: unsafe
     fn write<V: SerInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
-        unsafe { value._serialize_inner(self) }
+        unsafe { value._ser_inner(self) }
     }
 
     /// Write the memory representation of a (slice of a) zero-copy type.
@@ -210,7 +210,7 @@ impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
         let pos = self.pos();
 
         let len = self.schema.0.len();
-        unsafe { value._serialize_inner(self)? };
+        unsafe { value._ser_inner(self)? };
 
         // This is slightly inefficient because we have to shift
         // the whole vector, but it's not a big deal and it keeps

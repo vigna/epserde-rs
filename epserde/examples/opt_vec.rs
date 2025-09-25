@@ -17,7 +17,7 @@ fn main() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <Option<Vec<i32>>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Option<Vec<i32>>>::deser_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Option<Vec<i32>>>(),
@@ -27,7 +27,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <Option<Vec<i32>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Option<Vec<i32>>>::deser_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<Option<Vec<i32>> as DeserInner>::DeserType<'_>>(),
@@ -43,7 +43,7 @@ fn main() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <Option<Vec<i32>>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Option<Vec<i32>>>::deser_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Option<Vec<i32>>>(),
@@ -53,7 +53,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <Option<Vec<i32>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Option<Vec<i32>>>::deser_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<Option<Vec<i32>> as DeserInner>::DeserType<'_>>(),

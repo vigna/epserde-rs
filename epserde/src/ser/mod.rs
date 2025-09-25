@@ -9,7 +9,7 @@
 //!
 //! [`Serialize`] is the main serialization trait, providing a
 //! [`Serialize::serialize`] method that serializes the type into a generic
-//! [`WriteNoStd`] backend, and a [`Serialize::serialize_with_schema`] method
+//! [`WriteNoStd`] backend, and a [`Serialize::ser_with_schema`] method
 //! that additionally returns a [`Schema`] describing the data that has been
 //! written. The implementation of this trait is based on [`SerInner`],
 //! which is automatically derived with `#[derive(Serialize)]`.
@@ -73,7 +73,7 @@ pub trait Serialize {
     /// See the [trait documentation](Serialize).
     unsafe fn serialize(&self, backend: &mut impl WriteNoStd) -> Result<usize> {
         let mut write_with_pos = WriterWithPos::new(backend);
-        unsafe { self.serialize_on_field_write(&mut write_with_pos) }?;
+        unsafe { self.ser_on_field_write(&mut write_with_pos) }?;
         Ok(write_with_pos.pos())
     }
 
@@ -86,10 +86,10 @@ pub trait Serialize {
     /// # Safety
     ///
     /// See the [trait documentation](Serialize).
-    unsafe fn serialize_with_schema(&self, backend: &mut impl WriteNoStd) -> Result<Schema> {
+    unsafe fn ser_with_schema(&self, backend: &mut impl WriteNoStd) -> Result<Schema> {
         let mut writer_with_pos = WriterWithPos::new(backend);
         let mut schema_writer = SchemaWriter::new(&mut writer_with_pos);
-        unsafe { self.serialize_on_field_write(&mut schema_writer) }?;
+        unsafe { self.ser_on_field_write(&mut schema_writer) }?;
         Ok(schema_writer.schema)
     }
 
@@ -98,7 +98,7 @@ pub trait Serialize {
     /// # Safety
     ///
     /// See the [trait documentation](Serialize).
-    unsafe fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()>;
+    unsafe fn ser_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()>;
 
     /// Convenience method to serialize to a file.
     ///
@@ -115,7 +115,7 @@ pub trait Serialize {
 
 /// Inner trait to implement serialization of a type. This trait exists
 /// to separate the user-facing [`Serialize`] trait from the low-level
-/// serialization mechanism of [`SerInner::_serialize_inner`]. Moreover,
+/// serialization mechanism of [`SerInner::_ser_inner`]. Moreover,
 /// it makes it possible to behave slightly differently at the top
 /// of the recursion tree (e.g., to write the endianness marker).
 ///
@@ -147,7 +147,7 @@ pub trait SerInner {
     /// # Safety
     ///
     /// See the documentation of [`Serialize`].
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> Result<()>;
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> Result<()>;
 }
 
 /// Blanket implementation that prevents the user from overwriting the
@@ -159,7 +159,7 @@ impl<T: SerInner> Serialize for T
 where
     <T as SerInner>::SerType: TypeHash + AlignHash,
 {
-    unsafe fn serialize_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
+    unsafe fn ser_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // write the header using the serialized type, not the type itself
         // this is done so that you can serialize types with reference to slices
         // that can then be deserialized as vectors.
@@ -195,11 +195,11 @@ pub fn write_header<S: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) 
 /// A helper trait that makes it possible to implement differently serialization
 /// for [`crate::traits::ZeroCopy`] and [`crate::traits::DeepCopy`] types. See
 /// [`crate::traits::CopyType`] for more information.
-pub trait SerializeHelper<T: CopySelector> {
+pub trait SerHelper<T: CopySelector> {
     /// # Safety
     ///
     /// See the documentation of [`Serialize`].
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> Result<()>;
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> Result<()>;
 }
 
 #[derive(Debug)]

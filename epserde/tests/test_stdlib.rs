@@ -15,17 +15,16 @@ where
     {
         let mut cursor = <AlignedCursor<A16>>::new();
 
-        let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
+        let mut schema = unsafe { s.ser_with_schema(&mut cursor).unwrap() };
         schema.0.sort_by_key(|a| a.offset);
 
         cursor.set_position(0);
-        let full_copy = unsafe {
-            <T>::deserialize_full(&mut std::io::Cursor::new(&cursor.as_bytes())).unwrap()
-        };
+        let full_copy =
+            unsafe { <T>::deser_full(&mut std::io::Cursor::new(&cursor.as_bytes())).unwrap() };
         assert_eq!(s, full_copy);
 
         let bytes = cursor.as_bytes();
-        let full_copy = unsafe { <T>::deserialize_eps(bytes).unwrap() };
+        let full_copy = unsafe { <T>::deser_eps(bytes).unwrap() };
         assert_eq!(full_copy, s);
 
         let _ = schema.to_csv();
@@ -37,10 +36,10 @@ where
 
         cursor.set_position(0);
         let full_copy =
-            unsafe { <T>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes())).unwrap() };
+            unsafe { <T>::deser_full(&mut std::io::Cursor::new(cursor.as_bytes())).unwrap() };
         assert_eq!(s, full_copy);
 
-        let full_copy = unsafe { <T>::deserialize_eps(cursor.as_bytes()).unwrap() };
+        let full_copy = unsafe { <T>::deser_eps(cursor.as_bytes()).unwrap() };
         assert_eq!(full_copy, s);
     }
 }
@@ -61,7 +60,7 @@ fn test_ser_rc_ref() {
     let mut cursor = <AlignedCursor<A16>>::new();
     unsafe { Rc::new(v.as_slice()).serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
-    let s = unsafe { <Rc<Box<[i32]>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let s = unsafe { <Rc<Box<[i32]>>>::deser_eps(cursor.as_bytes()).unwrap() };
     dbg!(s);
 }
 
@@ -74,6 +73,6 @@ fn test_ref_field() {
     struct Data<A>(A);
     unsafe { Rc::new(Data(v.as_slice())).serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
-    let s = unsafe { <Rc<Data<Box<[i32]>>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let s = unsafe { <Rc<Data<Box<[i32]>>>>::deser_eps(cursor.as_bytes()).unwrap() };
     dbg!(s);
 }

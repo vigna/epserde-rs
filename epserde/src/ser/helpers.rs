@@ -25,14 +25,14 @@ pub fn check_zero_copy<V: SerInner>() {
 /// beforehand](WriteWithNames::align).
 ///
 /// This function makes the appropriate checks, write the necessary padding and
-/// then calls [`serialize_zero_unchecked`].
-pub fn serialize_zero<V: ZeroCopy + SerInner>(
+/// then calls [`ser_zero_unchecked`].
+pub fn ser_zero<V: ZeroCopy + SerInner>(
     backend: &mut impl WriteWithNames,
     value: &V,
 ) -> ser::Result<()> {
     check_zero_copy::<V>();
     backend.align::<V>()?;
-    serialize_zero_unchecked(backend, value)
+    ser_zero_unchecked(backend, value)
 }
 
 /// Serialize a zero-copy structure without checking [that the type is actually
@@ -41,7 +41,7 @@ pub fn serialize_zero<V: ZeroCopy + SerInner>(
 ///
 /// Note that this method uses a single [`write_all`](std::io::Write::write_all)
 /// call to write the entire structure.
-pub fn serialize_zero_unchecked<V: ZeroCopy + SerInner>(
+pub fn ser_zero_unchecked<V: ZeroCopy + SerInner>(
     backend: &mut impl WriteWithNames,
     value: &V,
 ) -> ser::Result<()> {
@@ -58,7 +58,7 @@ pub fn serialize_zero_unchecked<V: ZeroCopy + SerInner>(
 /// call to write the entire slice.
 ///
 /// Here we check [that the type is actually zero-copy](SerInner::IS_ZERO_COPY).
-pub fn serialize_slice_zero<V: SerInner + ZeroCopy>(
+pub fn ser_slice_zero<V: SerInner + ZeroCopy>(
     backend: &mut impl WriteWithNames,
     data: &[V],
 ) -> ser::Result<()> {
@@ -85,7 +85,7 @@ pub fn check_mismatch<V: SerInner>() {
 /// its length first, and then the contents item by item.
 ///
 /// Here we warn [that the type might actually be zero-copy](SerInner::ZERO_COPY_MISMATCH).
-pub fn serialize_slice_deep<V: SerInner>(
+pub fn ser_slice_deep<V: SerInner>(
     backend: &mut impl WriteWithNames,
     data: &[V],
 ) -> ser::Result<()> {

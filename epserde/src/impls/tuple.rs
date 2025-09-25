@@ -80,21 +80,21 @@ macro_rules! impl_tuples {
             const ZERO_COPY_MISMATCH: bool = false;
 
             #[inline(always)]
-            unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-                serialize_zero(backend, self)
+            unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+                ser_zero(backend, self)
             }
         }
 
 		impl<T: ZeroCopy + TypeHash + AlignHash> DeserInner for ($($t,)*) {
             type DeserType<'a> = &'a ($($t,)*);
-            unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-                unsafe { deserialize_full_zero::<($($t,)*)>(backend) }
+            unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+                unsafe { deser_full_zero::<($($t,)*)>(backend) }
             }
 
-            unsafe fn _deserialize_eps_inner<'a>(
+            unsafe fn _deser_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
                 ) -> deser::Result<Self::DeserType<'a>> {
-                unsafe { deserialize_eps_zero::<($($t,)*)>(backend) }
+                unsafe { deser_eps_zero::<($($t,)*)>(backend) }
             }
         }
     };

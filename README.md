@@ -129,19 +129,19 @@ let b = std::fs::read(&file)?;
 
 // The type of t will be inferred--it is shown here only for clarity
 let t: &[usize; 1000] =
-    unsafe { <[usize; 1000]>::deserialize_eps(b.as_ref())? };
+    unsafe { <[usize; 1000]>::deser_eps(b.as_ref())? };
 
 assert_eq!(s, *t);
 
 // You can derive the deserialization type, with a lifetime depending on b
 let t: DeserType<'_, [usize; 1000]> =
-    unsafe { <[usize; 1000]>::deserialize_eps(b.as_ref())? };
+    unsafe { <[usize; 1000]>::deser_eps(b.as_ref())? };
 
 assert_eq!(s, *t);
 
 // This is a traditional deserialization instead
 let t: [usize; 1000] =
-    unsafe { <[usize; 1000]>::deserialize_full(
+    unsafe { <[usize; 1000]>::deser_full(
         &mut std::fs::File::open(&file)?
     )? };
 assert_eq!(s, t);
@@ -159,7 +159,7 @@ assert_eq!(s, **u.uncase());
 
 Note how we serialize an array, but we deserialize a reference. The reference
 points inside `b`, so there is no copy performed. The call to
-[`deserialize_full`] creates a new array instead. The third call maps the data
+[`deser_full`] creates a new array instead. The third call maps the data
 structure into memory and returns a [`MemCase`] that can be used to get
 a reference to the array; moreover, the [`MemCase`] can be passed to other
 functions or stored in a structure field, as it contains both the structure and
@@ -193,7 +193,7 @@ let b = std::fs::read(&file)?;
 
 // The type of t will be inferred--it is shown here only for clarity
 let t: DeserType<'_, Vec<usize>> =
-    unsafe { <Vec<usize>>::deserialize_eps(b.as_ref())? };
+    unsafe { <Vec<usize>>::deser_eps(b.as_ref())? };
 
 assert_eq!(s, *t);
 
@@ -257,7 +257,7 @@ let b = std::fs::read(&file)?;
 
 // The type of t will be inferred--it is shown here only for clarity
 let t: DeserType<'_, Vec<Data>> =
-    unsafe { <Vec<Data>>::deserialize_eps(b.as_ref())? };
+    unsafe { <Vec<Data>>::deser_eps(b.as_ref())? };
 
 assert_eq!(s, *t);
 
@@ -306,7 +306,7 @@ let b = std::fs::read(&file)?;
 
 // The type of t will be inferred--it is shown here only for clarity
 let t: MyStruct<&[isize]> =
-    unsafe { <MyStruct<Vec<isize>>>::deserialize_eps(b.as_ref())? };
+    unsafe { <MyStruct<Vec<isize>>>::deser_eps(b.as_ref())? };
 
 assert_eq!(s.id, t.id);
 assert_eq!(s.data, Vec::from(t.data));
@@ -361,7 +361,7 @@ file.push("serialized4");
 unsafe { s.store(&file) };
 // Load the serialized form in a buffer
 let b = std::fs::read(&file)?;
-let t = unsafe { MyStruct::deserialize_eps(b.as_ref())? };
+let t = unsafe { MyStruct::deser_eps(b.as_ref())? };
 // We can call the method on both structures
 assert_eq!(s.sum(), t.sum());
 
@@ -430,7 +430,7 @@ let b = std::fs::read(&file)?;
 
 // The type of t is unchanged
 let t: MyStruct<Vec<isize>> =
-    unsafe { <MyStruct<Vec<isize>>>::deserialize_eps(b.as_ref())? };
+    unsafe { <MyStruct<Vec<isize>>>::deser_eps(b.as_ref())? };
 #     Ok(())
 # }
 ```
@@ -466,7 +466,7 @@ let b = std::fs::read(&file)?;
 
 // The type of t is unchanged
 let t: &MyStruct<i32> =
-    unsafe { <MyStruct<i32>>::deserialize_eps(b.as_ref())? };
+    unsafe { <MyStruct<i32>>::deser_eps(b.as_ref())? };
 #     Ok(())
 # }
 ```
@@ -525,14 +525,14 @@ unsafe { s.store(&file) };
 let b = std::fs::read(&file)?;
 
 // We must deserialize as a vector, even if we are getting back a reference
-let t: &[i32] = unsafe { <Vec<i32>>::deserialize_eps(b.as_ref())? };
-let t: Vec<i32> = unsafe { <Vec<i32>>::deserialize_full(
+let t: &[i32] = unsafe { <Vec<i32>>::deser_eps(b.as_ref())? };
+let t: Vec<i32> = unsafe { <Vec<i32>>::deser_full(
         &mut std::fs::File::open(&file)?
     )? };
 let t: MemCase<Vec<i32>> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
 
 // Or as a boxed slice
-let t: &[i32] = unsafe { <Box<[i32]>>::deserialize_eps(b.as_ref())? };
+let t: &[i32] = unsafe { <Box<[i32]>>::deser_eps(b.as_ref())? };
 
 // Within a structure
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
@@ -547,14 +547,14 @@ unsafe { d.store(&file) };
 let b = std::fs::read(&file)?;
 
 // We must deserialize the field as a vector, even if we are getting back a reference
-let t: Data<&[i32]> = unsafe { <Data<Vec<i32>>>::deserialize_eps(b.as_ref())? };
-let t: Data<Vec<i32>> = unsafe { <Data<Vec<i32>>>::deserialize_full(
+let t: Data<&[i32]> = unsafe { <Data<Vec<i32>>>::deser_eps(b.as_ref())? };
+let t: Data<Vec<i32>> = unsafe { <Data<Vec<i32>>>::deser_full(
         &mut std::fs::File::open(&file)?
     )? };
 let t: MemCase<Data<Vec<i32>>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
 
 // Or as a boxed slice
-let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? };
+let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deser_eps(b.as_ref())? };
 
 # Ok(())
 # }
@@ -582,14 +582,14 @@ unsafe { SerIter::from(i).store(&file) };
 let b = std::fs::read(&file)?;
 
 // We must deserialize as a vector, even if we are getting back a reference
-let t: &[i32] = unsafe { <Vec<i32>>::deserialize_eps(b.as_ref())? };
-let t: Vec<i32> = unsafe { <Vec<i32>>::deserialize_full(
+let t: &[i32] = unsafe { <Vec<i32>>::deser_eps(b.as_ref())? };
+let t: Vec<i32> = unsafe { <Vec<i32>>::deser_full(
         &mut std::fs::File::open(&file)?
     )? };
 let t: MemCase<Vec<i32>> = unsafe { <Vec<i32>>::mmap(&file, Flags::empty())? };
 
 // Or as a boxed slice
-let t: &[i32] = unsafe { <Box<[i32]>>::deserialize_eps(b.as_ref())? };
+let t: &[i32] = unsafe { <Box<[i32]>>::deser_eps(b.as_ref())? };
 
 // Within a structure
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
@@ -604,14 +604,14 @@ unsafe { d.store(&file) };
 let b = std::fs::read(&file)?;
 
 // We must deserialize the field as a vector, even if we are getting back a reference
-let t: Data<&[i32]> = unsafe { <Data<Vec<i32>>>::deserialize_eps(b.as_ref())? };
-let t: Data<Vec<i32>> = unsafe { <Data<Vec<i32>>>::deserialize_full(
+let t: Data<&[i32]> = unsafe { <Data<Vec<i32>>>::deser_eps(b.as_ref())? };
+let t: Data<Vec<i32>> = unsafe { <Data<Vec<i32>>>::deser_full(
         &mut std::fs::File::open(&file)?
     )? };
 let t: MemCase<Data<Vec<i32>>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::empty())? };
 
 // Or as a boxed slice
-let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? };
+let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deser_eps(b.as_ref())? };
 # Ok(())
 # }
 ```
@@ -891,13 +891,13 @@ second condition, and indeed `D::DeserType<'_>` is `&D`.
 
 There are now two types of deserialization:
 
-* [`deserialize_full`] performs _full-copy deserialization_, which reads recursively
+* [`deser_full`] performs _full-copy deserialization_, which reads recursively
   the serialized data from a [`Read`] and builds an instance of `D`. This is
   basically a standard deserialization, except that it is usually much faster if
   you have large sequences of zero-copy types, as they are deserialized in a
   single [`read_exact`].
 
-* [`deserialize_eps`] perform _ε-copy deserialization_, which accesses the
+* [`deser_eps`] perform _ε-copy deserialization_, which accesses the
   serialized data as a byte slice, and builds an instance of `D::DeserType<'_>`
   that refers to the data inside the byte slice.
 
@@ -989,8 +989,8 @@ European Union nor the Italian MUR can be held responsible for them.
 [`TypeInfo`]: <https://docs.rs/epserde/latest/epserde/derive.TypeInfo.html>
 [`Epserde`]: <https://docs.rs/epserde/latest/epserde_derive/derive.Epserde.html>
 [`Deserialize::load_full`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_full>
-[`deserialize_full`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#tymethod.deserialize_full>
-[`deserialize_eps`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#tymethod.deserialize_eps>
+[`deser_full`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#tymethod.deser_full>
+[`deser_eps`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#tymethod.deser_eps>
 [`DeserType`]: <https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html>
 [`Deserialize::load_mem`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mem>
 [`Deserialize::load_mmap`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mmap>

@@ -63,20 +63,20 @@ impl<'a, T: ZeroCopy + AlignHash, I: ExactSizeIterator<Item = &'a T>> AlignHash
 impl<'a, T: ZeroCopy + SerInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>> SerInner
     for SerIter<'a, T, I>
 where
-    SerIter<'a, T, I>: SerializeHelper<<T as CopyType>::Copy>,
+    SerIter<'a, T, I>: SerHelper<<T as CopyType>::Copy>,
 {
     type SerType = Box<[T]>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        unsafe { SerializeHelper::_serialize_inner(self, backend) }
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        unsafe { SerHelper::_ser_inner(self, backend) }
     }
 }
 
 impl<'a, T: ZeroCopy + SerInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>>
-    SerializeHelper<Zero> for SerIter<'a, T, I>
+    SerHelper<Zero> for SerIter<'a, T, I>
 {
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         check_zero_copy::<T>();
         // This code must be kept aligned with that of Box<[T]> for zero-copy
         // types
@@ -87,7 +87,7 @@ impl<'a, T: ZeroCopy + SerInner + TypeHash + AlignHash, I: ExactSizeIterator<Ite
 
         let mut c = 0;
         for item in iter.deref_mut() {
-            serialize_zero_unchecked(backend, item)?;
+            ser_zero_unchecked(backend, item)?;
             c += 1;
         }
 
@@ -103,9 +103,9 @@ impl<'a, T: ZeroCopy + SerInner + TypeHash + AlignHash, I: ExactSizeIterator<Ite
 }
 
 impl<'a, T: DeepCopy + SerInner + TypeHash + AlignHash, I: ExactSizeIterator<Item = &'a T>>
-    SerializeHelper<Deep> for SerIter<'a, T, I>
+    SerHelper<Deep> for SerIter<'a, T, I>
 {
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         check_mismatch::<T>();
         // This code must be kept aligned with that of Vec<T> for deep-copy
         // types
@@ -115,7 +115,7 @@ impl<'a, T: DeepCopy + SerInner + TypeHash + AlignHash, I: ExactSizeIterator<Ite
 
         let mut c = 0;
         for item in iter.deref_mut() {
-            unsafe { item._serialize_inner(backend) }?;
+            unsafe { item._ser_inner(backend) }?;
             c += 1;
         }
 

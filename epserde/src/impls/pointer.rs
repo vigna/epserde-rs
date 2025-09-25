@@ -41,12 +41,12 @@
 //! unsafe { Rc::new(v).serialize(&mut cursor)?; }
 //! // Rc is erased
 //! cursor.set_position(0);
-//! let _no_rc: Vec<i32> = unsafe { <Vec<i32>>::deserialize_full(&mut cursor)? };
+//! let _no_rc: Vec<i32> = unsafe { <Vec<i32>>::deser_full(&mut cursor)? };
 //!
 //! // In fact, we can deserialize wrapping in any smart pointer
 //! cursor.set_position(0);
 //! let _no_rc_but_arc: Arc<Vec<i32>> =
-//!     unsafe { <Arc<Vec<i32>>>::deserialize_full(&mut cursor)? };
+//!     unsafe { <Arc<Vec<i32>>>::deser_full(&mut cursor)? };
 //! # Ok(())
 //! # }
 //! ```
@@ -65,12 +65,12 @@
 //! unsafe { data.serialize(&mut cursor)?; }
 //! // Rc is erased
 //! cursor.set_position(0);
-//! let _no_rc: Data<Vec<i32>> = unsafe { <Data<Vec<i32>>>::deserialize_full(&mut cursor)? };
+//! let _no_rc: Data<Vec<i32>> = unsafe { <Data<Vec<i32>>>::deser_full(&mut cursor)? };
 //!
 //! // In fact, we can deserialize wrapping in any smart pointer
 //! cursor.set_position(0);
 //! let _no_rc_but_arc: Data<Arc<Vec<i32>>> =
-//!     unsafe { <Data<Arc<Vec<i32>>>>::deserialize_full(&mut cursor)? };
+//!     unsafe { <Data<Arc<Vec<i32>>>>::deser_full(&mut cursor)? };
 //! # Ok(())
 //! # }
 //! ```
@@ -85,11 +85,8 @@ macro_rules! impl_ser {
             const ZERO_COPY_MISMATCH: bool = <T as SerInner>::ZERO_COPY_MISMATCH;
 
             #[inline(always)]
-            unsafe fn _serialize_inner(
-                &self,
-                backend: &mut impl WriteWithNames,
-            ) -> ser::Result<()> {
-                unsafe { <T as SerInner>::_serialize_inner(self, backend) }
+            unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+                unsafe { <T as SerInner>::_ser_inner(self, backend) }
             }
         }
     };
@@ -103,16 +100,14 @@ macro_rules! impl_all {
             type DeserType<'a> = $type<<T as DeserInner>::DeserType<'a>>;
 
             #[inline(always)]
-            unsafe fn _deserialize_full_inner(
-                backend: &mut impl ReadWithPos,
-            ) -> deser::Result<Self> {
-                unsafe { <T as DeserInner>::_deserialize_full_inner(backend).map($type::new) }
+            unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+                unsafe { <T as DeserInner>::_deser_full_inner(backend).map($type::new) }
             }
             #[inline(always)]
-            unsafe fn _deserialize_eps_inner<'a>(
+            unsafe fn _deser_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
             ) -> deser::Result<Self::DeserType<'a>> {
-                unsafe { <T as DeserInner>::_deserialize_eps_inner(backend).map($type::new) }
+                unsafe { <T as DeserInner>::_deser_eps_inner(backend).map($type::new) }
             }
         }
     };

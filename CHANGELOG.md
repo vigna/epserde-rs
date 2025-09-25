@@ -28,6 +28,9 @@
   impossible to deserialize old instances whose type specifies `repr` attributes
   in a different order.
 
+* Major internal code restructuring: `TypeHash`/`AlignHash`/`MaxSizeOf` are now
+  computed on the serialization type, not on the serializable type.
+
 ## [0.9.0] - 2025-09-17
 
 ### New
@@ -161,7 +164,7 @@
 
 ### Fixed
 
-* Renamed the lifetime `'a` in derives to `deserialize_eps_inner_lifetime`
+* Renamed the lifetime `'a` in derives to `deser_eps_inner_lifetime`
   to avoid clashes.
 
 ## [0.5.0] - 2024-03-18

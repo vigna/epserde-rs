@@ -40,14 +40,14 @@ fn main() {
     };
     let mut cursor = <AlignedCursor<A16>>::new();
     // Serialize
-    let schema = unsafe { person.serialize_with_schema(&mut cursor).unwrap() };
+    let schema = unsafe { person.ser_with_schema(&mut cursor).unwrap() };
 
     // Show the schema
     println!("{}", schema.debug(cursor.as_bytes()));
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { Struct::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { Struct::deser_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
         std::any::type_name::<Struct>(),
@@ -58,7 +58,7 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = unsafe { Struct::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { Struct::deser_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
         std::any::type_name::<<Struct as DeserInner>::DeserType<'_>>(),

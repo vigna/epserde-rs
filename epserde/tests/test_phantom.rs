@@ -22,13 +22,13 @@ fn test_phantom() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <PhantomData<usize>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <PhantomData<usize>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(obj, full);
 
     println!();
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <PhantomData<usize>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <PhantomData<usize>>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(obj, eps);
 }
 
@@ -54,15 +54,14 @@ fn test_not_serializable_in_phantom() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <DataFull<NotSerializableType>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <DataFull<NotSerializableType>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(obj, full);
 
     println!();
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let eps =
-        unsafe { <DataFull<NotSerializableType>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <DataFull<NotSerializableType>>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(obj.a, eps.a);
 }
 
@@ -92,14 +91,14 @@ fn test_phantom_zero_copy() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let zero = unsafe { <DataZero<ZeroCopyType>>::deserialize_full(&mut cursor).unwrap() };
+    let zero = unsafe { <DataZero<ZeroCopyType>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(obj, zero);
 
     println!();
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let eps = unsafe { <DataZero<ZeroCopyType>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <DataZero<ZeroCopyType>>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(obj.a, eps.a);
 }
 
@@ -124,14 +123,14 @@ fn test_only_phantom() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let zero = unsafe { <OnlyPhantom<ZeroCopyType>>::deserialize_full(&mut cursor).unwrap() };
+    let zero = unsafe { <OnlyPhantom<ZeroCopyType>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(obj, zero);
 
     println!();
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let eps = unsafe { <OnlyPhantom<ZeroCopyType>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <OnlyPhantom<ZeroCopyType>>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(obj.a, eps.a);
 
     // Zero copy needs a zero-copy type, even if inside a PhantomData
@@ -143,15 +142,14 @@ fn test_only_phantom() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let zero = unsafe { <Vec<OnlyPhantom<ZeroCopyType>>>::deserialize_full(&mut cursor).unwrap() };
+    let zero = unsafe { <Vec<OnlyPhantom<ZeroCopyType>>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(vec, zero);
 
     println!();
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let eps =
-        unsafe { <Vec<OnlyPhantom<ZeroCopyType>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Vec<OnlyPhantom<ZeroCopyType>>>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(vec, eps);
 }
 
@@ -176,15 +174,13 @@ fn test_deser_phantom_deep_copy() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full =
-        unsafe { <DataWithPhantomDeserData<Vec<i32>>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <DataWithPhantomDeserData<Vec<i32>>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(obj, full);
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let eps = unsafe {
-        <DataWithPhantomDeserData<Vec<i32>>>::deserialize_eps(cursor.as_bytes()).unwrap()
-    };
+    let eps =
+        unsafe { <DataWithPhantomDeserData<Vec<i32>>>::deser_eps(cursor.as_bytes()).unwrap() };
 
     // The data field should be transformed from Vec<i32> to &[i32]
     assert_eq!(obj.data.as_slice(), eps.data);
@@ -218,14 +214,13 @@ fn test_deser_phantom_zero_copy() {
     // Do a full-copy deserialization
     cursor.set_position(0);
     let full =
-        unsafe { <DataZeroWithPhantomDeserData<[i32; 4]>>::deserialize_full(&mut cursor).unwrap() };
+        unsafe { <DataZeroWithPhantomDeserData<[i32; 4]>>::deser_full(&mut cursor).unwrap() };
     assert_eq!(obj, full);
 
     // Do an ε-copy deserialization
     cursor.set_position(0);
-    let eps = unsafe {
-        <DataZeroWithPhantomDeserData<[i32; 4]>>::deserialize_eps(cursor.as_bytes()).unwrap()
-    };
+    let eps =
+        unsafe { <DataZeroWithPhantomDeserData<[i32; 4]>>::deser_eps(cursor.as_bytes()).unwrap() };
 
     // The data field should be transformed from Vec<i32> to &[i32]
     assert_eq!(obj.data.as_slice(), eps.data);

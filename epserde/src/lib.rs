@@ -31,19 +31,19 @@ pub mod utils;
 pub mod prelude {
     pub use crate::PhantomDeserData;
     pub use crate::deser;
+    pub use crate::deser::DeserHelper;
     pub use crate::deser::DeserInner;
     pub use crate::deser::DeserType;
     pub use crate::deser::Deserialize;
-    pub use crate::deser::DeserializeHelper;
     pub use crate::deser::Flags;
     pub use crate::deser::MemCase;
     pub use crate::deser::ReadWithPos;
     pub use crate::deser::SliceWithPos;
     pub use crate::impls::iter::SerIter;
     pub use crate::ser;
+    pub use crate::ser::SerHelper;
     pub use crate::ser::SerInner;
     pub use crate::ser::Serialize;
-    pub use crate::ser::SerializeHelper;
     pub use crate::traits::*;
     pub use crate::utils::*;
     #[cfg(feature = "derive")]
@@ -106,9 +106,9 @@ impl<T: DeserInner> PhantomDeserData<T> {
     ///
     /// # Safety
     ///
-    /// See [`DeserInner::_deserialize_eps_inner`].
+    /// See [`DeserInner::_deser_eps_inner`].
     #[inline(always)]
-    pub unsafe fn _deserialize_eps_inner_special<'a>(
+    pub unsafe fn _deser_eps_inner_special<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<PhantomDeserData<T::DeserType<'a>>> {
         // SAFETY: types are zero-length
@@ -151,19 +151,19 @@ impl<T: ?Sized> SerInner for PhantomDeserData<T> {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    unsafe fn _serialize_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
         Ok(())
     }
 }
 
 impl<T: DeserInner> DeserInner for PhantomDeserData<T> {
     #[inline(always)]
-    unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+    unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomDeserData(PhantomData))
     }
     type DeserType<'a> = PhantomDeserData<T::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         Ok(PhantomDeserData(PhantomData))

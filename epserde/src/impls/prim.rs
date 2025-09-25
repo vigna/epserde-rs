@@ -58,21 +58,21 @@ macro_rules! impl_prim_ser_des {
             const ZERO_COPY_MISMATCH: bool = false;
 
             #[inline(always)]
-            unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+            unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
                 backend.write_all(&self.to_ne_bytes())
             }
         }
 
 		impl DeserInner for $ty {
             #[inline(always)]
-            unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
+            unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
                 let mut buf = [0; size_of::<$ty>()];
                 backend.read_exact(&mut buf)?;
                 Ok(<$ty>::from_ne_bytes(buf))
             }
             type DeserType<'a> = Self;
             #[inline(always)]
-            unsafe fn _deserialize_eps_inner<'a>(
+            unsafe fn _deser_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
             ) -> deser::Result<Self::DeserType<'a>> {
                 let res = <$ty>::from_ne_bytes(
@@ -104,21 +104,21 @@ macro_rules! impl_nonzero_ser_des {
             const ZERO_COPY_MISMATCH: bool = false;
 
             #[inline(always)]
-            unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+            unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
                 backend.write_all(&self.get().to_ne_bytes())
             }
         }
 
 		impl DeserInner for $ty {
             #[inline(always)]
-            unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
+            unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
                 let mut buf = [0; size_of::<$ty>()];
                 backend.read_exact(&mut buf)?;
                 Ok(<$ty as NonZero>::BaseType::from_ne_bytes(buf).try_into().unwrap())
             }
             type DeserType<'a> = Self;
             #[inline(always)]
-            unsafe fn _deserialize_eps_inner<'a>(
+            unsafe fn _deser_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
             ) -> deser::Result<Self::DeserType<'a>> {
                 let res = <$ty as NonZero>::BaseType::from_ne_bytes(
@@ -173,7 +173,7 @@ impl SerInner for bool {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         let val = if *self { 1 } else { 0 };
         backend.write_all(&[val])
     }
@@ -181,12 +181,12 @@ impl SerInner for bool {
 
 impl DeserInner for bool {
     #[inline(always)]
-    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<bool> {
-        Ok(unsafe { u8::_deserialize_full_inner(backend) }? != 0)
+    unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<bool> {
+        Ok(unsafe { u8::_deser_full_inner(backend) }? != 0)
     }
     type DeserType<'a> = Self;
     #[inline(always)]
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let res = backend.data[0] != 0;
@@ -203,22 +203,22 @@ impl SerInner for char {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        unsafe { (*self as u32)._serialize_inner(backend) }
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        unsafe { (*self as u32)._ser_inner(backend) }
     }
 }
 
 impl DeserInner for char {
     #[inline(always)]
-    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        Ok(char::from_u32(unsafe { u32::_deserialize_full_inner(backend) }?).unwrap())
+    unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        Ok(char::from_u32(unsafe { u32::_deser_full_inner(backend) }?).unwrap())
     }
     type DeserType<'a> = Self;
     #[inline(always)]
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        Ok(char::from_u32(unsafe { u32::_deserialize_eps_inner(backend) }?).unwrap())
+        Ok(char::from_u32(unsafe { u32::_deser_eps_inner(backend) }?).unwrap())
     }
 }
 
@@ -230,19 +230,19 @@ impl SerInner for () {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    unsafe fn _serialize_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
         Ok(())
     }
 }
 
 impl DeserInner for () {
     #[inline(always)]
-    unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+    unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(())
     }
     type DeserType<'a> = Self;
     #[inline(always)]
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         Ok(())
@@ -283,19 +283,19 @@ impl<T: ?Sized> SerInner for PhantomData<T> {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    unsafe fn _serialize_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
         Ok(())
     }
 }
 
 impl<T: ?Sized> DeserInner for PhantomData<T> {
     #[inline(always)]
-    unsafe fn _deserialize_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+    unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomData::<T>)
     }
     type DeserType<'a> = Self;
     #[inline(always)]
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         Ok(PhantomData)
@@ -328,7 +328,7 @@ impl<T: SerInner + TypeHash + AlignHash> SerInner for Option<T> {
     const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
-    unsafe fn _serialize_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
             None => backend.write("Tag", &0_u8),
             Some(val) => {
@@ -341,23 +341,23 @@ impl<T: SerInner + TypeHash + AlignHash> SerInner for Option<T> {
 
 impl<T: DeserInner> DeserInner for Option<T> {
     #[inline(always)]
-    unsafe fn _deserialize_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        let tag = unsafe { u8::_deserialize_full_inner(backend) }?;
+    unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
             0 => Ok(None),
-            1 => Ok(Some(unsafe { T::_deserialize_full_inner(backend) }?)),
+            1 => Ok(Some(unsafe { T::_deser_full_inner(backend) }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
     type DeserType<'a> = Option<<T as DeserInner>::DeserType<'a>>;
     #[inline(always)]
-    unsafe fn _deserialize_eps_inner<'a>(
+    unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let tag = unsafe { u8::_deserialize_full_inner(backend) }?;
+        let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
             0 => Ok(None),
-            1 => Ok(Some(unsafe { T::_deserialize_eps_inner(backend) }?)),
+            1 => Ok(Some(unsafe { T::_deser_eps_inner(backend) }?)),
             _ => Err(deser::Error::InvalidTag(backend.data[0] as usize)),
         }
     }

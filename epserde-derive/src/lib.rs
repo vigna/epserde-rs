@@ -87,10 +87,10 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
 
 /// Generates a method call for field deserialization.
 ///
-/// This methods takes care of choosing `_deserialize_eps_inner` or
-/// `_deserialize_full_inner` depending on whether a field type is a type
+/// This methods takes care of choosing `_deser_eps_inner` or
+/// `_deser_full_inner` depending on whether a field type is a type
 /// parameter or not, and to use the special method
-/// `_deserialize_eps_inner_special` for `PhantomDeserData`.
+/// `_deser_eps_inner_special` for `PhantomDeserData`.
 ///
 /// The type of `field_name` is [`proc_macro2::TokenStream`] because it can be
 /// either an identifier (for named fields) or an index (for unnamed fields).
@@ -111,18 +111,18 @@ fn gen_deser_method_call(
         // PhantomDeserData, but it should be good enough in practice
         if let Some(segment) = segments.last() {
             if segment.ident == "PhantomDeserData" {
-                return syn::parse_quote!(#field_name: unsafe { <#field_type>::_deserialize_eps_inner_special(backend)? });
+                return syn::parse_quote!(#field_name: unsafe { <#field_type>::_deser_eps_inner_special(backend)? });
             }
         }
 
         // If it's a replaceable type parameter we proceed with ε-copy
         // deserialization
         if segments.len() == 1 && type_params.contains(&segments[0].ident) {
-            return syn::parse_quote!(#field_name: unsafe  { <#field_type as DeserInner>::_deserialize_eps_inner(backend)? });
+            return syn::parse_quote!(#field_name: unsafe  { <#field_type as DeserInner>::_deser_eps_inner(backend)? });
         }
     }
 
-    syn::parse_quote!(#field_name: unsafe { <#field_type as DeserInner>::_deserialize_full_inner(backend)? })
+    syn::parse_quote!(#field_name: unsafe { <#field_type as DeserInner>::_deser_full_inner(backend)? })
 }
 
 /// Generates the `IS_ZERO_COPY` expression.
@@ -494,32 +494,32 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 // The type is declared as zero-copy, so a fortiori there is no mismatch.
                 const ZERO_COPY_MISMATCH: bool = false;
 
-                unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
+                unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     // No-op code that however checks that all fields are zero-copy.
                     fn test<T: ::epserde::traits::ZeroCopy>() {}
                     #(
                         test::<#field_types>();
                     )*
-                    ::epserde::ser::helpers::serialize_zero(backend, self)
+                    ::epserde::ser::helpers::ser_zero(backend, self)
                 }
             }
 
             #[automatically_derived]
             impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause
             {
-                unsafe fn _deserialize_full_inner(
+                unsafe fn _deser_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
-                    unsafe { ::epserde::deser::helpers::deserialize_full_zero::<Self>(backend) }
+                    unsafe { ::epserde::deser::helpers::deser_full_zero::<Self>(backend) }
                 }
 
                 type DeserType<'epserde_desertype> = &'epserde_desertype Self;
 
-                unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
-                    backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
+                unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
+                    backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
+                ) -> ::core::result::Result<Self::DeserType<'deser_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
-                    unsafe { ::epserde::deser::helpers::deserialize_eps_zero::<Self>(backend) }
+                    unsafe { ::epserde::deser::helpers::deser_eps_zero::<Self>(backend) }
                 }
             }
         }
@@ -549,7 +549,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 // declared as such, and the attribute `deep_copy` is missing.
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*;
 
-                unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
+                unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     #(
                         unsafe { ::epserde::ser::WriteWithNames::write(backend, stringify!(#field_names), &self.#field_names)?; }
                     )*
@@ -559,23 +559,23 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
             #[automatically_derived]
             impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause {
-                unsafe fn _deserialize_full_inner(
+                unsafe fn _deser_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
                     use ::epserde::deser::DeserInner;
 
                     Ok(#name{
                         #(
-                            #field_names: unsafe { <#field_types as ::epserde::deser::DeserInner>::_deserialize_full_inner(backend)? },
+                            #field_names: unsafe { <#field_types as ::epserde::deser::DeserInner>::_deser_full_inner(backend)? },
                         )*
                     })
                 }
 
                 type DeserType<'epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
 
-                unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
-                    backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
+                unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
+                    backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
+                ) -> ::core::result::Result<Self::DeserType<'deser_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
                     use ::epserde::deser::DeserInner;
 
@@ -662,7 +662,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 variant_full_des.push(quote! {
                     #(
-                        #field_names: unsafe { <#field_types as DeserInner>::_deserialize_full_inner(backend)? },
+                        #field_names: unsafe { <#field_types as DeserInner>::_deser_full_inner(backend)? },
                     )*
                 });
 
@@ -719,7 +719,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 variant_full_des.push(quote! {
                     #(
-                        #field_names_in_arm : unsafe { <#field_types as DeserInner>::_deserialize_full_inner(backend)? },
+                        #field_names_in_arm : unsafe { <#field_types as DeserInner>::_deser_full_inner(backend)? },
                     )*
                 });
 
@@ -766,32 +766,32 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 // The type is declared as zero-copy, so a fortiori there is no mismatch.
                 const ZERO_COPY_MISMATCH: bool = false;
 
-                unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
+                unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     // No-op code that however checks that all fields are zero-copy.
                     fn test<T: ::epserde::traits::ZeroCopy>() {}
                     #(
                         test::<#all_fields_types>();
                     )*
 
-                    unsafe { ::epserde::ser::helpers::serialize_zero(backend, self) }
+                    unsafe { ::epserde::ser::helpers::ser_zero(backend, self) }
                 }
             }
 
             #[automatically_derived]
             impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause {
-                unsafe fn _deserialize_full_inner(
+                unsafe fn _deser_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
-                    unsafe { ::epserde::deser::helpers::deserialize_full_zero::<Self>(backend) }
+                    unsafe { ::epserde::deser::helpers::deser_full_zero::<Self>(backend) }
                 }
 
                 type DeserType<'epserde_desertype> = &'epserde_desertype Self;
 
-                unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
-                    backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
+                unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
+                    backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
+                ) -> ::core::result::Result<Self::DeserType<'deser_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
-                    unsafe { ::epserde::deser::helpers::deserialize_eps_zero::<Self>(backend) }
+                    unsafe { ::epserde::deser::helpers::deser_eps_zero::<Self>(backend) }
                 }
             }
         }
@@ -820,7 +820,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 // declared as such, and the attribute `deep_copy` is missing.
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*;
 
-                unsafe fn _serialize_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
+                unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     use ::epserde::ser::WriteWithNames;
 
                     ::epserde::ser::helpers::check_mismatch::<Self>();
@@ -834,13 +834,13 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
             }
             #[automatically_derived]
             impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause {
-                unsafe fn _deserialize_full_inner(
+                unsafe fn _deser_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
                     use ::epserde::deser::DeserInner;
                     use ::epserde::deser::Error;
 
-                    match unsafe { <usize as DeserInner>::_deserialize_full_inner(backend)? } {
+                    match unsafe { <usize as DeserInner>::_deser_full_inner(backend)? } {
                         #(
                             #tag => Ok(Self::#variant_ids{ #variant_full_des }),
                         )*
@@ -850,14 +850,14 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 type DeserType<'epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
 
-                unsafe fn _deserialize_eps_inner<'deserialize_eps_inner_lifetime>(
-                    backend: &mut ::epserde::deser::SliceWithPos<'deserialize_eps_inner_lifetime>,
-                ) -> ::core::result::Result<Self::DeserType<'deserialize_eps_inner_lifetime>, ::epserde::deser::Error>
+                unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
+                    backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
+                ) -> ::core::result::Result<Self::DeserType<'deser_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
                     use ::epserde::deser::DeserInner;
                     use ::epserde::deser::Error;
 
-                    match unsafe { <usize as DeserInner>::_deserialize_full_inner(backend)? } {
+                    match unsafe { <usize as DeserInner>::_deser_full_inner(backend)? } {
                         #(
                             #tag => Ok(Self::DeserType::<'_>::#variant_ids{ #variant_eps_des }),
                         )*

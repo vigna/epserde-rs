@@ -42,7 +42,7 @@ fn test_max_size_of_align() {
     let _bytes_written = unsafe { x.serialize(&mut cursor).unwrap() };
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <MyStruct>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <MyStruct>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(x, *eps);
 
     // Create a new value to serialize
@@ -52,7 +52,7 @@ fn test_max_size_of_align() {
     let _bytes_written = unsafe { x.serialize(&mut cursor).unwrap() };
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <MyStruct2>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <MyStruct2>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(x, *eps);
 
     // Create a new value to serialize
@@ -63,6 +63,6 @@ fn test_max_size_of_align() {
     let _bytes_written = unsafe { x.serialize(&mut cursor).unwrap() };
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <MyStruct64>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <MyStruct64>::deser_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(x, *eps);
 }
