@@ -116,8 +116,8 @@ this case, we serialize an array of a thousand zeros, and get back a reference
 to such an array:
 
 ```rust
-# use epserde::prelude::*;
-# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use epserde::prelude::*;
+
 let s = [0_usize; 1000];
 
 // Serialize it
@@ -153,8 +153,8 @@ let u: MemCase<[usize; 1000]> =
     unsafe { <[usize; 1000]>::mmap(&file, Flags::empty())? };
 
 assert_eq!(s, **u.uncase());
-#     Ok(())
-# }
+
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 Note how we serialize an array, but we deserialize a reference. The reference
@@ -180,8 +180,8 @@ deserialize its associated deserialization type, which is a reference to a
 slice.
 
 ```rust
-# use epserde::prelude::*;
-# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use epserde::prelude::*;
+
 let s = vec![0; 1000];
 
 // Serialize it
@@ -212,8 +212,8 @@ assert_eq!(s, **u.uncase());
 let t: Box<[usize]> =
     unsafe { <Box<[usize]>>::load_full(&file)? };
 assert_eq!(s.as_slice(), &*t);
-#     Ok(())
-# }
+
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 Note how we serialize a vector, but we deserialize a reference to a slice; the
@@ -236,8 +236,8 @@ zero-copy fields, and to be annotated with `#[zero_copy]` and `#[repr(C)]`
 fields to optimize memory usage):
 
 ```rust
-# use epserde::prelude::*;
-# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use epserde::prelude::*;
+
 #[derive(Epserde, Debug, PartialEq, Copy, Clone)]
 #[repr(C)]
 #[zero_copy]
@@ -270,8 +270,8 @@ assert_eq!(s, t);
 let u: MemCase<Vec<Data>> =
     unsafe { <Vec<Data>>::mmap(&file, Flags::empty())? };
 assert_eq!(s, **u.uncase());
-#     Ok(())
-# }
+
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 If a type is not zero-copy, instead, vectors/boxed slices will be always
@@ -295,8 +295,8 @@ Let us design a structure that will contain an integer, which will be copied,
 and a vector of integers that we want to ε-copy:
 
 ```rust
-# use epserde::prelude::*;
-# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use epserde::prelude::*;
+
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStruct<A> {
     id: isize,
@@ -330,8 +330,8 @@ let u: MemCase<MyStruct<Vec<isize>>> =
 let u: &MyStruct<&[isize]> = u.uncase();
 assert_eq!(s.id, u.id);
 assert_eq!(s.data, u.data.as_ref());
-#     Ok(())
-# }
+
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 Note how the field originally containing a `Vec<isize>` now contains a
@@ -344,8 +344,8 @@ in a way that will work both on the original type parameter and on its
 associated deserialized type; we can also use `type` to reduce the clutter:
 
 ```rust
-# use epserde::prelude::*;
-# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use epserde::prelude::*;
+
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStructParam<A> {
     id: isize,
@@ -380,8 +380,8 @@ let t: &MyStructParam<&[isize]> = t.uncase();
 assert_eq!(s.id, t.id);
 assert_eq!(s.data, t.data.as_ref());
 assert_eq!(s.sum(), t.sum());
-#     Ok(())
-# }
+
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 It is important to note that since the derive code replaces type parameters that
@@ -422,8 +422,8 @@ not even need to be serializable, or for types inside a [`PhantomDeserData`].
 For example,
 
 ```rust
-# use epserde::prelude::*;
-# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use epserde::prelude::*;
+
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStruct<A: DeepCopy + 'static>(Vec<A>);
 
@@ -439,8 +439,8 @@ let b = std::fs::read(&file)?;
 // The type of t is unchanged
 let t: MyStruct<Vec<isize>> =
     unsafe { <MyStruct<Vec<isize>>>::deserialize_eps(b.as_ref())? };
-#     Ok(())
-# }
+
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 Note how the field originally of type `Vec<Vec<isize>>` remains of the same
@@ -454,8 +454,8 @@ must be zero-copy. This must hold even for types inside a [`PhantomData`]. For
 example,
 
 ```rust
-# use epserde::prelude::*;
-# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use epserde::prelude::*;
+
 #[derive(Epserde, Debug, PartialEq, Clone, Copy)]
 #[repr(C)]
 #[zero_copy]
@@ -475,8 +475,8 @@ let b = std::fs::read(&file)?;
 // The type of t is unchanged
 let t: &MyStruct<i32> =
     unsafe { <MyStruct<i32>>::deserialize_eps(b.as_ref())? };
-#     Ok(())
-# }
+    
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 Note how the field originally of type `i32` remains of the same type.
@@ -492,8 +492,8 @@ obvious for non-enum types, but with enum types with default type parameters it
 can become tricky. For example,
 
 ```rust
-# use epserde::prelude::*;
-# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use epserde::prelude::*;
+
 #[derive(Epserde, Debug, PartialEq, Clone, Copy)]
 enum Enum<T=Vec<usize>> {
     A,
@@ -509,8 +509,6 @@ unsafe { e.store(&file) };
 // Deserializing using just Enum will fail, as the type parameter
 // by default is Vec<usize>
 assert!(unsafe { <Enum>::load_full(&file) }.is_err());
-#     Ok(())
-# }
 ```
 
 ## Example: (Structures containing references to) slices
@@ -520,8 +518,8 @@ deserialize them as if they were vectors/boxed slices. You must however be caref
 deserialize with the correct type. For example,
 
 ```rust
-# use epserde::prelude::*;
-# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use epserde::prelude::*;
+
 let v = vec![0, 1, 2, 3];
 // This is a slice
 let s: &[i32] = v.as_ref();
@@ -564,8 +562,7 @@ let t: MemCase<Data<Vec<i32>>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::e
 // Or as a boxed slice
 let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? };
 
-# Ok(())
-# }
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 ## Example: (Structures containing) iterators
@@ -576,9 +573,9 @@ need to wrap the iterator in a [`SerIter`], as ε-serde cannot implement the
 serialization traits directly on [`Iterator`]. For example,
 
 ```rust
-# use epserde::prelude::*;
-# use std::slice::Iter;
-# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use epserde::prelude::*;
+use core::slice::Iter;
+
 let v = vec![0, 1, 2, 3];
 // This is an iterator
 let i: Iter<'_, i32> = v.iter();
@@ -620,8 +617,8 @@ let t: MemCase<Data<Vec<i32>>> = unsafe { <Data<Vec<i32>>>::mmap(&file, Flags::e
 
 // Or as a boxed slice
 let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? };
-# Ok(())
-# }
+
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 ## Example: `sux-rs`

@@ -7,6 +7,14 @@
 use epserde::prelude::*;
 use maligned::A16;
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+use alloc::rc::Rc;
+#[cfg(feature = "std")]
+use std::rc::Rc;
+
 const TEST_STRS: &[&str] = &["abc\0\x0a🔥\u{0d2bdf}", ""];
 
 #[test]
@@ -14,54 +22,48 @@ fn test_box_str() {
     for &test_str in TEST_STRS {
         let s = test_str;
         {
-            let mut v = vec![];
-            let mut cursor = std::io::Cursor::new(&mut v);
+            let mut cursor = <AlignedCursor>::new();
 
             let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
             schema.0.sort_by_key(|a| a.offset);
 
             cursor.set_position(0);
-            let full_copy =
-                unsafe { <Box<str>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
+            let full_copy = unsafe { <Box<str>>::deserialize_full(&mut cursor).unwrap() };
             assert_eq!(s, &*full_copy);
 
-            let eps_copy = unsafe { <Box<str>>::deserialize_eps(&v).unwrap() };
+            let eps_copy = unsafe { <Box<str>>::deserialize_eps(cursor.as_bytes()).unwrap() };
             assert_eq!(s, eps_copy);
-            let eps_copy = unsafe { String::deserialize_eps(&v).unwrap() };
+            let eps_copy = unsafe { String::deserialize_eps(cursor.as_bytes()).unwrap() };
             assert_eq!(s, eps_copy);
         }
         let s = test_str.to_string();
         {
-            let mut v = vec![];
-            let mut cursor = std::io::Cursor::new(&mut v);
+            let mut cursor = <AlignedCursor>::new();
 
             let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
             schema.0.sort_by_key(|a| a.offset);
 
             cursor.set_position(0);
-            let full_copy =
-                unsafe { String::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
+            let full_copy = unsafe { String::deserialize_full(&mut cursor).unwrap() };
             assert_eq!(s, full_copy);
 
-            let eps_copy = unsafe { <Box<str>>::deserialize_eps(&v).unwrap() };
+            let eps_copy = unsafe { <Box<str>>::deserialize_eps(cursor.as_bytes()).unwrap() };
             assert_eq!(s, eps_copy);
-            let eps_copy = unsafe { String::deserialize_eps(&v).unwrap() };
+            let eps_copy = unsafe { String::deserialize_eps(cursor.as_bytes()).unwrap() };
             assert_eq!(s, eps_copy);
         }
         let s = test_str.to_string().into_boxed_str();
         {
-            let mut v = vec![];
-            let mut cursor = std::io::Cursor::new(&mut v);
+            let mut cursor = <AlignedCursor>::new();
             unsafe { s.serialize(&mut cursor).unwrap() };
 
             cursor.set_position(0);
-            let full_copy =
-                unsafe { <Box<str>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
+            let full_copy = unsafe { <Box<str>>::deserialize_full(&mut cursor).unwrap() };
             assert_eq!(s, full_copy);
 
-            let eps_copy = unsafe { <Box<str>>::deserialize_eps(&v).unwrap() };
+            let eps_copy = unsafe { <Box<str>>::deserialize_eps(cursor.as_bytes()).unwrap() };
             assert_eq!(s.as_ref(), eps_copy);
-            let eps_copy = unsafe { String::deserialize_eps(&v).unwrap() };
+            let eps_copy = unsafe { String::deserialize_eps(cursor.as_bytes()).unwrap() };
             assert_eq!(s.as_ref(), eps_copy);
         }
     }
@@ -79,9 +81,7 @@ where
         schema.0.sort_by_key(|a| a.offset);
 
         cursor.set_position(0);
-        let full_copy = unsafe {
-            <T>::deserialize_full(&mut std::io::Cursor::new(&cursor.as_bytes())).unwrap()
-        };
+        let full_copy = unsafe { <T>::deserialize_full(&mut cursor).unwrap() };
         assert_eq!(s, full_copy);
 
         let bytes = cursor.as_bytes();
@@ -96,8 +96,7 @@ where
         unsafe { s.serialize(&mut cursor).unwrap() };
 
         cursor.set_position(0);
-        let full_copy =
-            unsafe { <T>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes())).unwrap() };
+        let full_copy = unsafe { <T>::deserialize_full(&mut cursor).unwrap() };
         assert_eq!(s, full_copy);
 
         let full_copy = unsafe { <T>::deserialize_eps(cursor.as_bytes()).unwrap() };
@@ -107,16 +106,15 @@ where
 
 #[test]
 fn test_range() {
-    test_generic::<std::ops::Range<i32>>(0..10);
+    test_generic::<core::ops::Range<i32>>(0..10);
 
     #[derive(Epserde, PartialEq, Debug)]
-    struct Data(std::ops::Range<i32>);
+    struct Data(core::ops::Range<i32>);
     test_generic(Data(0..10));
 }
 
 #[test]
 fn test_ser_rc_ref() {
-    use std::rc::Rc;
     let v = vec![0, 1, 2, 3];
     let mut cursor = <AlignedCursor<A16>>::new();
     unsafe { Serialize::serialize(&Rc::new(v.as_slice()), &mut cursor).unwrap() };
@@ -127,7 +125,6 @@ fn test_ser_rc_ref() {
 
 #[test]
 fn test_ref_field() {
-    use std::rc::Rc;
     let v = vec![0, 1, 2, 3];
     let mut cursor = <AlignedCursor<A16>>::new();
     #[derive(Epserde, Debug)]

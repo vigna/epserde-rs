@@ -17,7 +17,7 @@ pub mod slice;
 pub mod tuple;
 
 pub mod boxed_slice;
-#[cfg(feature = "std")]
-pub mod stdlib;
 pub mod string;
 pub mod vec;
+
+pub mod stdlib;

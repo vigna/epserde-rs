@@ -23,7 +23,8 @@ fn test_wrong_endianness() {
     // set the reversed endianness
     cursor.as_bytes_mut()[0..8].copy_from_slice(&MAGIC_REV.to_ne_bytes());
 
-    let err = unsafe { <usize>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes())) };
+    let err =
+        unsafe { <usize>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
     assert!(err.is_err());
     assert!(matches!(err.unwrap_err(), deser::Error::EndiannessError));
 
@@ -35,7 +36,8 @@ fn test_wrong_endianness() {
     let bad_magic: u64 = 0x8989898989898989;
     cursor.as_bytes_mut()[0..8].copy_from_slice(&bad_magic.to_ne_bytes());
 
-    let err = unsafe { <usize>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes())) };
+    let err =
+        unsafe { <usize>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
     if let Err(deser::Error::MagicCookieError(bad_magic_read)) = err {
         assert_eq!(bad_magic_read, bad_magic);
     } else {
@@ -53,7 +55,8 @@ fn test_wrong_endianness() {
     let bad_version: u16 = 0xffff;
     cursor.as_bytes_mut()[8..10].copy_from_slice(&bad_version.to_ne_bytes());
 
-    let err = unsafe { <usize>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes())) };
+    let err =
+        unsafe { <usize>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
     if let Err(deser::Error::MajorVersionMismatch(bad_version_read)) = err {
         assert_eq!(bad_version_read, bad_version);
     } else {
@@ -72,7 +75,8 @@ fn test_wrong_endianness() {
     let bad_version: u16 = 0xffff;
     cursor.as_bytes_mut()[10..12].copy_from_slice(&bad_version.to_ne_bytes());
 
-    let err = unsafe { <usize>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes())) };
+    let err =
+        unsafe { <usize>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
     if let Err(deser::Error::MinorVersionMismatch(bad_version_read)) = err {
         assert_eq!(bad_version_read, bad_version);
     } else {
@@ -97,7 +101,8 @@ fn test_wrong_endianness() {
     <i8>::type_hash(&mut type_hasher);
     let i8_hash = type_hasher.finish();
 
-    let result = unsafe { <i8>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes())) };
+    let result =
+        unsafe { <i8>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
     if let Err(err) = result {
         eprintln!("{err}");
         if let deser::Error::WrongTypeHash {
@@ -148,7 +153,8 @@ fn test_error_at_eof() {
 
     unsafe { data.serialize(&mut cursor).unwrap() };
     cursor.set_len(cursor.position() - 1);
-    let err = unsafe { <usize>::deserialize_full(&mut std::io::Cursor::new(cursor.as_bytes())) };
+    cursor.set_position(0);
+    let err = unsafe { <usize>::deserialize_full(&mut cursor) };
     assert!(err.is_err());
     let err = unsafe { <usize>::deserialize_eps(cursor.as_bytes()) };
     assert!(err.is_err());

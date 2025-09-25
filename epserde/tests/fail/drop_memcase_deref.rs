@@ -5,8 +5,7 @@
  */
 
 use epserde::prelude::*;
-use std::io::Cursor;
-use std::ops::Deref;
+use core::ops::Deref;
 
 #[allow(suspicious_double_ref_op)]
 fn main() {
@@ -14,7 +13,7 @@ fn main() {
 
     let mut buffer = Vec::new();
     unsafe { v.serialize(&mut buffer).unwrap() };
-    let cursor = Cursor::new(&buffer);
+    let cursor = <AlignedCursor>::from_slice(&buffer);
     let mem_case = unsafe { Vec::<i32>::read_mem(cursor, buffer.len()).unwrap() };
     let d = mem_case.deref();
     let d = d.clone();

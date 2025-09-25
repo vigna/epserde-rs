@@ -31,7 +31,7 @@ jobs:
           - nightly
         features:
           - ""
-          - "--no-default-features"
+          - "--no-default-features --features 'derive'"
           - "--all-features"
 
     steps:
