@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.10.0] - 2025-09-20
+## [0.10.0] - 2025-09-25
 
 ### New
 
@@ -39,6 +39,10 @@
 
 * A few `TypeHash`/`AlignHash` implementation that were not really necessary
   have been removed.
+
+### Fixed
+
+* The `nostd` feature now works.
 
 ## [0.9.0] - 2025-09-17
 
