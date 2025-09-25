@@ -7,6 +7,66 @@
 use epserde::prelude::*;
 use maligned::A16;
 
+const TEST_STRS: &[&str] = &["abc\0\x0a🔥\u{0d2bdf}", ""];
+
+#[test]
+fn test_box_str() {
+    for &test_str in TEST_STRS {
+        let s = test_str;
+        {
+            let mut v = vec![];
+            let mut cursor = std::io::Cursor::new(&mut v);
+
+            let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
+            schema.0.sort_by_key(|a| a.offset);
+
+            cursor.set_position(0);
+            let full_copy =
+                unsafe { <Box<str>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
+            assert_eq!(s, &*full_copy);
+
+            let eps_copy = unsafe { <Box<str>>::deserialize_eps(&v).unwrap() };
+            assert_eq!(s, eps_copy);
+            let eps_copy = unsafe { String::deserialize_eps(&v).unwrap() };
+            assert_eq!(s, eps_copy);
+        }
+        let s = test_str.to_string();
+        {
+            let mut v = vec![];
+            let mut cursor = std::io::Cursor::new(&mut v);
+
+            let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
+            schema.0.sort_by_key(|a| a.offset);
+
+            cursor.set_position(0);
+            let full_copy =
+                unsafe { String::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
+            assert_eq!(s, full_copy);
+
+            let eps_copy = unsafe { <Box<str>>::deserialize_eps(&v).unwrap() };
+            assert_eq!(s, eps_copy);
+            let eps_copy = unsafe { String::deserialize_eps(&v).unwrap() };
+            assert_eq!(s, eps_copy);
+        }
+        let s = test_str.to_string().into_boxed_str();
+        {
+            let mut v = vec![];
+            let mut cursor = std::io::Cursor::new(&mut v);
+            unsafe { s.serialize(&mut cursor).unwrap() };
+
+            cursor.set_position(0);
+            let full_copy =
+                unsafe { <Box<str>>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
+            assert_eq!(s, full_copy);
+
+            let eps_copy = unsafe { <Box<str>>::deserialize_eps(&v).unwrap() };
+            assert_eq!(s.as_ref(), eps_copy);
+            let eps_copy = unsafe { String::deserialize_eps(&v).unwrap() };
+            assert_eq!(s.as_ref(), eps_copy);
+        }
+    }
+}
+
 fn test_generic<T>(s: T)
 where
     T: Serialize + Deserialize + PartialEq + core::fmt::Debug,

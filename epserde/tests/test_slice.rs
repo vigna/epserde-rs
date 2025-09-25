@@ -37,6 +37,17 @@ fn test_slices() -> Result<()> {
     assert_eq!(e, d);
 
     cursor.set_position(0);
+    let v = vec![0, 1, 2, 3];
+    let d = Data {
+        a: v.as_slice(),
+        b: [1, 2, 3],
+    };
+    unsafe { d.serialize(&mut cursor)? };
+    cursor.set_position(0);
+    let e = unsafe { Data::<Box<[i32]>>::deserialize_full(&mut cursor)? };
+    assert_eq!(&*e.a, d.a);
+
+    cursor.set_position(0);
     let d = Data { a: s, b: [1, 2, 3] };
     unsafe { d.serialize(&mut cursor)? };
     cursor.set_position(0);

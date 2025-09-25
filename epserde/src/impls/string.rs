@@ -29,29 +29,8 @@ impl AlignHash for String {
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl TypeHash for Box<str> {
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "Box<str>".hash(hasher);
-    }
-}
-
-impl AlignHash for Box<str> {
-    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
-}
-
-impl TypeHash for str {
-    fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        "str".hash(hasher);
-    }
-}
-
-impl AlignHash for str {
-    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
-}
-
 impl SerInner for String {
-    type SerType = Self;
-    // Vec<$ty> can, but Vec<Vec<$ty>> cannot!
+    type SerType = Box<str>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
@@ -86,6 +65,16 @@ unsafe impl CopyType for Box<str> {
     type Copy = Deep;
 }
 
+impl TypeHash for Box<str> {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "Box<str>".hash(hasher);
+    }
+}
+
+impl AlignHash for Box<str> {
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+}
+
 impl SerInner for Box<str> {
     type SerType = Self;
     // Box<[$ty]> can, but Vec<Box<[$ty]>> cannot!
@@ -110,5 +99,15 @@ impl DeserInner for Box<str> {
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         unsafe { String::_deser_eps_inner(backend) }
+    }
+}
+
+impl SerInner for &str {
+    type SerType = Box<str>;
+    const IS_ZERO_COPY: bool = false;
+    const ZERO_COPY_MISMATCH: bool = false;
+
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        ser_slice_zero(backend, self.as_bytes())
     }
 }
