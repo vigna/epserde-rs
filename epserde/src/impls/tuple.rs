@@ -67,7 +67,7 @@ macro_rules! impl_tuples {
         {
             fn max_size_of() -> usize {
                 let mut max_size_of = 0;
-                $(if max_size_of < std::cmp::max(max_size_of, <$t>::max_size_of()) {
+                $(if max_size_of < core::cmp::max(max_size_of, <$t>::max_size_of()) {
                     max_size_of = <$t>::max_size_of();
                 })*
                 max_size_of

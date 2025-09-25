@@ -8,11 +8,14 @@
 use crate::prelude::*;
 
 use super::ReadNoStd;
-use mem_dbg::{MemDbg, MemSize};
+
+#[cfg(not(feature = "std"))]
+use alloc::vec;
 
 /// A wrapper for a [`ReadNoStd`] that implements [`ReadWithPos`]
 /// by keeping track of the current position.
-#[derive(Debug, MemDbg, MemSize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub struct ReaderWithPos<'a, F: ReadNoStd> {
     /// What we actually readfrom
     backend: &'a mut F,

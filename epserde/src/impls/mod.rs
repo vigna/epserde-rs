@@ -10,14 +10,14 @@
 //! types.
 
 pub mod array;
-pub mod boxed_slice;
 pub mod iter;
 pub mod pointer;
 pub mod prim;
 pub mod slice;
+pub mod tuple;
+
+pub mod boxed_slice;
 #[cfg(feature = "std")]
 pub mod stdlib;
 pub mod string;
-pub mod tuple;
-#[cfg(any(feature = "alloc", feature = "std"))]
 pub mod vec;

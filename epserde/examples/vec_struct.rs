@@ -28,7 +28,7 @@ fn main() {
     let full = unsafe { <Vec<Data>>::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
-        std::any::type_name::<Vec<Data>>(),
+        core::any::type_name::<Vec<Data>>(),
     );
     println!("Value: {:x?}", full);
 
@@ -38,7 +38,7 @@ fn main() {
     let eps = unsafe { <Vec<Data>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     println!(
         "ε-copy deserialization type: {}",
-        std::any::type_name::<DeserType<'_, Vec<Data>>>(),
+        core::any::type_name::<DeserType<'_, Vec<Data>>>(),
     );
     println!("Value: {:x?}", eps);
 }

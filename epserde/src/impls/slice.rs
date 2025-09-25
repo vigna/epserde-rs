@@ -18,6 +18,9 @@
 use crate::prelude::*;
 use ser::*;
 
+#[cfg(not(feature = "std"))]
+use alloc::{boxed::Box, vec::Vec};
+
 impl<T: CopyType + SerInner + TypeHash + AlignHash> SerInner for &[T]
 where
     Box<[T]>: SerHelper<<T as CopyType>::Copy>,
@@ -26,7 +29,7 @@ where
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
-    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> Result<()> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         // SAFETY: the fake boxed slice we create is never used, and we forget
         // it immediately after writing it to the backend.
         let fake = unsafe { Vec::from_raw_parts(self.as_ptr() as *mut T, self.len(), self.len()) }

@@ -23,6 +23,9 @@ use core::{cell::RefCell, ops::DerefMut};
 use crate::prelude::*;
 use ser::*;
 
+#[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
+
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct SerIter<'a, T: 'a, I: ExactSizeIterator<Item = &'a T>>(RefCell<I>);
 

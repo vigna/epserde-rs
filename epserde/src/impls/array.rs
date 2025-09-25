@@ -106,7 +106,7 @@ impl<T: ZeroCopy + DeserInner, const N: usize> DeserHelper<Zero> for [T; N] {
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<DeserType<'a, Self>> {
         backend.align::<T>()?;
-        let bytes = std::mem::size_of::<[T; N]>();
+        let bytes = core::mem::size_of::<[T; N]>();
         let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<[T; N]>() };
         debug_assert!(pre.is_empty());
         debug_assert!(after.is_empty());
@@ -123,7 +123,7 @@ impl<T: DeepCopy + DeserInner, const N: usize> DeserHelper<Deep> for [T; N] {
     unsafe fn _deser_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let mut res = MaybeUninit::<[T; N]>::uninit();
         for item in &mut unsafe { res.assume_init_mut().iter_mut() } {
-            unsafe { std::ptr::write(item, T::_deser_full_inner(backend)?) };
+            unsafe { core::ptr::write(item, T::_deser_full_inner(backend)?) };
         }
         Ok(unsafe { res.assume_init() })
     }
@@ -133,7 +133,7 @@ impl<T: DeepCopy + DeserInner, const N: usize> DeserHelper<Deep> for [T; N] {
     ) -> deser::Result<DeserType<'a, Self>> {
         let mut res = MaybeUninit::<DeserType<'a, Self>>::uninit();
         for item in &mut unsafe { res.assume_init_mut().iter_mut() } {
-            unsafe { std::ptr::write(item, T::_deser_eps_inner(backend)?) };
+            unsafe { core::ptr::write(item, T::_deser_eps_inner(backend)?) };
         }
         Ok(unsafe { res.assume_init() })
     }

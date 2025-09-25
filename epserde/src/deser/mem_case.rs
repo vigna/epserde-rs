@@ -14,7 +14,9 @@ use crate::{DeserInner, deser::DeserType, ser::SerInner};
 use bitflags::bitflags;
 use core::{fmt, mem::size_of};
 use maligned::A64;
-use mem_dbg::{MemDbg, MemSize};
+
+#[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
 
 bitflags! {
     /// Flags for [`mmap`](crate::deser::Deserialize::mmap) and
@@ -76,7 +78,8 @@ pub type MemoryAlignment = A64;
 /// region; the [`Mmap`](MemBackend::Mmap) variant is used when the instance has
 /// been deserialized from a `mmap()`-based region, either coming from an
 /// allocation or a from mapping a file.
-#[derive(Debug, MemDbg, MemSize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub enum MemBackend {
     /// No backend. The instance is owned. This variant is returned by
     /// [`MemCase::encase`].
@@ -118,7 +121,8 @@ impl MemBackend {
 /// methods are unimplemented. If the convenience type alias
 /// [`MemOwned<T>`](MemOwned) is used, the user does not even have to ever
 /// mention this type.
-#[derive(Debug, MemSize, MemDbg, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[repr(transparent)]
 pub struct Owned<T>(T);
 
@@ -162,7 +166,7 @@ impl<T> SerInner for Owned<T> {
 ///
 /// [`MemCase`] instances can not be cloned, but references to such instances
 /// can be shared freely. For convenience we provide delegations for [`AsRef`]
-/// and [`Deref`](std::ops::Deref), and an implementation of [`PartialEq`] and
+/// and [`Deref`](core::ops::Deref), and an implementation of [`PartialEq`] and
 /// [`Eq`] whenever the inner type supports them.
 ///
 /// A [`MemCase`] is parameterized by a type `S` implementing [`DeserInner`],
@@ -190,11 +194,11 @@ impl<T> SerInner for Owned<T> {
 /// # Examples
 ///
 /// Suppose we want to write a function accepting a [`MemCase`] whose
-/// inner instance implements [`Index<usize>`](std::ops::Index):
+/// inner instance implements [`Index<usize>`](core::ops::Index):
 ///
 /// ```
 /// use epserde::deser::{MemCase, DeserInner};
-/// use std::ops::Index;
+/// use core::ops::Index;
 ///
 /// fn do_something<S: for<'a> DeserInner<DeserType<'a>: Index<usize, Output = usize>>>(
 ///     indexable: MemCase<S>
@@ -202,7 +206,7 @@ impl<T> SerInner for Owned<T> {
 ///     indexable.uncase()[0]
 /// }
 ///```
-#[derive(MemDbg, MemSize)]
+#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub struct MemCase<S: DeserInner>(pub(crate) DeserType<'static, S>, pub(crate) MemBackend);
 
 impl<S: DeserInner> fmt::Debug for MemCase<S>
@@ -297,11 +301,11 @@ impl<A, T: AsRef<A>> AsRef<A> for Owned<T> {
     }
 }
 
-impl<A: ?Sized, S: DeserInner> std::ops::Deref for MemCase<S>
+impl<A: ?Sized, S: DeserInner> core::ops::Deref for MemCase<S>
 where
-    for<'a> DeserType<'a, S>: std::ops::Deref<Target = A>,
+    for<'a> DeserType<'a, S>: core::ops::Deref<Target = A>,
 {
-    type Target = <DeserType<'static, S> as std::ops::Deref>::Target;
+    type Target = <DeserType<'static, S> as core::ops::Deref>::Target;
 
     fn deref(&self) -> &Self::Target {
         self.uncase().deref()
