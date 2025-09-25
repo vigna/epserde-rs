@@ -116,7 +116,7 @@ this case, we serialize an array of a thousand zeros, and get back a reference
 to such an array:
 
 ```rust
-use epserde::prelude::*;
+# use epserde::prelude::*;
 
 let s = [0_usize; 1000];
 
@@ -180,7 +180,7 @@ deserialize its associated deserialization type, which is a reference to a
 slice.
 
 ```rust
-use epserde::prelude::*;
+# use epserde::prelude::*;
 
 let s = vec![0; 1000];
 
@@ -236,7 +236,7 @@ zero-copy fields, and to be annotated with `#[zero_copy]` and `#[repr(C)]`
 fields to optimize memory usage):
 
 ```rust
-use epserde::prelude::*;
+# use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Copy, Clone)]
 #[repr(C)]
@@ -295,7 +295,7 @@ Let us design a structure that will contain an integer, which will be copied,
 and a vector of integers that we want to ε-copy:
 
 ```rust
-use epserde::prelude::*;
+# use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStruct<A> {
@@ -344,7 +344,7 @@ in a way that will work both on the original type parameter and on its
 associated deserialized type; we can also use `type` to reduce the clutter:
 
 ```rust
-use epserde::prelude::*;
+# use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStructParam<A> {
@@ -391,7 +391,7 @@ parameter that appears both as the type of a field and as a type parameter of
 another field. For example, the following code will not compile:
 
 ```compile_fail
-# use epserde::prelude::*;
+# # use epserde::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStructParam<A> {
@@ -422,7 +422,7 @@ not even need to be serializable, or for types inside a [`PhantomDeserData`].
 For example,
 
 ```rust
-use epserde::prelude::*;
+# use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStruct<A: DeepCopy + 'static>(Vec<A>);
@@ -454,7 +454,7 @@ must be zero-copy. This must hold even for types inside a [`PhantomData`]. For
 example,
 
 ```rust
-use epserde::prelude::*;
+# use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Clone, Copy)]
 #[repr(C)]
@@ -492,7 +492,7 @@ obvious for non-enum types, but with enum types with default type parameters it
 can become tricky. For example,
 
 ```rust
-use epserde::prelude::*;
+# use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Clone, Copy)]
 enum Enum<T=Vec<usize>> {
@@ -518,7 +518,7 @@ deserialize them as if they were vectors/boxed slices. You must however be caref
 deserialize with the correct type. For example,
 
 ```rust
-use epserde::prelude::*;
+# use epserde::prelude::*;
 
 let v = vec![0, 1, 2, 3];
 // This is a slice
@@ -573,7 +573,7 @@ need to wrap the iterator in a [`SerIter`], as ε-serde cannot implement the
 serialization traits directly on [`Iterator`]. For example,
 
 ```rust
-use epserde::prelude::*;
+# use epserde::prelude::*;
 use core::slice::Iter;
 
 let v = vec![0, 1, 2, 3];
