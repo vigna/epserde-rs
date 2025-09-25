@@ -18,11 +18,13 @@ use core::{
     hash::Hash,
     ops::{Bound, RangeBounds},
 };
+
+#[cfg(feature = "std")]
 use std::collections::hash_map::DefaultHasher;
 
 // This implementation makes it possible to serialize
 // PhantomData<DefaultHasher>.
-
+#[cfg(feature = "std")]
 impl TypeHash for DefaultHasher {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "std::hash::DefaultHasher".hash(hasher);

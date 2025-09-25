@@ -17,6 +17,7 @@ use crate::ser::SerInner;
 use crate::traits::*;
 use crate::{MAGIC, MAGIC_REV, VERSION};
 use core::hash::Hasher;
+use core::{mem::MaybeUninit, ptr::addr_of_mut};
 
 pub mod helpers;
 pub use helpers::*;
@@ -31,17 +32,11 @@ pub use slice_with_pos::*;
 
 #[cfg(not(feature = "std"))]
 use alloc::{
-    self,
     string::{String, ToString},
+    vec::Vec,
 };
 #[cfg(feature = "std")]
-use std::alloc;
-
-#[cfg(feature = "std")]
 use std::{io::BufReader, path::Path};
-
-#[cfg(feature = "std")] // to avoid not used warning
-use core::{mem::MaybeUninit, ptr::addr_of_mut};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -116,25 +111,21 @@ pub trait Deserialize: DeserInner {
     /// # Examples
     ///
     /// ```rust
-    /// # use epserde::prelude::*;
-    /// # use std::io::Cursor;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// use epserde::prelude::*;
     /// let data = vec![1, 2, 3, 4, 5];
     /// let mut buffer = Vec::new();
     /// unsafe { data.serialize(&mut buffer)? };
     ///
-    /// let cursor = Cursor::new(&buffer);
+    /// let cursor = <AlignedCursor>::from_slice(&buffer);
     /// let mem_case = unsafe { <Vec<i32>>::read_mem(cursor, buffer.len())? };
     /// assert_eq!(data, **mem_case.uncase());
-    /// # Ok(())
-    /// # }
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     ///
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
-    #[cfg(feature = "std")]
-    unsafe fn read_mem(mut read: impl std::io::Read, size: usize) -> anyhow::Result<MemCase<Self>> {
+    unsafe fn read_mem(mut read: impl ReadNoStd, size: usize) -> anyhow::Result<MemCase<Self>> {
         let align_to = align_of::<MemoryAlignment>();
         if align_of::<Self>() > align_to {
             return Err(Error::AlignmentError.into());
@@ -149,8 +140,13 @@ pub trait Deserialize: DeserInner {
         // or with zeroes if the reader provides less data than expected.
         #[allow(invalid_value)]
         let mut aligned_vec = unsafe {
+            #[cfg(not(feature = "std"))]
+            let alloc_func = alloc::alloc::alloc;
+            #[cfg(feature = "std")]
+            let alloc_func = std::alloc::alloc;
+
             <Vec<MemoryAlignment>>::from_raw_parts(
-                alloc::alloc(core::alloc::Layout::from_size_align(capacity, align_to)?)
+                alloc_func(core::alloc::Layout::from_size_align(capacity, align_to)?)
                     as *mut MemoryAlignment,
                 capacity / align_to,
                 capacity / align_to,
@@ -237,9 +233,9 @@ pub trait Deserialize: DeserInner {
     /// # Safety
     ///
     /// See the [trait documentation](Deserialize).
-    #[cfg(all(feature = "mmap", feature = "std"))]
+    #[cfg(feature = "mmap")]
     unsafe fn read_mmap(
-        mut read: impl std::io::Read,
+        mut read: impl ReadNoStd,
         size: usize,
         flags: Flags,
     ) -> anyhow::Result<MemCase<Self>> {

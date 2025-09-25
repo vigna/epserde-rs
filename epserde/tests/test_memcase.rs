@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+use core::iter::zip;
 use epserde::{deser::Owned, prelude::*};
-use std::{io::Cursor, iter::zip};
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct PersonVec<A, B> {
@@ -15,6 +15,7 @@ struct PersonVec<A, B> {
 }
 
 impl<A, B> PersonVec<A, B> {
+    #[cfg_attr(not(feature = "mmap"), allow(dead_code))]
     pub fn get_test(&self) -> isize {
         self.test
     }
@@ -26,11 +27,11 @@ struct Data<A> {
     b: Vec<i32>,
 }
 
-type Person = PersonVec<Vec<usize>, Data<Vec<u16>>>;
-
 #[cfg(feature = "mmap")]
 #[test]
 fn test_mem_case() {
+    type Person = PersonVec<Vec<usize>, Data<Vec<u16>>>;
+
     // Create a new value to serialize
     let person = Person {
         a: vec![0x89; 6],
@@ -117,7 +118,7 @@ fn test_read_mem() {
 
     let mut buffer = Vec::new();
     unsafe { data.serialize(&mut buffer).unwrap() };
-    let cursor = Cursor::new(&buffer);
+    let cursor = <AlignedCursor>::from_slice(&buffer);
     let mem_case = unsafe { TestData::read_mem(cursor, buffer.len()).unwrap() };
     let deserialized = mem_case.uncase();
 
@@ -137,7 +138,7 @@ fn test_read_mmap() {
 
     let mut buffer = Vec::new();
     unsafe { data.serialize(&mut buffer).unwrap() };
-    let cursor = Cursor::new(&buffer);
+    let cursor = <AlignedCursor>::from_slice(&buffer);
     let mmap_case = unsafe { TestData::read_mmap(cursor, buffer.len(), Flags::empty()).unwrap() };
     let deserialized = mmap_case.uncase();
 
@@ -151,7 +152,7 @@ fn test_into_iter() {
 
     let mut buffer = Vec::new();
     unsafe { data.serialize(&mut buffer).unwrap() };
-    let cursor = Cursor::new(&buffer);
+    let cursor = <AlignedCursor>::from_slice(&buffer);
     let mem_case = unsafe { Vec::<i32>::read_mem(cursor, buffer.len()).unwrap() };
     let deserialized = mem_case.uncase();
 
@@ -166,8 +167,9 @@ fn test_deref() {
 
     let mut buffer = Vec::new();
     unsafe { data.serialize(&mut buffer).unwrap() };
-    let cursor = Cursor::new(&buffer);
-    let mem_case = unsafe { Vec::<i32>::read_mem(cursor, buffer.len()).unwrap() };
+    let cursor = <AlignedCursor>::from_slice(&buffer);
+    let mem_case: MemCase<Vec<i32>> =
+        unsafe { Vec::<i32>::read_mem(cursor, buffer.len()).unwrap() };
 
     assert_eq!(&data[..], &*mem_case);
     for (d, m) in data.iter().zip(mem_case.iter()) {

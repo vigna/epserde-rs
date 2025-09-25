@@ -6,7 +6,7 @@
 
 use core::slice;
 #[cfg(feature = "std")]
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Seek, SeekFrom};
 
 use maligned::{A16, Alignment};
 
@@ -49,6 +49,20 @@ impl<T: Alignment> AlignedCursor<T> {
             pos: 0,
             len: 0,
         }
+    }
+
+    /// Make an [`AlignedCursor`] from a slice, this will copy all the data to
+    /// guarantee the alignment.
+    pub fn from_slice(data: &[u8]) -> Self {
+        #[cfg(not(feature = "std"))]
+        use crate::ser::WriteNoStd;
+        #[cfg(feature = "std")]
+        use std::io::Write;
+
+        let mut cursor = Self::with_capacity(data.len());
+        cursor.write_all(data).unwrap();
+        cursor.set_position(0);
+        cursor
     }
 
     /// Consume this cursor, returning the underlying storage and the length of
@@ -119,8 +133,71 @@ impl<T: Alignment> Default for AlignedCursor<T> {
     }
 }
 
+#[cfg(not(feature = "std"))]
+/// this, and [ReadNoStd](crate::deser::ReadNoStd) impls for [`AlignedCursor`]
+/// are gated because we want AlignedCursor to implement std::io::Read and
+/// std::io::Write when std is available, and we have a blanket impl that
+/// implements ReadNoStd and WriteNoStd for all std::io::Read and std::io::Write types.
+/// This is needed so the user can transparently use our traits with std::io::Read and
+/// std::io::Write.
+/// But this means that if we implemented ReadNoStd and WriteNoStd for AlignedCursor
+/// when std is available, we would have two conflicting impls.
+impl<T: Alignment> crate::deser::ReadNoStd for AlignedCursor<T> {
+    fn read_exact(&mut self, buf: &mut [u8]) -> crate::deser::Result<()> {
+        if self.pos >= self.len {
+            return Ok(());
+        }
+        if self.pos + buf.len() > self.len {
+            return Err(crate::deser::Error::ReadError);
+        }
+        let pos = self.pos;
+        let rem = self.len - pos;
+        let to_copy = core::cmp::min(buf.len(), rem) as usize;
+        buf[..to_copy].copy_from_slice(&self.as_bytes()[pos..pos + to_copy]);
+        self.pos += to_copy;
+        Ok(())
+    }
+}
+
+#[cfg(not(feature = "std"))]
+impl<T: Alignment> crate::ser::WriteNoStd for AlignedCursor<T> {
+    fn write_all(&mut self, buf: &[u8]) -> crate::ser::Result<()> {
+        let len = buf.len().min(usize::MAX - self.pos);
+        if !buf.is_empty() && len == 0 {
+            return Err(crate::ser::Error::WriteError);
+        }
+
+        let cap = self.vec.len().saturating_mul(core::mem::size_of::<T>());
+        let rem = cap - self.pos;
+        if rem < len {
+            self.vec.resize(
+                (self.pos + len).div_ceil(core::mem::size_of::<T>()),
+                T::default(),
+            );
+        }
+
+        let pos = self.pos;
+
+        // SAFETY: we now have enough space in the vec.
+        let bytes = unsafe {
+            slice::from_raw_parts_mut(
+                self.vec.as_mut_ptr() as *mut u8,
+                self.vec.len() * core::mem::size_of::<T>(),
+            )
+        };
+        bytes[pos..pos + len].copy_from_slice(buf);
+        self.pos += len;
+        self.len = self.len.max(self.pos);
+        Ok(())
+    }
+
+    fn flush(&mut self) -> crate::ser::Result<()> {
+        Ok(())
+    }
+}
+
 #[cfg(feature = "std")]
-impl<T: Alignment> Read for AlignedCursor<T> {
+impl<T: Alignment> std::io::Read for AlignedCursor<T> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         if self.pos >= self.len {
             return Ok(0);
@@ -135,7 +212,7 @@ impl<T: Alignment> Read for AlignedCursor<T> {
 }
 
 #[cfg(feature = "std")]
-impl<T: Alignment> Write for AlignedCursor<T> {
+impl<T: Alignment> std::io::Write for AlignedCursor<T> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let len = buf.len().min(usize::MAX - self.pos);
         if !buf.is_empty() && len == 0 {
@@ -163,7 +240,7 @@ impl<T: Alignment> Write for AlignedCursor<T> {
                 self.vec.len() * core::mem::size_of::<T>(),
             )
         };
-        bytes[pos..pos + len].copy_from_slice(buf);
+        bytes[pos..pos + len].copy_from_slice(&buf[..len]);
         self.pos += len;
         self.len = self.len.max(self.pos);
         Ok(len)
@@ -214,6 +291,11 @@ mod tests {
     use super::*;
     use anyhow::Result;
 
+    #[cfg(not(feature = "std"))]
+    use crate::{deser::ReadNoStd, ser::WriteNoStd};
+    #[cfg(feature = "std")]
+    use std::io::{Read, Seek, SeekFrom, Write};
+
     #[test]
     fn test_aligned_cursor() -> Result<()> {
         let mut cursor = AlignedCursor::<A16>::new();
@@ -228,40 +310,42 @@ mod tests {
             assert_eq!(i.to_ne_bytes(), buf);
         }
 
-        for i in (0..1000).rev() {
-            let mut buf = [0; core::mem::size_of::<usize>()];
-            let pos = cursor.seek(SeekFrom::Start(i * core::mem::size_of::<usize>() as u64))?;
-            assert_eq!(pos, cursor.position() as u64);
-            cursor.read_exact(&mut buf).unwrap();
-            assert_eq!(i.to_ne_bytes(), buf);
+        #[cfg(feature = "std")]
+        {
+            for i in (0..1000).rev() {
+                let mut buf = [0; core::mem::size_of::<usize>()];
+                let pos = cursor.seek(SeekFrom::Start(i * core::mem::size_of::<usize>() as u64))?;
+                assert_eq!(pos, cursor.position() as u64);
+                cursor.read_exact(&mut buf).unwrap();
+                assert_eq!(i.to_ne_bytes(), buf);
+            }
+
+            for i in (0..1000).rev() {
+                let mut buf = [0; core::mem::size_of::<usize>()];
+                let pos = cursor.seek(SeekFrom::End(
+                    (-i - 1) * core::mem::size_of::<usize>() as i64,
+                ))?;
+                assert_eq!(pos, cursor.position() as u64);
+                cursor.read_exact(&mut buf).unwrap();
+                assert_eq!((999 - i).to_ne_bytes(), buf);
+            }
+
+            cursor.set_position(0);
+
+            for i in 0_usize..500 {
+                let mut buf = [0; core::mem::size_of::<usize>()];
+                let pos = cursor.seek(SeekFrom::Current(core::mem::size_of::<usize>() as i64))?;
+                assert_eq!(pos, cursor.position() as u64);
+                cursor.read_exact(&mut buf).unwrap();
+                assert_eq!((i * 2 + 1).to_ne_bytes(), buf);
+            }
+
+            assert!(
+                cursor
+                    .seek(SeekFrom::End(-1001 * core::mem::size_of::<usize>() as i64,))
+                    .is_err()
+            );
         }
-
-        for i in (0..1000).rev() {
-            let mut buf = [0; core::mem::size_of::<usize>()];
-            let pos = cursor.seek(SeekFrom::End(
-                (-i - 1) * core::mem::size_of::<usize>() as i64,
-            ))?;
-            assert_eq!(pos, cursor.position() as u64);
-            cursor.read_exact(&mut buf).unwrap();
-            assert_eq!((999 - i).to_ne_bytes(), buf);
-        }
-
-        cursor.set_position(0);
-
-        for i in 0_usize..500 {
-            let mut buf = [0; core::mem::size_of::<usize>()];
-            let pos = cursor.seek(SeekFrom::Current(core::mem::size_of::<usize>() as i64))?;
-            assert_eq!(pos, cursor.position() as u64);
-            cursor.read_exact(&mut buf).unwrap();
-            assert_eq!((i * 2 + 1).to_ne_bytes(), buf);
-        }
-
-        assert!(
-            cursor
-                .seek(SeekFrom::End(-1001 * core::mem::size_of::<usize>() as i64,))
-                .is_err()
-        );
-
         Ok(())
     }
 }

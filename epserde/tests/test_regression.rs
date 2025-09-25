@@ -111,8 +111,11 @@ fn test_stdlib_types() {
     use core::ops::{
         Bound, ControlFlow, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
     };
+    #[cfg(feature = "std")]
     use std::collections::hash_map::DefaultHasher;
+    #[cfg(feature = "std")]
     assert_eq!(get_type_hash::<DefaultHasher>(), 0x216366ce6df79e86);
+
     assert_eq!(get_type_hash::<Range<i32>>(), 0x837a1968d53dcff1);
     assert_eq!(get_align_hash::<Range<i32>>(), 0xde0fd80637b3a4da);
     assert_eq!(get_type_hash::<RangeFrom<i32>>(), 0xad8267db843d93b8);

@@ -5,11 +5,16 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+#[cfg(not(feature = "std"))]
+fn main() {}
+
+#[cfg(feature = "std")]
 /// Example of a nested struct in which one of the fields
 /// of the inner struct is recursively ε-copied, as its
 /// type is a parameter. We also serialize on file.
 use epserde::prelude::*;
 
+#[cfg(feature = "std")]
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct StructParam<A, B> {
     a: A,
@@ -17,6 +22,7 @@ struct StructParam<A, B> {
     test: isize,
 }
 
+#[cfg(feature = "std")]
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A> {
     a: A,
@@ -25,8 +31,10 @@ struct Data<A> {
     b: Vec<i32>,
 }
 
+#[cfg(feature = "std")]
 type Struct = StructParam<Vec<usize>, Data<Vec<u16>>>;
 
+#[cfg(feature = "std")]
 fn main() {
     // Create a new value to serialize
     let s = Struct {

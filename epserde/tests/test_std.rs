@@ -26,8 +26,7 @@ where
     for<'a> DeserType<'a, Deser>: PartialEq<OwnedSer> + core::fmt::Debug,
 {
     {
-        let mut v = vec![];
-        let mut cursor = std::io::Cursor::new(&mut v);
+        let mut cursor = <AlignedCursor>::new();
 
         let mut schema = unsafe { s.serialize_with_schema(&mut cursor)? };
         schema.0.sort_by_key(|a| a.offset);
@@ -36,22 +35,22 @@ where
         let full_copy = unsafe { <Deser>::deserialize_full(&mut cursor)? };
         assert_eq!(&full_copy, deref(&s));
 
-        let full_copy = unsafe { <Deser>::deserialize_eps(&v)? };
+        let full_copy = unsafe { <Deser>::deserialize_eps(cursor.as_bytes())? };
         assert_eq!(&full_copy, deref(&s));
 
+        drop(full_copy);
         let _ = schema.to_csv();
-        let _ = schema.debug(&v);
+        let _ = schema.debug(cursor.as_bytes());
     }
     {
-        let mut v = vec![];
-        let mut cursor = std::io::Cursor::new(&mut v);
+        let mut cursor = <AlignedCursor>::new();
         unsafe { s.serialize(&mut cursor)? };
 
         cursor.set_position(0);
         let full_copy = unsafe { <Deser>::deserialize_full(&mut cursor)? };
         assert_eq!(&full_copy, deref(&s));
 
-        let full_copy = unsafe { <Deser>::deserialize_eps(&v)? };
+        let full_copy = unsafe { <Deser>::deserialize_eps(cursor.as_bytes())? };
         assert_eq!(&full_copy, deref(&s));
     }
 

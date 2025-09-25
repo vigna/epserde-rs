@@ -12,26 +12,26 @@ use epserde::prelude::*;
 
 macro_rules! impl_test {
     ($data:expr, $ty:ty) => {{
-        let mut v = vec![];
-        let mut cursor = std::io::Cursor::new(&mut v);
+        let mut cursor = <AlignedCursor>::new();
 
         let _ = unsafe { $data.serialize_with_schema(&mut cursor).unwrap() };
 
-        let full_copy = unsafe { <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
+        cursor.set_position(0);
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor).unwrap() };
         assert_eq!($data, full_copy);
 
-        let eps_copy = unsafe { <$ty>::deserialize_eps(&v).unwrap() };
+        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes()).unwrap() };
         assert_eq!($data, eps_copy);
     }
     {
-        let mut v = vec![];
-        let mut cursor = std::io::Cursor::new(&mut v);
+        let mut cursor = <AlignedCursor>::new();
         unsafe { $data.serialize(&mut cursor).unwrap() };
 
-        let full_copy = unsafe { <$ty>::deserialize_full(&mut std::io::Cursor::new(&v)).unwrap() };
+        cursor.set_position(0);
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor).unwrap() };
         assert_eq!($data, full_copy);
 
-        let eps_copy = unsafe { <$ty>::deserialize_eps(&v).unwrap() };
+        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes()).unwrap() };
         assert_eq!($data, eps_copy);
     }};
 }

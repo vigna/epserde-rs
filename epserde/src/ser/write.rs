@@ -8,6 +8,8 @@
 //! No-std support for writing while keeping track of the current position.
 
 use crate::prelude::*;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 /// [`std::io::Write`]-like trait for serialization that does not
 /// depend on [`std`].
@@ -37,6 +39,17 @@ impl<W: Write> WriteNoStd for W {
     #[inline(always)]
     fn flush(&mut self) -> ser::Result<()> {
         Write::flush(self).map_err(|_| ser::Error::WriteError)
+    }
+}
+
+#[cfg(not(feature = "std"))]
+impl WriteNoStd for Vec<u8> {
+    fn write_all(&mut self, buf: &[u8]) -> ser::Result<()> {
+        self.extend_from_slice(buf);
+        Ok(())
+    }
+    fn flush(&mut self) -> ser::Result<()> {
+        Ok(())
     }
 }
 
