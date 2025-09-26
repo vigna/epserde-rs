@@ -8,6 +8,7 @@
 //! Traits to mark types as zero-copy or deep-copy.
 
 use crate::{
+    deser::DeserInner,
     prelude::AlignTo,
     ser::SerInner,
     traits::{AlignHash, TypeHash},
@@ -93,16 +94,32 @@ pub unsafe trait CopyType: Sized {
     type Copy: CopySelector;
 }
 
-/// Marker trait for zero-copy types. You should never implement
-/// this trait directly, but rather implement [`CopyType`] with `Copy=Zero`.
+/// Marker trait for zero-copy types. You cannot implement this trait directly:
+/// you rather implement the trait binding it, and then it is automatically
+/// implemented by a blanket implementation.
+///
+/// Note that we require `SerInner<SerType = Self>` but just `DeserInner` and
+/// not, say, `DeserInner<DeserType<'_> = &Self>`, which would be natural for
+/// user-defined zero-copy types, because most primitive types have have
+/// deserialization type `Self`.
 pub trait ZeroCopy:
-    CopyType<Copy = Zero> + Copy + SerInner<SerType = Self> + TypeHash + AlignHash + AlignTo + 'static
+    CopyType<Copy = Zero>
+    + Copy
+    + DeserInner
+    + SerInner<SerType = Self>
+    + TypeHash
+    + AlignHash
+    + AlignTo
+    + 'static
 {
 }
+
 impl<
+    'a,
     T: CopyType<Copy = Zero>
         + Copy
         + SerInner<SerType = Self>
+        + DeserInner
         + TypeHash
         + AlignHash
         + AlignTo
@@ -111,7 +128,12 @@ impl<
 {
 }
 
-/// Marker trait for deep-copy types. You should never implement
-/// this trait directly, but rather implement [`CopyType`] with `Copy=Deep`.
+/// Marker trait for deep-copy types. You cannot implement this trait directly:
+/// you rather implement the traits binding it, and then it is automatically
+/// implemented by a blanket implementation.
+///
+/// Note that we require `SerInner` but not `DeserInner` to make the
+/// serialization of undeserializable types possible (for example, iterators).
 pub trait DeepCopy: CopyType<Copy = Deep> + SerInner<SerType: TypeHash + AlignHash> {}
+
 impl<T: CopyType<Copy = Deep> + SerInner<SerType: TypeHash + AlignHash>> DeepCopy for T {}

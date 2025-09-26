@@ -164,8 +164,17 @@ pub trait SerInner {
 /// Blanket implementation that prevents the user from overwriting the
 /// methods in [`Serialize`].
 ///
-/// This implementation [writes a header](`write_header`) containing some hashes
-/// and debug information and then delegates to [WriteWithNames::write].
+/// This implementation [writes a header](`write_header`) containing a magic
+/// cookie, some hashes and debug information and then delegates to
+/// [WriteWithNames::write].
+///
+/// # Implementation Notes
+///
+/// Note the bound on the serialization type or `T`: we need to be able to
+/// compute type and alignment hashes for it. We could bind the serialization
+/// type itself in the definition of [`SerInner`], but having the bound here
+/// instead gives us more flexibility and makes the implementation of [`Owned`]
+/// possible.
 impl<T: SerInner<SerType: TypeHash + AlignHash>> Serialize for T {
     unsafe fn ser_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // write the header using the serialization type, not the type itself

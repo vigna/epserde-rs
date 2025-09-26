@@ -26,10 +26,7 @@ pub fn check_zero_copy<V: SerInner>() {
 ///
 /// This function makes the appropriate checks, write the necessary padding and
 /// then calls [`ser_zero_unchecked`].
-pub fn ser_zero<V: ZeroCopy + SerInner>(
-    backend: &mut impl WriteWithNames,
-    value: &V,
-) -> ser::Result<()> {
+pub fn ser_zero<V: ZeroCopy>(backend: &mut impl WriteWithNames, value: &V) -> ser::Result<()> {
     check_zero_copy::<V>();
     backend.align::<V>()?;
     ser_zero_unchecked(backend, value)
@@ -41,7 +38,7 @@ pub fn ser_zero<V: ZeroCopy + SerInner>(
 ///
 /// Note that this method uses a single [`write_all`](std::io::Write::write_all)
 /// call to write the entire structure.
-pub fn ser_zero_unchecked<V: ZeroCopy + SerInner>(
+pub fn ser_zero_unchecked<V: ZeroCopy>(
     backend: &mut impl WriteWithNames,
     value: &V,
 ) -> ser::Result<()> {
@@ -58,7 +55,7 @@ pub fn ser_zero_unchecked<V: ZeroCopy + SerInner>(
 /// call to write the entire slice.
 ///
 /// Here we check [that the type is actually zero-copy](SerInner::IS_ZERO_COPY).
-pub fn ser_slice_zero<V: SerInner + ZeroCopy>(
+pub fn ser_slice_zero<V: ZeroCopy>(
     backend: &mut impl WriteWithNames,
     data: &[V],
 ) -> ser::Result<()> {

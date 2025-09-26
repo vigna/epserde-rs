@@ -80,9 +80,7 @@ impl<'a, T: ZeroCopy, I: ExactSizeIterator<Item = &'a T>> SerHelper<Zero> for Se
     }
 }
 
-impl<'a, T: DeepCopy + SerInner, I: ExactSizeIterator<Item = &'a T>> SerHelper<Deep>
-    for SerIter<'a, T, I>
-{
+impl<'a, T: DeepCopy, I: ExactSizeIterator<Item = &'a T>> SerHelper<Deep> for SerIter<'a, T, I> {
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         check_mismatch::<T>();
         // This code must be kept aligned with that of Vec<T> for deep-copy
