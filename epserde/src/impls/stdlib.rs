@@ -256,7 +256,7 @@ impl DeserInner for RangeFull {
     }
 }
 
-unsafe impl<T: CopyType> CopyType for Bound<T> {
+unsafe impl<T> CopyType for Bound<T> {
     type Copy = Deep;
 }
 
@@ -317,7 +317,7 @@ impl<T: DeserInner> DeserInner for Bound<T> {
     }
 }
 
-unsafe impl<B: CopyType, C: CopyType> CopyType for ControlFlow<B, C> {
+unsafe impl<B, C> CopyType for ControlFlow<B, C> {
     type Copy = Deep;
 }
 
