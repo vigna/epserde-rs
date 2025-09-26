@@ -754,10 +754,14 @@ There is analogously a blanket implementation for the [`ZeroCopy`] trait for all
 types implementing [`CopyType`] with associated type [`CopyType::Copy`] equal to
 [`Zero`] and also implementing [`Copy`], [`TypeHash`], [`AlignHash`],
 [`AlignTo`] and [`SerInner`] with [`SerInner::SerType`] equal to `Self`; they
-must also outlive the `'static` lifetime, and be `repr(C)`. Zero-copy types
-cannot contain any reference, but this condition cannot be checked by the
-compiler (`'static` does not prevent, say, references to string constants),
-which is why [`CopyType`] is unsafe.
+must also outlive the `'static` lifetime, and be `repr(C)`. Note that in this
+case we bind the original type, rather than the serialization type,
+because zero-copy types are always serialized as themselves, and all fields
+of a zero-copy type are zero-copy as well.
+
+Zero-copy types cannot contain any reference, but this condition cannot be
+checked by the compiler (`'static` does not prevent, say, references to string
+constants), which is why [`CopyType`] is unsafe.
 
 Deep-copy types are types that must be serialized and deserialized field by
 field.
@@ -795,8 +799,8 @@ The only exception to this rule is for type parameters that appear inside a
 [`PhantomDeserData`], which must be replaceable.
 
 The fundamental idea at the basis of ε-serde is that replaceable parameters make
-it possible to refer to serialized zero-copy data without copying it. For
-example, given a structure
+it possible for an instance of a deserialization type to refer to serialized
+zero-copy data without copying it. For example, given a structure
 
 ```rust
 struct Good<A> {
@@ -806,48 +810,48 @@ struct Good<A> {
 
 if `A` is `Vec<Z>` and `Z` is zero-copy, then we can deserialize an instance of
 `Good<Vec<Z>>` from in-memory data by replacing `Vec<Z>` with `&[Z]`, and the
-resulting structure will have type `Good<&[Z]>`: the slice will refer directly
-to the serialized data, and only a small fraction of the structure (a pointer
-and an integer) will need to be allocated—hence, the term “ε-copy”.
+resulting structure will have deserialization type `Good<&[Z]>`: the slice will
+refer directly to the serialized data, and only a small fraction of the
+structure (a pointer and an integer) will need to be allocated—hence, the term
+“ε-copy”.
 
 This replacement happens recursively thanks to Rust's type system. As long as
 `impl` sections are written in terms of traits implemented by both the original
-and the replaced type, the code will work transparently on both types; in this
-case, methods should be written with the bound `A: AsRef<[Z]>`.
+type and on its associated deserialization type, the code will work
+transparently on both types; in this case, methods should be written with the
+bound `A: AsRef<[Z]>`.
 
 ### Serialization and deserialization
 
 An ε-serde serialization process involves two types:
 
 * `S`, the _serializable type_, which is the type of the instance you want to
-  serialize. It must implement [`SerInner`] (which implies
-  [`Serialize`] by a blanket implementation).
+  serialize. It must implement [`SerInner`] with associated type
+  [`SerInner::SerType`] implementing [`TypeHash`] and [`ReprHash`] (which
+  implies [`Serialize`] on `S` by a blanket implementation).
 
-* Its associated _serialization type_ [`S::SerType`], which must implement
-  [`TypeHash`] and [`ReprHash`].
+* Its associated _serialization type_ `<S as SerInner>::SerType`.
 
 In general the serialization type of `S` is `S`, but there is some normalization
 and erasure involved (e.g., vectors become boxed slices, and some smart pointers
-such as [`Rc`] are erased). Moreover, for convenience a few types that are not
-really serializable have a convenience serialization type (e.g., iterators
-become boxed slices). The derivation of the serialization type will be detailed
-later, but the key feature is that when deriving the serialization type of `S`
-replaceable type parameters of `S` are replaced with their
-serialization type.
+such as [`Rc`] are erased). Moreover, a few types that are not really
+serializable have a convenience serialization type (e.g., iterators become boxed
+slices).
 
-When you invoke serialize on an instance of type `S`, ε-serde writes a type hash
+When you invoke serialize on an instance of type `S`, ε-serde writes a [type hash]
 which is derived from [`S::SerType`], and which represents the definition of the
-type (copy type, field names, types, etc.), an alignment hash which is derived
+type (copy type, field names, types, etc.), an [alignment hash] which is derived
 from the alignment of [`S::SerType`] (essentially, recording where padding had
 been inserted in the zero-copy parts of the type), and then recursively the data
 contained in the instance.
 
 An ε-serde deserialization process involves instead three types:
 
-* `D`, the _deserializable type_, which must implement [`DeserInner`],
-  [`TypeHash`], and [`ReprHash`], so the blanket implementation for
-  [`Deserialize`] applies. This is the type on which deserialization
-  methods are invoked.
+* `D`, the _deserializable type_, which must implement [`DeserInner`], and again
+  [`SerInner`] with associated type [`SerInner::SerType`] implementing
+  [`TypeHash`] and [`ReprHash`], so the blanket implementation for
+  [`Deserialize`] applies. This is the type on which deserialization methods are
+  invoked.
 
 * The associated _serialization type_  [`D::SerType`].
 
@@ -1002,8 +1006,9 @@ European Union nor the Italian MUR can be held responsible for them.
 [`DeepCopy`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.DeepCopy.html>
 [`CopyType`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html>
 [`AlignTo`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignTo.html>
+[alignment hash]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignTo.html>
 [`TypeHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html>
-[`ReprHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.ReprHash.html>
+[type hash]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html>
 [`DeserInner`]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html>
 [`Deserialize`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html>
 [`SerInner`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html>

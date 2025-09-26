@@ -373,10 +373,7 @@ pub trait DeserInner: Sized {
 /// by the blanket implementation of [`crate::ser::Serialize`] and then delegates to
 /// [`DeserInner::_deser_full_inner`] or
 /// [`DeserInner::_deser_eps_inner`].
-impl<T: SerInner + DeserInner> Deserialize for T
-where
-    T::SerType: TypeHash + AlignHash,
-{
+impl<T: SerInner<SerType: TypeHash + AlignHash> + DeserInner> Deserialize for T {
     /// # Safety
     ///
     /// See the documentation of [`Deserialize`].
@@ -399,10 +396,9 @@ where
 /// Common header check code for both ε-copy and full-copy deserialization.
 ///
 /// Must be kept in sync with [`crate::ser::write_header`].
-pub fn check_header<T: SerInner>(backend: &mut impl ReadWithPos) -> Result<()>
-where
-    T::SerType: TypeHash + AlignHash,
-{
+pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
+    backend: &mut impl ReadWithPos,
+) -> Result<()> {
     let self_type_name = core::any::type_name::<T>().to_string();
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
     T::SerType::type_hash(&mut type_hasher);

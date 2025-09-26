@@ -179,7 +179,7 @@ impl<T: SerInner<SerType: TypeHash + AlignHash>> Serialize for T {
 
 /// Writes the header.
 ///
-/// Note that `S` is the serialization type, not the serializable type.
+/// Note that `S` is the serializable type, not the serialization type.
 ///
 /// Must be kept in sync with [`crate::deser::check_header`].
 pub fn write_header<S: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) -> Result<()> {

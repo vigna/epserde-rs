@@ -14,6 +14,11 @@
 * Renamed `MaxSizeOf` to `AlignTo` as it includes results from
   `std::mem::align_of`.
 
+### Changed
+
+* The indices of ranges and bounds from the standard library can now be
+  deep-copy.
+
 ## [0.10.1] - 2025-09-25
 
 ### Fixed

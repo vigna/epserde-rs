@@ -12,6 +12,7 @@ extern crate alloc;
 
 #[cfg(not(feature = "std"))]
 use alloc::rc::Rc;
+use std::ops::{Bound, RangeBounds, RangeInclusive};
 #[cfg(feature = "std")]
 use std::rc::Rc;
 
@@ -120,7 +121,7 @@ fn test_ser_rc_ref() {
     unsafe { Serialize::serialize(&Rc::new(v.as_slice()), &mut cursor).unwrap() };
     cursor.set_position(0);
     let s = unsafe { <Rc<Box<[i32]>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
-    dbg!(s);
+    assert_eq!(&*s, &v);
 }
 
 #[test]
@@ -132,5 +133,18 @@ fn test_ref_field() {
     unsafe { Serialize::serialize(&Rc::new(Data(v.as_slice())), &mut cursor).unwrap() };
     cursor.set_position(0);
     let s = unsafe { <Rc<Data<Box<[i32]>>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
-    dbg!(s);
+    assert_eq!(&*s.0, &v);
+}
+
+#[test]
+fn test_range_bound_deep_copy_idx() {
+    let r = RangeInclusive::new("a".to_string(), "b".to_string());
+    let mut cursor = <AlignedCursor<A16>>::new();
+    unsafe { r.serialize(&mut cursor).unwrap() };
+    cursor.set_position(0);
+    let full = unsafe { RangeInclusive::<String>::deserialize_full(&mut cursor).unwrap() };
+    assert_eq!(full, r);
+    let eps = unsafe { RangeInclusive::<String>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    assert_eq!(eps.start_bound(), Bound::Included(&"a"));
+    assert_eq!(eps.end_bound(), Bound::Included(&"b"));
 }
