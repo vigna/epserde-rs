@@ -1004,7 +1004,7 @@ fn gen_type_hash_body(
     quote! {
         use ::core::hash::Hash;
         use ::epserde::traits::TypeHash;
-        use ::epserde::ser::SerInner;
+        use ::epserde::ser::SerType;
 
         // Hash in copy type
         Hash::hash(#copy_type, hasher);
@@ -1039,7 +1039,7 @@ fn gen_struct_align_hash_body(
         quote! {
             use ::core::hash::Hash;
             use ::epserde::traits::AlignHash;
-            use ::epserde::ser::SerInner;
+            use ::epserde::ser::SerType;
 
             // Hash in size, as padding is given by MaxSizeOf.
             // and it is independent of the architecture.
@@ -1061,7 +1061,7 @@ fn gen_struct_align_hash_body(
     } else {
         quote! {
             use ::epserde::traits::AlignHash;
-            use ::epserde::ser::SerInner;
+            use ::epserde::ser::SerType;
 
             // Hash in all fields starting at offset 0
             #(
@@ -1081,7 +1081,7 @@ fn gen_enum_align_hash_body(
         quote! {
             use ::core::hash::Hash;
             use ::epserde::traits::AlignHash;
-            use ::epserde::ser::SerInner;
+            use ::epserde::ser::SerType;
 
             // Hash in size, as padding is given by MaxSizeOf.
             // and it is independent of the architecture.
@@ -1102,6 +1102,9 @@ fn gen_enum_align_hash_body(
     } else {
         // Hash in all fields starting at offset 0
         quote! {
+            use ::epserde::traits::AlignHash;
+            use ::epserde::ser::SerType;
+
             #(
                 *offset_of = 0;
                 #all_align_hashes
@@ -1114,7 +1117,7 @@ fn gen_enum_align_hash_body(
 fn gen_struct_max_size_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
     quote! {
         use ::epserde::traits::MaxSizeOf;
-        use ::epserde::ser::SerInner;
+        use ::epserde::ser::SerType;
 
         let mut max_size_of = ::core::mem::align_of::<Self>();
 
@@ -1165,6 +1168,7 @@ fn gen_type_info_traits(
 
         #[automatically_derived]
         impl #generics_for_impl ::epserde::traits::AlignHash for #name #generics_for_type #align_hash_where_clause {
+
             fn align_hash(
                 hasher: &mut impl ::core::hash::Hasher,
                 offset_of: &mut usize,
@@ -1192,7 +1196,7 @@ fn gen_struct_type_info_impl(
         field_names.push(get_field_name(field, field_idx));
         field_types.push(field_type);
 
-        field_types_ts.push(quote! { ::epserde::ser::SerType<#field_type> });
+        field_types_ts.push(quote! { SerType<#field_type> });
     }
 
     let (type_hash_where_clause, align_hash_where_clause, max_size_of_where_clause) =
@@ -1253,7 +1257,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                     let field_type = &field.ty;
                     field_types.push(field_type);
 
-                    let field_type_ts = quote! { ::epserde::ser::SerType<#field_type> };
+                    let field_type_ts = quote! { SerType<#field_type> };
 
                     type_hash.extend([quote! {
                         Hash::hash(stringify!(#field_name), hasher);
@@ -1287,7 +1291,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                     let field_type = &field.ty;
                     field_types.push(field_type);
 
-                    let field_type_ts = quote! { ::epserde::ser::SerType<#field_type> };
+                    let field_type_ts = quote! { SerType<#field_type> };
 
                     type_hash.extend([quote! {
                         Hash::hash(#field_name, hasher);
