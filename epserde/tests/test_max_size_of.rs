@@ -33,8 +33,8 @@ struct MyStruct {
 #[test]
 /// Check that we don't have any collision on most types
 fn test_align_of_align() {
-    assert_eq!(64, MyStruct64::align_of());
-    assert_eq!(MyStruct::align_of(), MyStruct2::align_of());
+    assert_eq!(64, MyStruct64::align_to());
+    assert_eq!(MyStruct::align_to(), MyStruct2::align_to());
 
     let x = MyStruct { u: 0x89 };
     let mut cursor = <AlignedCursor<A16>>::new();

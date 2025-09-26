@@ -8,7 +8,7 @@
 //! Traits to mark types as zero-copy or deep-copy.
 
 use crate::{
-    prelude::AlignOf,
+    prelude::AlignTo,
     ser::SerInner,
     traits::{AlignHash, TypeHash},
 };
@@ -47,7 +47,7 @@ impl CopySelector for Deep {
 /// The trait comes in two flavors: `CopySelector<Type=Zero>` and
 /// `CopySelector<Type=Deep>`. To each of these flavors corresponds two
 /// dependent traits, [`ZeroCopy`] (which requires implementing [`Copy`],
-/// [`AlignOf`], and be `'static`) and [`DeepCopy`], which are automatically
+/// [`AlignTo`], and be `'static`) and [`DeepCopy`], which are automatically
 /// implemented.
 ///
 /// You should not implement this trait manually, but rather use
@@ -96,7 +96,7 @@ pub unsafe trait CopyType: Sized {
 /// Marker trait for zero-copy types. You should never implement
 /// this trait directly, but rather implement [`CopyType`] with `Copy=Zero`.
 pub trait ZeroCopy:
-    CopyType<Copy = Zero> + Copy + SerInner<SerType = Self> + TypeHash + AlignHash + AlignOf + 'static
+    CopyType<Copy = Zero> + Copy + SerInner<SerType = Self> + TypeHash + AlignHash + AlignTo + 'static
 {
 }
 impl<
@@ -105,7 +105,7 @@ impl<
         + SerInner<SerType = Self>
         + TypeHash
         + AlignHash
-        + AlignOf
+        + AlignTo
         + 'static,
 > ZeroCopy for T
 {

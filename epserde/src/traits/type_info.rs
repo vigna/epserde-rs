@@ -90,14 +90,14 @@ pub(crate) fn std_align_hash<T: ZeroCopy>(
 /// A trait providing the desired alignment of zero-copy types in serialized
 /// data.
 ///
-/// We use the value returned by [`AlignOf::align_of`] to generate padding
+/// We use the value returned by [`AlignTo::align_to`] to generate padding
 /// before storing a zero-copy type. Note that this is different from the
 /// padding used to align the same type inside a struct, which is not under our
 /// control and is given by [`core::mem::align_of`].
 ///
 /// The alignment returned by this function is computed by maximizing the
 /// alignment required by the type itself (i.e., [`core::mem::align_of`]) and
-/// the [`AlignOf::align_of`] of its fields; moreover, [`AlignOf::align_of`] of
+/// the [`AlignTo::align_to`] of its fields; moreover, [`AlignTo::align_to`] of
 /// primitive types is defined using the size, rather than the value returned by
 /// [`core::mem::align_of`]. In this way we increase interoperability between
 /// architectures with different alignment requirements for the same types
@@ -106,7 +106,7 @@ pub(crate) fn std_align_hash<T: ZeroCopy>(
 /// By maximizing with [`core::mem::align_of`] we ensure that we provide
 /// sufficient alignment in case the attribute `repr(align(N))` was specified.
 ///
-/// Deep-copy types do not need to implement [`AlignOf`].
-pub trait AlignOf: Sized {
-    fn align_of() -> usize;
+/// Deep-copy types do not need to implement [`AlignTo`].
+pub trait AlignTo: Sized {
+    fn align_to() -> usize;
 }

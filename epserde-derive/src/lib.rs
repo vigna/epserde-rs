@@ -295,7 +295,7 @@ fn add_ser_deser_trait_bounds(
         add_trait_bound(
             ser_where_clause,
             ty,
-            syn::parse_quote!(::epserde::traits::AlignOf),
+            syn::parse_quote!(::epserde::traits::AlignTo),
         );
         add_trait_bound(
             deser_where_clause,
@@ -377,7 +377,7 @@ fn gen_ser_deser_where_clauses(
     (ser_where_clause, deser_where_clause)
 }
 
-/// Generates the where clauses for `TypeHash`, `AlignHash`, and `AlignOf`.
+/// Generates the where clauses for `TypeHash`, `AlignHash`, and `AlignTo`.
 ///
 /// The where clauses bound all field types with the trait being implemented,
 /// thus propagating the trait recursively, with the proviso that in case of a
@@ -430,7 +430,7 @@ fn gen_type_info_where_clauses(
     let align_hash = gen_type_info_where_clause(bound_align_hash);
 
     let mut bound_align_of = Punctuated::new();
-    bound_align_of.push(syn::parse_quote!(::epserde::traits::AlignOf));
+    bound_align_of.push(syn::parse_quote!(::epserde::traits::AlignTo));
     let align_of = gen_type_info_where_clause(bound_align_of);
 
     (type_hash, align_hash, align_of)
@@ -897,7 +897,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
 /// Generates an [ε-serde](Epserde) implementation for custom types.
 ///
-/// It generates implementations for the traits `CopyType`, `AlignOf`,
+/// It generates implementations for the traits `CopyType`, `AlignTo`,
 /// `TypeHash`, `AlignHash`, `SerInner`, and `DeserInner`.
 ///
 /// Presently we do not support unions, where clauses on the original type,
@@ -1041,7 +1041,7 @@ fn gen_struct_align_hash_body(
             use ::epserde::traits::AlignHash;
             use ::epserde::ser::SerType;
 
-            // Hash in size, as padding is given by AlignOf.
+            // Hash in size, as padding is given by AlignTo.
             // and it is independent of the architecture.
             Hash::hash(&::core::mem::size_of::<Self>(), hasher);
 
@@ -1083,7 +1083,7 @@ fn gen_enum_align_hash_body(
             use ::epserde::traits::AlignHash;
             use ::epserde::ser::SerType;
 
-            // Hash in size, as padding is given by AlignOf.
+            // Hash in size, as padding is given by AlignTo.
             // and it is independent of the architecture.
             Hash::hash(&::core::mem::size_of::<Self>(), hasher);
 
@@ -1113,17 +1113,17 @@ fn gen_enum_align_hash_body(
     }
 }
 
-/// Generates the `AlignOf` implementation body for struct types.
+/// Generates the `AlignTo` implementation body for struct types.
 fn gen_struct_align_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
     quote! {
-        use ::epserde::traits::AlignOf;
+        use ::epserde::traits::AlignTo;
         use ::epserde::ser::SerType;
 
         let mut align_of = ::core::mem::align_of::<Self>();
 
         #(
-            if align_of < <#fields_types as AlignOf>::align_of() {
-                align_of = <#fields_types as AlignOf>::align_of();
+            if align_of < <#fields_types as AlignTo>::align_to() {
+                align_of = <#fields_types as AlignTo>::align_to();
             }
         )*
         align_of
@@ -1131,7 +1131,7 @@ fn gen_struct_align_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenSt
 }
 
 /// Generates the implementations for `TypeHash`, `AlignHash`, and
-/// optionally `AlignOf`.
+/// optionally `AlignTo`.
 fn gen_type_info_traits(
     ctx: TypeInfoContext,
     type_hash_where_clause: syn::WhereClause,
@@ -1148,8 +1148,8 @@ fn gen_type_info_traits(
     let align_of_impl = if let Some(align_of_body) = align_of_body {
         quote! {
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::traits::AlignOf for #name #generics_for_type #align_of_where_clause {
-                fn align_of() -> usize {
+            impl #generics_for_impl ::epserde::traits::AlignTo for #name #generics_for_type #align_of_where_clause {
+                fn align_to() -> usize {
                     #align_of_body
                 }
             }
@@ -1269,8 +1269,8 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                     }]);
 
                     align_of.extend([quote! {
-                        if align_of < <#field_type as AlignOf>::align_of() {
-                            align_of = <#field_type as AlignOf>::align_of();
+                        if align_of < <#field_type as AlignTo>::align_to() {
+                            align_of = <#field_type as AlignTo>::align_to();
                         }
                     }]);
 
@@ -1303,8 +1303,8 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                     }]);
 
                     align_of.extend([quote! {
-                        if align_of < <#field_type as AlignOf>::align_of() {
-                            align_of = <#field_type as AlignOf>::align_of();
+                        if align_of < <#field_type as AlignTo>::align_to() {
+                            align_of = <#field_type as AlignTo>::align_to();
                         }
                     }]);
 
@@ -1358,7 +1358,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 
 /// Generates a [partial ε-serde](TypeInfo) implementation for custom types.
 ///
-/// It generates implementations just for the traits `CopyType`, `AlignOf`,
+/// It generates implementations just for the traits `CopyType`, `AlignTo`,
 /// `TypeHash`, and `AlignHash`. See the documentation of [`Epserde`] for
 /// more information.
 #[proc_macro_derive(TypeInfo, attributes(zero_copy, deep_copy))]

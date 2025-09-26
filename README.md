@@ -66,14 +66,14 @@ These are the main limitations you should be aware of before choosing to use
   deserialization, they require that your type is written and used in a specific
   way for ε-copy deserialization to work properly; in particular, the fields you
   want to ε-copy must be type parameters implementing [`DeserInner`], to which a
-  [deserialized type] is associated. For example, we provide implementations for
-  `Vec<T>`/`Box<[T]>`, where `T` is zero-copy, or `String`/`Box<str>`, which
-  have associated deserialized type `&[T]` or `&str`, respectively. Vectors and
-  boxed slices whose elements are not zero-copy will be deserialized recursively
-  in memory instead.
+  [deserialization type] is associated. For example, we provide implementations
+  for `Vec<T>`/`Box<[T]>`, where `T` is zero-copy, or `String`/`Box<str>`, which
+  have associated deserialization type `&[T]` or `&str`, respectively. Vectors
+  and boxed slices whose elements are not zero-copy will be deserialized
+  recursively in memory instead.
 
 - After deserialization of an instance of type `T`, you will obtain an instance
-  of an associated deserialized type [`DeserType<'_,T>`], which will usually
+  of an associated deserialization type [`DeserType<'_,T>`], which will usually
   reference the underlying serialized support (e.g., a memory-mapped region);
   hence the need for a lifetime. If you need to store the deserialized instance
   in a field of a new structure you will need to couple permanently the instance
@@ -95,7 +95,7 @@ These are the main limitations you should be aware of before choosing to use
   as the one you serialized, except that type parameters will be replaced by
   their associated deserialization type (e.g., vectors will become references to
   slices). This is not the case with [rkiv], which requires you to reimplement
-  all methods on a new, different deserialized type.
+  all methods on a new, different deserialization type.
 
 - The structure you get by deserialization has exactly the same performance as
   the structure you serialized. This is not the case with [zerovec] or [rkiv].
@@ -164,7 +164,7 @@ a reference to the array; moreover, the [`MemCase`] can be passed to other
 functions or stored in a structure field, as it contains both the structure and
 the memory-mapped region that supports it.
 
-The type alias [`DeserType`] can be used to derive the deserialized type
+The type alias [`DeserType`] can be used to derive the deserialization type
 associated with a type. It contains a lifetime, which is the lifetime of the
 memory region containing the serialized data. When deserializing into a
 [`MemCase`], however, the lifetime is `'static`, as [`MemCase`] is an owned
@@ -286,7 +286,7 @@ field reordering is beneficial for memory usage).
 
 More flexibility can be obtained by defining types with fields whose types are
 defined by parameters. In this case, ε-serde will deserialize instances of the
-type replacing its type parameters with the associated deserialized type.
+type replacing its type parameters with the associated deserialization type.
 
 Let us design a structure that will contain an integer, which will be copied,
 and a vector of integers that we want to ε-copy:
@@ -337,7 +337,7 @@ creates a new structure `MyStruct`, ε-copying the original data. The second cal
 creates a full copy instead. We can write methods for our structure that will
 work for the ε-copied version: we just have to take care that they are defined
 in a way that will work both on the original type parameter and on its
-associated deserialized type; we can also use `type` to reduce the clutter:
+associated deserialization type; we can also use `type` to reduce the clutter:
 
 ```rust
 # use epserde::prelude::*;
@@ -730,10 +730,10 @@ It this section we describe in a somewhat formal way the specification of
 
 The two main traits of ε-serde are [`SerInner`] and [`DeserInner`], which
 specify respectively how to serialize and deserialize a type. [`SerInner`] has
-an associated _serialized type_ [`SerType`], which is the type that will be
+an associated _serialization type_ [`SerType`], which is the type that will be
 actually serialized; this approach makes it possible, for example, to serialize
-iterators as boxed slices. [`DeserInner`] has an associated _deserialized type_
-[`DeserType<'_>`], which has a lifetime and will be used to deserialize
+iterators as boxed slices. [`DeserInner`] has an associated _deserialization
+type_ [`DeserType<'_>`], which has a lifetime and will be used to deserialize
 instances from in-memory data, mostly referencing to such data instead of
 copying it: we call this process _ε-copy deserialization_.
 
@@ -747,13 +747,13 @@ implementation are considered deep-copy.
 There is a blanket implementation for the [`DeepCopy`] trait for all types
 implementing [`CopyType`] with associated type [`CopyType::Copy`] equal to
 [`Deep`] and also implementing [`SerInner`] with [`SerInner::SerType`]
-implementing [`TypeHash`] and [`ReprHash`] (i.e., the serialized type must
+implementing [`TypeHash`] and [`ReprHash`] (i.e., the serialization type must
 implement such traits).
 
 There is analogously a blanket implementation for the [`ZeroCopy`] trait for all
 types implementing [`CopyType`] with associated type [`CopyType::Copy`] equal to
 [`Zero`] and also implementing [`Copy`], [`TypeHash`], [`AlignHash`],
-[`AlignOf`] and [`SerInner`] with [`SerInner::SerType`] equal to `Self`; they
+[`AlignTo`] and [`SerInner`] with [`SerInner::SerType`] equal to `Self`; they
 must also outlive the `'static` lifetime, and be `repr(C)`. Zero-copy types
 cannot contain any reference, but this condition cannot be checked by the
 compiler (`'static` does not prevent, say, references to string constants),
@@ -980,11 +980,11 @@ will make it fully functional with ε-serde. The attribute `#[zero_copy]` can be
 used to make a structure zero-copy, albeit it must satisfy [a few
 prerequisites].
 
-You can also implement manually the traits [`CopyType`], [`AlignOf`],
+You can also implement manually the traits [`CopyType`], [`AlignTo`],
 [`TypeHash`], [`ReprHash`], [`SerInner`], and [`DeserInner`], but
 the process is error-prone, and you must be fully aware of ε-serde's
 conventions. The procedural macro [`TypeInfo`] can be used to generate
-automatically at least [`CopyType`], [`AlignOf`], [`TypeHash`], and
+automatically at least [`CopyType`], [`AlignTo`], [`TypeHash`], and
 [`ReprHash`] automatically.
 
 ## Acknowledgments
@@ -1001,7 +1001,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [`ZeroCopy`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.ZeroCopy.html>
 [`DeepCopy`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.DeepCopy.html>
 [`CopyType`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html>
-[`AlignOf`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignOf.html>
+[`AlignTo`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignTo.html>
 [`TypeHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html>
 [`ReprHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.ReprHash.html>
 [`DeserInner`]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html>
@@ -1020,7 +1020,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [`Deserialize::read_mmap`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.read_mmap>
 [`Deserialize::mmap`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.mmap>
 [a few prerequisites]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html>
-[deserialized type]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html#associatedtype.DeserType>
+[deserialization type]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html#associatedtype.DeserType>
 [`DeserType<'_>`]: <https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html>
 [`DeserType<'_,T>`]: <https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html>
 [`sux`]: <http://crates.io/sux/>

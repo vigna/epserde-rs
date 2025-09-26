@@ -35,9 +35,9 @@ impl<T: AlignHash, const N: usize> AlignHash for [T; N] {
     }
 }
 
-impl<T: AlignOf, const N: usize> AlignOf for [T; N] {
-    fn align_of() -> usize {
-        T::align_of()
+impl<T: AlignTo, const N: usize> AlignTo for [T; N] {
+    fn align_to() -> usize {
+        T::align_to()
     }
 }
 

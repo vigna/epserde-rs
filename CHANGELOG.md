@@ -11,7 +11,7 @@
 
 * Revised bound propagation (again).
 
-* Renamed `MaxSizeOf` to `AlignOf` as it includes results from
+* Renamed `MaxSizeOf` to `AlignTo` as it includes results from
   `std::mem::align_of`.
 
 ## [0.10.1] - 2025-09-25
@@ -34,7 +34,7 @@
 
 * New `SerType` type alias, analogous to `DeserType`.
 
-* Major internal code restructuring: `TypeHash`/`AlignHash`/`AlignOf` are now
+* Major internal code restructuring: `TypeHash`/`AlignHash`/`AlignTo` are now
   computed on the serialization type, not on the serializable type.
 
 * New convenience serialization implementation for `&str`, in the same vain as
@@ -117,7 +117,7 @@
   not always work, as the associated (de)serialization type of zero-copy
   type is just `Self`.
 
-* Trait bounds for `TypeHash`, `AlignHash` and `AlignOf` were generated
+* Trait bounds for `TypeHash`, `AlignHash` and `AlignTo` were generated
   incorrectly.
 
 ## [0.8.0] - 2025-03-03
@@ -160,7 +160,7 @@
 
 ### Improved
 
-* Added missing implementation of `TypeHash`, `ReprHash`, `AlignOf`,
+* Added missing implementation of `TypeHash`, `ReprHash`, `AlignTo`,
   `SerInner`, `DeserInner` for `Range`, `RangeFrom`, `RangeFull`,
   `RangeInclusive`, `RangeTo`, `RangeToInclusive`, `Bound`, `ControlFlow`.
 
@@ -173,7 +173,7 @@
 
 ### Fixed
 
-* Added missing implementation of AlignOf for PhantomData.
+* Added missing implementation of AlignTo for PhantomData.
 
 ## [0.6.0] - 2024-06-03
 

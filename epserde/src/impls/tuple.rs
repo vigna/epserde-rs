@@ -63,12 +63,12 @@ macro_rules! impl_tuples {
             }
         }
 
-        impl<T: AlignOf> AlignOf for ($($t,)*)
+        impl<T: AlignTo> AlignTo for ($($t,)*)
         {
-            fn align_of() -> usize {
+            fn align_to() -> usize {
                 let mut align_of = 0;
-                $(if align_of < core::cmp::max(align_of, <$t>::align_of()) {
-                    align_of = <$t>::align_of();
+                $(if align_of < core::cmp::max(align_of, <$t>::align_to()) {
+                    align_of = <$t>::align_to();
                 })*
                 align_of
             }
