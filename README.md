@@ -838,12 +838,13 @@ such as [`Rc`] are erased). Moreover, a few types that are not really
 serializable have a convenience serialization type (e.g., iterators become boxed
 slices).
 
-When you invoke serialize on an instance of type `S`, ε-serde writes a [type hash]
-which is derived from [`S::SerType`], and which represents the definition of the
-type (copy type, field names, types, etc.), an [alignment hash] which is derived
-from the alignment of [`S::SerType`] (essentially, recording where padding had
-been inserted in the zero-copy parts of the type), and then recursively the data
-contained in the instance.
+When you invoke serialize on an instance of type `S`, ε-serde writes a magic
+cookie containing version information, a [type hash] which is derived from
+[`S::SerType`], and which represents the definition of the type (copy type,
+field names, types, etc.), an [alignment hash] which is derived from the
+alignment of [`S::SerType`] (essentially, recording where padding had been
+inserted in the zero-copy parts of the type), some debug information, and then
+recursively the data contained in the instance.
 
 An ε-serde deserialization process involves instead three types:
 
@@ -924,27 +925,7 @@ Given a user-defined type `T`:
   instead. (Note that the first rule still applies, so if `Tᵢ` is zero-copy the
   its deserialization type is `&Tᵢ`.)
 
-We can describe the replacements leading to the deserialization type in a
-non-recursive way as follows: consider the syntax tree of the type `D`, in which
-the root, labeled by `D`, is connected to the root of the syntax trees of
-its fields, and each children is further labeled by the name of the field.
-Replacement happens in two cases:
-
-* There is a path starting at the root, traversing only fields whose type is a
-  replaceable parameter, and ending at node that is a vector/boxed slice/array
-  whose elements are zero-copy: it will be replaced with a reference to a
-  slice.
-
-* There is a _shortest_ path starting at the root, traversing only fields whose
-  type is a replaceable parameter, and ending at a node that is zero-copy: it
-  will be replaced with a reference to the same type.
-
-Note the shortest-path condition: this is necessary because when you reach a
-zero-copy type the recursion in the definition of the deserialization type
-stops. Note also that if `D` is zero-copy the empty path satisfies the
-second condition, and indeed `D::DeserType<'_>` is `&D`.
-
-  For standard types and [`PhantomDeserData`], we have:
+For standard types and [`PhantomDeserData`], we have:
 
 * all primitive types, such as `u8`, `i32`, `f64`, `char`, `bool`, etc., `()`,
   and `PhantomData<T>` are zero-copy and their (de)serialization type is
@@ -984,6 +965,26 @@ the deserializable type: for example, if you serialized a `Vec<T>`, you can
 deserialize it fully as a `Box<[T]>`, or an `Rc<Box<[T]>>`, or ε-copy
 deserialize it as an `Arc<&[T]>`, as all these types have the same serialization
 type `Box<[T]>`.
+
+We can describe the replacements leading to the deserialization type in a
+non-recursive way as follows: consider the syntax tree of the type `D`, in which
+the root, labeled by `D`, is connected to the root of the syntax trees of
+its fields, and each children is further labeled by the name of the field.
+Replacement happens in two cases:
+
+* There is a path starting at the root, traversing only fields whose type is a
+  replaceable parameter, and ending at node that is a vector/boxed slice/array
+  whose elements are zero-copy: it will be replaced with a reference to a
+  slice.
+
+* There is a _shortest_ path starting at the root, traversing only fields whose
+  type is a replaceable parameter, and ending at a node that is zero-copy: it
+  will be replaced with a reference to the same type.
+
+Note the shortest-path condition: this is necessary because when you reach a
+zero-copy type the recursion in the definition of the deserialization type
+stops. Note also that if `D` is zero-copy the empty path satisfies the
+second condition, and indeed `D::DeserType<'_>` is `&D`.
 
 ## Derived and hand-made implementations
 
