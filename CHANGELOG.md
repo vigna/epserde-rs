@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.10.3] - 2025-09-26
+
+### Fixed
+
+* Removed usage of `is_multiple_of`.
+
 ## [0.10.2] - 2025-09-26
 
 ### Fixed

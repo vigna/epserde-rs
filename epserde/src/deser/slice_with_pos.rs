@@ -53,12 +53,13 @@ impl ReadWithPos for SliceWithPos<'_> {
     ///
     /// Note that this method also checks that the absolute memory position is
     /// properly aligned.
+	#[allow(clippy::manual_is_multiple_of)]
     fn align<T: AlignTo>(&mut self) -> deser::Result<()> {
         // Skip bytes as needed
         let padding = crate::pad_align_to(self.pos, T::align_to());
         self.skip(padding);
         // Check that the ptr is indeed aligned
-        if !(self.data.as_ptr() as usize).is_multiple_of(T::align_to()) {
+        if self.data.as_ptr() as usize % T::align_to() != 0 {
             Err(Error::AlignmentError)
         } else {
             Ok(())
