@@ -115,7 +115,6 @@ pub trait ZeroCopy:
 }
 
 impl<
-    'a,
     T: CopyType<Copy = Zero>
         + Copy
         + SerInner<SerType = Self>

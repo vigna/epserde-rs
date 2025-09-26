@@ -747,7 +747,7 @@ implementation are considered deep-copy.
 There is a blanket implementation for the [`DeepCopy`] trait for all types
 implementing [`CopyType`] with associated type [`CopyType::Copy`] equal to
 [`Deep`] and also implementing [`SerInner`] with [`SerInner::SerType`]
-implementing [`TypeHash`] and [`ReprHash`] (i.e., the serialization type must
+implementing [`TypeHash`] and [`AlignHash`] (i.e., the serialization type must
 implement such traits).
 
 There is analogously a blanket implementation for the [`ZeroCopy`] trait for all
@@ -827,7 +827,7 @@ An ε-serde serialization process involves two types:
 
 * `S`, the _serializable type_, which is the type of the instance you want to
   serialize. It must implement [`SerInner`] with associated type
-  [`SerInner::SerType`] implementing [`TypeHash`] and [`ReprHash`] (which
+  [`SerInner::SerType`] implementing [`TypeHash`] and [`AlignHash`] (which
   implies [`Serialize`] on `S` by a blanket implementation).
 
 * Its associated _serialization type_ `<S as SerInner>::SerType`.
@@ -849,7 +849,7 @@ An ε-serde deserialization process involves instead three types:
 
 * `D`, the _deserializable type_, which must implement [`DeserInner`], and again
   [`SerInner`] with associated type [`SerInner::SerType`] implementing
-  [`TypeHash`] and [`ReprHash`], so the blanket implementation for
+  [`TypeHash`] and [`AlignHash`], so the blanket implementation for
   [`Deserialize`] applies. This is the type on which deserialization methods are
   invoked.
 
@@ -994,11 +994,11 @@ used to make a structure zero-copy, albeit it must satisfy [a few
 prerequisites].
 
 You can also implement manually the traits [`CopyType`], [`AlignTo`],
-[`TypeHash`], [`ReprHash`], [`SerInner`], and [`DeserInner`], but
+[`TypeHash`], [`AlignHash`], [`SerInner`], and [`DeserInner`], but
 the process is error-prone, and you must be fully aware of ε-serde's
 conventions. The procedural macro [`TypeInfo`] can be used to generate
 automatically at least [`CopyType`], [`AlignTo`], [`TypeHash`], and
-[`ReprHash`] automatically.
+[`AlignHash`] automatically.
 
 ## Acknowledgments
 

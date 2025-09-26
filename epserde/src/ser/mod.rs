@@ -173,8 +173,8 @@ pub trait SerInner {
 /// Note the bound on the serialization type or `T`: we need to be able to
 /// compute type and alignment hashes for it. We could bind the serialization
 /// type itself in the definition of [`SerInner`], but having the bound here
-/// instead gives us more flexibility and makes the implementation of [`Owned`]
-/// possible.
+/// instead gives us more flexibility and makes the implementation of
+/// [`Owned`](crate::deser::Owned) easier.
 impl<T: SerInner<SerType: TypeHash + AlignHash>> Serialize for T {
     unsafe fn ser_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         // write the header using the serialization type, not the type itself
