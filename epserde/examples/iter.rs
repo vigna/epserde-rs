@@ -56,7 +56,7 @@ fn main() {
 
     println!(
         "Original type: {}",
-        core::any::type_name::<Data<Data<SerIter<i32, Iter<'_, i32>>>>>()
+        core::any::type_name::<Data<SerIter<i32, Iter<'_, i32>>>>()
     );
 
     // Serialize the structure

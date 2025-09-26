@@ -413,17 +413,7 @@ fn gen_type_info_where_clauses(
                         lifetimes: None,
                         bounded_ty: field_type.clone(),
                         colon_token: token::Colon::default(),
-                        bounds: syn::parse_quote!(::epserde::ser::SerInner),
-                    }));
-                where_clause
-                    .predicates
-                    .push(WherePredicate::Type(PredicateType {
-                        lifetimes: None,
-                        bounded_ty: syn::parse_quote!(
-                            ::epserde::ser::SerType<#field_type>
-                        ),
-                        colon_token: token::Colon::default(),
-                        bounds: trait_bound.clone(),
+                        bounds: syn::parse_quote!(::epserde::ser::SerInner<SerType: #trait_bound>),
                     }));
             }
         }
@@ -584,8 +574,10 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
+                    use ::epserde::ser::WriteWithNames;
+
                     #(
-                        unsafe { ::epserde::ser::WriteWithNames::write(backend, stringify!(#field_names), &self.#field_names)?; }
+                        unsafe { WriteWithNames::write(backend, stringify!(#field_names), &self.#field_names)?; }
                     )*
                     Ok(())
                 }
@@ -600,7 +592,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
                     Ok(#name{
                         #(
-                            #field_names: unsafe { <#field_types as ::epserde::deser::DeserInner>::_deser_full_inner(backend)? },
+                            #field_names: unsafe { <#field_types as DeserInner>::_deser_full_inner(backend)? },
                         )*
                     })
                 }
