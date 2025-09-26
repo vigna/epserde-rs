@@ -39,8 +39,8 @@ macro_rules! impl_prim_type_hash {
             }
         }
 
-        impl MaxSizeOf for $ty {
-            fn max_size_of() -> usize {
+        impl AlignOf for $ty {
+            fn align_of() -> usize {
                 size_of::<$ty>()
             }
         }
@@ -258,8 +258,8 @@ unsafe impl<T: ?Sized> CopyType for PhantomData<T> {
     type Copy = Zero;
 }
 
-impl<T: ?Sized> MaxSizeOf for PhantomData<T> {
-    fn max_size_of() -> usize {
+impl<T: ?Sized> AlignOf for PhantomData<T> {
+    fn align_of() -> usize {
         0
     }
 }

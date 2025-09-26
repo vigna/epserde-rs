@@ -36,11 +36,11 @@ use alloc::{
 /// which uses the default implementation, and [`SchemaWriter`], which
 /// additionally records a [`Schema`] of the serialized data.
 pub trait WriteWithNames: WriteWithPos + Sized {
-    /// Add some zero padding so that `self.pos() % V:max_size_of() == 0.`
+    /// Add some zero padding so that `self.pos() % V:align_of() == 0.`
     ///
     /// Other implementations must write the same number of zeros.
-    fn align<V: MaxSizeOf>(&mut self) -> Result<()> {
-        let padding = pad_align_to(self.pos(), V::max_size_of());
+    fn align<V: AlignOf>(&mut self) -> Result<()> {
+        let padding = pad_align_to(self.pos(), V::align_of());
         for _ in 0..padding {
             self.write_all(&[0])?;
         }
@@ -193,8 +193,8 @@ impl<W: WriteWithPos> WriteWithPos for SchemaWriter<'_, W> {
 /// WARNING: these implementations must be kept in sync with the ones
 /// in the default implementation of [`WriteWithNames`].
 impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
-    fn align<T: MaxSizeOf>(&mut self) -> Result<()> {
-        let padding = pad_align_to(self.pos(), T::max_size_of());
+    fn align<T: AlignOf>(&mut self) -> Result<()> {
+        let padding = pad_align_to(self.pos(), T::align_of());
         if padding != 0 {
             self.schema.0.push(SchemaRow {
                 field: "PADDING".into(),
@@ -245,7 +245,7 @@ impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
             ty: core::any::type_name::<V>().to_string(),
             offset: self.pos(),
             size: value.len(),
-            align: V::max_size_of(),
+            align: V::align_of(),
         });
         self.path.pop();
 

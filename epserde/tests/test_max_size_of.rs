@@ -32,9 +32,9 @@ struct MyStruct {
 
 #[test]
 /// Check that we don't have any collision on most types
-fn test_max_size_of_align() {
-    assert_eq!(64, MyStruct64::max_size_of());
-    assert_eq!(MyStruct::max_size_of(), MyStruct2::max_size_of());
+fn test_align_of_align() {
+    assert_eq!(64, MyStruct64::align_of());
+    assert_eq!(MyStruct::align_of(), MyStruct2::align_of());
 
     let x = MyStruct { u: 0x89 };
     let mut cursor = <AlignedCursor<A16>>::new();

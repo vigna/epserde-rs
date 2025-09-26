@@ -87,22 +87,26 @@ pub(crate) fn std_align_hash<T: ZeroCopy>(
     *offset_of += core::mem::size_of::<T>();
 }
 
-/// A trait providing the maximum size of a primitive field in a type maximized
-/// with [`core::mem::align_of`].
+/// A trait providing the desired alignment of zero-copy types in serialized
+/// data.
 ///
-/// We use the value returned by [`MaxSizeOf::max_size_of`] to generate padding
+/// We use the value returned by [`AlignOf::align_of`] to generate padding
 /// before storing a zero-copy type. Note that this is different from the
 /// padding used to align the same type inside a struct, which is not under our
 /// control and is given by [`core::mem::align_of`].
 ///
-/// In this way we increase interoperability between architectures with
-/// different alignment requirements for the same types (e.g., 4 or 8 bytes for
-/// `u64`).
+/// The alignment returned by this function is computed by maximizing the
+/// alignment required by the type itself (i.e., [`core::mem::align_of`]) and
+/// the [`AlignOf::align_of`] of its fields; moreover, [`AlignOf::align_of`] of
+/// primitive types is defined using the size, rather than the value returned by
+/// [`core::mem::align_of`]. In this way we increase interoperability between
+/// architectures with different alignment requirements for the same types
+/// (e.g., 4 or 8 bytes for `u64`).
 ///
 /// By maximizing with [`core::mem::align_of`] we ensure that we provide
 /// sufficient alignment in case the attribute `repr(align(N))` was specified.
 ///
-/// Deep-copy types do not need to implement [`MaxSizeOf`].
-pub trait MaxSizeOf: Sized {
-    fn max_size_of() -> usize;
+/// Deep-copy types do not need to implement [`AlignOf`].
+pub trait AlignOf: Sized {
+    fn align_of() -> usize;
 }

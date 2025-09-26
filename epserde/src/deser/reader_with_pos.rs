@@ -44,9 +44,9 @@ impl<F: ReadNoStd> ReadWithPos for ReaderWithPos<'_, F> {
         self.pos
     }
 
-    fn align<T: MaxSizeOf>(&mut self) -> deser::Result<()> {
+    fn align<T: AlignOf>(&mut self) -> deser::Result<()> {
         // Skip bytes as needed
-        let padding = crate::pad_align_to(self.pos, T::max_size_of());
+        let padding = crate::pad_align_to(self.pos, T::align_of());
         self.read_exact(&mut vec![0; padding])?;
         // No alignment check, we are fully deserializing
         Ok(())

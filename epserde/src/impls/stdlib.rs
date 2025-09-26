@@ -74,8 +74,8 @@ impl AlignHash for RangeFull {
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl MaxSizeOf for RangeFull {
-    fn max_size_of() -> usize {
+impl AlignOf for RangeFull {
+    fn align_of() -> usize {
         0
     }
 }

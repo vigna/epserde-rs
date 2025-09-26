@@ -726,31 +726,50 @@ difference if you access both versions using the trait [`BitFieldSlice`].
 It this section we describe in a somewhat formal way the specification of
 ε-serde. We suggest to get acquainted with the examples before reading it.
 
+### The main traits
+
+The two main traits of ε-serde are [`SerInner`] and [`DeserInner`], which
+specify respectively how to serialize and deserialize a type. [`SerInner`] has
+an associated _serialized type_ [`SerType`], which is the type that will be
+actually serialized; this approach makes it possible, for example, to serialize
+iterators as boxed slices. [`DeserInner`] has an associated _deserialized type_
+[`DeserType<'_>`], which has a lifetime and will be used to deserialize
+instances from in-memory data, mostly referencing to such data instead of
+copying it: we call this process _ε-copy deserialization_.
+
 ### Types
 
 Within ε-serde, types are classified as [_deep-copy_] or [_zero-copy_], usually
 by implementing the unsafe [`CopyType`] trait with associated type
 [`CopyType::Copy`] equal to [`Deep`] or [`Zero`]; types without such an
-implementation are considered deep-copy. There is a blanket implementation for
-the [`DeepCopy`] marker trait for all types implementing [`CopyType`] with
-associated type [`CopyType::Copy`] equal to [`Deep`]. Zero-copy types must also
-implement [`Copy`], [`MaxSizeOf`]; they must also outlive `'static` lifetime, and be
-`repr(C)`. Under those conditions, there is a similar blanket implementation for
-the [`ZeroCopy`] marker trait. Zero-copy types cannot contain any reference, but
-this condition cannot be checked by the compiler (`'static` does not prevent,
-say, references to string constants), which is why [`CopyType`] is unsafe.
+implementation are considered deep-copy.
 
-Zero-copy types have the property that their memory representation can
-be serialized as a sequence of bytes; a reference to the sequence is then
-a valid reference to an instance of the type. This happens because `repr(C)`
+There is a blanket implementation for the [`DeepCopy`] trait for all types
+implementing [`CopyType`] with associated type [`CopyType::Copy`] equal to
+[`Deep`] and also implementing [`SerInner`] with [`SerInner::SerType`]
+implementing [`TypeHash`] and [`ReprHash`] (i.e., the serialized type must
+implement such traits).
+
+There is analogously a blanket implementation for the [`ZeroCopy`] trait for all
+types implementing [`CopyType`] with associated type [`CopyType::Copy`] equal to
+[`Zero`] and also implementing [`Copy`], [`TypeHash`], [`AlignHash`],
+[`AlignOf`] and [`SerInner`] with [`SerInner::SerType`] equal to `Self`; they
+must also outlive the `'static` lifetime, and be `repr(C)`. Zero-copy types
+cannot contain any reference, but this condition cannot be checked by the
+compiler (`'static` does not prevent, say, references to string constants),
+which is why [`CopyType`] is unsafe.
+
+Deep-copy types are types that must be serialized and deserialized field by
+field.
+
+Zero-copy types instead have the property that their memory representation can
+be serialized as a sequence of bytes; a reference to the sequence is then a
+valid reference to an instance of the type. This happens because `repr(C)`
 guarantees a fixed memory layout, and because the type does not contain any
 reference to other data.
 
-Deep-copy types instead are types must can be serialized and deserialized
-field by field.
-
-Note that all fields of a type you want to (de)serialize must be of a type
-implementing [`CopyType`] for the derive code to work.
+Note that all fields of a type you want to (de)serialize must implement
+[`CopyType`] for the derive code to work.
 
 ### Replaceable and irreplaceable parameters
 
@@ -961,11 +980,11 @@ will make it fully functional with ε-serde. The attribute `#[zero_copy]` can be
 used to make a structure zero-copy, albeit it must satisfy [a few
 prerequisites].
 
-You can also implement manually the traits [`CopyType`], [`MaxSizeOf`],
+You can also implement manually the traits [`CopyType`], [`AlignOf`],
 [`TypeHash`], [`ReprHash`], [`SerInner`], and [`DeserInner`], but
 the process is error-prone, and you must be fully aware of ε-serde's
 conventions. The procedural macro [`TypeInfo`] can be used to generate
-automatically at least [`CopyType`], [`MaxSizeOf`], [`TypeHash`], and
+automatically at least [`CopyType`], [`AlignOf`], [`TypeHash`], and
 [`ReprHash`] automatically.
 
 ## Acknowledgments
@@ -982,7 +1001,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [`ZeroCopy`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.ZeroCopy.html>
 [`DeepCopy`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.DeepCopy.html>
 [`CopyType`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html>
-[`MaxSizeOf`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.MaxSizeOf.html>
+[`AlignOf`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignOf.html>
 [`TypeHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html>
 [`ReprHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.ReprHash.html>
 [`DeserInner`]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html>
@@ -1002,6 +1021,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [`Deserialize::mmap`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.mmap>
 [a few prerequisites]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html>
 [deserialized type]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html#associatedtype.DeserType>
+[`DeserType<'_>`]: <https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html>
 [`DeserType<'_,T>`]: <https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html>
 [`sux`]: <http://crates.io/sux/>
 [serde]: <https://serde.rs/>
@@ -1023,6 +1043,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [`BitFieldSlice`]: <https://docs.rs/sux/latest/sux/traits/bit_field_slice/trait.BitFieldSlice.html>
 [`S::SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType>
 [`D::SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType>
+[`SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType>
 [`D::DeserType<'_>`]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html#associatedtype.DeserType>
 [`Read`]: <https://doc.rust-lang.org/std/io/trait.Read.html>
 [`read_exact`]: <https://doc.rust-lang.org/std/io/trait.Read.html#method.read_exact>

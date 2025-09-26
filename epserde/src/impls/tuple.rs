@@ -63,14 +63,14 @@ macro_rules! impl_tuples {
             }
         }
 
-        impl<T: MaxSizeOf> MaxSizeOf for ($($t,)*)
+        impl<T: AlignOf> AlignOf for ($($t,)*)
         {
-            fn max_size_of() -> usize {
-                let mut max_size_of = 0;
-                $(if max_size_of < core::cmp::max(max_size_of, <$t>::max_size_of()) {
-                    max_size_of = <$t>::max_size_of();
+            fn align_of() -> usize {
+                let mut align_of = 0;
+                $(if align_of < core::cmp::max(align_of, <$t>::align_of()) {
+                    align_of = <$t>::align_of();
                 })*
-                max_size_of
+                align_of
             }
         }
 

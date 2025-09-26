@@ -53,12 +53,12 @@ impl ReadWithPos for SliceWithPos<'_> {
     ///
     /// Note that this method also checks that the absolute memory position is
     /// properly aligned.
-    fn align<T: MaxSizeOf>(&mut self) -> deser::Result<()> {
+    fn align<T: AlignOf>(&mut self) -> deser::Result<()> {
         // Skip bytes as needed
-        let padding = crate::pad_align_to(self.pos, T::max_size_of());
+        let padding = crate::pad_align_to(self.pos, T::align_of());
         self.skip(padding);
         // Check that the ptr is indeed aligned
-        if !(self.data.as_ptr() as usize).is_multiple_of(T::max_size_of()) {
+        if !(self.data.as_ptr() as usize).is_multiple_of(T::align_of()) {
             Err(Error::AlignmentError)
         } else {
             Ok(())

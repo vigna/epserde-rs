@@ -35,9 +35,9 @@ impl<T: AlignHash, const N: usize> AlignHash for [T; N] {
     }
 }
 
-impl<T: MaxSizeOf, const N: usize> MaxSizeOf for [T; N] {
-    fn max_size_of() -> usize {
-        T::max_size_of()
+impl<T: AlignOf, const N: usize> AlignOf for [T; N] {
+    fn align_of() -> usize {
+        T::align_of()
     }
 }
 

@@ -19,7 +19,7 @@ pub use epserde_derive::{Epserde, TypeInfo};
 use crate::{
     deser::{DeserInner, DeserType, ReadWithPos, SliceWithPos},
     ser::{SerInner, WriteWithNames},
-    traits::{AlignHash, CopyType, MaxSizeOf, TypeHash, Zero},
+    traits::{AlignHash, AlignOf, CopyType, TypeHash, Zero},
 };
 
 pub mod deser;
@@ -125,9 +125,9 @@ unsafe impl<T> CopyType for PhantomDeserData<T> {
     type Copy = Zero;
 }
 
-impl<T> MaxSizeOf for PhantomDeserData<T> {
+impl<T> AlignOf for PhantomDeserData<T> {
     #[inline(always)]
-    fn max_size_of() -> usize {
+    fn align_of() -> usize {
         0
     }
 }
