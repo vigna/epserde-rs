@@ -291,7 +291,7 @@ impl<T: ?Sized> SerInner for PhantomData<T> {
 impl<T: ?Sized> DeserInner for PhantomData<T> {
     #[inline(always)]
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        Ok(PhantomData::<T>)
+        Ok(PhantomData)
     }
     type DeserType<'a> = Self;
     #[inline(always)]

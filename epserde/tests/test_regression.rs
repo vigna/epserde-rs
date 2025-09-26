@@ -103,7 +103,6 @@ fn test_tuple_types() {
 #[test]
 fn test_vec_types() {
     assert_eq!(get_type_hash::<Vec<i32>>(), 0x400f9211e94c1834);
-    assert_eq!(get_align_hash::<Vec<i32>>(), 0x6881f435bc0ca85f);
 }
 
 #[test]

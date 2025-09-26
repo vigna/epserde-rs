@@ -8,7 +8,7 @@
 use super::*;
 use crate::prelude::*;
 
-/// [`std::io::Cursor`]-like trait for deserialization that does not
+/// `std::io::Cursor`-like trait for deserialization that does not
 /// depend on [`std`].
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
@@ -51,14 +51,14 @@ impl ReadWithPos for SliceWithPos<'_> {
 
     /// Pad the cursor to the correct alignment.
     ///
-    /// Note that this method also checks that
-    /// the absolute memory position is properly aligned.
+    /// Note that this method also checks that the absolute memory position is
+    /// properly aligned.
     fn align<T: MaxSizeOf>(&mut self) -> deser::Result<()> {
         // Skip bytes as needed
         let padding = crate::pad_align_to(self.pos, T::max_size_of());
         self.skip(padding);
         // Check that the ptr is indeed aligned
-        if self.data.as_ptr() as usize % T::max_size_of() != 0 {
+        if !(self.data.as_ptr() as usize).is_multiple_of(T::max_size_of()) {
             Err(Error::AlignmentError)
         } else {
             Ok(())

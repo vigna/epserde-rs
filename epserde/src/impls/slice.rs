@@ -36,7 +36,7 @@ impl<T: TypeHash> TypeHash for [T] {
 
 impl<T: CopyType + SerInner<SerType: TypeHash + AlignHash>> SerInner for &[T]
 where
-    Box<[T]>: SerHelper<<T as CopyType>::Copy>,
+    Box<[T]>: SerInner,
 {
     type SerType = Box<[T::SerType]>;
     const IS_ZERO_COPY: bool = false;

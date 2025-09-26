@@ -74,7 +74,7 @@ macro_rules! impl_tuples {
             }
         }
 
-		impl<T: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner for ($($t,)*) {
+		impl<T: ZeroCopy> SerInner for ($($t,)*) {
             type SerType = Self;
             const IS_ZERO_COPY: bool = true;
             const ZERO_COPY_MISMATCH: bool = false;
@@ -85,7 +85,7 @@ macro_rules! impl_tuples {
             }
         }
 
-		impl<T: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> DeserInner for ($($t,)*) {
+		impl<T: ZeroCopy> DeserInner for ($($t,)*) {
             type DeserType<'a> = &'a ($($t,)*);
             unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
                 unsafe { deser_full_zero::<($($t,)*)>(backend) }

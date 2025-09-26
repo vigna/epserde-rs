@@ -280,7 +280,7 @@ fn add_ser_deser_trait_bounds(
         add_trait_bound(
             ser_where_clause,
             ty,
-            syn::parse_quote!(::epserde::ser::SerInner),
+            syn::parse_quote!(::epserde::ser::SerInner<SerType = #ty>),
         );
         add_trait_bound(
             ser_where_clause,
@@ -387,7 +387,6 @@ fn gen_type_info_where_clauses(
     base_clause: &WhereClause,
     is_zero_copy: bool,
     field_types: &[&syn::Type],
-    repl_params: &HashSet<&syn::Ident>,
 ) -> (WhereClause, WhereClause, WhereClause) {
     // Generates one of the clauses by adding the given trait bound for all
     // types of fields.
@@ -1194,7 +1193,6 @@ fn gen_struct_type_info_impl(
     let mut field_names = vec![];
     let mut field_types = vec![];
     let mut field_types_ts = vec![];
-    let mut repl_params = HashSet::new();
 
     // Extract field information
     for (field_idx, field) in s.fields.iter().enumerate() {
@@ -1206,12 +1204,7 @@ fn gen_struct_type_info_impl(
     }
 
     let (type_hash_where_clause, align_hash_where_clause, max_size_of_where_clause) =
-        gen_type_info_where_clauses(
-            ctx.where_clause,
-            ctx.is_zero_copy,
-            &field_types,
-            &repl_params,
-        );
+        gen_type_info_where_clauses(ctx.where_clause, ctx.is_zero_copy, &field_types);
 
     // Generate field hashes for TypeHash
     let mut field_hashes: Vec<_> = field_names
@@ -1338,12 +1331,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
     }
 
     let (where_clause_type_hash, where_clause_align_hash, where_clause_max_size_of) =
-        gen_type_info_where_clauses(
-            ctx.where_clause,
-            ctx.is_zero_copy,
-            &all_field_types,
-            &all_repl_params,
-        );
+        gen_type_info_where_clauses(ctx.where_clause, ctx.is_zero_copy, &all_field_types);
 
     let type_hash_body = gen_type_hash_body(&ctx, &all_type_hashes);
     let align_hash_body = gen_enum_align_hash_body(&ctx, &all_align_hashes);

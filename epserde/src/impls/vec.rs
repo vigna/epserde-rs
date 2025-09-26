@@ -22,19 +22,14 @@ unsafe impl<T> CopyType for Vec<T> {
     type Copy = Deep;
 }
 
+// For use with PhantomData
 impl<T: TypeHash> TypeHash for Vec<T> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         <Box<[T]>>::type_hash(hasher);
     }
 }
 
-impl<T: AlignHash> AlignHash for Vec<T> {
-    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
-        T::align_hash(hasher, &mut 0);
-    }
-}
-
-impl<T: CopyType + SerInner<SerType: TypeHash + AlignHash>> SerInner for Vec<T>
+impl<T: CopyType + SerInner> SerInner for Vec<T>
 where
     Vec<T>: SerHelper<<T as CopyType>::Copy>,
 {
@@ -46,14 +41,14 @@ where
     }
 }
 
-impl<T: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerHelper<Zero> for Vec<T> {
+impl<T: ZeroCopy> SerHelper<Zero> for Vec<T> {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         ser_slice_zero(backend, self.as_slice())
     }
 }
 
-impl<T: DeepCopy + SerInner<SerType: TypeHash + AlignHash>> SerHelper<Deep> for Vec<T> {
+impl<T: DeepCopy> SerHelper<Deep> for Vec<T> {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         ser_slice_deep(backend, self.as_slice())

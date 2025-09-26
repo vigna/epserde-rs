@@ -53,18 +53,14 @@ where
     }
 }
 
-impl<T: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>, const N: usize> SerHelper<Zero>
-    for [T; N]
-{
+impl<T: ZeroCopy, const N: usize> SerHelper<Zero> for [T; N] {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         ser_zero(backend, self)
     }
 }
 
-impl<T: DeepCopy + SerInner<SerType: TypeHash + AlignHash>, const N: usize> SerHelper<Deep>
-    for [T; N]
-{
+impl<T: DeepCopy, const N: usize> SerHelper<Deep> for [T; N] {
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         for item in self.iter() {
             backend.write("item", item)?;

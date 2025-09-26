@@ -8,15 +8,16 @@
 //! Implementation for structures from the standard library.
 //!
 //! Note that none of this types can be zero-copy (unless they are empty, as in
-//! the case of [`RangeFull`](core::ops::RangeFull)), because they are not
+//! the case of [`RangeFull`](RangeFull)), because they are not
 //! `repr(C)`.
 //!
 use ser::WriteWithNames;
 
 use crate::prelude::*;
-use core::{
-    hash::Hash,
-    ops::{Bound, RangeBounds},
+use core::hash::Hash;
+use core::ops::{
+    Bound, ControlFlow, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo,
+    RangeToInclusive,
 };
 
 #[cfg(feature = "std")]
@@ -33,27 +34,21 @@ impl TypeHash for DefaultHasher {
 
 macro_rules! impl_ranges {
     ($ty:ident) => {
-        unsafe impl<Idx: ZeroCopy> CopyType for core::ops::$ty<Idx> {
+        unsafe impl<Idx: ZeroCopy> CopyType for $ty<Idx> {
             type Copy = Deep;
         }
 
-        impl<Idx: ZeroCopy + TypeHash> TypeHash for core::ops::$ty<Idx> {
+        impl<Idx: ZeroCopy> TypeHash for $ty<Idx> {
             fn type_hash(hasher: &mut impl core::hash::Hasher) {
                 stringify!(core::ops::$ty).hash(hasher);
                 Idx::type_hash(hasher);
             }
         }
 
-        impl<Idx: ZeroCopy + AlignHash> AlignHash for core::ops::$ty<Idx> {
+        impl<Idx: ZeroCopy> AlignHash for $ty<Idx> {
             fn align_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
                 crate::traits::std_align_hash::<Idx>(hasher, offset_of);
                 crate::traits::std_align_hash::<Idx>(hasher, offset_of);
-            }
-        }
-
-        impl<Idx: MaxSizeOf> MaxSizeOf for core::ops::$ty<Idx> {
-            fn max_size_of() -> usize {
-                core::mem::size_of::<Self>()
             }
         }
     };
@@ -67,27 +62,27 @@ impl_ranges!(RangeToInclusive);
 
 // RangeFull is a zero-sized type, so it is always zero-copy.
 
-unsafe impl CopyType for core::ops::RangeFull {
+unsafe impl CopyType for RangeFull {
     type Copy = Zero;
 }
 
-impl TypeHash for core::ops::RangeFull {
+impl TypeHash for RangeFull {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         stringify!(core::ops::RangeFull).hash(hasher);
     }
 }
 
-impl AlignHash for core::ops::RangeFull {
+impl AlignHash for RangeFull {
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl MaxSizeOf for core::ops::RangeFull {
+impl MaxSizeOf for RangeFull {
     fn max_size_of() -> usize {
         0
     }
 }
 
-impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner for core::ops::Range<Idx> {
+impl<Idx: ZeroCopy> SerInner for Range<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -100,27 +95,25 @@ impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner for core:
     }
 }
 
-impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::Range<Idx> {
+impl<Idx: ZeroCopy + DeserInner> DeserInner for Range<Idx> {
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let start = unsafe { Idx::_deser_full_inner(backend) }?;
         let end = unsafe { Idx::_deser_full_inner(backend) }?;
-        Ok(core::ops::Range { start, end })
+        Ok(Range { start, end })
     }
-    type DeserType<'a> = core::ops::Range<DeserType<'a, Idx>>;
+    type DeserType<'a> = Range<DeserType<'a, Idx>>;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let start = unsafe { Idx::_deser_eps_inner(backend) }?;
         let end = unsafe { Idx::_deser_eps_inner(backend) }?;
-        Ok(core::ops::Range { start, end })
+        Ok(Range { start, end })
     }
 }
 
-impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner
-    for core::ops::RangeFrom<Idx>
-{
+impl<Idx: ZeroCopy> SerInner for RangeFrom<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -132,25 +125,23 @@ impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner
     }
 }
 
-impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeFrom<Idx> {
+impl<Idx: ZeroCopy + DeserInner> DeserInner for RangeFrom<Idx> {
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let start = unsafe { Idx::_deser_full_inner(backend) }?;
-        Ok(core::ops::RangeFrom { start })
+        Ok(RangeFrom { start })
     }
-    type DeserType<'a> = core::ops::RangeFrom<DeserType<'a, Idx>>;
+    type DeserType<'a> = RangeFrom<DeserType<'a, Idx>>;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let start = unsafe { Idx::_deser_eps_inner(backend) }?;
-        Ok(core::ops::RangeFrom { start })
+        Ok(RangeFrom { start })
     }
 }
 
-impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner
-    for core::ops::RangeInclusive<Idx>
-{
+impl<Idx: ZeroCopy> SerInner for RangeInclusive<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -164,7 +155,7 @@ impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner
     }
 }
 
-impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeInclusive<Idx> {
+impl<Idx: ZeroCopy + DeserInner> DeserInner for RangeInclusive<Idx> {
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let start = unsafe { Idx::_deser_full_inner(backend) }?;
@@ -173,7 +164,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeInclusive<Idx> {
         assert!(!exhausted, "cannot deserialize an exhausted range");
         Ok(start..=end)
     }
-    type DeserType<'a> = core::ops::RangeInclusive<DeserType<'a, Idx>>;
+    type DeserType<'a> = RangeInclusive<DeserType<'a, Idx>>;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
@@ -186,7 +177,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeInclusive<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner for core::ops::RangeTo<Idx> {
+impl<Idx: ZeroCopy> SerInner for RangeTo<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -198,13 +189,13 @@ impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner for core:
     }
 }
 
-impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeTo<Idx> {
+impl<Idx: ZeroCopy + DeserInner> DeserInner for RangeTo<Idx> {
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let end = unsafe { Idx::_deser_full_inner(backend) }?;
         Ok(..end)
     }
-    type DeserType<'a> = core::ops::RangeTo<DeserType<'a, Idx>>;
+    type DeserType<'a> = RangeTo<DeserType<'a, Idx>>;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
@@ -214,9 +205,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeTo<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner
-    for core::ops::RangeToInclusive<Idx>
-{
+impl<Idx: ZeroCopy> SerInner for RangeToInclusive<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -228,13 +217,13 @@ impl<Idx: ZeroCopy + SerInner<SerType: TypeHash + AlignHash>> SerInner
     }
 }
 
-impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeToInclusive<Idx> {
+impl<Idx: ZeroCopy + DeserInner> DeserInner for RangeToInclusive<Idx> {
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let end = unsafe { Idx::_deser_full_inner(backend) }?;
         Ok(..=end)
     }
-    type DeserType<'a> = core::ops::RangeToInclusive<DeserType<'a, Idx>>;
+    type DeserType<'a> = RangeToInclusive<DeserType<'a, Idx>>;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
@@ -244,7 +233,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for core::ops::RangeToInclusive<Idx>
     }
 }
 
-impl SerInner for core::ops::RangeFull {
+impl SerInner for RangeFull {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -255,48 +244,48 @@ impl SerInner for core::ops::RangeFull {
     }
 }
 
-impl DeserInner for core::ops::RangeFull {
+impl DeserInner for RangeFull {
     #[inline(always)]
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        Ok(core::ops::RangeFull)
+        Ok(RangeFull)
     }
-    type DeserType<'a> = core::ops::RangeFull;
+    type DeserType<'a> = RangeFull;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        Ok(core::ops::RangeFull)
+        Ok(RangeFull)
     }
 }
 
-unsafe impl<T: CopyType> CopyType for core::ops::Bound<T> {
+unsafe impl<T: CopyType> CopyType for Bound<T> {
     type Copy = Deep;
 }
 
-impl<T: TypeHash> TypeHash for core::ops::Bound<T> {
+impl<T: TypeHash> TypeHash for Bound<T> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         stringify!(core::ops::Bound).hash(hasher);
         T::type_hash(hasher);
     }
 }
 
-impl<T> AlignHash for core::ops::Bound<T> {
+impl<T> AlignHash for Bound<T> {
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl<T: SerInner<SerType: TypeHash + AlignHash>> SerInner for core::ops::Bound<T> {
+impl<T: SerInner<SerType: TypeHash + AlignHash>> SerInner for Bound<T> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
-            core::ops::Bound::Unbounded => backend.write("Tag", &0_u8),
-            core::ops::Bound::Included(val) => {
+            Bound::Unbounded => backend.write("Tag", &0_u8),
+            Bound::Included(val) => {
                 backend.write("Tag", &1_u8)?;
                 backend.write("Included", val)
             }
-            core::ops::Bound::Excluded(val) => {
+            Bound::Excluded(val) => {
                 backend.write("Tag", &2_u8)?;
                 backend.write("Excluded", val)
             }
@@ -304,45 +293,37 @@ impl<T: SerInner<SerType: TypeHash + AlignHash>> SerInner for core::ops::Bound<T
     }
 }
 
-impl<T: DeserInner> DeserInner for core::ops::Bound<T> {
+impl<T: DeserInner> DeserInner for Bound<T> {
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
-            0 => Ok(core::ops::Bound::Unbounded),
-            1 => Ok(core::ops::Bound::Included(unsafe {
-                T::_deser_full_inner(backend)
-            }?)),
-            2 => Ok(core::ops::Bound::Excluded(unsafe {
-                T::_deser_full_inner(backend)
-            }?)),
+            0 => Ok(Bound::Unbounded),
+            1 => Ok(Bound::Included(unsafe { T::_deser_full_inner(backend) }?)),
+            2 => Ok(Bound::Excluded(unsafe { T::_deser_full_inner(backend) }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
 
-    type DeserType<'a> = core::ops::Bound<DeserType<'a, T>>;
+    type DeserType<'a> = Bound<DeserType<'a, T>>;
 
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
-            0 => Ok(core::ops::Bound::Unbounded),
-            1 => Ok(core::ops::Bound::Included(unsafe {
-                T::_deser_eps_inner(backend)
-            }?)),
-            2 => Ok(core::ops::Bound::Excluded(unsafe {
-                T::_deser_eps_inner(backend)
-            }?)),
+            0 => Ok(Bound::Unbounded),
+            1 => Ok(Bound::Included(unsafe { T::_deser_eps_inner(backend) }?)),
+            2 => Ok(Bound::Excluded(unsafe { T::_deser_eps_inner(backend) }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
 }
 
-unsafe impl<B: CopyType, C: CopyType> CopyType for core::ops::ControlFlow<B, C> {
+unsafe impl<B: CopyType, C: CopyType> CopyType for ControlFlow<B, C> {
     type Copy = Deep;
 }
 
-impl<B: TypeHash, C: TypeHash> TypeHash for core::ops::ControlFlow<B, C> {
+impl<B: TypeHash, C: TypeHash> TypeHash for ControlFlow<B, C> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         stringify!(core::ops::ControlFlow).hash(hasher);
         B::type_hash(hasher);
@@ -350,7 +331,7 @@ impl<B: TypeHash, C: TypeHash> TypeHash for core::ops::ControlFlow<B, C> {
     }
 }
 
-impl<B: AlignHash, C: AlignHash> AlignHash for core::ops::ControlFlow<B, C> {
+impl<B: AlignHash, C: AlignHash> AlignHash for ControlFlow<B, C> {
     fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
         B::align_hash(hasher, &mut 0);
         C::align_hash(hasher, &mut 0);
@@ -358,19 +339,19 @@ impl<B: AlignHash, C: AlignHash> AlignHash for core::ops::ControlFlow<B, C> {
 }
 
 impl<B: SerInner<SerType: TypeHash + AlignHash>, C: SerInner<SerType: TypeHash + AlignHash>>
-    SerInner for core::ops::ControlFlow<B, C>
+    SerInner for ControlFlow<B, C>
 {
-    type SerType = core::ops::ControlFlow<B::SerType, C::SerType>;
+    type SerType = ControlFlow<B::SerType, C::SerType>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
-            core::ops::ControlFlow::Break(br) => {
+            ControlFlow::Break(br) => {
                 backend.write("Tag", &0_u8)?;
                 backend.write("Break", br)
             }
-            core::ops::ControlFlow::Continue(val) => {
+            ControlFlow::Continue(val) => {
                 backend.write("Tag", &1_u8)?;
                 backend.write("Continue", val)
             }
@@ -378,31 +359,29 @@ impl<B: SerInner<SerType: TypeHash + AlignHash>, C: SerInner<SerType: TypeHash +
     }
 }
 
-impl<B: DeserInner, C: DeserInner> DeserInner for core::ops::ControlFlow<B, C> {
+impl<B: DeserInner, C: DeserInner> DeserInner for ControlFlow<B, C> {
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
-            1 => Ok(core::ops::ControlFlow::Break(unsafe {
+            1 => Ok(ControlFlow::Break(unsafe {
                 B::_deser_full_inner(backend)
             }?)),
-            2 => Ok(core::ops::ControlFlow::Continue(unsafe {
+            2 => Ok(ControlFlow::Continue(unsafe {
                 C::_deser_full_inner(backend)
             }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
 
-    type DeserType<'a> = core::ops::ControlFlow<DeserType<'a, B>, DeserType<'a, C>>;
+    type DeserType<'a> = ControlFlow<DeserType<'a, B>, DeserType<'a, C>>;
 
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
-            1 => Ok(core::ops::ControlFlow::Break(unsafe {
-                B::_deser_eps_inner(backend)
-            }?)),
-            2 => Ok(core::ops::ControlFlow::Continue(unsafe {
+            1 => Ok(ControlFlow::Break(unsafe { B::_deser_eps_inner(backend) }?)),
+            2 => Ok(ControlFlow::Continue(unsafe {
                 C::_deser_eps_inner(backend)
             }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
