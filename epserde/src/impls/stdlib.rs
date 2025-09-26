@@ -8,9 +8,7 @@
 //! Implementation for structures from the standard library.
 //!
 //! Note that none of this types can be zero-copy (unless they are empty, as in
-//! the case of [`RangeFull`](RangeFull)), because they are not
-//! `repr(C)`.
-//!
+//! the case of [`RangeFull`], because they are not `repr(C)`.
 use ser::WriteWithNames;
 
 use crate::prelude::*;
@@ -38,17 +36,17 @@ macro_rules! impl_ranges {
             type Copy = Deep;
         }
 
-        impl<Idx: ZeroCopy> TypeHash for $ty<Idx> {
+        impl<Idx: TypeHash> TypeHash for $ty<Idx> {
             fn type_hash(hasher: &mut impl core::hash::Hasher) {
                 stringify!(core::ops::$ty).hash(hasher);
                 Idx::type_hash(hasher);
             }
         }
 
-        impl<Idx: ZeroCopy> AlignHash for $ty<Idx> {
+        impl<Idx: AlignHash> AlignHash for $ty<Idx> {
             fn align_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-                crate::traits::std_align_hash::<Idx>(hasher, offset_of);
-                crate::traits::std_align_hash::<Idx>(hasher, offset_of);
+                Idx::align_hash(hasher, offset_of);
+                Idx::align_hash(hasher, offset_of);
             }
         }
     };
@@ -82,7 +80,7 @@ impl MaxSizeOf for RangeFull {
     }
 }
 
-impl<Idx: ZeroCopy> SerInner for Range<Idx> {
+impl<Idx: SerInner<SerType: TypeHash + AlignHash>> SerInner for Range<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -95,7 +93,7 @@ impl<Idx: ZeroCopy> SerInner for Range<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy + DeserInner> DeserInner for Range<Idx> {
+impl<Idx: DeserInner> DeserInner for Range<Idx> {
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let start = unsafe { Idx::_deser_full_inner(backend) }?;
@@ -113,7 +111,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for Range<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy> SerInner for RangeFrom<Idx> {
+impl<Idx: SerInner<SerType: TypeHash + AlignHash>> SerInner for RangeFrom<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -125,7 +123,7 @@ impl<Idx: ZeroCopy> SerInner for RangeFrom<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy + DeserInner> DeserInner for RangeFrom<Idx> {
+impl<Idx: DeserInner> DeserInner for RangeFrom<Idx> {
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let start = unsafe { Idx::_deser_full_inner(backend) }?;
@@ -141,7 +139,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for RangeFrom<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy> SerInner for RangeInclusive<Idx> {
+impl<Idx: SerInner<SerType: TypeHash + AlignHash>> SerInner for RangeInclusive<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -155,7 +153,7 @@ impl<Idx: ZeroCopy> SerInner for RangeInclusive<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy + DeserInner> DeserInner for RangeInclusive<Idx> {
+impl<Idx: DeserInner> DeserInner for RangeInclusive<Idx> {
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let start = unsafe { Idx::_deser_full_inner(backend) }?;
@@ -177,7 +175,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for RangeInclusive<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy> SerInner for RangeTo<Idx> {
+impl<Idx: SerInner<SerType: TypeHash + AlignHash>> SerInner for RangeTo<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -189,7 +187,7 @@ impl<Idx: ZeroCopy> SerInner for RangeTo<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy + DeserInner> DeserInner for RangeTo<Idx> {
+impl<Idx: DeserInner> DeserInner for RangeTo<Idx> {
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let end = unsafe { Idx::_deser_full_inner(backend) }?;
@@ -205,7 +203,7 @@ impl<Idx: ZeroCopy + DeserInner> DeserInner for RangeTo<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy> SerInner for RangeToInclusive<Idx> {
+impl<Idx: SerInner<SerType: TypeHash + AlignHash>> SerInner for RangeToInclusive<Idx> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -217,7 +215,7 @@ impl<Idx: ZeroCopy> SerInner for RangeToInclusive<Idx> {
     }
 }
 
-impl<Idx: ZeroCopy + DeserInner> DeserInner for RangeToInclusive<Idx> {
+impl<Idx: DeserInner> DeserInner for RangeToInclusive<Idx> {
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let end = unsafe { Idx::_deser_full_inner(backend) }?;
