@@ -914,13 +914,15 @@ Given a user-defined type `T`:
 - if `T` is zero-copy, the serialization type is `T`, and the deserialization
   type is `&T`;
 
-- if `T` is deep-copy, the (de)serialization type is obtained as follow.
-  Assuming `T` is a concrete type obtained by resolving the type parameters
+- if `T` is deep-copy, the serialization type is obtained by replacing the type
+  of each field with its associated serialization type.
+
+- if `T` is a deep-copy concrete type obtained by resolving the type parameters
   `P₀`, `P₁`, `P₂`, … of a type definition (struct or enum) to concrete types
-  `T₀`, `T₁`, `T₂`, …, then `T:(De)serType` is obtained by resolving each
-  replaceable type parameter `Pᵢ` with the concrete type `Tᵢ:(De)serType`
-  instead. (Note that the first rule still applies, so if `Tᵢ` is zero-copy
-  the serialization type is `Tᵢ` and the deserialization type is `&Tᵢ`.)
+  `T₀`, `T₁`, `T₂`, …, then the deserialization type is obtained by resolving
+  each replaceable type parameter `Pᵢ` with the deserialization type of `Tᵢ`
+  instead. (Note that the first rule still applies, so if `Tᵢ` is zero-copy the
+  its deserialization type is `&Tᵢ`.)
 
 We can describe the replacements leading to the deserialization type in a
 non-recursive way as follows: consider the syntax tree of the type `D`, in which
@@ -933,11 +935,11 @@ Replacement happens in two cases:
   whose elements are zero-copy: it will be replaced with a reference to a
   slice.
 
-* This is a _shortest_ path starting at the root, traversing only fields whose type is a
-  replaceable parameter, and ending at a node that is zero-copy: it will be
-  replaced with a reference to the same type.
+* There is a _shortest_ path starting at the root, traversing only fields whose
+  type is a replaceable parameter, and ending at a node that is zero-copy: it
+  will be replaced with a reference to the same type.
 
-Note that shortest-path condition: this is necessary because when you reach a
+Note the shortest-path condition: this is necessary because when you reach a
 zero-copy type the recursion in the definition of the deserialization type
 stops. Note also that if `D` is zero-copy the empty path satisfies the
 second condition, and indeed `D::DeserType<'_>` is `&D`.
@@ -953,15 +955,15 @@ second condition, and indeed `D::DeserType<'_>` is `&D`.
   (de)serialization type;
 
 * `Vec<T>`, `Box<[T]>`, `&[T]` and `SerIter<T>` are deep-copy, and their
-  serialization type is `Box<[T]>` if `T` is zero-copy, but `Box<[T::SerType]>`
-  if `T` is deep-copy; the deserialization type of `Vec<T>`/`Box<[T]>` is `&[T]`
-  if `T` is zero-copy, and `Vec<T::DeserType<'_>>`/`Box<[T::DeserType<'_>]>` if
-  `T` is deep-copy; `&[T]` and `SerIter<T>` are not deserializable.
+  serialization type is `Box<[T::SerType]>`; the deserialization type of
+  `Vec<T>`/`Box<[T]>` is `&[T]` if `T` is zero-copy, and
+  `Vec<T::DeserType<'_>>`/`Box<[T::DeserType<'_>]>` if `T` is deep-copy; `&[T]`
+  and `SerIter<T>` are not deserializable.
 
-* arrays `[T; N]` are zero-copy if and only if `T` is zero-copy; their
-  serialization type is `[T; N]` if `T` is zero-copy, but `[T::SerType; N]` if
-  `T` is deep-copy; their deserialization type is `&[T; N]` if `T` is zero-copy,
-  but `[T::DeserType<'_>; N]` if `T` is deep-copy;
+* arrays `[T; N]` are zero-copy if and only if `T` is zero-copy: their
+  serialization type is `[T::SerType; N]`, and their deserialization type is
+  `&[T; N]` if `T` is zero-copy, but `[T::DeserType<'_>; N]` if `T` is
+  deep-copy;
 
 * tuples up to size 12 made of the same zero-copy type `T` are zero-copy, their
   serialization type is themselves, and their deserialization type is a
@@ -974,7 +976,14 @@ second condition, and indeed `D::DeserType<'_>` is `&D`.
 * ranges and `ControlFlow<B, C>` behave like user-defined deep-copy types;
 
 * `Box<T>`, `Rc<T>`, and `Arc<T>`, for sized `T`, are deep-copy, and their
-  serialization/deserialization type are the same of `T`.
+  serialization/deserialization type are the same of `T` (e.g., they are
+  _erased_).
+
+Note that the normalization and erasure rule give some latitude in the choice of
+the deserializable type: for example, if you serialized a `Vec<T>`, you can
+deserialize it fully as a `Box<[T]>`, or an `Rc<Box<[T]>>`, or ε-copy
+deserialize it as an `Arc<&[T]>`, as all these types have the same serialization
+type `Box<[T]>`.
 
 ## Derived and hand-made implementations
 
