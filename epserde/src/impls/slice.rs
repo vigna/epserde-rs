@@ -34,7 +34,7 @@ impl<T: TypeHash> TypeHash for [T] {
     }
 }
 
-impl<T: CopyType + SerInner<SerType: TypeHash + AlignHash>> SerInner for &[T]
+impl<T: SerInner> SerInner for &[T]
 where
     Box<[T]>: SerInner,
 {

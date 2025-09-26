@@ -80,7 +80,7 @@ impl AlignTo for RangeFull {
     }
 }
 
-impl<Idx: SerInner<SerType: TypeHash + AlignHash>> SerInner for Range<Idx> {
+impl<Idx: SerInner> SerInner for Range<Idx> {
     type SerType = Range<Idx::SerType>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -111,7 +111,7 @@ impl<Idx: DeserInner> DeserInner for Range<Idx> {
     }
 }
 
-impl<Idx: SerInner<SerType: TypeHash + AlignHash>> SerInner for RangeFrom<Idx> {
+impl<Idx: SerInner> SerInner for RangeFrom<Idx> {
     type SerType = RangeFrom<Idx::SerType>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -139,7 +139,7 @@ impl<Idx: DeserInner> DeserInner for RangeFrom<Idx> {
     }
 }
 
-impl<Idx: SerInner<SerType: TypeHash + AlignHash>> SerInner for RangeInclusive<Idx> {
+impl<Idx: SerInner> SerInner for RangeInclusive<Idx> {
     type SerType = RangeInclusive<Idx::SerType>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -175,7 +175,7 @@ impl<Idx: DeserInner> DeserInner for RangeInclusive<Idx> {
     }
 }
 
-impl<Idx: SerInner<SerType: TypeHash + AlignHash>> SerInner for RangeTo<Idx> {
+impl<Idx: SerInner> SerInner for RangeTo<Idx> {
     type SerType = RangeTo<Idx::SerType>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -203,7 +203,7 @@ impl<Idx: DeserInner> DeserInner for RangeTo<Idx> {
     }
 }
 
-impl<Idx: SerInner<SerType: TypeHash + AlignHash>> SerInner for RangeToInclusive<Idx> {
+impl<Idx: SerInner> SerInner for RangeToInclusive<Idx> {
     type SerType = RangeToInclusive<Idx::SerType>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -271,7 +271,7 @@ impl<T> AlignHash for Bound<T> {
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl<T: SerInner<SerType: TypeHash + AlignHash>> SerInner for Bound<T> {
+impl<T: SerInner> SerInner for Bound<T> {
     type SerType = Bound<T::SerType>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;
@@ -336,9 +336,7 @@ impl<B: AlignHash, C: AlignHash> AlignHash for ControlFlow<B, C> {
     }
 }
 
-impl<B: SerInner<SerType: TypeHash + AlignHash>, C: SerInner<SerType: TypeHash + AlignHash>>
-    SerInner for ControlFlow<B, C>
-{
+impl<B: SerInner, C: SerInner> SerInner for ControlFlow<B, C> {
     type SerType = ControlFlow<B::SerType, C::SerType>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;

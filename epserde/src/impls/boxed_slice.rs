@@ -60,7 +60,7 @@ impl<T: DeepCopy> SerHelper<Deep> for Box<[T]> {
 }
 
 // This delegates to a private helper trait which we can specialize on in stable rust
-impl<T: DeserInner + CopyType> DeserInner for Box<[T]>
+impl<T: CopyType + DeserInner> DeserInner for Box<[T]>
 where
     Box<[T]>: DeserHelper<<T as CopyType>::Copy, FullType = Box<[T]>>,
 {

@@ -41,8 +41,7 @@ impl<'a, T, I: ExactSizeIterator<Item = &'a T>> From<I> for SerIter<'a, T, I> {
     }
 }
 
-impl<'a, T: CopyType + SerInner<SerType: TypeHash + AlignHash>, I: ExactSizeIterator<Item = &'a T>>
-    SerInner for SerIter<'a, T, I>
+impl<'a, T: CopyType + SerInner, I: ExactSizeIterator<Item = &'a T>> SerInner for SerIter<'a, T, I>
 where
     SerIter<'a, T, I>: SerHelper<<T as CopyType>::Copy>,
 {
@@ -81,8 +80,8 @@ impl<'a, T: ZeroCopy, I: ExactSizeIterator<Item = &'a T>> SerHelper<Zero> for Se
     }
 }
 
-impl<'a, T: DeepCopy + SerInner<SerType: TypeHash + AlignHash>, I: ExactSizeIterator<Item = &'a T>>
-    SerHelper<Deep> for SerIter<'a, T, I>
+impl<'a, T: DeepCopy + SerInner, I: ExactSizeIterator<Item = &'a T>> SerHelper<Deep>
+    for SerIter<'a, T, I>
 {
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         check_mismatch::<T>();

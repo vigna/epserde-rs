@@ -322,7 +322,7 @@ impl<T: AlignHash> AlignHash for Option<T> {
     }
 }
 
-impl<T: SerInner<SerType: TypeHash + AlignHash>> SerInner for Option<T> {
+impl<T: SerInner> SerInner for Option<T> {
     type SerType = Option<T::SerType>;
     const IS_ZERO_COPY: bool = false;
     const ZERO_COPY_MISMATCH: bool = false;

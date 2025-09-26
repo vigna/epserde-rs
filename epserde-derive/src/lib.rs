@@ -306,7 +306,7 @@ fn add_ser_deser_trait_bounds(
         add_trait_bound(
             ser_where_clause,
             ty,
-            syn::parse_quote!(::epserde::ser::SerInner<SerType: ::epserde::traits::TypeHash + ::epserde::traits::AlignHash>),
+            syn::parse_quote!(::epserde::ser::SerInner),
         );
         add_trait_bound(
             deser_where_clause,

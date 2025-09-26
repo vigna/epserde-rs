@@ -41,7 +41,7 @@ impl<T: AlignTo, const N: usize> AlignTo for [T; N] {
     }
 }
 
-impl<T: CopyType + SerInner<SerType: TypeHash + AlignHash>, const N: usize> SerInner for [T; N]
+impl<T: CopyType + SerInner, const N: usize> SerInner for [T; N]
 where
     [T; N]: SerHelper<<T as CopyType>::Copy>,
 {
