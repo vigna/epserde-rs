@@ -429,11 +429,11 @@ fn gen_type_info_where_clauses(
     bound_align_hash.push(syn::parse_quote!(::epserde::traits::AlignHash));
     let align_hash = gen_type_info_where_clause(bound_align_hash);
 
-    let mut bound_align_of = Punctuated::new();
-    bound_align_of.push(syn::parse_quote!(::epserde::traits::AlignTo));
-    let align_of = gen_type_info_where_clause(bound_align_of);
+    let mut bound_align_to = Punctuated::new();
+    bound_align_to.push(syn::parse_quote!(::epserde::traits::AlignTo));
+    let align_to = gen_type_info_where_clause(bound_align_to);
 
-    (type_hash, align_hash, align_of)
+    (type_hash, align_hash, align_to)
 }
 
 /// Context structure for the [`Epserde`] derive macro.
@@ -591,9 +591,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     use ::epserde::deser::DeserInner;
 
                     Ok(#name{
-                        #(
-                            #field_names: unsafe { <#field_types as DeserInner>::_deser_full_inner(backend)? },
-                        )*
+                        #( #field_names: unsafe { <#field_types as DeserInner>::_deser_full_inner(backend)? }, )*
                     })
                 }
 
@@ -606,9 +604,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     use ::epserde::deser::DeserInner;
 
                     Ok(#name{
-                        #(
-                            #method_calls,
-                        )*
+                        #( #method_calls, )*
                     })
                 }
             }
@@ -1114,19 +1110,18 @@ fn gen_enum_align_hash_body(
 }
 
 /// Generates the `AlignTo` implementation body for struct types.
-fn gen_struct_align_of_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
+fn gen_struct_align_to_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
     quote! {
         use ::epserde::traits::AlignTo;
-        use ::epserde::ser::SerType;
 
-        let mut align_of = ::core::mem::align_of::<Self>();
+        let mut align_to = ::core::mem::align_of::<Self>();
 
         #(
-            if align_of < <#fields_types as AlignTo>::align_to() {
-                align_of = <#fields_types as AlignTo>::align_to();
+            if align_to < <#fields_types as AlignTo>::align_to() {
+                align_to = <#fields_types as AlignTo>::align_to();
             }
         )*
-        align_of
+        align_to
     }
 }
 
@@ -1136,21 +1131,21 @@ fn gen_type_info_traits(
     ctx: TypeInfoContext,
     type_hash_where_clause: syn::WhereClause,
     align_hash_where_clause: syn::WhereClause,
-    align_of_where_clause: syn::WhereClause,
+    align_to_where_clause: syn::WhereClause,
     type_hash_body: proc_macro2::TokenStream,
     align_hash_body: proc_macro2::TokenStream,
-    align_of_body: Option<proc_macro2::TokenStream>,
+    align_to_body: Option<proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
     let name = &ctx.name;
     let generics_for_impl = &ctx.generics_for_impl;
     let generics_for_type = &ctx.generics_for_type;
 
-    let align_of_impl = if let Some(align_of_body) = align_of_body {
+    let align_to_impl = if let Some(align_to_body) = align_to_body {
         quote! {
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::traits::AlignTo for #name #generics_for_type #align_of_where_clause {
+            impl #generics_for_impl ::epserde::traits::AlignTo for #name #generics_for_type #align_to_where_clause {
                 fn align_to() -> usize {
-                    #align_of_body
+                    #align_to_body
                 }
             }
         }
@@ -1168,7 +1163,6 @@ fn gen_type_info_traits(
 
         #[automatically_derived]
         impl #generics_for_impl ::epserde::traits::AlignHash for #name #generics_for_type #align_hash_where_clause {
-
             fn align_hash(
                 hasher: &mut impl ::core::hash::Hasher,
                 offset_of: &mut usize,
@@ -1177,7 +1171,7 @@ fn gen_type_info_traits(
             }
         }
 
-        #align_of_impl
+        #align_to_impl
     }
 }
 
@@ -1199,7 +1193,7 @@ fn gen_struct_type_info_impl(
         field_types_ts.push(quote! { SerType<#field_type> });
     }
 
-    let (type_hash_where_clause, align_hash_where_clause, align_of_where_clause) =
+    let (type_hash_where_clause, align_hash_where_clause, align_to_where_clause) =
         gen_type_info_where_clauses(ctx.where_clause, ctx.is_zero_copy, &field_types);
 
     // Generate field hashes for TypeHash
@@ -1215,8 +1209,8 @@ fn gen_struct_type_info_impl(
     // Generate implementation bodies
     let type_hash_body = gen_type_hash_body(&ctx, &field_hashes);
     let align_hash_body = gen_struct_align_hash_body(&ctx, &field_types_ts);
-    let align_of_body = if ctx.is_zero_copy {
-        Some(gen_struct_align_of_body(&field_types))
+    let align_to_body = if ctx.is_zero_copy {
+        Some(gen_struct_align_to_body(&field_types))
     } else {
         None
     };
@@ -1225,10 +1219,10 @@ fn gen_struct_type_info_impl(
         ctx,
         type_hash_where_clause,
         align_hash_where_clause,
-        align_of_where_clause,
+        align_to_where_clause,
         type_hash_body,
         align_hash_body,
-        align_of_body,
+        align_to_body,
     )
 }
 
@@ -1236,7 +1230,7 @@ fn gen_struct_type_info_impl(
 fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
     let mut all_type_hashes = vec![];
     let mut all_align_hashes = vec![];
-    let mut all_align_ofs = vec![];
+    let mut all_align_tos = vec![];
     let mut all_field_types = vec![];
     let mut all_repl_params = HashSet::new();
 
@@ -1246,7 +1240,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
         let mut type_hash = quote! { Hash::hash(stringify!(#ident), hasher); };
         let mut field_types = vec![];
         let mut align_hash = quote! {};
-        let mut align_of = quote! {};
+        let mut align_to = quote! {};
 
         match &variant.fields {
             syn::Fields::Unit => {}
@@ -1268,9 +1262,9 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                         <#field_type_ts as AlignHash>::align_hash(hasher, offset_of);
                     }]);
 
-                    align_of.extend([quote! {
-                        if align_of < <#field_type as AlignTo>::align_to() {
-                            align_of = <#field_type as AlignTo>::align_to();
+                    align_to.extend([quote! {
+                        if align_to < <#field_type as AlignTo>::align_to() {
+                            align_to = <#field_type as AlignTo>::align_to();
                         }
                     }]);
 
@@ -1302,9 +1296,9 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                         <#field_type_ts as AlignHash>::align_hash(hasher, offset_of);
                     }]);
 
-                    align_of.extend([quote! {
-                        if align_of < <#field_type as AlignTo>::align_to() {
-                            align_of = <#field_type as AlignTo>::align_to();
+                    align_to.extend([quote! {
+                        if align_to < <#field_type as AlignTo>::align_to() {
+                            align_to = <#field_type as AlignTo>::align_to();
                         }
                     }]);
 
@@ -1322,25 +1316,25 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 
         all_type_hashes.push(type_hash);
         all_align_hashes.push(align_hash);
-        all_align_ofs.push(align_of);
+        all_align_tos.push(align_to);
         all_field_types.extend(field_types);
     }
 
-    let (where_clause_type_hash, where_clause_align_hash, where_clause_align_of) =
+    let (where_clause_type_hash, where_clause_align_hash, where_clause_align_to) =
         gen_type_info_where_clauses(ctx.where_clause, ctx.is_zero_copy, &all_field_types);
 
     let type_hash_body = gen_type_hash_body(&ctx, &all_type_hashes);
     let align_hash_body = gen_enum_align_hash_body(&ctx, &all_align_hashes);
-    let align_of_body = quote! {
-        let mut align_of = core::mem::align_of::<Self>();
+    let align_to_body = quote! {
+        let mut align_to = core::mem::align_of::<Self>();
         #(
-            #all_align_ofs
+            #all_align_tos
         )*
-        align_of
+        align_to
     };
 
-    let align_of_body = if ctx.is_zero_copy {
-        Some(align_of_body)
+    let align_to_body = if ctx.is_zero_copy {
+        Some(align_to_body)
     } else {
         None
     };
@@ -1349,10 +1343,10 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
         ctx,
         where_clause_type_hash,
         where_clause_align_hash,
-        where_clause_align_of,
+        where_clause_align_to,
         type_hash_body,
         align_hash_body,
-        align_of_body,
+        align_to_body,
     )
 }
 

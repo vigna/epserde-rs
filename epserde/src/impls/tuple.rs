@@ -66,11 +66,11 @@ macro_rules! impl_tuples {
         impl<T: AlignTo> AlignTo for ($($t,)*)
         {
             fn align_to() -> usize {
-                let mut align_of = 0;
-                $(if align_of < core::cmp::max(align_of, <$t>::align_to()) {
-                    align_of = <$t>::align_to();
+                let mut align_to = 0;
+                $(if align_to < core::cmp::max(align_to, <$t>::align_to()) {
+                    align_to = <$t>::align_to();
                 })*
-                align_of
+                align_to
             }
         }
 

@@ -32,7 +32,7 @@ struct MyStruct {
 
 #[test]
 /// Check that we don't have any collision on most types
-fn test_align_of_align() {
+fn test_align_to() {
     assert_eq!(64, MyStruct64::align_to());
     assert_eq!(MyStruct::align_to(), MyStruct2::align_to());
 

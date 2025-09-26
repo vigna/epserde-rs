@@ -36,7 +36,7 @@ use alloc::{
 /// which uses the default implementation, and [`SchemaWriter`], which
 /// additionally records a [`Schema`] of the serialized data.
 pub trait WriteWithNames: WriteWithPos + Sized {
-    /// Add some zero padding so that `self.pos() % V:align_of() == 0.`
+    /// Add some zero padding so that `self.pos() % V:align_to() == 0.`
     ///
     /// Other implementations must write the same number of zeros.
     fn align<V: AlignTo>(&mut self) -> Result<()> {

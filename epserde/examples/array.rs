@@ -21,7 +21,7 @@ fn main() {
     let full = unsafe { <[usize; 100]>::deserialize_full(&mut cursor).unwrap() };
     println!(
         "Full-copy deserialization type: {}",
-        core::any::type_name_of_val(&full)
+        core::any::type_name::<[usize; 100]>(),
     );
     println!("Value: {:x?}", full);
 
