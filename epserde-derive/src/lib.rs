@@ -395,7 +395,7 @@ fn gen_type_info_where_clauses(
         for &field_type in field_types {
             if is_zero_copy {
                 // In zero-copy types bounds are propagated on the type
-                // themselves, as the serialized types are always Self
+                // themselves, as the serialization types are always Self
                 where_clause
                     .predicates
                     .push(WherePredicate::Type(PredicateType {
@@ -406,7 +406,7 @@ fn gen_type_info_where_clauses(
                     }));
             } else {
                 // In deep-copy types bounds are propagated on the
-                // associated serialized type
+                // associated serialization types
                 where_clause
                     .predicates
                     .push(WherePredicate::Type(PredicateType {

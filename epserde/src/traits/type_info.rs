@@ -26,7 +26,7 @@ use super::ZeroCopy;
 /// [`SerType<T>`](crate::ser::SerInner::SerType) must implement this trait.
 ///
 /// Additionally, it is recommended that commonly used types implement this
-/// trait, even if their serialized type is different, because it makes it
+/// trait, even if their serialization type is different, because it makes it
 /// possible to use [`PhantomData`](core::marker::PhantomData) and
 /// [`PhantomDeserData`](crate::PhantomDeserData).
 pub trait TypeHash {
@@ -61,7 +61,7 @@ pub trait TypeHash {
 ///
 /// When serializing an instance of type `T`,
 /// [`SerType<T>`](crate::ser::SerInner::SerType) must implement this trait.
-/// Thus, if `T` different from its serialized type it is not necessary to
+/// Thus, if `T` different from its serialization type it is not necessary to
 /// implement this trait for `T`.
 pub trait AlignHash {
     /// Accumulates alignment information in `hasher` assuming to be positioned

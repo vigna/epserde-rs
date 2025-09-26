@@ -34,8 +34,8 @@ use std::{io::BufWriter, path::Path};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-/// A shorthand for the [serialized type associated with a
-/// serializable type](SerInner::SerType).
+/// A shorthand for the [serialization type associated with a serializable
+/// type](SerInner::SerType).
 pub type SerType<T> = <T as SerInner>::SerType;
 
 /// Main serialization trait. It is separated from [`SerInner`] to avoid
@@ -168,7 +168,7 @@ pub trait SerInner {
 /// and debug information and then delegates to [WriteWithNames::write].
 impl<T: SerInner<SerType: TypeHash + AlignHash>> Serialize for T {
     unsafe fn ser_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
-        // write the header using the serialized type, not the type itself
+        // write the header using the serialization type, not the type itself
         // this is done so that you can serialize types with reference to slices
         // that can then be deserialized as vectors.
         write_header::<SerType<Self>>(backend)?;
@@ -179,7 +179,7 @@ impl<T: SerInner<SerType: TypeHash + AlignHash>> Serialize for T {
 
 /// Writes the header.
 ///
-/// Note that `S` is the serialized type, not the serialization type.
+/// Note that `S` is the serialization type, not the serializable type.
 ///
 /// Must be kept in sync with [`crate::deser::check_header`].
 pub fn write_header<S: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) -> Result<()> {

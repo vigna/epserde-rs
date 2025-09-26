@@ -40,8 +40,8 @@ use std::{io::BufReader, path::Path};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-/// A shorthand for the [deserialized type associated with a
-/// deserializable type](DeserInner::DeserType).
+/// A shorthand for the [deserialization type associated with a deserializable
+/// type](DeserInner::DeserType).
 pub type DeserType<'a, T> = <T as DeserInner>::DeserType<'a>;
 
 /// Main deserialization trait. It is separated from [`DeserInner`] to
@@ -531,7 +531,7 @@ a tuple of mixed zero-copy types, which is no longer supported since 0.8.0,
 an instance containing tuples, whose type hash was fixed in 0.9.0,
 or an instance containing a vector or a string that was serialized before 0.10.0.
 The serialized type is '{ser_type_name}',
-but the type on which the deserialization method was invoked is '{self_type_name}'."#
+but the deserializable type on which the deserialization method was invoked is '{self_type_name}'."#
     )]
     /// The type hash is wrong. Probably the user is trying to deserialize a
     /// file with the wrong type.
@@ -553,7 +553,7 @@ might have changed their copy type (zero or deep). You might also be trying to d
 an array, whose alignment hash has been fixed in 0.8.0. It is also
 possible that you are trying to deserialize a file serialized before version 0.10.0
 in which repr attributes were not sorted lexicographically.
-The serialized type is '{ser_type_name}',  but the type on which the the deserialization
+The serialized type is '{ser_type_name}',  but the deserializable type on which the the deserialization
 method was invoked is '{self_type_name}'."#
     )]
     /// The type representation hash is wrong. Probably the user is trying to

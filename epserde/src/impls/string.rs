@@ -7,9 +7,9 @@
 
 //! Implementations for strings.
 //!
-//! All string types have the same serialized type, `Box<str>`, and
-//! the same deserialized type, `&str`. Thus, you can serialize a `String` and
-//! fully deserialize it as `Box<str>`.
+//! All string types have the same serialization type, `Box<str>`, and the same
+//! deserialization type, `&str`. Thus, you can serialize a `String` and fully
+//! deserialize it as `Box<str>`.
 //!
 //! Similarly to the case of [slices](crate::impls::slice), there is
 //! a convenience [`SerInner`] implementation for `&str` that

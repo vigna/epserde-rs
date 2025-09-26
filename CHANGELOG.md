@@ -70,8 +70,8 @@
 
 * Major disruptive change: `MemCase` does not implement `Deref` and `AsRef`
   anymore, as such implementations led to undefined behavior. Instead, `MemCase`
-  provides an `uncase` method that returns a reference to the deserialized type,
-  similarly to the `Yoke` crate. This is a major change as all code using
+  provides an `uncase` method that returns a reference to the deserialization
+  type, similarly to the `Yoke` crate. This is a major change as all code using
   `MemCase` must be updated. In particular, accessing the underlying structure
   requires a call do `uncase`, similarly to what happens with the `Borrow` and
   `AsRef` traits, and it is no longer possible to pass a `MemCase` as type
