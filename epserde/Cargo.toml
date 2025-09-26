@@ -12,6 +12,7 @@ repository = "https://github.com/vigna/epserde-rs/"
 license = "Apache-2.0 OR LGPL-2.1-or-later"
 readme = "README.md"
 keywords = ["serialization", "zero-copy", "mmap"]
+rust-version = "1.85"
 
 [dependencies]
 mem_dbg = { version = "0.3.0", features = [
