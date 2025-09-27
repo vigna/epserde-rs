@@ -206,7 +206,7 @@ pub fn write_header<S: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) 
 
     backend.write("TYPE_HASH", &type_hasher.finish())?;
     backend.write("REPR_HASH", &align_hasher.finish())?;
-    backend.write("TYPE_NAME", &core::any::type_name::<S>().to_string())
+    backend.write("TYPE_NAME", &core::any::type_name::<S>())
 }
 
 /// A helper trait that makes it possible to implement differently serialization
