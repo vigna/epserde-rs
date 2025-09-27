@@ -15,13 +15,8 @@
 //! Please compile with the "schema" feature to see the schema output.
 
 #[cfg(not(feature = "std"))]
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<Type>());
-    println!(
-        "Associated serialization type: {}",
-        core::any::type_name::<SerType<Type>>()
-    );
-    println!();
+fn main() {
+    println!("This example requires the standard library");
 }
 
 #[cfg(feature = "std")]

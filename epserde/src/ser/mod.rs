@@ -26,9 +26,6 @@ pub use helpers::*;
 pub mod write;
 pub use write::*;
 
-#[cfg(not(feature = "std"))]
-use alloc::string::ToString;
-
 #[cfg(feature = "std")]
 use std::{io::BufWriter, path::Path};
 

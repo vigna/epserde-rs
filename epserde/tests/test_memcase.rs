@@ -21,6 +21,7 @@ impl<A, B> PersonVec<A, B> {
     }
 }
 
+#[cfg(feature = "mmap")]
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A> {
     a: A,
