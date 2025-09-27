@@ -109,12 +109,14 @@ fn test_wrong_endianness() {
             ser_type_name,
             ser_type_hash,
             self_type_name,
+            self_ser_type_name,
             self_type_hash,
         } = err
         {
             assert_eq!(ser_type_name, "usize");
             assert_eq!(ser_type_hash, usize_type_hash);
             assert_eq!(self_type_name, "i8");
+            assert_eq!(self_ser_type_name, "i8");
             assert_eq!(self_type_hash, i8_hash);
         } else {
             panic!("wrong error type: {:?}", err);
@@ -130,12 +132,14 @@ fn test_wrong_endianness() {
             ser_type_name,
             ser_type_hash,
             self_type_name,
+            self_ser_type_name,
             self_type_hash,
         } = err
         {
             assert_eq!(ser_type_name, "usize");
             assert_eq!(ser_type_hash, usize_type_hash);
             assert_eq!(self_type_name, "i8");
+            assert_eq!(self_ser_type_name, "i8");
             assert_eq!(self_type_hash, i8_hash);
         } else {
             panic!("wrong error type: {:?}", err);

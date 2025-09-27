@@ -5,10 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/// Example of an enum with variants some of which depend
-/// on a parameter, and some dont. See in particular the failed
-/// check of type hash.
-use epserde::prelude::*;
+//! Example of an enum with variants some of which depend on a parameter, and
+//! some don't. See in particular the failed check of type hash.
+//!
+//! Please compile with the "schema" feature to see the schema output.
+
+use epserde::{deser::DeserType, prelude::*, ser::SerType};
 use maligned::A16;
 
 #[derive(Epserde, Debug, Clone, Copy)]
@@ -18,21 +20,35 @@ enum Data<T = Vec<i32>> {
     C(T),                     // Tuple variant with one parametric field
 }
 
-fn main() {
-    // Note that we need an explicitly type annotation here,
-    // as the type of the enum is not fully determined by the
-    // value--we need to know the type of the parameter, which
-    // is assumed to be `Vec<i32>` by default.
-    let a: Data = Data::A;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("Serializable type: {}", core::any::type_name::<Data>());
+    println!(
+        "Associated serialization type: {}",
+        core::any::type_name::<SerType<Data>>()
+    );
+    println!();
+
+    // Note that we need an explicitly type annotation here, as the type of the
+    // enum is not fully determined by the value--we need to know the type of
+    // the parameter, which is assumed to be `Vec<i32>` by default.
+    let data: Data = Data::A;
     let mut cursor = <AlignedCursor<A16>>::new();
+
     // Serialize
-    let _bytes_written = unsafe { a.serialize(&mut cursor).unwrap() };
+    #[cfg(feature = "schema")]
+    {
+        let schema = unsafe { data.serialize_with_schema(&mut cursor)? };
+        println!("{}", schema.debug(cursor.as_bytes()));
+        println!();
+    }
+    #[cfg(not(feature = "schema"))]
+    let _bytes_written = unsafe { data.serialize(&mut cursor)? };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <Data>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <Data>::deserialize_full(&mut cursor)? };
     println!(
-        "Full-copy deserialization type: {}",
+        "Full-copy deserialization: returns the deserializable type {}",
         core::any::type_name::<Data>(),
     );
     println!("Value: {:x?}", full);
@@ -40,23 +56,31 @@ fn main() {
     println!();
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <Data>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <Data>::deserialize_eps(cursor.as_bytes())? };
     println!(
-        "ε-copy deserialization type: {}",
+        "ε-copy deserialization: returns the associated deserialization type {}",
         core::any::type_name::<DeserType<'_, Data>>(),
     );
     println!("Value: {:x?}", eps);
 
-    // Now we give to the parameter a type different from the
-    // default one.
-    let a: Data<Vec<usize>> = Data::A;
+    // Now we give to the parameter a type different from the default one.
+    let data: Data<Vec<usize>> = Data::A;
     let mut cursor = <AlignedCursor<A16>>::new();
+
     // Serialize
-    let _bytes_written = unsafe { a.serialize(&mut cursor).unwrap() };
+    #[cfg(feature = "schema")]
+    {
+        let schema = unsafe { data.serialize_with_schema(&mut cursor)? };
+        println!("{}", schema.debug(cursor.as_bytes()));
+        println!();
+    }
+    #[cfg(not(feature = "schema"))]
+    let _bytes_written = unsafe { data.serialize(&mut cursor)? };
 
     println!();
 
-    println!("Deserializing with a different parameter type...");
+    println!("Deserializing with a different parameter type (will generate a type-hash error)...");
+    println!();
     // When we try to deserialize without specifying again
     // the type, we get an error even if we just serialized
     // Data::A because the default value of the parameter
@@ -65,4 +89,8 @@ fn main() {
     println!("Error in full-copy deserialization: {}", unsafe {
         <Data>::deserialize_full(&mut cursor).err().unwrap()
     });
+
+    #[cfg(not(feature = "schema"))]
+    println!("\nPlease compile with the \"schema\" feature to see the schema output");
+    Ok(())
 }

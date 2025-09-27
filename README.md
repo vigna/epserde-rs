@@ -611,9 +611,10 @@ let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? 
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-## Example: `sux-rs`
+## More Examples
 
-The [`sux-rs`] crate provides several data structures that use ε-serde.
+The standard `examples` directory contains ry many worked out examples. The
+[`sux-rs`] crate contains several data structures that use ε-serde.
 
 ## References and Smart Pointers
 
@@ -645,27 +646,28 @@ All ε-serde structures implement the [`MemDbg`] and [`MemSize`] traits.
 
 ## Design
 
-Every type serializable with ε-serde has three features that are in principle
+Every type (de)serializable with ε-serde has three features that are in principle
 orthogonal, but that in practice often condition one another:
 
 - the type has an *associated serialization type*, which is the type we
   write when serializing;
 - the type has an *associated deserialization type*, which is the type you
-  obtain when deserialized;
-- the type can be either [`ZeroCopy`] or [`DeepCopy`]; it can also be neither.
+  obtain when deserializing;
+- the type can be either deep-copy or zero-copy.
 
 There is no constraint on the associated (de)serialization type: it can be
 literally anything. In general, however, one tries to have a deserialization
 type that is somewhat compatible with the original type, in the sense that they
 both satisfy a trait for which implementations can be written: for example,
-ε-copy deserialization turns vectors/boxed slices into references to slices, so
-implementations can be written for `AsRef<[·]>` and will work both on the
-original and the deserialized instance. And, in general, [`ZeroCopy`] types
-deserialize into themselves. Presently the associated serialization type is
-almost always `Self`, with the notable exception of references to slices and
-iterators, which are serialized for convenience as vectors/boxed slices.
+ε-copy deserialization turns vectors/boxed slices of zero-copy types into
+references to slices, so implementations can be written for `AsRef<[·]>` and
+will work both on the original and the deserialized instance. And, in general,
+zero-copy types deserialize into themselves. Presently the associated
+serialization type is almost always `Self`, with the notable exception of
+references to slices and iterators, which are serialized for convenience as
+vectors/boxed slices.
 
-Being [`ZeroCopy`] or [`DeepCopy`] decides how the type will be treated upon
+Being zero-copy or deep-copy decides how the type will be treated upon
 deserialization. Instances of zero-copy types are ε-copy deserialized as a
 reference, whereas instances of deep-copy types are are always recursively
 deserialized in allocated memory.
@@ -673,9 +675,10 @@ deserialized in allocated memory.
 Sequences of zero-copy types are ε-copy deserialized using a reference to a
 slice, whereas sequences of deep-copy types are deserialized in allocated memory
 (to sequences of the associated deserialization types). It is important to
-remark that *you cannot serialize a sequence whose elements are of a type that
-is neither* [`ZeroCopy`] *nor* [`DeepCopy`] (see the [`CopyType`] documentation
-for a deeper explanation).
+remark that you cannot serialize a sequence whose elements are of a type that
+implements neither [`ZeroCopy`] nor [`DeepCopy`], even if in that case
+ε-considers the type as deep-copy (see the following section and the
+[`CopyType`] documentation for a deeper explanation).
 
 Logically, zero-copy types should be deserialized to references, and this indeed
 happens in most cases, and certainly in the derived code: however, *primitive
@@ -696,18 +699,17 @@ The same happens if you deserialize a zero-copy instance containing a single fie
 of primitive type.
 
 Instances of deep-copy types instead are serialized and deserialized
-recursively, field by field. The basic idea in ε-serde is that *if the type of a
+recursively, field by field. The basic idea in ε-serde is that if the type of a
 field is a type parameter, during ε-copy deserialization the type will be
-replaced with its deserialization type*. Since the deserialization type is
+replaced with its deserialization types. Since the deserialization type is
 defined recursively, replacement can happen at any depth level. For example, a
 field of type `A = Vec<Vec<Vec<usize>>>` will be deserialized as a `A =
 Vec<Vec<&[usize]>>`.
 
 Note, however, that field types are not replaced if they are not type
-parameters: a field of type `Vec<T>` will always be deserialized as a `Vec<T>`,
-even if `T` is [`ZeroCopy`]. In particular, you cannot have `T` both as the type
-of a field and as a type parameter of another field (but see the exception below
-for [`PhantomData`]).
+parameters. In particular, you cannot have `T` both as the type of a field and
+as a type parameter of another field (but see the exception below for
+[`PhantomData`]).
 
 This approach makes it possible to write ε-serde-aware structures that hide from
 the user the substitution. A good example is the [`BitFieldVec`] structure from
@@ -716,7 +718,7 @@ the user the substitution. A good example is the [`BitFieldVec`] structure from
 [`BitFieldVec`] come from the trait [`BitFieldSlice`]. If you have your own
 user-defined type and one of the fields is of type `A`, when serializing an
 instance with `A` equal to `BitFieldVec<Vec<usize>>`, upon ε-copy
-deserialization you will get a version of your instance of type
+deserialization you will get a version of your instance with that field of type
 `BitFieldVec<&[usize]>`. All this will happen under the hood because
 [`BitFieldVec`] is ε-serde-aware, and in fact you will not even notice the
 difference if you access both versions using the trait [`BitFieldSlice`].

@@ -5,14 +5,27 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Example of a nested struct in which one of the fields of the inner struct is
+//! recursively ε-copied, as its type is a parameter. We also serialize on file.
+//!
+//! When deserializing, we show three variants: one in which both parameters are
+//! `Vec`, one in which the outer parameter is a boxed slice and the inner
+//! parameter is a `Vec`, and one in which both parameters are boxed slices.
+//!
+//! Please compile with the "schema" feature to see the schema output.
+
 #[cfg(not(feature = "std"))]
-fn main() {}
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("Serializable type: {}", core::any::type_name::<Type>());
+    println!(
+        "Associated serialization type: {}",
+        core::any::type_name::<SerType<Type>>()
+    );
+    println!();
+}
 
 #[cfg(feature = "std")]
-/// Example of a nested struct in which one of the fields
-/// of the inner struct is recursively ε-copied, as its
-/// type is a parameter. We also serialize on file.
-use epserde::prelude::*;
+use epserde::{deser::DeserType, prelude::*, ser::SerType};
 
 #[cfg(feature = "std")]
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
@@ -32,51 +45,96 @@ struct Data<A> {
 }
 
 #[cfg(feature = "std")]
-type Struct = StructParam<Vec<usize>, Data<Vec<u16>>>;
+type Type = StructParam<Vec<usize>, Data<Vec<u16>>>;
+#[cfg(feature = "std")]
+type TypeOneBoxed = StructParam<Box<[usize]>, Data<Vec<u16>>>;
+#[cfg(feature = "std")]
+type TypeBothBoxed = StructParam<Box<[usize]>, Data<Box<[u16]>>>;
 
 #[cfg(feature = "std")]
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    const FILE_NAME: &str = "test.bin";
+
+    println!("Serializable type: {}", core::any::type_name::<Type>());
+    println!(
+        "Associated serialization type: {}",
+        core::any::type_name::<SerType<Type>>()
+    );
+    println!();
+
     // Create a new value to serialize
-    let s = Struct {
-        a: vec![0x89; 6],
+    let data = Type {
+        a: vec![0x1; 4],
         b: Data {
-            a: vec![0x42; 7],
+            a: vec![0x2; 7],
             b: vec![0xbadf00d; 2],
         },
         test: -0xbadf00d,
     };
     // Create an aligned vector to serialize into so we can do an ε-copy
     // deserialization safely
-    let mut file = std::fs::File::create("test.bin").unwrap();
+    let mut file = std::fs::File::create(FILE_NAME)?;
+
     // Serialize
-    let _bytes_written = unsafe { s.serialize(&mut file).unwrap() };
+    #[cfg(feature = "schema")]
+    {
+        let schema = unsafe { data.serialize_with_schema(&mut file)? };
+        println!("{}", schema.debug(&std::fs::read(FILE_NAME)?));
+        println!();
+    }
+    #[cfg(not(feature = "schema"))]
+    let _bytes_written = unsafe { data.serialize(&mut file)? };
 
     drop(file);
 
-    let mut file = std::fs::File::open("test.bin").unwrap();
-
-    // Do a full-copy deserialization
-
-    let full = unsafe { Struct::deserialize_full(&mut file).unwrap() };
+    // Do a full-copy deserialization with vectors
+    let mut file = std::fs::File::open(FILE_NAME)?;
+    let full = unsafe { Type::deserialize_full(&mut file)? };
     println!(
-        "Full-copy deserialization type: {}",
-        core::any::type_name::<Struct>(),
+        "Full-copy deserialization: returns the deserializable type {}",
+        core::any::type_name::<Type>(),
     );
     println!("Value: {:x?}", full);
-    assert_eq!(s, full);
+    assert_eq!(data, full);
+
+    println!();
+
+    // Do a full-copy deserialization with one boxed slice
+    let mut file = std::fs::File::open(FILE_NAME)?;
+    let full = unsafe { TypeOneBoxed::deserialize_full(&mut file)? };
+    println!(
+        "Full-copy deserialization: returns the deserializable type {}",
+        core::any::type_name::<TypeOneBoxed>(),
+    );
+    println!("Value: {:x?}", full);
+
+    println!();
+
+    // Do a full-copy deserialization with boxed slices
+    let mut file = std::fs::File::open(FILE_NAME)?;
+    let full = unsafe { TypeBothBoxed::deserialize_full(&mut file)? };
+    println!(
+        "Full-copy deserialization: returns the deserializable type {}",
+        core::any::type_name::<TypeBothBoxed>(),
+    );
+    println!("Value: {:x?}", full);
 
     println!();
 
     // Do an ε-copy deserialization
-    let file = std::fs::read("test.bin").unwrap();
-    let eps = unsafe { Struct::deserialize_eps(&file).unwrap() };
+    let file = std::fs::read(FILE_NAME)?;
+    let eps = unsafe { Type::deserialize_eps(&file)? };
     println!(
-        "ε-copy deserialization type: {}",
-        core::any::type_name::<DeserType<'_, Struct>>(),
+        "ε-copy deserialization: returns the associated deserialization type {}",
+        core::any::type_name::<DeserType<'_, Type>>(),
     );
     println!("Value: {:x?}", eps);
-    assert_eq!(s.a, eps.a);
-    assert_eq!(s.b.a, eps.b.a);
-    assert_eq!(s.b.b, eps.b.b);
-    assert_eq!(s.test, eps.test);
+    assert_eq!(data.a, eps.a);
+    assert_eq!(data.b.a, eps.b.a);
+    assert_eq!(data.b.b, eps.b.b);
+    assert_eq!(data.test, eps.test);
+
+    #[cfg(not(feature = "schema"))]
+    println!("\nPlease compile with the \"schema\" feature to see the schema output");
+    Ok(())
 }

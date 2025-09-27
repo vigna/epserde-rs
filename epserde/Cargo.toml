@@ -39,3 +39,5 @@ default = ["std", "mmap", "derive"]
 derive = ["epserde-derive"]
 std = ["mem_dbg/std"]
 mmap = ["mmap-rs", "mem_dbg/mmap-rs"]
+# For compiling examples with schema output
+schema = []
