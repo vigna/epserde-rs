@@ -529,6 +529,8 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     // No-op code that however checks that all fields are zero-copy.
+                    // This approach gives better error messages than adding
+                    // `ZeroCopy` bounds to the where clause.
                     fn Fields_of_zero_copy_types_must_be_zero_copy<T: ::epserde::traits::ZeroCopy>() {}
                     #(
                         Fields_of_zero_copy_types_must_be_zero_copy::<#field_types>();
@@ -799,6 +801,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     // No-op code that however checks that all fields are zero-copy.
+                    // This approach gives better error messages than adding
+                    // `ZeroCopy` bounds to the where clause.
                     fn Fields_of_zero_copy_types_must_be_zero_copy<T: ::epserde::traits::ZeroCopy>() {}
                     #(
                         Fields_of_zero_copy_types_must_be_zero_copy::<#all_fields_types>();
