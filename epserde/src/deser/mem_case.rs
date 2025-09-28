@@ -186,7 +186,7 @@ impl<T> SerInner for Owned<T> {
 /// [`MemCase`] instances have a few dozen bytes of overhead due to the
 /// [`MemBackend`] instance they contain.
 ///
-/// Note that if you plan to bind with traits the behavior of [`MemCase`]
+/// Note that if you plan to bound with traits the behavior of [`MemCase`]
 /// instances, you should do so on the deserialization type associated with the
 /// underlying type, as that will be the type of the reference returned by
 /// [`uncase`](MemCase::uncase).

@@ -85,16 +85,16 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
     None
 }
 
-/// Generates a method call for field deserialization.
+/// Generates a method call for field ε-copy deserialization.
 ///
 /// This methods takes care of choosing `_deser_eps_inner` or
-/// `_deser_full_inner` depending on whether a field type is a type
-/// parameter or not, and to use the special method
-/// `_deser_eps_inner_special` for `PhantomDeserData`.
+/// `_deser_full_inner` depending on whether a field type is a type parameter or
+/// not, and to use the special method `_deser_eps_inner_special` for
+/// `PhantomDeserData`.
 ///
 /// The type of `field_name` is [`proc_macro2::TokenStream`] because it can be
 /// either an identifier (for named fields) or an index (for unnamed fields).
-fn gen_deser_method_call(
+fn gen_eps_deser_method_call(
     field_name: &proc_macro2::TokenStream,
     field_type: &syn::Type,
     type_params: &HashSet<&syn::Ident>,
@@ -206,9 +206,9 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     (is_repr_c, is_zero_copy, is_deep_copy)
 }
 
-/// For each bounded type parameter that is the type of some field, binds the
+/// For each bounded type parameter that is the type of some field, bounds the
 /// associated (de)serialization types with the same trait bounds of the type.
-fn bind_ser_deser_types(
+fn bound_ser_deser_types(
     derive_input: &DeriveInput,
     repl_params: &HashSet<&syn::Ident>,
     ser_where_clause: &mut WhereClause,
@@ -268,8 +268,12 @@ fn bind_ser_deser_types(
     }
 }
 
-/// Adds to the given (de)serialization where clause a bound
-/// binding the given type to `(De)SerInner`.
+/// Adds to the given (de)serialization where clause a bound to `(De)SerInner`
+/// for the given type.
+///
+/// In the case of zero-copy types, add also the other bounds on which
+/// [`ZeroCopy`] depends; moreover, the bound to `SerInner` requires `SerType =
+/// Self`.
 fn add_ser_deser_trait_bounds(
     ty: &syn::Type,
     is_zero_copy: bool,
@@ -325,8 +329,8 @@ fn add_ser_deser_trait_bounds(
     }
 }
 
-/// Generates generics for the deserialization type by replacing type parameters
-/// that are types of fields with their associated deserialization type.
+/// Generates generics for the deserialization type by replacing replaceable
+/// type parameters with their associated deserialization type.
 fn gen_generics_for_deser_type(
     ctx: &EpserdeContext,
     repl_params: &HashSet<&syn::Ident>,
@@ -343,8 +347,8 @@ fn gen_generics_for_deser_type(
         .collect()
 }
 
-/// Generates generics for the serialization type by replacing type parameters
-/// that are types of fields with their associated serialization type.
+/// Generates generics for the serialization type by replacing replaceable
+/// type parameters with their associated serialization type.
 fn gen_generics_for_ser_type(
     ctx: &EpserdeContext,
     repl_params: &HashSet<&syn::Ident>,
@@ -388,10 +392,9 @@ fn gen_ser_deser_where_clauses(
 
 /// Generates the where clauses for `TypeHash`, `AlignHash`, and `AlignTo`.
 ///
-/// The where clauses bound all field types with the trait being implemented,
-/// thus propagating the trait recursively, with the proviso that in case of a
-/// replaceable type parameter of a deep-copy type we bound the associated
-/// serialization type instead.
+/// The where clauses bound with the trait being implemented; the bound is
+/// applied to the field types for zero-copy types, and to the associated
+/// serialization types of field types for deep-copy types,
 fn gen_type_info_where_clauses(
     base_clause: &WhereClause,
     is_zero_copy: bool,
@@ -487,7 +490,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             }
         }
 
-        method_calls.push(gen_deser_method_call(
+        method_calls.push(gen_eps_deser_method_call(
             &field_name,
             field_type,
             &ctx.type_params,
@@ -524,7 +527,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
-                // The type is declared as zero-copy, so a fortiori there is no mismatch.
+                // The type is declared as zero-copy, so a fortiori there is no mismatch
                 const ZERO_COPY_MISMATCH: bool = false;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
@@ -559,7 +562,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             }
         }
     } else {
-        bind_ser_deser_types(
+        bound_ser_deser_types(
             ctx.derive_input,
             &repl_params,
             &mut ser_where_clause,
@@ -580,8 +583,8 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
-                // Whether the type could be zero-copy but it is not
-                // declared as such, and the attribute `deep_copy` is missing.
+                // Whether the type could be zero-copy but it is not declared as
+                // such, and the attribute `deep_copy` is missing
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
@@ -671,7 +674,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                         }
                     }
 
-                    method_calls.push(gen_deser_method_call(
+                    method_calls.push(gen_eps_deser_method_call(
                         &field_name.to_token_stream(),
                         field_type,
                         &all_repl_params,
@@ -728,7 +731,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                             .to_token_stream(),
                     );
 
-                    method_calls.push(gen_deser_method_call(
+                    method_calls.push(gen_eps_deser_method_call(
                         &field_name.to_token_stream(),
                         field_type,
                         &all_repl_params,
@@ -796,7 +799,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
-                // The type is declared as zero-copy, so a fortiori there is no mismatch.
+                // The type is declared as zero-copy, so a fortiori there is no mismatch
                 const ZERO_COPY_MISMATCH: bool = false;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
@@ -831,7 +834,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
             }
         }
     } else {
-        bind_ser_deser_types(
+        bound_ser_deser_types(
             ctx.derive_input,
             &all_repl_params,
             &mut ser_where_clause,
@@ -851,8 +854,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
-                // Whether the type could be zero-copy but it is not
-                // declared as such, and the attribute `deep_copy` is missing.
+                // Whether the type could be zero-copy but it is not declared as
+                // such, and the attribute `deep_copy` is missing
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
@@ -1092,7 +1095,7 @@ fn gen_enum_align_hash_body(
             use ::epserde::traits::AlignHash;
             use ::epserde::ser::SerType;
 
-            // Hash in size, as padding is given by AlignTo.
+            // Hash in size, as padding is given by AlignTo,
             // and it is independent of the architecture.
             Hash::hash(&::core::mem::size_of::<Self>(), hasher);
 

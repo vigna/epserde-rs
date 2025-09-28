@@ -95,8 +95,8 @@ pub unsafe trait CopyType: Sized {
 }
 
 /// Marker trait for zero-copy types. You cannot implement this trait directly:
-/// you rather implement the trait binding it, and then it is automatically
-/// implemented by a blanket implementation.
+/// you rather implement the traits on which it depends, and then it is
+/// automatically implemented by a blanket implementation.
 ///
 /// Note that we require `SerInner<SerType = Self>` but just `DeserInner` and
 /// not, say, `DeserInner<DeserType<'_> = &Self>`, which would be natural for
@@ -128,7 +128,7 @@ impl<
 }
 
 /// Marker trait for deep-copy types. You cannot implement this trait directly:
-/// you rather implement the traits binding it, and then it is automatically
+/// you rather implement the traits on which it depends, and then it is automatically
 /// implemented by a blanket implementation.
 ///
 /// Note that we require `SerInner` but not `DeserInner` to make the

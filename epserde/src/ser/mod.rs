@@ -168,7 +168,7 @@ pub trait SerInner {
 /// # Implementation Notes
 ///
 /// Note the bound on the serialization type or `T`: we need to be able to
-/// compute type and alignment hashes for it. We could bind the serialization
+/// compute type and alignment hashes for it. We could bound the serialization
 /// type itself in the definition of [`SerInner`], but having the bound here
 /// instead gives us more flexibility and makes the implementation of
 /// [`Owned`](crate::deser::Owned) easier.

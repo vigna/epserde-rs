@@ -757,7 +757,7 @@ types implementing [`CopyType`] with associated type [`CopyType::Copy`] equal to
 [`Zero`] and also implementing [`Copy`], [`TypeHash`], [`AlignHash`],
 [`AlignTo`] and [`SerInner`] with [`SerInner::SerType`] equal to `Self`; they
 must also outlive the `'static` lifetime, and be `repr(C)`. Note that in this
-case we bind the original type, rather than the serialization type,
+case we bound the original type, rather than the serialization type,
 because zero-copy types are always serialized as themselves, and all fields
 of a zero-copy type are zero-copy as well.
 
