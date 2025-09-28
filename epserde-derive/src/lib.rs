@@ -277,6 +277,15 @@ fn add_ser_deser_trait_bounds(
     deser_where_clause: &mut syn::WhereClause,
 ) {
     if is_zero_copy {
+        // Note that it would be natural to have a bound to `ZeroCopy` here, as
+        // all fields of a zero-copy type must be zero-copy too. However, adding
+        // the bound here generates rather obscure compiler error messages when
+        // the user creates a zero-copy type with a field that is not zero-copy.
+        //
+        // Thus, we rather add all bounds that are necessary to implement
+        // `ZeroCopy`, except that relative to `CopyType<Copy=Zero>`. Instead,
+        // in the generated code for a zero-copy type we add a dummy test
+        // function that forces the each field to implement `ZeroCopy`.
         add_trait_bound(
             ser_where_clause,
             ty,
@@ -520,9 +529,9 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     // No-op code that however checks that all fields are zero-copy.
-                    fn test<T: ::epserde::traits::ZeroCopy>() {}
+                    fn Fields_of_zero_copy_types_must_be_zero_copy<T: ::epserde::traits::ZeroCopy>() {}
                     #(
-                        test::<#field_types>();
+                        Fields_of_zero_copy_types_must_be_zero_copy::<#field_types>();
                     )*
                     ::epserde::ser::helpers::ser_zero(backend, self)
                 }
@@ -790,9 +799,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     // No-op code that however checks that all fields are zero-copy.
-                    fn test<T: ::epserde::traits::ZeroCopy>() {}
+                    fn Fields_of_zero_copy_types_must_be_zero_copy<T: ::epserde::traits::ZeroCopy>() {}
                     #(
-                        test::<#all_fields_types>();
+                        Fields_of_zero_copy_types_must_be_zero_copy::<#all_fields_types>();
                     )*
 
                     unsafe { ::epserde::ser::helpers::ser_zero(backend, self) }
