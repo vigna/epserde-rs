@@ -15,7 +15,7 @@ use maligned::A16;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone, Copy)]
 #[repr(C)]
-#[zero_copy]
+#[epserde_zero_copy]
 struct Data {
     a: usize,
 }

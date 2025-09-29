@@ -163,7 +163,7 @@ fn test_struct_deep() {
 fn test_struct_zero() {
     #[derive(Epserde, Copy, Clone, Debug, PartialEq)]
     #[repr(C)]
-    #[zero_copy]
+    #[epserde_zero_copy]
     struct Struct {
         a: usize,
         b: usize,
@@ -204,7 +204,7 @@ fn test_tuple_struct_deep() {
 fn test_tuple_struct_zero() {
     #[derive(Epserde, Copy, Clone, Debug, PartialEq)]
     #[repr(C)]
-    #[zero_copy]
+    #[epserde_zero_copy]
     struct Tuple(usize, usize, i32);
     let a = Tuple(0, 1, 2);
     let mut cursor = <AlignedCursor<A16>>::new();
@@ -294,7 +294,7 @@ fn test_enum_deep() {
 fn test_enum_zero() {
     #[derive(Epserde, Clone, Copy, Debug, PartialEq)]
     #[repr(C)]
-    #[zero_copy]
+    #[epserde_zero_copy]
     enum Data {
         A,
         B(u64),

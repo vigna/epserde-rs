@@ -73,7 +73,7 @@ pub fn check_mismatch<V: SerInner>() {
     if V::ZERO_COPY_MISMATCH {
         #[cfg(feature = "std")]
         eprintln!(
-            "Type {} is zero-copy, but it has not declared as such; use the #[deep_copy] attribute to silence this warning",
+            "Type {} is zero-copy, but it has not declared as such; use the #[epserde_deep_copy] attribute to silence this warning",
             core::any::type_name::<V>()
         );
     }

@@ -17,7 +17,7 @@ use maligned::A16;
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Default, Clone)]
 #[repr(C)]
-#[zero_copy]
+#[epserde_zero_copy]
 struct USize(usize);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

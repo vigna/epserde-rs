@@ -68,7 +68,7 @@ fn test_not_serializable_in_phantom() {
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
 #[repr(C)]
-#[zero_copy]
+#[epserde_zero_copy]
 struct DataZero<A: Default + ZeroCopy> {
     a: usize,
     b: PhantomData<A>,
@@ -76,7 +76,7 @@ struct DataZero<A: Default + ZeroCopy> {
 
 #[derive(Epserde, Debug, Copy, PartialEq, Eq, Clone, Default)]
 #[repr(C)]
-#[zero_copy]
+#[epserde_zero_copy]
 struct ZeroCopyType;
 
 /// Test that we can serialize a PhantomData in a zero-copy type if the argument
@@ -105,7 +105,7 @@ fn test_phantom_zero_copy() {
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
 #[repr(C)]
-#[zero_copy]
+#[epserde_zero_copy]
 struct OnlyPhantom<A: Default + ZeroCopy> {
     a: PhantomData<A>,
     b: PhantomData<(A, A)>,
@@ -196,7 +196,7 @@ fn test_deser_phantom_deep_copy() {
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
 #[repr(C)]
-#[zero_copy]
+#[epserde_zero_copy]
 struct DataZeroWithPhantomDeserData<T: ZeroCopy> {
     data: T,
     phantom: PhantomDeserData<T>,

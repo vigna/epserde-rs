@@ -70,7 +70,7 @@ fn test_inner_param_eps() {
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Copy)]
-#[zero_copy]
+#[epserde_zero_copy]
 #[repr(C)]
 struct Data3<const N: usize = 10>;
 
@@ -119,7 +119,7 @@ fn test_types_deep_copy_param() {
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
 #[repr(C)]
-#[zero_copy]
+#[epserde_zero_copy]
 struct ZeroCopyParam<T: ZeroCopy> {
     data: T,
 }

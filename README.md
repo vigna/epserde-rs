@@ -42,8 +42,9 @@ methods, basic (de)serialization for primitive types, vectors, etc., convenience
 memory-mapping methods based on [mmap_rs], and a [`MemCase`] structure that
 couples a deserialized structure with its backend (e.g., a slice of memory or a
 memory-mapped region). A [`MemCase`] provides a [`uncase`] method that yields
-references to the deserialized instance it contains. Moreover, with proper trait
-delegation a [`MemCase`] can be used almost transparently as said instance.
+references to the deserialized instance it contains. Moreover, a [`MemCase`] can
+also contain an owned instance, making it possible to use the same code for both
+owned and, say, memory-mapped instances.
 
 ## Who
 
@@ -82,8 +83,9 @@ These are the main limitations you should be aware of before choosing to use
   [`Deserialize::read_mem`], [`Deserialize::load_mmap`],
   [`Deserialize::read_mmap`], and [`Deserialize::mmap`].
 
-- No validation or padding cleaning is performed on zero-copy types. If you plan
-  to serialize data and distribute it, you must take care of these issues.
+- No validation or padding cleaning is performed on deserialized instance. If
+  you plan to serialize data and distribute it, you must take care of these
+  issues.
 
 ## Pros
 
@@ -108,6 +110,13 @@ These are the main limitations you should be aware of before choosing to use
 - You can deserialize from read-only supports, as all dynamic information
   generated at deserialization time is stored in newly allocated memory. This is
   not the case with [Abomonation].
+
+## Warning to Previous Users
+
+The attributes `#[zero_copy]` and `#[deep_copy]` have been renamed to
+`#[epserde_zero_copy]` and `#[epserde_deep_copy]`, respectively, to avoid
+conflicts with other crates. The old names will continue to work and raise a
+warning on nightly, but we plan to remove them in the next major release.
 
 ## Example: Zero-copy of standard types
 
@@ -229,7 +238,7 @@ as `AsRef<[usize]>`.
 
 You can define your types to be zero-copy, in which case they will work like
 `usize` in the previous examples. This requires the structure to be made of
-zero-copy fields, and to be annotated with `#[zero_copy]` and `#[repr(C)]`
+zero-copy fields, and to be annotated with `#[epserde_zero_copy]` and `#[repr(C)]`
 (which means that you will lose the possibility that the compiler reorders the
 fields to optimize memory usage):
 
@@ -237,7 +246,7 @@ fields to optimize memory usage):
 # use epserde::prelude::*;
 #[derive(Epserde, Debug, PartialEq, Copy, Clone)]
 #[repr(C)]
-#[zero_copy]
+#[epserde_zero_copy]
 struct Data {
     foo: usize,
     bar: usize,
@@ -275,12 +284,12 @@ If a type is not zero-copy, instead, vectors/boxed slices will be always
 deserialized into vectors/boxed slices.
 
 If you define a type that satisfies the requirements for being zero-copy, but
-has not been annotated with `#[zero_copy]`, ε-serde will print a warning message
-each time you serialize an instance of the type. You can use the `#[deep_copy]`
-annotation to silence the warning. The reason for this (annoying) message is
-that it is not possible to detect at compile time this missed opportunity. In
-some cases, however, you might want to have a deep-copy type (e.g., because
-field reordering is beneficial for memory usage).
+has not been annotated with `#[epserde_zero_copy]`, ε-serde will print a warning
+message each time you serialize an instance of the type. You can use the
+`#[epserde_deep_copy]` annotation to silence the warning. The reason for this
+(annoying) message is that it is not possible to detect at compile time this
+missed opportunity. In some cases, however, you might want to have a deep-copy
+type (e.g., because field reordering is beneficial for memory usage).
 
 ## Example: User-defined structures with parameters
 
@@ -451,7 +460,7 @@ example,
 # use epserde::prelude::*;
 #[derive(Epserde, Debug, PartialEq, Clone, Copy)]
 #[repr(C)]
-#[zero_copy]
+#[epserde_zero_copy]
 struct MyStruct<A: ZeroCopy> {
     data: A,
 }
@@ -992,8 +1001,8 @@ second condition, and indeed `D::DeserType<'_>` is `&D`.
 
 We strongly suggest using the procedural macro [`Epserde`] to make your own
 types serializable and deserializable. Just invoking the macro on your structure
-will make it fully functional with ε-serde. The attribute `#[zero_copy]` can be
-used to make a structure zero-copy, albeit it must satisfy [a few
+will make it fully functional with ε-serde. The attribute `#[epserde_zero_copy]`
+can be used to make a structure zero-copy, albeit it must satisfy [a few
 prerequisites].
 
 You can also implement manually the traits [`CopyType`], [`AlignTo`],

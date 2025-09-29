@@ -14,7 +14,7 @@ use maligned::A16;
 
 #[derive(Epserde, Copy, Clone, Debug)]
 #[repr(C)]
-#[zero_copy]
+#[epserde_zero_copy]
 struct Data {
     a: [i32; 10],
 }

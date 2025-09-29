@@ -2,6 +2,20 @@
 
 ## [0.10.3] - 2025-09-26
 
+### new
+
+* The attributes `zero_copy` and `deep_copy` were dangerously commonly named,
+  and they have been replaced by `epserde_zero_copy` and `epserde_deep_copy`.
+  The old names are still supported but deprecated, and will be removed in a
+  future release. There are deprecation warnings, but unfortunately for the time
+  being they will only appear on nightly.
+
+### Changed
+
+* Revamped examples; new `schema` feature for enabling schema printing.
+
+## [0.10.3] - 2025-09-26
+
 ### Fixed
 
 * Removed usage of `is_multiple_of`.

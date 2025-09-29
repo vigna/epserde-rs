@@ -83,7 +83,7 @@ impl CopySelector for Deep {
 /// have to implement mutually exclusive types.
 ///
 /// If you use the provided derive macros all this logic will be hidden from
-/// you. You'll just have to add `#[zero_copy]` to your structures (if you want
+/// you. You'll just have to add `#[epserde_zero_copy]` to your structures (if you want
 /// them to be zero-copy) and ε-serde will do the rest.
 ///
 /// # Safety

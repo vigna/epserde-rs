@@ -9,6 +9,7 @@
 
 //! Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) crate.
 
+use proc_macro_error::{emit_warning, proc_macro_error};
 use quote::{ToTokens, quote};
 use std::{collections::HashSet, vec};
 use syn::{
@@ -172,24 +173,37 @@ fn get_type_const_params(
     (type_const_params, type_params, const_params)
 }
 
-/// Returns whether the struct has attributes `repr(C)`, `zero_copy`, and `deep_copy`.
+fn check_and_warn(path: &syn::Path, attr_name: &str) -> bool {
+    if path.is_ident(attr_name) {
+        emit_warning!(
+            path,
+            format!(
+                "Attribute `{}` is deprecated, please use `epserde_{}` instead",
+                attr_name, attr_name
+            )
+        );
+        true
+    } else {
+        false
+    }
+}
+
+/// Returns whether the struct has attributes `repr(C)`, `epserde_zero_copy`, and `epserde_deep_copy`.
 ///
 /// # Panics
 ///
-/// This method will panic if coherence checks fail (e.g., to be `zero_copy` the
+/// This method will panic if coherence checks fail (e.g., to be `epserde_zero_copy` the
 /// struct must be `repr(C)`)
 fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
     let is_repr_c = input.attrs.iter().any(|x| {
         x.meta.path().is_ident("repr") && x.meta.require_list().unwrap().tokens.to_string() == "C"
     });
-    let is_zero_copy = input
-        .attrs
-        .iter()
-        .any(|x| x.meta.path().is_ident("zero_copy"));
-    let is_deep_copy = input
-        .attrs
-        .iter()
-        .any(|x| x.meta.path().is_ident("deep_copy"));
+    let is_zero_copy = input.attrs.iter().any(|x| {
+        check_and_warn(x.meta.path(), "zero_copy") || x.meta.path().is_ident("epserde_zero_copy")
+    });
+    let is_deep_copy = input.attrs.iter().any(|x| {
+        check_and_warn(x.meta.path(), "deep_copy") || x.meta.path().is_ident("epserde_deep_copy")
+    });
     if is_zero_copy && !is_repr_c {
         panic!(
             "Type {} is declared as zero-copy, but it is not repr(C)",
@@ -466,9 +480,9 @@ struct EpserdeContext<'a> {
     where_clause: &'a WhereClause,
     /// Whether the type has `#[repr(C)]`
     is_repr_c: bool,
-    /// Whether the type has `#[zero_copy]`
+    /// Whether the type has `#[epserde_zero_copy]`
     is_zero_copy: bool,
-    /// Whether the type has `#[deep_copy]`
+    /// Whether the type has `#[epserde_deep_copy]`
     is_deep_copy: bool,
 }
 
@@ -584,7 +598,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
                 // Whether the type could be zero-copy but it is not declared as
-                // such, and the attribute `deep_copy` is missing
+                // such, and the attribute `epserde_deep_copy` is missing
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
@@ -855,7 +869,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
                 // Whether the type could be zero-copy but it is not declared as
-                // such, and the attribute `deep_copy` is missing
+                // such, and the attribute `epserde_deep_copy` is missing
                 const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
@@ -915,16 +929,20 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// Presently we do not support unions, where clauses on the original type,
 /// and lifetime generics.
 ///
-/// The attribute `zero_copy` can be used to generate an implementation for a
+/// The attribute `epserde_zero_copy` can be used to generate an implementation for a
 /// zero-copy type, but the type must be `repr(C)` and all fields must be
 /// zero-copy.
 ///
-/// If you do not specify `zero_copy`, the macro assumes your structure is
+/// If you do not specify `epserde_zero_copy`, the macro assumes your structure is
 /// deep-copy. However, if you have a structure that could be zero-copy, but has
 /// no attribute, a warning will be issued every time you serialize an instance
 /// of the type. The warning can be silenced adding the explicit attribute
-/// `deep_copy`.
-#[proc_macro_derive(Epserde, attributes(zero_copy, deep_copy))]
+/// `epserde_deep_copy`.
+#[proc_macro_error(proc_macro_hack)]
+#[proc_macro_derive(
+    Epserde,
+    attributes(zero_copy, deep_copy, epserde_zero_copy, epserde_deep_copy)
+)]
 pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // This part is in common with type_info_derive
     let mut derive_input = parse_macro_input!(input as DeriveInput);
@@ -1096,7 +1114,7 @@ fn gen_enum_align_hash_body(
             use ::epserde::ser::SerType;
 
             // Hash in size, as padding is given by AlignTo,
-            // and it is independent of the architecture.
+            // and it is independent of the architecture
             Hash::hash(&::core::mem::size_of::<Self>(), hasher);
 
             // Hash in representation data.
@@ -1371,7 +1389,11 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 /// It generates implementations just for the traits `CopyType`, `AlignTo`,
 /// `TypeHash`, and `AlignHash`. See the documentation of [`Epserde`] for
 /// more information.
-#[proc_macro_derive(TypeInfo, attributes(zero_copy, deep_copy))]
+#[proc_macro_error(proc_macro_hack)]
+#[proc_macro_derive(
+    TypeInfo,
+    attributes(zero_copy, deep_copy, epserde_zero_copy, epserde_deep_copy)
+)]
 pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut derive_input = parse_macro_input!(input as DeriveInput);
 

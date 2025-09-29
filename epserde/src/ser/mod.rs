@@ -54,7 +54,7 @@ pub type SerType<T> = <T as SerInner>::SerType;
 ///
 /// #[repr(C)]
 /// #[repr(align(1024))]
-/// #[zero_copy]
+/// #[epserde_zero_copy]
 ///
 /// struct Example(u8);
 ///
@@ -143,8 +143,8 @@ pub trait SerInner {
 
     /// Inner constant used by the derive macros to keep
     /// track of whether all fields of a type are zero-copy
-    /// but neither the attribute `#[zero_copy]` nor the attribute
-    /// `#[deep_copy]` was specified. It is checked at runtime, and if it is
+    /// but neither the attribute `#[epserde_zero_copy]` nor the attribute
+    /// `#[epserde_deep_copy]` was specified. It is checked at runtime, and if it is
     /// true a run-time warning will be issued each time you serialize an
     /// instance type, as the type could be zero-copy, which would be more
     /// efficient.

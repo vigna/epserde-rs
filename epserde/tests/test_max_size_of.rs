@@ -10,7 +10,7 @@ use maligned::{A16, A64};
 #[repr(C)]
 #[repr(align(32))]
 #[repr(align(64))] // The max wins
-#[zero_copy]
+#[epserde_zero_copy]
 struct MyStruct64 {
     u: u32,
 }
@@ -18,14 +18,14 @@ struct MyStruct64 {
 #[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 #[repr(align(2))]
-#[zero_copy]
+#[epserde_zero_copy]
 struct MyStruct2 {
     u: u32,
 }
 
 #[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
-#[zero_copy]
+#[epserde_zero_copy]
 struct MyStruct {
     u: u32,
 }
