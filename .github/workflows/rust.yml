@@ -44,8 +44,12 @@ jobs:
       - uses: actions/checkout@v3
       - name: Build
         run: cargo build ${{ matrix.features }} --verbose
-      - name: Run tests
+      - name: Run tests 1.85.0 including trybuild tests
+        if:  ${{ matrix.rust == 1.85.0 }}
         run: cargo test ${{ matrix.features }} --verbose
+      - name: Run tests on the rest excluding trybuild tests because of slightly different outputs
+        if:  ${{ matrix.rust != 1.85.0 }}
+        run: cargo test ${{ matrix.features }} --verbose -- --skip fail
       - name: Run examples
         working-directory: ./epserde
         run: for example in examples/*.rs ; do cargo run --example "$(basename "${example%.rs}")" ; done
