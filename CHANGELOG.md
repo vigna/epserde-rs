@@ -1,8 +1,8 @@
 # Change Log
 
-## [0.10.3] - 2025-09-26
+## [0.10.4] - 2025-09-30
 
-### new
+### New
 
 * The attributes `zero_copy` and `deep_copy` were dangerously commonly named,
   and they have been replaced by `epserde_zero_copy` and `epserde_deep_copy`.
