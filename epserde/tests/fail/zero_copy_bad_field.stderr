@@ -1,0 +1,71 @@
+error[E0271]: type mismatch resolving `<NotZeroCopy as CopyType>::Copy == Zero`
+  --> tests/fail/zero_copy_bad_field.rs:18:10
+   |
+18 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ type mismatch resolving `<NotZeroCopy as CopyType>::Copy == Zero`
+   |
+note: expected this to be `epserde::traits::Zero`
+  --> tests/fail/zero_copy_bad_field.rs:9:10
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^
+   = help: see issue #48214
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: type mismatch resolving `<NotZeroCopy as CopyType>::Copy == Zero`
+  --> tests/fail/zero_copy_bad_field.rs:18:10
+   |
+18 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ type mismatch resolving `<NotZeroCopy as CopyType>::Copy == Zero`
+   |
+note: expected this to be `epserde::traits::Zero`
+  --> tests/fail/zero_copy_bad_field.rs:9:10
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^
+   = note: required for `NotZeroCopy` to implement `ZeroCopy`
+note: required for `Bad` to implement `epserde::ser::SerInner`
+  --> tests/fail/zero_copy_bad_field.rs:18:10
+   |
+18 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ unsatisfied trait bound introduced in this `derive` macro
+...
+21 | struct Bad(NotZeroCopy);
+   |        ^^^
+   = note: 1 redundant requirement hidden
+   = note: required for `Bad` to implement `ZeroCopy`
+note: required by a bound in `deser_full_zero`
+  --> src/deser/helpers.rs
+   |
+   | pub unsafe fn deser_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> deser::Result<T> {
+   |                                  ^^^^^^^^ required by this bound in `deser_full_zero`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: type mismatch resolving `<NotZeroCopy as CopyType>::Copy == Zero`
+  --> tests/fail/zero_copy_bad_field.rs:18:10
+   |
+18 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ type mismatch resolving `<NotZeroCopy as CopyType>::Copy == Zero`
+   |
+note: expected this to be `epserde::traits::Zero`
+  --> tests/fail/zero_copy_bad_field.rs:9:10
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^
+   = note: required for `NotZeroCopy` to implement `ZeroCopy`
+note: required for `Bad` to implement `epserde::ser::SerInner`
+  --> tests/fail/zero_copy_bad_field.rs:18:10
+   |
+18 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ unsatisfied trait bound introduced in this `derive` macro
+...
+21 | struct Bad(NotZeroCopy);
+   |        ^^^
+   = note: 1 redundant requirement hidden
+   = note: required for `Bad` to implement `ZeroCopy`
+note: required by a bound in `deser_eps_zero`
+  --> src/deser/helpers.rs
+   |
+   | pub unsafe fn deser_eps_zero<'a, T: for<'b> ZeroCopy<DeserType<'b> = &'b T>>(
+   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `deser_eps_zero`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)

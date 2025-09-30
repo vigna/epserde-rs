@@ -31,26 +31,6 @@ fn empty_where_clause() -> WhereClause {
     }
 }
 
-/// Adds a type trait bound to a where clause.
-fn add_trait_bound(where_clause: &mut WhereClause, ty: &syn::Type, trait_path: syn::Path) {
-    let mut bounds = Punctuated::new();
-    bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
-        paren_token: None,
-        modifier: syn::TraitBoundModifier::None,
-        lifetimes: None,
-        path: trait_path,
-    }));
-
-    where_clause
-        .predicates
-        .push(WherePredicate::Type(PredicateType {
-            lifetimes: None,
-            bounded_ty: ty.clone(),
-            colon_token: token::Colon::default(),
-            bounds,
-        }));
-}
-
 /// Returns a field name as a token stream.
 ///
 /// This method takes care transparently of unnamed fields (i.e., fields tuple
@@ -242,7 +222,7 @@ fn bound_ser_deser_types(
                 lifetimes.push(GenericParam::Lifetime(LifetimeParam {
                     attrs: vec![],
                     lifetime: syn::Lifetime::new(
-                        "'epserde_desertype",
+                        "'__epserde_desertype",
                         proc_macro2::Span::call_site(),
                     ),
                     colon_token: None,
@@ -260,7 +240,7 @@ fn bound_ser_deser_types(
                             gt_token: token::Gt::default(),
                         }),
                         bounded_ty: syn::parse_quote!(
-                            ::epserde::deser::DeserType<'epserde_desertype, #ident>
+                            ::epserde::deser::DeserType<'__epserde_desertype, #ident>
                         ),
                         colon_token: token::Colon::default(),
                         bounds: t.bounds.clone(),
@@ -295,52 +275,21 @@ fn add_ser_deser_trait_bounds(
     deser_where_clause: &mut syn::WhereClause,
 ) {
     if is_zero_copy {
-        // Note that it would be natural to have a bound to `ZeroCopy` here, as
-        // all fields of a zero-copy type must be zero-copy too. However, adding
-        // the bound here generates rather obscure compiler error messages when
-        // the user creates a zero-copy type with a field that is not zero-copy.
-        //
-        // Thus, we rather add all bounds that are necessary to implement
-        // `ZeroCopy`, except that relative to `CopyType<Copy=Zero>`. Instead,
-        // in the generated code for a zero-copy type we add a dummy test
-        // function that forces the each field to implement `ZeroCopy`.
-        add_trait_bound(
-            ser_where_clause,
-            ty,
-            syn::parse_quote!(::epserde::ser::SerInner<SerType = #ty>),
-        );
-        add_trait_bound(
-            ser_where_clause,
-            ty,
-            syn::parse_quote!(::epserde::traits::AlignHash),
-        );
-        add_trait_bound(
-            ser_where_clause,
-            ty,
-            syn::parse_quote!(::epserde::traits::TypeHash),
-        );
-        add_trait_bound(
-            ser_where_clause,
-            ty,
-            syn::parse_quote!(::epserde::traits::AlignTo),
-        );
-        add_trait_bound(
-            deser_where_clause,
-            ty,
-            syn::parse_quote!(::epserde::deser::DeserInner),
-        );
+        // All fields of zero-copy types must be zero-copy
+        ser_where_clause.predicates.push(syn::parse_quote!(
+            #ty: ::epserde::traits::copy_type::ZeroCopy
+        ));
     } else {
-        add_trait_bound(
-            ser_where_clause,
-            ty,
-            syn::parse_quote!(::epserde::ser::SerInner),
-        );
-        add_trait_bound(
-            deser_where_clause,
-            ty,
-            syn::parse_quote!(::epserde::deser::DeserInner),
-        );
+        ser_where_clause.predicates.push(syn::parse_quote!(
+            #ty: ::epserde::ser::SerInner
+        ));
     }
+
+    // Note that we cannot impose DeserType<'_> = &Self in the zero-copy case
+    // because of primitive types
+    deser_where_clause.predicates.push(syn::parse_quote!(
+        #ty: ::epserde::deser::DeserInner
+    ));
 }
 
 /// Generates generics for the deserialization type by replacing replaceable
@@ -353,7 +302,7 @@ fn gen_generics_for_deser_type(
         .iter()
         .map(|ident| {
             if repl_params.contains(ident) {
-                quote!(::epserde::deser::DeserType<'epserde_desertype, #ident>)
+                quote!(::epserde::deser::DeserType<'__epserde_desertype, #ident>)
             } else {
                 quote!(#ident)
             }
@@ -545,13 +494,6 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 const ZERO_COPY_MISMATCH: bool = false;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
-                    // No-op code that however checks that all fields are zero-copy.
-                    // This approach gives better error messages than adding
-                    // `ZeroCopy` bounds to the where clause.
-                    fn Fields_of_zero_copy_types_must_be_zero_copy<T: ::epserde::traits::ZeroCopy>() {}
-                    #(
-                        Fields_of_zero_copy_types_must_be_zero_copy::<#field_types>();
-                    )*
                     ::epserde::ser::helpers::ser_zero(backend, self)
                 }
             }
@@ -565,7 +507,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     unsafe { ::epserde::deser::helpers::deser_full_zero::<Self>(backend) }
                 }
 
-                type DeserType<'epserde_desertype> = &'epserde_desertype Self;
+                type DeserType<'__epserde_desertype> = &'__epserde_desertype Self;
 
                 unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
@@ -623,7 +565,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     })
                 }
 
-                type DeserType<'epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
+                type DeserType<'__epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
 
                 unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
@@ -817,14 +759,6 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 const ZERO_COPY_MISMATCH: bool = false;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
-                    // No-op code that however checks that all fields are zero-copy.
-                    // This approach gives better error messages than adding
-                    // `ZeroCopy` bounds to the where clause.
-                    fn Fields_of_zero_copy_types_must_be_zero_copy<T: ::epserde::traits::ZeroCopy>() {}
-                    #(
-                        Fields_of_zero_copy_types_must_be_zero_copy::<#all_fields_types>();
-                    )*
-
                     unsafe { ::epserde::ser::helpers::ser_zero(backend, self) }
                 }
             }
@@ -837,7 +771,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     unsafe { ::epserde::deser::helpers::deser_full_zero::<Self>(backend) }
                 }
 
-                type DeserType<'epserde_desertype> = &'epserde_desertype Self;
+                type DeserType<'__epserde_desertype> = &'__epserde_desertype Self;
 
                 unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
@@ -900,7 +834,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     }
                 }
 
-                type DeserType<'epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
+                type DeserType<'__epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
 
                 unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
