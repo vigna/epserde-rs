@@ -45,10 +45,10 @@ jobs:
       - name: Build
         run: cargo build ${{ matrix.features }} --verbose
       - name: Run tests 1.85.0 including trybuild tests
-        if:  ${{ matrix.rust == 1.85.0 }}
+        if:  ${{ matrix.rust == '1.85.0' }}
         run: cargo test ${{ matrix.features }} --verbose
       - name: Run tests on the rest excluding trybuild tests because of slightly different outputs
-        if:  ${{ matrix.rust != 1.85.0 }}
+        if:  ${{ matrix.rust != '1.85.0' }}
         run: cargo test ${{ matrix.features }} --verbose -- --skip fail
       - name: Run examples
         working-directory: ./epserde
