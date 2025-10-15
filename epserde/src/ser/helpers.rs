@@ -71,8 +71,6 @@ pub fn ser_slice_zero<V: ZeroCopy>(
 
 /// Serialize a slice of deep-copy structures by encoding
 /// its length first, and then the contents item by item.
-///
-/// Here we warn [that the type might actually be zero-copy](SerInner::ZERO_COPY_MISMATCH).
 pub fn ser_slice_deep<V: SerInner>(
     backend: &mut impl WriteWithNames,
     data: &[V],

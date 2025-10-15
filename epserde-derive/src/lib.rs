@@ -543,7 +543,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     // Check whether the type could be zero-copy but it is not
                     // declared as such, and the attribute `epserde_deep_copy`
                     // is missing
-                    const { assert!(!(! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*), concat!("Type ", #name_str, " could be zero-copy, but it has not declared as such; use the #[epserde_deep_copy] attribute to silence this error")); }
+                    const { assert!(!(! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*), concat!("Structure ", #name_str, " could be zero-copy, but it has not declared as such; use the #[epserde_deep_copy] attribute to silence this error")); }
 
                     #(
                         unsafe { WriteWithNames::write(backend, stringify!(#field_names), &self.#field_names)?; }
@@ -806,7 +806,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     // Check whether the type could be zero-copy but it is not
                     // declared as such, and the attribute `epserde_deep_copy`
                     // is missing
-                    const { assert!(!(! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*), concat!("Type ", #name_str, " could be zero-copy, but it has not declared as such; use the #[epserde_deep_copy] attribute to silence this error")); }
+                    const { assert!(!(! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*), concat!("Enum ", #name_str, " could be zero-copy, but it has not declared as such; use the #[epserde_deep_copy] attribute to silence this error")); }
 
                     match self {
                         #(
