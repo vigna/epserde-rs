@@ -69,16 +69,6 @@ pub fn ser_slice_zero<V: ZeroCopy>(
     backend.write_bytes::<V>(buffer)
 }
 
-pub fn check_mismatch<V: SerInner>() {
-    if V::ZERO_COPY_MISMATCH {
-        #[cfg(feature = "std")]
-        eprintln!(
-            "Type {} is zero-copy, but it has not declared as such; use the #[epserde_deep_copy] attribute to silence this warning",
-            core::any::type_name::<V>()
-        );
-    }
-}
-
 /// Serialize a slice of deep-copy structures by encoding
 /// its length first, and then the contents item by item.
 ///
@@ -87,7 +77,6 @@ pub fn ser_slice_deep<V: SerInner>(
     backend: &mut impl WriteWithNames,
     data: &[V],
 ) -> ser::Result<()> {
-    check_mismatch::<V>();
     let len = data.len();
     backend.write("len", &len)?;
     for item in data.iter() {

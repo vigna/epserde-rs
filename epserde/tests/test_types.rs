@@ -140,6 +140,7 @@ fn test_vec_vec_array_array_usize() {
 #[test]
 fn test_struct_deep() {
     #[derive(Epserde, Copy, Clone, Debug, PartialEq)]
+    #[epserde_deep_copy]
     struct Struct {
         a: usize,
         b: usize,
@@ -186,6 +187,7 @@ fn test_struct_zero() {
 #[test]
 fn test_tuple_struct_deep() {
     #[derive(Epserde, Copy, Clone, Debug, PartialEq)]
+    #[epserde_deep_copy]
     struct Tuple(usize, usize, i32);
     let a = Tuple(0, 1, 2);
     let mut cursor = <AlignedCursor<A16>>::new();

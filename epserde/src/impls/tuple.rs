@@ -77,7 +77,6 @@ macro_rules! impl_tuples {
 		impl<T: ZeroCopy> SerInner for ($($t,)*) {
             type SerType = Self;
             const IS_ZERO_COPY: bool = true;
-            const ZERO_COPY_MISMATCH: bool = false;
 
             #[inline(always)]
             unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {

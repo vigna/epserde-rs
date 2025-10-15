@@ -141,15 +141,6 @@ pub trait SerInner {
     /// serialization will panic.
     const IS_ZERO_COPY: bool;
 
-    /// Inner constant used by the derive macros to keep
-    /// track of whether all fields of a type are zero-copy
-    /// but neither the attribute `#[epserde_zero_copy]` nor the attribute
-    /// `#[epserde_deep_copy]` was specified. It is checked at runtime, and if it is
-    /// true a run-time warning will be issued each time you serialize an
-    /// instance type, as the type could be zero-copy, which would be more
-    /// efficient.
-    const ZERO_COPY_MISMATCH: bool;
-
     /// Serializes this structure using the given backend.
     ///
     /// # Safety

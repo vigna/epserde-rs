@@ -1,5 +1,14 @@
 # Change Log
 
+## [0.11.0] - 2025-10-03
+
+### New
+
+* Thanks to const blocks, the previous runtime check for a deep-type type being
+  a candidate for zero-copy is now a static assertion. This is a significant
+  improvement, but it requires a major release as previous code might not
+  compile anymore.
+
 ## [0.10.4] - 2025-09-30
 
 ### New

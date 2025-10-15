@@ -33,6 +33,7 @@ fn test_phantom() {
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
+#[epserde_deep_copy]
 struct DataFull<D> {
     a: usize,
     b: PhantomData<D>,

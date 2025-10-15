@@ -490,9 +490,6 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
-                // The type is declared as zero-copy, so a fortiori there is no mismatch
-                const ZERO_COPY_MISMATCH: bool = false;
-
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     ::epserde::ser::helpers::ser_zero(backend, self)
                 }
@@ -526,6 +523,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         );
 
         let is_deep_copy = ctx.is_deep_copy;
+        let name_str = name.to_string();
 
         quote! {
             #[automatically_derived]
@@ -539,12 +537,13 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
-                // Whether the type could be zero-copy but it is not declared as
-                // such, and the attribute `epserde_deep_copy` is missing
-                const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*;
-
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     use ::epserde::ser::WriteWithNames;
+
+                    // Check whether the type could be zero-copy but it is not
+                    // declared as such, and the attribute `epserde_deep_copy`
+                    // is missing
+                    const { assert!(!(! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*), concat!("Type ", #name_str, " could be zero-copy, but it has not declared as such; use the #[epserde_deep_copy] attribute to silence this error")); }
 
                     #(
                         unsafe { WriteWithNames::write(backend, stringify!(#field_names), &self.#field_names)?; }
@@ -755,9 +754,6 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
-                // The type is declared as zero-copy, so a fortiori there is no mismatch
-                const ZERO_COPY_MISMATCH: bool = false;
-
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     unsafe { ::epserde::ser::helpers::ser_zero(backend, self) }
                 }
@@ -789,6 +785,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
             &mut deser_where_clause,
         );
 
+        let name_str = name.to_string();
+
         quote! {
             #[automatically_derived]
             unsafe impl #generics_for_impl ::epserde::traits::CopyType for #name #generics_for_type #where_clause {
@@ -802,14 +800,14 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
-                // Whether the type could be zero-copy but it is not declared as
-                // such, and the attribute `epserde_deep_copy` is missing
-                const ZERO_COPY_MISMATCH: bool = ! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*;
-
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     use ::epserde::ser::WriteWithNames;
 
-                    ::epserde::ser::helpers::check_mismatch::<Self>();
+                    // Check whether the type could be zero-copy but it is not
+                    // declared as such, and the attribute `epserde_deep_copy`
+                    // is missing
+                    const { assert!(!(! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*), concat!("Type ", #name_str, " could be zero-copy, but it has not declared as such; use the #[epserde_deep_copy] attribute to silence this error")); }
+
                     match self {
                         #(
                            Self::#variant_arm => { #variant_ser }
