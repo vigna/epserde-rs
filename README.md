@@ -284,12 +284,9 @@ If a type is not zero-copy, instead, vectors/boxed slices will be always
 deserialized into vectors/boxed slices.
 
 If you define a type that satisfies the requirements for being zero-copy, but
-has not been annotated with `#[epserde_zero_copy]`, ε-serde will print a warning
-message each time you serialize an instance of the type. You can use the
-`#[epserde_deep_copy]` annotation to silence the warning. The reason for this
-(annoying) message is that it is not possible to detect at compile time this
-missed opportunity. In some cases, however, you might want to have a deep-copy
-type (e.g., because field reordering is beneficial for memory usage).
+has no annotation, ε-serde will cause a compilation error. You must annotate the
+type with either `#[epserde_zero_copy]` or `#[epserde_deep_copy]` to silence the
+error.
 
 ## Example: User-defined structures with parameters
 

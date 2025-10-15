@@ -151,7 +151,6 @@ impl<T> SerInner for Owned<T> {
     type SerType = T;
 
     const IS_ZERO_COPY: bool = false;
-    const ZERO_COPY_MISMATCH: bool = false;
 
     unsafe fn _ser_inner(
         &self,

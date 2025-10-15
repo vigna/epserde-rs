@@ -80,7 +80,6 @@ macro_rules! impl_ser {
         impl<T: SerInner> SerInner for $type {
             type SerType = T::SerType;
             const IS_ZERO_COPY: bool = <T as SerInner>::IS_ZERO_COPY;
-            const ZERO_COPY_MISMATCH: bool = <T as SerInner>::ZERO_COPY_MISMATCH;
 
             #[inline(always)]
             unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {

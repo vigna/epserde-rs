@@ -47,7 +47,6 @@ where
 {
     type SerType = Box<[T::SerType]>;
     const IS_ZERO_COPY: bool = false;
-    const ZERO_COPY_MISMATCH: bool = false;
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         unsafe { SerHelper::_ser_inner(self, backend) }
     }
@@ -82,7 +81,6 @@ impl<'a, T: ZeroCopy, I: ExactSizeIterator<Item = &'a T>> SerHelper<Zero> for Se
 
 impl<'a, T: DeepCopy, I: ExactSizeIterator<Item = &'a T>> SerHelper<Deep> for SerIter<'a, T, I> {
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        check_mismatch::<T>();
         // This code must be kept aligned with that of Vec<T> for deep-copy
         // types
         let mut iter = self.0.borrow_mut();

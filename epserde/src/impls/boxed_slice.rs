@@ -39,7 +39,6 @@ where
 {
     type SerType = Box<[T::SerType]>;
     const IS_ZERO_COPY: bool = false;
-    const ZERO_COPY_MISMATCH: bool = false;
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         unsafe { SerHelper::_ser_inner(self, backend) }
     }

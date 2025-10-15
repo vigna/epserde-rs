@@ -150,7 +150,6 @@ impl<T> SerInner for PhantomDeserData<T> {
     // or deserialized.
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
-    const ZERO_COPY_MISMATCH: bool = false;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
