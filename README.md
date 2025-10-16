@@ -838,7 +838,7 @@ An ε-serde serialization process involves two types:
   [`SerInner::SerType`] implementing [`TypeHash`] and [`AlignHash`] (which
   implies [`Serialize`] on `S` by a blanket implementation).
 
-* Its associated _serialization type_ `<S as SerInner>::SerType`.
+* Its associated _serialization type_ [`<S as SerInner>::SerType`].
 
 In general the serialization type of `S` is `S`, but there is some normalization
 and erasure involved (e.g., vectors become boxed slices, and some smart pointers
@@ -1026,6 +1026,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [`AlignTo`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignTo.html>
 [alignment hash]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignTo.html>
 [`TypeHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html>
+[`AlignHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignHash.html>
 [type hash]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html>
 [`DeserInner`]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html>
 [`Deserialize`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html>
@@ -1075,3 +1076,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [`Deep`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/struct.Deep.html>
 [`Zero`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/struct.Zero.html>
 [newtypes]: <https://docs.rs/epserde/latest/epserde/impls/tuple/index.html>
+[`Copy`]: <https://doc.rust-lang.org/std/marker/trait.Copy.html>
+[`SerInner::SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType>
+[`<S as SerInner>::SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType>
+[`sux-rs`]: <https://crates.io/crates/sux-rs>
