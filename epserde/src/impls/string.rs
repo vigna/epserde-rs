@@ -118,6 +118,10 @@ impl TypeHash for str {
     }
 }
 
+unsafe impl CopyType for &str {
+    type Copy = Deep;
+}
+
 impl SerInner for &str {
     type SerType = Box<str>;
     const IS_ZERO_COPY: bool = false;

@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.11.2]
+
+### Fixed
+
+* Added missing `CopyType` to `&str`.
+
 ## [0.11.1] - 2025-10-16
 
 ### Changed
