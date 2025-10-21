@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.11.3] - 2025-10-21
+
+### Fixed
+
+* Fixed `mmap` dependency to 0.6.
+
 ## [0.11.2] - 2025-10-21
 
 ### Fixed
