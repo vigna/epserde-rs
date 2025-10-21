@@ -2,6 +2,11 @@
 
 ## [0.11.3] - 2025-10-21
 
+### Changed
+
+* `SerIter` and `SerIterOwned` have been coalesced into a single structure
+  `SerIter` that is generic over iterators whose items implement `AsRef<T>`.
+
 ### Fixed
 
 * Fixed `mmap` dependency to 0.6.

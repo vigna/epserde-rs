@@ -564,10 +564,10 @@ let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? 
 
 ## Example: (Structures containing) iterators
 
-ε-serde can serialize exact-size iterators returning references to a type. The
-resulting field can be deserialized as a vector/boxed slice. In this case we
-need to wrap the iterator in a [`SerIter`], as ε-serde cannot implement the
-serialization traits directly on [`Iterator`]. For example,
+ε-serde can serialize exact-size iterators. The resulting field can be
+deserialized as a vector/boxed slice. In this case we need to wrap the
+iterator in a [`SerIter`], as ε-serde cannot implement the serialization traits
+directly on [`Iterator`]. For example,
 
 ```rust
 # use epserde::prelude::*;
@@ -578,7 +578,7 @@ let i: Iter<'_, i32> = v.iter();
 // Serialize it by wrapping it in a SerIter
 let mut file = std::env::temp_dir();
 file.push("serialized9");
-unsafe { SerIter::from(i).store(&file) };
+unsafe { SerIter::<i32, _>::from(i).store(&file) };
 // Load the serialized form in a buffer
 let b = std::fs::read(&file)?;
 
@@ -598,7 +598,7 @@ struct Data<A> {
     s: A,
 }
 
-let d = Data { s: SerIter::from(v.iter()) };
+let d = Data { s: SerIter::<i32, _>::from(v.iter()) };
 // Serialize it
 unsafe { d.store(&file) };
 // Load the serialized form in a buffer
