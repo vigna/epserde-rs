@@ -34,6 +34,10 @@ impl<T: TypeHash> TypeHash for [T] {
     }
 }
 
+unsafe impl<T> CopyType for &[T] {
+    type Copy = Deep;
+}
+
 impl<T: SerInner> SerInner for &[T]
 where
     Box<[T]>: SerInner,

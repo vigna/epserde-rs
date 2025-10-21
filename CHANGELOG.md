@@ -1,10 +1,12 @@
 # Change Log
 
-## [0.11.2]
+## [0.11.2] - 2025-10-21
 
 ### Fixed
 
-* Added missing `CopyType` to `&str`.
+* Added missing `CopyType` to `&str` and references to slices.
+
+* Relaxed `mmap` dependency to >= 0.6, <= 0.7.
 
 ## [0.11.1] - 2025-10-16
 
