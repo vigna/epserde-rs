@@ -103,3 +103,81 @@ impl<'a, T: DeepCopy, I: ExactSizeIterator<Item = &'a T>> SerHelper<Deep> for Se
         }
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct SerIterOwned<T, I: ExactSizeIterator<Item = T>>(RefCell<I>);
+
+impl<'a, T, I: ExactSizeIterator<Item = T>> SerIterOwned<T, I> {
+    pub fn new(iter: I) -> Self {
+        SerIterOwned(RefCell::new(iter))
+    }
+}
+
+impl<'a, T, I: ExactSizeIterator<Item = T>> From<I> for SerIterOwned<T, I> {
+    fn from(iter: I) -> Self {
+        SerIterOwned::new(iter)
+    }
+}
+
+impl<'a, T: CopyType + SerInner, I: ExactSizeIterator<Item = T>> SerInner for SerIterOwned<T, I>
+where
+    SerIterOwned<T, I>: SerHelper<<T as CopyType>::Copy>,
+{
+    type SerType = Box<[T::SerType]>;
+    const IS_ZERO_COPY: bool = false;
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        unsafe { SerHelper::_ser_inner(self, backend) }
+    }
+}
+
+impl<'a, T: ZeroCopy, I: ExactSizeIterator<Item = T>> SerHelper<Zero> for SerIterOwned<T, I> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        check_zero_copy::<T>();
+        // This code must be kept aligned with that of Box<[T]> for zero-copy
+        // types
+        let mut iter = self.0.borrow_mut();
+        let len = iter.len();
+        backend.write("len", &len)?;
+        backend.align::<T>()?;
+
+        let mut c = 0;
+        for item in iter.deref_mut() {
+            ser_zero_unchecked(backend, &item)?;
+            c += 1;
+        }
+
+        if c != len {
+            Err(ser::Error::IteratorLengthMismatch {
+                actual: c,
+                expected: len,
+            })
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl<'a, T: DeepCopy, I: ExactSizeIterator<Item = T>> SerHelper<Deep> for SerIterOwned<T, I> {
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        // This code must be kept aligned with that of Vec<T> for deep-copy
+        // types
+        let mut iter = self.0.borrow_mut();
+        let len = iter.len();
+        backend.write("len", &len)?;
+
+        let mut c = 0;
+        for item in iter.deref_mut() {
+            unsafe { item._ser_inner(backend) }?;
+            c += 1;
+        }
+
+        if c != len {
+            Err(ser::Error::IteratorLengthMismatch {
+                actual: c,
+                expected: len,
+            })
+        } else {
+            Ok(())
+        }
+    }
+}
