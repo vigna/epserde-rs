@@ -11,8 +11,6 @@
 //!
 //! Please compile with the "schema" feature to see the schema output.
 
-use std::slice::Iter;
-
 use epserde::{impls::iter::SerIter, prelude::*, ser::SerType};
 use maligned::A16;
 
@@ -21,7 +19,7 @@ struct Data<A> {
     a: A,
 }
 
-type Type<'a> = SerIter<'a, i32, Iter<'a, i32>>;
+type Type = SerIter<i32, std::vec::IntoIter<i32>>;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Serializable type: {}", core::any::type_name::<Type>());
@@ -32,12 +30,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     let a = vec![0, 1, 2, 3];
-    // Turn it into an iterator
-    let i = a.iter();
+    let i = a.clone().into_iter();
 
     let mut cursor = <AlignedCursor<A16>>::new();
 
-    // Serialize the iterator
     #[cfg(feature = "schema")]
     {
         let schema = unsafe { SerIter::from(i).serialize_with_schema(&mut cursor)? };
@@ -45,9 +41,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!();
     }
     #[cfg(not(feature = "schema"))]
-    let _bytes_written = unsafe { SerIter::from(i).serialize(&mut cursor)? };
+    {
+        let i = a.clone().into_iter();
+        let _bytes_written = unsafe { SerIter::from(i).serialize(&mut cursor)? };
+    }
 
-    // Do a full-copy deserialization as a vector
     cursor.set_position(0);
     let full = unsafe { <Vec<i32>>::deserialize_full(&mut cursor)? };
     println!(
@@ -58,7 +56,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!();
 
-    // Do a full-copy deserialization as a boxed slice
     cursor.set_position(0);
     let full = unsafe { <Box<[i32]>>::deserialize_full(&mut cursor)? };
     println!(
@@ -69,7 +66,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!();
 
-    // Do an ε-copy deserialization as a slice
     let eps = unsafe { <Vec<i32>>::deserialize_eps(cursor.as_bytes())? };
     println!(
         "ε-copy deserialization: returns the associated deserialization type {}",
@@ -80,25 +76,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     println!();
 
-    // Let's do it with a structure
     let i = a.iter();
-    let d: Data<Type> = Data {
+    let d: Data<SerIter<i32, core::slice::Iter<i32>>> = Data {
         a: SerIter::from(i),
     };
 
     println!(
         "Serializable type: {}",
-        core::any::type_name::<Data<Type>>()
+        core::any::type_name::<Data<SerIter<i32, core::slice::Iter<i32>>>>()
     );
     println!(
         "Associated serialization type: {}",
-        core::any::type_name::<SerType<Data<Type>>>()
+        core::any::type_name::<SerType<Data<SerIter<i32, core::slice::Iter<i32>>>>>()
     );
     println!();
 
     cursor.set_position(0);
 
-    // Serialize the structure
     #[cfg(feature = "schema")]
     {
         let schema = unsafe { d.serialize_with_schema(&mut cursor)? };
@@ -108,7 +102,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(feature = "schema"))]
     let _bytes_written = unsafe { d.serialize(&mut cursor)? };
 
-    // Do a full-copy deserialization with a vector
     cursor.set_position(0);
     let full = unsafe { <Data<Vec<i32>>>::deserialize_full(&mut cursor)? };
     println!(
@@ -119,7 +112,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!();
 
-    // Do a full-copy deserialization with a boxed slice
     cursor.set_position(0);
     let full = unsafe { <Data<Box<[i32]>>>::deserialize_full(&mut cursor)? };
     println!(
@@ -130,7 +122,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!();
 
-    // Do an ε-copy deserialization
     let eps = unsafe { <Data<Vec<i32>>>::deserialize_eps(cursor.as_bytes())? };
     println!(
         "ε-copy deserialization: returns the associated deserialization type {}",

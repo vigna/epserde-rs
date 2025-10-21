@@ -4,21 +4,24 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Implementations for exact-size iterators.
-//!
-//! In theory all types serialized by ε-serde must be immutable. However, we
-//! provide a convenience implementation that serializes [exact-size
-//! iterators](core::iter::ExactSizeIterator) returning references to `T` as
-//! vectors of `T`.
-//!
-//! More precisely, we provide a [`SerIter`] type that [wraps](SerIter::new) an
-//! iterator into a serializable type. We provide a [`From`] implementation for
-//! convenience.
-//!
-//! Note, however, that you must deserialize the iterator as a vector—see the
-//! example in the [crate-level documentation](crate).
+/*!
 
-use core::{cell::RefCell, ops::DerefMut};
+Implementations for exact-size iterators.
+
+In theory all types serialized by ε-serde must be immutable. However, we
+provide a convenience implementation that serializes [exact-size
+iterators](core::iter::ExactSizeIterator) returning references to `T` as
+vectors of `T`.
+
+More precisely, we provide a [`SerIter`] type that [wraps](SerIter::new) an
+iterator into a serializable type. We provide a [`From`] implementation for
+convenience.
+
+Note, however, that you must deserialize the iterator as a vector—see the
+example in the [crate-level documentation](crate).
+
+!*/
+use core::{cell::RefCell, ops::DerefMut, borrow::Borrow};
 
 use crate::prelude::*;
 use ser::*;
@@ -27,36 +30,42 @@ use ser::*;
 use alloc::boxed::Box;
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
-pub struct SerIter<'a, T: 'a, I: ExactSizeIterator<Item = &'a T>>(RefCell<I>);
+pub struct SerIter<T, I: ExactSizeIterator>(RefCell<I>, core::marker::PhantomData<T>);
 
-impl<'a, T, I: ExactSizeIterator<Item = &'a T>> SerIter<'a, T, I> {
+impl<T, I: ExactSizeIterator> SerIter<T, I> {
     pub fn new(iter: I) -> Self {
-        SerIter(RefCell::new(iter))
+        SerIter(RefCell::new(iter), core::marker::PhantomData)
     }
 }
 
-impl<'a, T, I: ExactSizeIterator<Item = &'a T>> From<I> for SerIter<'a, T, I> {
+impl<T, I: ExactSizeIterator> From<I> for SerIter<T, I> {
     fn from(iter: I) -> Self {
         SerIter::new(iter)
     }
 }
 
-impl<'a, T: CopyType + SerInner, I: ExactSizeIterator<Item = &'a T>> SerInner for SerIter<'a, T, I>
+impl<T, I> SerInner for SerIter<T, I>
 where
-    SerIter<'a, T, I>: SerHelper<<T as CopyType>::Copy>,
+    I: ExactSizeIterator,
+    I::Item: Borrow<T>,
+    T: CopyType + SerInner,
+    Self: SerHelper<<T as CopyType>::Copy>,
 {
     type SerType = Box<[T::SerType]>;
     const IS_ZERO_COPY: bool = false;
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        unsafe { SerHelper::_ser_inner(self, backend) }
+        unsafe { <Self as SerHelper<<T as CopyType>::Copy>>::_ser_inner(self, backend) }
     }
 }
 
-impl<'a, T: ZeroCopy, I: ExactSizeIterator<Item = &'a T>> SerHelper<Zero> for SerIter<'a, T, I> {
+impl<T, I> SerHelper<Zero> for SerIter<T, I>
+where
+    I: ExactSizeIterator,
+    I::Item: Borrow<T>,
+    T: ZeroCopy,
+{
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         check_zero_copy::<T>();
-        // This code must be kept aligned with that of Box<[T]> for zero-copy
-        // types
         let mut iter = self.0.borrow_mut();
         let len = iter.len();
         backend.write("len", &len)?;
@@ -64,7 +73,7 @@ impl<'a, T: ZeroCopy, I: ExactSizeIterator<Item = &'a T>> SerHelper<Zero> for Se
 
         let mut c = 0;
         for item in iter.deref_mut() {
-            ser_zero_unchecked(backend, item)?;
+            ser_zero_unchecked(backend, item.borrow())?;
             c += 1;
         }
 
@@ -79,17 +88,20 @@ impl<'a, T: ZeroCopy, I: ExactSizeIterator<Item = &'a T>> SerHelper<Zero> for Se
     }
 }
 
-impl<'a, T: DeepCopy, I: ExactSizeIterator<Item = &'a T>> SerHelper<Deep> for SerIter<'a, T, I> {
+impl<T, I> SerHelper<Deep> for SerIter<T, I>
+where
+    I: ExactSizeIterator,
+    I::Item: Borrow<T>,
+    T: DeepCopy,
+{
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        // This code must be kept aligned with that of Vec<T> for deep-copy
-        // types
         let mut iter = self.0.borrow_mut();
         let len = iter.len();
         backend.write("len", &len)?;
 
         let mut c = 0;
         for item in iter.deref_mut() {
-            unsafe { item._ser_inner(backend) }?;
+            unsafe { item.borrow()._ser_inner(backend)? };
             c += 1;
         }
 
