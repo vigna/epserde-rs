@@ -85,7 +85,7 @@ dependencies = [
 
 [[package]]
 name = "epserde"
-version = "0.11.0"
+version = "0.11.2"
 dependencies = [
  "anyhow",
  "bitflags",
