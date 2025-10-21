@@ -4,24 +4,21 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/*!
-
-Implementations for exact-size iterators.
-
-In theory all types serialized by ε-serde must be immutable. However, we
-provide a convenience implementation that serializes [exact-size
-iterators](core::iter::ExactSizeIterator) returning references to `T` as
-vectors of `T`.
-
-More precisely, we provide a [`SerIter`] type that [wraps](SerIter::new) an
-iterator into a serializable type. We provide a [`From`] implementation for
-convenience.
-
-Note, however, that you must deserialize the iterator as a vector—see the
-example in the [crate-level documentation](crate).
-
-!*/
-use core::{cell::RefCell, ops::DerefMut, borrow::Borrow};
+//! Implementations for exact-size iterators.
+//!
+//! In theory all types serialized by ε-serde must be immutable. However, we
+//! provide a convenience implementation that serializes [exact-size
+//! iterators](core::iter::ExactSizeIterator) returning elements that
+//! are [`Borrow<T>`](core::borrow::Borrow) for some type `T` as
+//! vectors of `T`.
+//!
+//! More precisely, we provide a [`SerIter`] type that [wraps](SerIter::new) an
+//! iterator into a serializable type. We provide a [`From`] implementation for
+//! convenience.
+//!
+//! Note, however, that you must deserialize the iterator as a vector—see the
+//! example in the [crate-level documentation](crate).
+use core::{borrow::Borrow, cell::RefCell, ops::DerefMut};
 
 use crate::prelude::*;
 use ser::*;
@@ -30,6 +27,10 @@ use ser::*;
 use alloc::boxed::Box;
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
+/// A wrapper serializing an exact-size iterator as a boxed slice.
+///
+/// For more information, see the [module-level
+/// documentation](crate::impls::iter).
 pub struct SerIter<T, I: ExactSizeIterator>(RefCell<I>, core::marker::PhantomData<T>);
 
 impl<T, I: ExactSizeIterator> SerIter<T, I> {
