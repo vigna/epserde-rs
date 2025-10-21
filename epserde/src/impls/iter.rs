@@ -1,4 +1,26 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
 
+/*!
+
+Implementations for exact-size iterators.
+
+In theory all types serialized by ε-serde must be immutable. However, we
+provide a convenience implementation that serializes [exact-size
+iterators](core::iter::ExactSizeIterator) returning references to `T` as
+vectors of `T`.
+
+More precisely, we provide a [`SerIter`] type that [wraps](SerIter::new) an
+iterator into a serializable type. We provide a [`From`] implementation for
+convenience.
+
+Note, however, that you must deserialize the iterator as a vector—see the
+example in the [crate-level documentation](crate).
+
+!*/
 use core::{cell::RefCell, ops::DerefMut, borrow::Borrow};
 
 use crate::prelude::*;

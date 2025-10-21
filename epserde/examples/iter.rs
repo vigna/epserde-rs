@@ -1,5 +1,17 @@
+/*
+ * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
 
-use epserde::{prelude::*, ser::SerType};
+//! Example showcasing the convenience serialization of iterators.
+//!
+//! Note that we deserialize into `Vec` or `Box<[T]>`, as iterators cannot be
+//! deserialized directly.
+//!
+//! Please compile with the "schema" feature to see the schema output.
+
+use epserde::{impls::iter::SerIter, prelude::*, ser::SerType};
 use maligned::A16;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]

@@ -5,7 +5,7 @@
 ### Changed
 
 * `SerIter` and `SerIterOwned` have been coalesced into a single structure
-  `SerIter` that is generic over iterators whose items implement `AsRef<T>`.
+  `SerIter` that is generic over iterators whose items implement `Borrow<T>`.
 
 ### Fixed
 
