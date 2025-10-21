@@ -4,8 +4,8 @@
 
 ### Changed
 
-* `SerIter` and `SerIterOwned` have been coalesced into a single structure
-  `SerIter` that is generic over iterators whose items implement `Borrow<T>`.
+* `SerIter` now is generic over iterators whose items implement `Borrow<T>`,
+  rather than `&T`.
 
 ### Fixed
 
