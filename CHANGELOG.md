@@ -1,5 +1,9 @@
 # Change Log
 
+## [0.11.4] - 
+
+* Added missing `TypeHash` implementations for references to `str` and slices.
+
 ## [0.11.3] - 2025-10-21
 
 ### Changed

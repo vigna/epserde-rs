@@ -34,6 +34,14 @@ impl<T: TypeHash> TypeHash for [T] {
     }
 }
 
+// For use with PhantomData
+impl<T: TypeHash> TypeHash for &[T] {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "&[]".hash(hasher);
+        T::type_hash(hasher);
+    }
+}
+
 unsafe impl<T> CopyType for &[T] {
     type Copy = Deep;
 }

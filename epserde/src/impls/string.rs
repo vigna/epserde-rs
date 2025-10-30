@@ -118,6 +118,12 @@ impl TypeHash for str {
     }
 }
 
+// For use with PhantomData
+impl TypeHash for &str {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "&str".hash(hasher);
+    }
+}
 unsafe impl CopyType for &str {
     type Copy = Deep;
 }
