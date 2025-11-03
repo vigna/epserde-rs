@@ -30,12 +30,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     let a = vec![0, 1, 2, 3];
-    let i = a.clone().into_iter();
 
     let mut cursor = <AlignedCursor<A16>>::new();
 
     #[cfg(feature = "schema")]
     {
+        let i = a.clone().into_iter();
         let schema = unsafe { SerIter::from(i).serialize_with_schema(&mut cursor)? };
         println!("{}", schema.debug(cursor.as_bytes()));
         println!();

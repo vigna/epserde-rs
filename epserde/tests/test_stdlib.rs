@@ -12,9 +12,12 @@ extern crate alloc;
 
 #[cfg(not(feature = "std"))]
 use alloc::rc::Rc;
-use std::ops::{Bound, RangeBounds, RangeInclusive};
 #[cfg(feature = "std")]
 use std::rc::Rc;
+use std::{
+    hash::{BuildHasherDefault, DefaultHasher},
+    ops::{Bound, RangeBounds, RangeInclusive},
+};
 
 const TEST_STRS: &[&str] = &["abc\0\x0a🔥\u{0d2bdf}", ""];
 
@@ -133,7 +136,7 @@ fn test_ref_field() {
     unsafe { Serialize::serialize(&Rc::new(Data(v.as_slice())), &mut cursor).unwrap() };
     cursor.set_position(0);
     let s = unsafe { <Rc<Data<Box<[i32]>>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
-    assert_eq!(&*s.0, &v);
+    assert_eq!(s.0, &v);
 }
 
 #[test]
@@ -147,4 +150,19 @@ fn test_range_bound_deep_copy_idx() {
     let eps = unsafe { RangeInclusive::<String>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(eps.start_bound(), Bound::Included(&"a"));
     assert_eq!(eps.end_bound(), Bound::Included(&"b"));
+}
+
+#[test]
+fn test_builder_hasher_default() {
+    let bhd = BuildHasherDefault::<DefaultHasher>::default();
+    let mut cursor = <AlignedCursor<A16>>::new();
+    unsafe { bhd.serialize(&mut cursor).unwrap() };
+    cursor.set_position(0);
+    let full =
+        unsafe { BuildHasherDefault::<DefaultHasher>::deserialize_full(&mut cursor).unwrap() };
+    assert_eq!(&full, &bhd);
+    cursor.set_position(0);
+    let eps =
+        unsafe { BuildHasherDefault::<DefaultHasher>::deserialize_full(&mut cursor).unwrap() };
+    assert_eq!(&eps, &bhd);
 }

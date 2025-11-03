@@ -281,7 +281,7 @@ fn test_enum_deep() {
     assert!(matches!(eps, Data::E));
 
     let mut cursor = <AlignedCursor<A16>>::new();
-    let a = Vec::from_iter(iter::repeat(Data::A).take(10));
+    let a = Vec::from_iter(iter::repeat_n(Data::A, 10));
     unsafe { a.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
     let full = unsafe { <Vec<Data>>::deserialize_full(&mut cursor).unwrap() };
@@ -341,7 +341,7 @@ fn test_enum_zero() {
     assert_eq!(a, *eps);
 
     let mut cursor = <AlignedCursor<A16>>::new();
-    let a = Vec::from_iter(iter::repeat(Data::A).take(10));
+    let a = Vec::from_iter(iter::repeat_n(Data::A, 10));
     unsafe { a.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
     let full = unsafe { <Vec<Data>>::deserialize_full(&mut cursor).unwrap() };

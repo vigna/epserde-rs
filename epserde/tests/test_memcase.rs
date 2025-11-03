@@ -155,9 +155,9 @@ fn test_into_iter() {
     unsafe { data.serialize(&mut buffer).unwrap() };
     let cursor = <AlignedCursor>::from_slice(&buffer);
     let mem_case = unsafe { Vec::<i32>::read_mem(cursor, buffer.len()).unwrap() };
-    let deserialized = mem_case.uncase();
+    let deserialized = *mem_case.uncase();
 
-    zip(data.iter(), deserialized.into_iter()).for_each(|(v, w)| {
+    zip(data.iter(), deserialized).for_each(|(v, w)| {
         assert_eq!(v, w);
     });
 }

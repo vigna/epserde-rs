@@ -12,14 +12,14 @@
 use ser::WriteWithNames;
 
 use crate::prelude::*;
-use core::hash::Hash;
+use core::hash::{Hash, BuildHasherDefault};
 use core::ops::{
     Bound, ControlFlow, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo,
     RangeToInclusive,
 };
 
 #[cfg(feature = "std")]
-use std::collections::hash_map::DefaultHasher;
+use std::hash::DefaultHasher;
 
 // This implementation makes it possible to serialize
 // PhantomData<DefaultHasher>.
@@ -27,6 +27,50 @@ use std::collections::hash_map::DefaultHasher;
 impl TypeHash for DefaultHasher {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "std::hash::DefaultHasher".hash(hasher);
+    }
+}
+
+unsafe impl<H> CopyType for BuildHasherDefault<H> {
+    type Copy = Zero;
+}
+
+impl<H> AlignTo for BuildHasherDefault<H> {
+    fn align_to() -> usize {
+        0
+    }
+}
+
+impl<H: TypeHash> TypeHash for BuildHasherDefault<H> {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "core::hash::BuildHasherDefault".hash(hasher);
+        H::type_hash(hasher);
+    }
+}
+
+impl<H> AlignHash for BuildHasherDefault<H> {
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+}
+
+impl<H> SerInner for BuildHasherDefault<H> {
+    type SerType = BuildHasherDefault<H>;
+    const IS_ZERO_COPY: bool = true;
+
+    unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        Ok(())
+    }
+}
+
+impl<H> DeserInner for BuildHasherDefault<H> {
+    unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        Ok(BuildHasherDefault::default())
+    }
+
+    type DeserType<'a> = BuildHasherDefault<H>;
+
+    unsafe fn _deser_eps_inner<'a>(
+        _backend: &mut SliceWithPos<'a>,
+    ) -> deser::Result<Self::DeserType<'a>> {
+        Ok(BuildHasherDefault::default())
     }
 }
 

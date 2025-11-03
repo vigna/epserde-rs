@@ -1,8 +1,11 @@
 # Change Log
 
-## [0.11.4] - 
+## [0.11.4] - 2025-11-03
 
 * Added missing `TypeHash` implementations for references to `str` and slices.
+
+* Added support for `std::hash::DefaultHash` and
+  `core::hash::BuildHasherDefault`.
 
 ## [0.11.3] - 2025-10-21
 
