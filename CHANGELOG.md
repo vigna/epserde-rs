@@ -7,6 +7,8 @@
 * Added support for `std::hash::DefaultHash` and
   `core::hash::BuildHasherDefault`.
 
+* Removed useless lifetime from `SerIter`.
+
 ## [0.11.3] - 2025-10-21
 
 ### Changed
