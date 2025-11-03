@@ -12,7 +12,7 @@
 use ser::WriteWithNames;
 
 use crate::prelude::*;
-use core::hash::{Hash, BuildHasherDefault};
+use core::hash::{BuildHasherDefault, Hash};
 use core::ops::{
     Bound, ControlFlow, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo,
     RangeToInclusive,
