@@ -1,5 +1,12 @@
 # Change Log
 
+## [0.11.5]
+
+### Changed
+
+* Removed dependency on `maligned`. The internal types `Aligned16` and
+  `Aligned64` have been reimplemented directly in this crate.
+
 ## [0.11.4] - 2025-11-03
 
 * Added missing `TypeHash` implementations for references to `str` and slices.

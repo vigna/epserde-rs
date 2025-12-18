@@ -5,11 +5,10 @@
  */
 
 use epserde::prelude::*;
-use maligned::A16;
 
 macro_rules! impl_test {
     ($ty:ty, $data:expr) => {{
-        let mut cursor = <AlignedCursor<A16>>::new();
+        let mut cursor = <AlignedCursor<Aligned16>>::new();
 
         let _ = unsafe { $data.serialize_with_schema(&mut cursor).unwrap() };
 
@@ -21,7 +20,7 @@ macro_rules! impl_test {
         assert_eq!($data, *eps_copy);
     }
     {
-        let mut cursor = <AlignedCursor<A16>>::new();
+        let mut cursor = <AlignedCursor<Aligned16>>::new();
         unsafe { $data.serialize(&mut cursor).unwrap() };
 
         cursor.set_position(0);

@@ -5,7 +5,6 @@
  */
 
 use epserde::{prelude::*, ser::SerType};
-use maligned::A16;
 use std::marker::PhantomData;
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data<A: PartialEq = usize, const Q: usize = 3> {
@@ -20,7 +19,7 @@ fn test_inner_param_full() {
         a: vec![0x89; 6],
         b: [0xbadf00d; 2],
     };
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
     let _bytes_written = unsafe { person.serialize(&mut cursor).unwrap() };
 
@@ -55,7 +54,7 @@ fn test_inner_param_eps() {
         _marker: PhantomData,
     };
 
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
     let _bytes_written = unsafe { data.serialize(&mut cursor).unwrap() };
 
@@ -79,7 +78,7 @@ fn test_consts() {
     // Create a new value to serialize
     let data = Data3::<11> {};
 
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
     let _bytes_written = unsafe { data.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);

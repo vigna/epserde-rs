@@ -8,7 +8,6 @@ use core::marker::PhantomData;
 use epserde::PhantomDeserData;
 use epserde::TypeInfo;
 use epserde::prelude::*;
-use maligned::A16;
 
 #[test]
 /// Test that we can serialize and deserialize a PhantomData
@@ -16,7 +15,7 @@ use maligned::A16;
 fn test_phantom() {
     // Create a new value to serialize
     let obj = PhantomData::<usize>;
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
     let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
 
@@ -49,7 +48,7 @@ fn test_not_serializable_in_phantom() {
     // Full copy with a non-serializable type
     let obj = <DataFull<NotSerializableType>>::default();
 
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
     let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
 
@@ -87,7 +86,7 @@ fn test_phantom_zero_copy() {
     // Zero copy needs a zero-copy type, even if inside a PhantomData
     let obj = <DataZero<ZeroCopyType>>::default();
 
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
     let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
 
@@ -119,7 +118,7 @@ fn test_only_phantom() {
     // Zero copy needs a zero-copy type, even if inside a PhantomData
     let obj = <OnlyPhantom<ZeroCopyType>>::default();
 
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
     let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
 
@@ -138,7 +137,7 @@ fn test_only_phantom() {
     // Zero copy needs a zero-copy type, even if inside a PhantomData
     let vec = vec![<OnlyPhantom<ZeroCopyType>>::default(); 10];
 
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
     let _bytes_written = unsafe { vec.serialize(&mut cursor).unwrap() };
 
@@ -171,7 +170,7 @@ fn test_deser_phantom_deep_copy() {
         phantom: PhantomDeserData(PhantomData),
     };
 
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
     let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
 
@@ -212,7 +211,7 @@ fn test_deser_phantom_zero_copy() {
         phantom: PhantomDeserData(PhantomData),
     };
 
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
     let _bytes_written = unsafe { obj.serialize(&mut cursor).unwrap() };
 

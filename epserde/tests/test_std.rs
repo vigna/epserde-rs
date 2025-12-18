@@ -7,7 +7,6 @@
 
 use anyhow::Result;
 use epserde::prelude::*;
-use maligned::A16;
 use std::{rc::Rc, sync::Arc};
 
 fn test_generic<T>(s: T) -> Result<()>
@@ -75,7 +74,7 @@ fn test_references() -> Result<()> {
 #[test]
 fn test_erasure_vec() -> Result<()> {
     let data = vec![1, 2, 3];
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { data.serialize(&mut cursor)? };
 
     cursor.set_position(0);
@@ -130,7 +129,7 @@ fn test_erasure_struct() -> Result<()> {
     #[derive(Epserde, PartialEq, Eq, Debug)]
     struct Data<A>(A);
     let data = Data(vec![1, 2, 3]);
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { data.serialize(&mut cursor)? };
 
     cursor.set_position(0);

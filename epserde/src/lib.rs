@@ -49,6 +49,7 @@ pub mod prelude {
     pub use crate::utils::*;
     #[cfg(feature = "derive")]
     pub use epserde_derive::Epserde;
+    pub use {crate::Aligned16, crate::Aligned64};
 }
 
 /// (Major, Minor) version of the file format, this follows semantic versioning
@@ -58,6 +59,38 @@ pub const VERSION: (u16, u16) = (1, 1);
 pub const MAGIC: u64 = u64::from_ne_bytes(*b"epserde ");
 /// What we will read if the endianness is mismatched.
 pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
+
+/// A 16-byte aligned type.
+///
+/// This is useful for creating [`AlignedCursor`](crate::utils::AlignedCursor)
+/// and [`MemBackend::Memory`](crate::deser::MemBackend::Memory)
+/// instances with 16-byte alignment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
+#[repr(align(16))]
+pub struct Aligned16(pub [u8; 16]);
+
+impl Default for Aligned16 {
+    fn default() -> Self {
+        Aligned16([0u8; 16])
+    }
+}
+
+/// A 64-byte aligned type.
+///
+/// This is useful for creating [`AlignedCursor`](crate::utils::AlignedCursor)
+/// and [`MemBackend::Memory`](crate::deser::MemBackend::Memory)
+/// instances with 64-byte alignment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
+#[repr(align(64))]
+pub struct Aligned64(pub [u8; 64]);
+
+impl Default for Aligned64 {
+    fn default() -> Self {
+        Aligned64([0u8; 64])
+    }
+}
 
 /// Computes the padding needed for alignment, that is, the smallest
 /// number such that `((value + pad_align_to(value, align_to) & (align_to - 1) == 0`.

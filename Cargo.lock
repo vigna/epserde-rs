@@ -85,13 +85,12 @@ dependencies = [
 
 [[package]]
 name = "epserde"
-version = "0.11.4"
+version = "0.11.5"
 dependencies = [
  "anyhow",
  "bitflags 2.10.0",
  "common_traits",
  "epserde-derive",
- "maligned",
  "mem_dbg",
  "mmap-rs",
  "sealed",

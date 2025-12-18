@@ -11,7 +11,6 @@
 //! Please compile with the "schema" feature to see the schema output.
 
 use epserde::{deser::DeserType, prelude::*, ser::SerType};
-use maligned::A16;
 
 #[derive(Epserde, Debug, Clone, Copy)]
 enum Data<T = Vec<i32>> {
@@ -32,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // enum is not fully determined by the value--we need to know the type of
     // the parameter, which is assumed to be `Vec<i32>` by default.
     let data: Data = Data::A;
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
 
     // Serialize
     #[cfg(feature = "schema")]
@@ -65,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Now we give to the parameter a type different from the default one.
     let data: Data<Vec<usize>> = Data::A;
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
 
     // Serialize
     #[cfg(feature = "schema")]

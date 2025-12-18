@@ -10,7 +10,6 @@
 //! Please compile with the "schema" feature to see the schema output.
 
 use epserde::{deser::DeserType, prelude::*, ser::SerType};
-use maligned::A16;
 
 type Type = Option<Vec<i32>>;
 type TypeBoxed = Option<Box<[i32]>>;
@@ -24,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     let data = Some(vec![0, 1, 2, 3]);
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
 
     // Serialize
     #[cfg(feature = "schema")]
@@ -65,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!("Value: {:x?}", eps);
 
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     println!("\n");
 
     let data: Type = None;

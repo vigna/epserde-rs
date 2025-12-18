@@ -11,7 +11,6 @@
 //! Please compile with the "schema" feature to see the schema output.
 
 use epserde::{deser::DeserType, prelude::*, ser::SerType};
-use maligned::A16;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A: DeepCopy> {
@@ -32,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data = Data {
         a: vec![vec![0x1; 5]; 3],
     };
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
 
     // Serialize
     #[cfg(feature = "schema")]

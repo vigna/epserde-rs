@@ -30,12 +30,11 @@
 //!
 //! ```
 //! # use epserde::prelude::*;
-//! # use maligned::A16;
 //! # use std::rc::Rc;
 //! # use std::sync::Arc;
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let v = vec![1, 2, 3, 4, 5];
-//! let mut cursor = <AlignedCursor<A16>>::new();
+//! let mut cursor = <AlignedCursor<Aligned16>>::new();
 //! unsafe { Rc::new(v).serialize(&mut cursor)?; }
 //! // Rc is erased
 //! cursor.set_position(0);
@@ -52,14 +51,13 @@
 //! The same is true of fields, provided that their type is a type parameter:
 //! ```
 //! # use epserde::prelude::*;
-//! # use maligned::A16;
 //! # use std::rc::Rc;
 //! # use std::sync::Arc;
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! #[derive(Epserde)]
 //! struct Data<A>(A);
 //! let data = Data(Rc::new(vec![1, 2, 3, 4, 5]));
-//! let mut cursor = <AlignedCursor<A16>>::new();
+//! let mut cursor = <AlignedCursor<Aligned16>>::new();
 //! unsafe { data.serialize(&mut cursor)?; }
 //! // Rc is erased
 //! cursor.set_position(0);

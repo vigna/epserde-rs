@@ -11,7 +11,6 @@
 //! Please compile with the "schema" feature to see the schema output.
 
 use epserde::{deser::DeserType, prelude::*, ser::SerType};
-use maligned::A16;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone, Copy)]
 #[repr(C)]
@@ -29,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     let data = vec![Data { a: 5 }, Data { a: 6 }];
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
 
     // Serialize
     #[cfg(feature = "schema")]

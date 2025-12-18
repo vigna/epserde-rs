@@ -8,7 +8,7 @@ use core::slice;
 #[cfg(feature = "std")]
 use std::io::{Seek, SeekFrom};
 
-use maligned::{A16, Alignment};
+use crate::Aligned16;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -25,13 +25,13 @@ use alloc::vec::Vec;
 /// `std::io::Cursor`, which uses a `u64`.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
-pub struct AlignedCursor<T: Alignment = A16> {
+pub struct AlignedCursor<T: Default + Clone = Aligned16> {
     vec: Vec<T>,
     pos: usize,
     len: usize,
 }
 
-impl<T: Alignment> AlignedCursor<T> {
+impl<T: Default + Clone> AlignedCursor<T> {
     /// Returns a new empty [`AlignedCursor`].
     pub fn new() -> Self {
         Self {
@@ -127,7 +127,7 @@ impl<T: Alignment> AlignedCursor<T> {
     }
 }
 
-impl<T: Alignment> Default for AlignedCursor<T> {
+impl<T: Default + Clone> Default for AlignedCursor<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -145,7 +145,7 @@ impl<T: Alignment> Default for AlignedCursor<T> {
 /// we implemented [`ReadNoStd`](crate::deser::ReadNoStd) and
 /// [`WriteNoStd`](crate::deser::ReadNoStd) for [`AlignedCursor`] when `std` is
 /// available, we would have two conflicting implementations.
-impl<T: Alignment> crate::deser::ReadNoStd for AlignedCursor<T> {
+impl<T: Default + Clone> crate::deser::ReadNoStd for AlignedCursor<T> {
     fn read_exact(&mut self, buf: &mut [u8]) -> crate::deser::Result<()> {
         if self.pos >= self.len {
             return Ok(());
@@ -164,7 +164,7 @@ impl<T: Alignment> crate::deser::ReadNoStd for AlignedCursor<T> {
 
 #[cfg(not(feature = "std"))]
 /// See the comment for the [ReadNoStd](crate::deser::ReadNoStd) impl.
-impl<T: Alignment> crate::ser::WriteNoStd for AlignedCursor<T> {
+impl<T: Default + Clone> crate::ser::WriteNoStd for AlignedCursor<T> {
     fn write_all(&mut self, buf: &[u8]) -> crate::ser::Result<()> {
         let len = buf.len().min(usize::MAX - self.pos);
         if !buf.is_empty() && len == 0 {
@@ -201,7 +201,7 @@ impl<T: Alignment> crate::ser::WriteNoStd for AlignedCursor<T> {
 }
 
 #[cfg(feature = "std")]
-impl<T: Alignment> std::io::Read for AlignedCursor<T> {
+impl<T: Default + Clone> std::io::Read for AlignedCursor<T> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         if self.pos >= self.len {
             return Ok(0);
@@ -216,7 +216,7 @@ impl<T: Alignment> std::io::Read for AlignedCursor<T> {
 }
 
 #[cfg(feature = "std")]
-impl<T: Alignment> std::io::Write for AlignedCursor<T> {
+impl<T: Default + Clone> std::io::Write for AlignedCursor<T> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let len = buf.len().min(usize::MAX - self.pos);
         if !buf.is_empty() && len == 0 {
@@ -256,7 +256,7 @@ impl<T: Alignment> std::io::Write for AlignedCursor<T> {
 }
 
 #[cfg(feature = "std")]
-impl<T: Alignment> Seek for AlignedCursor<T> {
+impl<T: Default + Clone> Seek for AlignedCursor<T> {
     fn seek(&mut self, style: SeekFrom) -> std::io::Result<u64> {
         let (base_pos, offset) = match style {
             SeekFrom::Start(n) if n > usize::MAX as u64 => {
@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_aligned_cursor() -> Result<()> {
-        let mut cursor = AlignedCursor::<A16>::new();
+        let mut cursor = AlignedCursor::<Aligned16>::new();
         for i in 0_usize..1000 {
             cursor.write_all(&i.to_ne_bytes()).unwrap();
         }

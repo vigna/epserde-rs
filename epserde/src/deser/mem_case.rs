@@ -13,7 +13,6 @@
 use crate::{DeserInner, deser::DeserType, ser::SerInner};
 use bitflags::bitflags;
 use core::{fmt, mem::size_of};
-use maligned::A64;
 
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
@@ -70,7 +69,7 @@ impl Flags {
 }
 
 /// The [alignment](maligned::Alignment) by the [`Memory`](MemBackend::Memory) variant of [`MemBackend`].
-pub type MemoryAlignment = A64;
+pub type MemoryAlignment = crate::Aligned64;
 
 /// Possible backends of a [`MemCase`]. The [`None`](MemBackend::None) variant
 /// is used when the instance is owned; the [`Memory`](MemBackend::Memory) variant

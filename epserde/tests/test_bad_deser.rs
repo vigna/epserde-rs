@@ -7,14 +7,13 @@
 use core::hash::Hasher;
 use epserde::prelude::*;
 use epserde::*;
-use maligned::A16;
 use xxhash_rust::xxh3::Xxh3;
 
 #[test]
 fn test_wrong_endianness() {
     let data = 1337_usize;
 
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
 
     let schema = unsafe { data.serialize_with_schema(&mut cursor).unwrap() };
     println!("{}", schema.debug(cursor.as_bytes()));
@@ -153,7 +152,7 @@ fn test_wrong_endianness() {
 fn test_error_at_eof() {
     let data = 1337_usize;
 
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
 
     unsafe { data.serialize(&mut cursor).unwrap() };
     cursor.set_len(cursor.position() - 1);

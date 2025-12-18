@@ -6,7 +6,6 @@
 
 use anyhow::Result;
 use epserde::prelude::*;
-use maligned::A16;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data<A: PartialEq = usize, const Q: usize = 3> {
@@ -17,7 +16,7 @@ struct Data<A: PartialEq = usize, const Q: usize = 3> {
 #[test]
 fn test_boxed_slices() -> Result<()> {
     let a = vec![1, 2, 3, 4].into_boxed_slice();
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { a.serialize(&mut cursor)? };
 
     cursor.set_position(0);

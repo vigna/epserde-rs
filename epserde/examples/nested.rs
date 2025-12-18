@@ -16,7 +16,6 @@
 //! Please compile with the "schema" feature to see the schema output.
 
 use epserde::{deser::DeserType, prelude::*, ser::SerType};
-use maligned::A16;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct StructParam<A, B> {
@@ -54,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         test: -0xbadf00d,
     };
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
 
     // Serialize
     #[cfg(feature = "schema")]

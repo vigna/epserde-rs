@@ -13,7 +13,6 @@
 //! Please compile with the "schema" feature to see the schema output.
 
 use epserde::{deser::DeserType, prelude::*, ser::SerType};
-use maligned::A16;
 
 type Type = (usize,);
 
@@ -26,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     let data = (0_usize,);
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
 
     // Serialize
     #[cfg(feature = "schema")]

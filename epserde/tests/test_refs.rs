@@ -6,14 +6,13 @@
 
 use anyhow::Result;
 use epserde::prelude::*;
-use maligned::A16;
 
 #[test]
 fn test_slices() -> Result<()> {
     let v = vec![0, 1, 2];
     let s = v.as_slice();
     let t = vec![s, s, s];
-    let mut cursor = AlignedCursor::<A16>::new();
+    let mut cursor = AlignedCursor::<Aligned16>::new();
     unsafe { t.serialize(&mut cursor) }?;
     Ok(())
 }
@@ -21,7 +20,7 @@ fn test_slices() -> Result<()> {
 #[test]
 fn test_ref_str() -> Result<()> {
     let t = vec!["a", "b", "c"];
-    let mut cursor = AlignedCursor::<A16>::new();
+    let mut cursor = AlignedCursor::<Aligned16>::new();
     unsafe { t.serialize(&mut cursor) }?;
     Ok(())
 }

@@ -5,7 +5,6 @@
  */
 
 use epserde::prelude::*;
-use maligned::{A16, A64};
 #[derive(Epserde, Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 #[repr(align(32))]
@@ -37,7 +36,7 @@ fn test_align_to() {
     assert_eq!(MyStruct::align_to(), MyStruct2::align_to());
 
     let x = MyStruct { u: 0x89 };
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
     let _bytes_written = unsafe { x.serialize(&mut cursor).unwrap() };
 
@@ -47,7 +46,7 @@ fn test_align_to() {
 
     // Create a new value to serialize
     let x = MyStruct2 { u: 0x89 };
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
     let _bytes_written = unsafe { x.serialize(&mut cursor).unwrap() };
 
@@ -58,7 +57,7 @@ fn test_align_to() {
     // Create a new value to serialize
     let x = MyStruct64 { u: 0x89 };
     // We need a higher alignment
-    let mut cursor = <AlignedCursor<A64>>::new();
+    let mut cursor = <AlignedCursor<Aligned64>>::new();
     // Serialize
     let _bytes_written = unsafe { x.serialize(&mut cursor).unwrap() };
 

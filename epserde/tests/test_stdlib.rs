@@ -5,7 +5,6 @@
  */
 
 use epserde::prelude::*;
-use maligned::A16;
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -79,7 +78,7 @@ where
     for<'a> DeserType<'a, T>: PartialEq<T> + core::fmt::Debug,
 {
     {
-        let mut cursor = <AlignedCursor<A16>>::new();
+        let mut cursor = <AlignedCursor<Aligned16>>::new();
 
         let mut schema = unsafe { s.serialize_with_schema(&mut cursor).unwrap() };
         schema.0.sort_by_key(|a| a.offset);
@@ -96,7 +95,7 @@ where
         let _ = schema.debug(bytes);
     }
     {
-        let mut cursor = <AlignedCursor<A16>>::new();
+        let mut cursor = <AlignedCursor<Aligned16>>::new();
         unsafe { s.serialize(&mut cursor).unwrap() };
 
         cursor.set_position(0);
@@ -120,7 +119,7 @@ fn test_range() {
 #[test]
 fn test_ser_rc_ref() {
     let v = vec![0, 1, 2, 3];
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { Serialize::serialize(&Rc::new(v.as_slice()), &mut cursor).unwrap() };
     cursor.set_position(0);
     let s = unsafe { <Rc<Box<[i32]>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
@@ -130,7 +129,7 @@ fn test_ser_rc_ref() {
 #[test]
 fn test_ref_field() {
     let v = vec![0, 1, 2, 3];
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     #[derive(Epserde, Debug)]
     struct Data<A>(A);
     unsafe { Serialize::serialize(&Rc::new(Data(v.as_slice())), &mut cursor).unwrap() };
@@ -142,7 +141,7 @@ fn test_ref_field() {
 #[test]
 fn test_range_bound_deep_copy_idx() {
     let r = RangeInclusive::new("a".to_string(), "b".to_string());
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { r.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
     let full = unsafe { RangeInclusive::<String>::deserialize_full(&mut cursor).unwrap() };
@@ -155,7 +154,7 @@ fn test_range_bound_deep_copy_idx() {
 #[test]
 fn test_builder_hasher_default() {
     let bhd = BuildHasherDefault::<DefaultHasher>::default();
-    let mut cursor = <AlignedCursor<A16>>::new();
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { bhd.serialize(&mut cursor).unwrap() };
     cursor.set_position(0);
     let full =
