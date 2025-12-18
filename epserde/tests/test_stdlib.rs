@@ -12,10 +12,10 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::rc::Rc;
 #[cfg(feature = "std")]
-use std::rc::Rc;
 use std::{
     hash::{BuildHasherDefault, DefaultHasher},
     ops::{Bound, RangeBounds, RangeInclusive},
+    rc::Rc,
 };
 
 const TEST_STRS: &[&str] = &["abc\0\x0a🔥\u{0d2bdf}", ""];
@@ -138,6 +138,7 @@ fn test_ref_field() {
     assert_eq!(s.0, &v);
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn test_range_bound_deep_copy_idx() {
     let r = RangeInclusive::new("a".to_string(), "b".to_string());
@@ -151,6 +152,7 @@ fn test_range_bound_deep_copy_idx() {
     assert_eq!(eps.end_bound(), Bound::Included(&"b"));
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn test_builder_hasher_default() {
     let bhd = BuildHasherDefault::<DefaultHasher>::default();
