@@ -266,7 +266,7 @@ fn bound_ser_deser_types(
 /// for the given type.
 ///
 /// In the case of zero-copy types, add also the other bounds on which
-/// [`ZeroCopy`] depends; moreover, the bound to `SerInner` requires `SerType =
+/// `ZeroCopy` depends; moreover, the bound to `SerInner` requires `SerType =
 /// Self`.
 fn add_ser_deser_trait_bounds(
     ty: &syn::Type,
