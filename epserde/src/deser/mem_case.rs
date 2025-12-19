@@ -68,7 +68,8 @@ impl Flags {
     }
 }
 
-/// The [alignment](maligned::Alignment) by the [`Memory`](MemBackend::Memory) variant of [`MemBackend`].
+/// The alignment by the [`Memory`](MemBackend::Memory) variant of
+/// [`MemBackend`].
 pub type MemoryAlignment = crate::Aligned64;
 
 /// Possible backends of a [`MemCase`]. The [`None`](MemBackend::None) variant

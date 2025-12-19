@@ -17,8 +17,9 @@ use alloc::vec::Vec;
 ///
 /// The standard library `std::io::Cursor` is not aligned, and thus cannot be
 /// used to create examples or unit tests involving ε-copy deserialization. This
-/// version has a [settable alignment](maligned::Alignment) that is guaranteed
-/// to be respected by the underlying storage.
+/// version has a settable alignment that is guaranteed to be respected by the
+/// underlying storage; for example, ε-serde provides built-in alignments
+/// [`Aligned16`](crate::Aligned16), and [`Aligned64`](crate::Aligned64).
 ///
 /// Note that length and position are stored as `usize` values, so the maximum
 /// length and position are `usize::MAX`. This is different from

@@ -200,19 +200,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "maligned"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e88c3cbe8288f77f293e48a28b3232e3defd203a6d839fa7f68ea4329e83464"
-
-[[package]]
 name = "mem_dbg"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3e3eb8a4c851185832fb250e5c041e74f4408e11fd56263cc1f61b48f9174f5"
 dependencies = [
  "bitflags 2.10.0",
- "maligned",
  "mem_dbg-derive",
  "mmap-rs",
 ]

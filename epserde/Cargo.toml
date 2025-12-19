@@ -16,7 +16,6 @@ rust-version = "1.85"
 
 [dependencies]
 mem_dbg = { version = "0.3.0", features = [
-	"maligned",
 	"derive",
 ], default-features = false, optional = true }
 
