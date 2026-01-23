@@ -60,11 +60,11 @@ pub const MAGIC: u64 = u64::from_ne_bytes(*b"epserde ");
 /// What we will read if the endianness is mismatched.
 pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
 
-/// A 16-byte aligned type.
+/// A 128-bit aligned type.
 ///
 /// This is useful for creating [`AlignedCursor`](crate::utils::AlignedCursor)
 /// and [`MemBackend::Memory`](crate::deser::MemBackend::Memory)
-/// instances with 16-byte alignment.
+/// instances with 128-bit alignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[repr(align(16))]
@@ -76,11 +76,11 @@ impl Default for Aligned16 {
     }
 }
 
-/// A 64-byte aligned type.
+/// A 64-bit aligned type.
 ///
 /// This is useful for creating [`AlignedCursor`](crate::utils::AlignedCursor)
 /// and [`MemBackend::Memory`](crate::deser::MemBackend::Memory)
-/// instances with 64-byte alignment.
+/// instances with 64-bit alignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[repr(align(64))]
