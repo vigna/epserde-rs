@@ -36,7 +36,7 @@ pub fn ser_zero<V: ZeroCopy>(backend: &mut impl WriteWithNames, value: &V) -> se
 /// zero-copy](SerInner::IS_ZERO_COPY) and without [aligning the
 /// stream](WriteWithNames::align).
 ///
-/// Note that this method uses a single [`write_all`](std::io::Write::write_all)
+/// Note that this method uses a single [`write_all`](super::WriteNoStd::write_all)
 /// call to write the entire structure.
 pub fn ser_zero_unchecked<V: ZeroCopy>(
     backend: &mut impl WriteWithNames,

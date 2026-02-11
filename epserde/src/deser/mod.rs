@@ -11,7 +11,7 @@
 //! [`Deserialize::deserialize_eps`] and [`Deserialize::deserialize_full`] which
 //! implement ε-copy and full-copy deserialization, respectively. The
 //! implementation of this trait is based on [`DeserInner`], which is
-//! automatically derived with `#[derive(Deserialize)]`.
+//! automatically derived with `#[derive(Epserde)]`.
 
 use crate::ser::SerInner;
 use crate::traits::*;
@@ -162,7 +162,7 @@ pub trait Deserialize: DeserInner {
         // for bit vectors and full-vector initialization.
         bytes[size..].fill(0);
 
-        // SAFETY: the vector is aligned to 16 bytes.
+        // SAFETY: the vector is aligned to 64 bytes.
         let backend = MemBackend::Memory(aligned_vec.into_boxed_slice());
 
         // store the backend inside the MemCase

@@ -12,7 +12,7 @@
 //! [`WriteNoStd`] backend, and a [`Serialize::serialize_with_schema`] method
 //! that additionally returns a [`Schema`] describing the data that has been
 //! written. The implementation of this trait is based on [`SerInner`],
-//! which is automatically derived with `#[derive(Serialize)]`.
+//! which is automatically derived with `#[derive(Epserde)]`.
 
 use crate::traits::*;
 use crate::*;

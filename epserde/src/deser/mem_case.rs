@@ -18,8 +18,8 @@ use core::{fmt, mem::size_of};
 use alloc::boxed::Box;
 
 bitflags! {
-    /// Flags for [`mmap`](crate::deser::Deserialize::mmap) and
-    ///  and [`load_mmap`](crate::deser::Deserialize::load_mmap).
+    /// Flags for [`mmap`](crate::deser::Deserialize::mmap)
+    /// and [`load_mmap`](crate::deser::Deserialize::load_mmap).
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Flags: u32 {
         /// Suggest to map a region using transparent huge pages. This flag
@@ -84,7 +84,7 @@ pub enum MemBackend {
     /// No backend. The instance is owned. This variant is returned by
     /// [`MemCase::encase`].
     None,
-    /// The backend is a heap-allocated in a memory region aligned to 16 bytes.
+    /// The backend is heap-allocated in a memory region aligned to 64 bytes.
     /// This variant is returned by [`crate::deser::Deserialize::load_mem`].
     Memory(Box<[MemoryAlignment]>),
     /// The backend is the result to a call to `mmap()`. This variant is
@@ -213,7 +213,7 @@ where
     DeserType<'static, S>: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("MemBackend")
+        f.debug_tuple("MemCase")
             .field(&self.0)
             .field(&self.1)
             .finish()

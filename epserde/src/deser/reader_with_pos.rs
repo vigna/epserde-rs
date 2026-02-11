@@ -17,7 +17,7 @@ use alloc::vec;
 #[derive(Debug)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub struct ReaderWithPos<'a, F: ReadNoStd> {
-    /// What we actually readfrom
+    /// What we actually read from
     backend: &'a mut F,
     /// How many bytes we have read from the start
     pos: usize,
