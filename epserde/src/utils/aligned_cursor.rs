@@ -148,9 +148,6 @@ impl<T: Default + Clone> Default for AlignedCursor<T> {
 /// available, we would have two conflicting implementations.
 impl<T: Default + Clone> crate::deser::ReadNoStd for AlignedCursor<T> {
     fn read_exact(&mut self, buf: &mut [u8]) -> crate::deser::Result<()> {
-        if self.pos >= self.len {
-            return Ok(());
-        }
         if self.pos + buf.len() > self.len {
             return Err(crate::deser::Error::ReadError);
         }
