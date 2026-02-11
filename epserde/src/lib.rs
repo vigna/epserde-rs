@@ -69,8 +69,8 @@ pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[repr(align(16))]
 #[derive(Default)]
+#[mem_size_flat]
 pub struct Aligned16(pub [u8; 16]);
-
 
 /// A 64-bit aligned type.
 ///
@@ -80,6 +80,7 @@ pub struct Aligned16(pub [u8; 16]);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[repr(align(64))]
+#[mem_size_flat]
 pub struct Aligned64(pub [u8; 64]);
 
 impl Default for Aligned64 {
