@@ -1,7 +1,6 @@
-error: proc-macro derive panicked
- --> tests/fail/where_clause.rs:9:10
-  |
-9 | #[derive(Epserde)]
-  |          ^^^^^^^
-  |
-  = help: message: The derive macros do not support where clauses on the original type.
+error: The derive macros do not support where clauses on the original type
+  --> tests/fail/where_clause.rs:11:1
+   |
+11 | / where
+12 | |     A: Eq,
+   | |__________^

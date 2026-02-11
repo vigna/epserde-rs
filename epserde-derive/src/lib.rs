@@ -129,7 +129,7 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, field_types: &[&syn::Type]) -> proc_ma
 ///   to compute type hashes).
 fn get_type_const_params(
     input: &DeriveInput,
-) -> (Vec<&syn::Ident>, HashSet<&syn::Ident>, Vec<&syn::Ident>) {
+) -> syn::Result<(Vec<&syn::Ident>, HashSet<&syn::Ident>, Vec<&syn::Ident>)> {
     let mut type_const_params = vec![];
     let mut type_params = HashSet::new();
     let mut const_params = vec![];
@@ -144,13 +144,16 @@ fn get_type_const_params(
                 type_const_params.push(&c.ident);
                 const_params.push(&c.ident);
             }
-            syn::GenericParam::Lifetime(_) => {
-                panic!("Lifetime generics are not supported")
+            syn::GenericParam::Lifetime(l) => {
+                return Err(syn::Error::new_spanned(
+                    l,
+                    "Lifetime generics are not supported",
+                ));
             }
         };
     }
 
-    (type_const_params, type_params, const_params)
+    Ok((type_const_params, type_params, const_params))
 }
 
 fn check_and_warn(path: &syn::Path, attr_name: &str) -> bool {
@@ -169,12 +172,7 @@ fn check_and_warn(path: &syn::Path, attr_name: &str) -> bool {
 }
 
 /// Returns whether the struct has attributes `repr(C)`, `epserde_zero_copy`, and `epserde_deep_copy`.
-///
-/// # Panics
-///
-/// This method will panic if coherence checks fail (e.g., to be `epserde_zero_copy` the
-/// struct must be `repr(C)`)
-fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
+fn check_attrs(input: &DeriveInput) -> syn::Result<(bool, bool, bool)> {
     let is_repr_c = input.attrs.iter().any(|x| {
         x.meta.path().is_ident("repr") && x.meta.require_list().unwrap().tokens.to_string() == "C"
     });
@@ -185,19 +183,25 @@ fn check_attrs(input: &DeriveInput) -> (bool, bool, bool) {
         check_and_warn(x.meta.path(), "deep_copy") || x.meta.path().is_ident("epserde_deep_copy")
     });
     if is_zero_copy && !is_repr_c {
-        panic!(
-            "Type {} is declared as zero-copy, but it is not repr(C)",
-            input.ident
-        );
+        return Err(syn::Error::new_spanned(
+            &input.ident,
+            format!(
+                "Type {} is declared as zero-copy, but it is not repr(C)",
+                input.ident
+            ),
+        ));
     }
     if is_zero_copy && is_deep_copy {
-        panic!(
-            "Type {} is declared as both zero-copy and deep-copy",
-            input.ident
-        );
+        return Err(syn::Error::new_spanned(
+            &input.ident,
+            format!(
+                "Type {} is declared as both zero-copy and deep-copy",
+                input.ident
+            ),
+        ));
     }
 
-    (is_repr_c, is_zero_copy, is_deep_copy)
+    Ok((is_repr_c, is_zero_copy, is_deep_copy))
 }
 
 /// For each bounded type parameter that is the type of some field, bounds the
@@ -879,8 +883,13 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     // This part is in common with type_info_derive
     let mut derive_input = parse_macro_input!(input as DeriveInput);
 
-    if derive_input.generics.where_clause.is_some() {
-        panic!("The derive macros do not support where clauses on the original type.");
+    if let Some(where_clause) = &derive_input.generics.where_clause {
+        return syn::Error::new_spanned(
+            where_clause,
+            "The derive macros do not support where clauses on the original type",
+        )
+        .to_compile_error()
+        .into();
     }
 
     derive_input.generics.make_where_clause();
@@ -888,8 +897,15 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         derive_input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 
-    let (is_repr_c, is_zero_copy, is_deep_copy) = check_attrs(&derive_input);
-    let (type_const_params, type_params, const_params) = get_type_const_params(&derive_input);
+    let (is_repr_c, is_zero_copy, is_deep_copy) = match check_attrs(&derive_input) {
+        Ok(v) => v,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    let (type_const_params, type_params, const_params) = match get_type_const_params(&derive_input)
+    {
+        Ok(v) => v,
+        Err(e) => return e.to_compile_error().into(),
+    };
 
     let ctx = EpserdeContext {
         derive_input: &derive_input,
@@ -906,7 +922,11 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     let mut out: proc_macro::TokenStream = match &derive_input.data {
         Data::Struct(s) => gen_epserde_struct_impl(&ctx, s),
         Data::Enum(e) => gen_epserde_enum_impl(&ctx, e),
-        _ => todo!("Union types are not currently supported"),
+        Data::Union(_) => {
+            return syn::Error::new_spanned(&derive_input.ident, "Union types are not supported")
+                .to_compile_error()
+                .into()
+        }
     }
     .into();
 
@@ -1329,8 +1349,13 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut derive_input = parse_macro_input!(input as DeriveInput);
 
-    if derive_input.generics.where_clause.is_some() {
-        panic!("The derive macros do not support where clauses on the original type.");
+    if let Some(where_clause) = &derive_input.generics.where_clause {
+        return syn::Error::new_spanned(
+            where_clause,
+            "The derive macros do not support where clauses on the original type",
+        )
+        .to_compile_error()
+        .into();
     }
 
     derive_input.generics.make_where_clause();
@@ -1338,8 +1363,14 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         derive_input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 
-    let (_, is_zero_copy, _) = check_attrs(&derive_input);
-    let (_, type_params, const_params) = get_type_const_params(&derive_input);
+    let (_, is_zero_copy, _) = match check_attrs(&derive_input) {
+        Ok(v) => v,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    let (_, type_params, const_params) = match get_type_const_params(&derive_input) {
+        Ok(v) => v,
+        Err(e) => return e.to_compile_error().into(),
+    };
 
     _type_info_derive(
         &derive_input,
@@ -1388,9 +1419,12 @@ fn _type_info_derive(
     };
 
     match &derive_input.data {
-        Data::Struct(s) => gen_struct_type_info_impl(ctx, s),
-        Data::Enum(e) => gen_enum_type_info_impl(ctx, e),
-        _ => todo!("Union types are not currently supported"),
+        Data::Struct(s) => gen_struct_type_info_impl(ctx, s).into(),
+        Data::Enum(e) => gen_enum_type_info_impl(ctx, e).into(),
+        Data::Union(_) => {
+            syn::Error::new_spanned(&derive_input.ident, "Union types are not supported")
+                .to_compile_error()
+                .into()
+        }
     }
-    .into()
 }
