@@ -50,6 +50,21 @@ jobs:
         working-directory: ./epserde
         run: for example in examples/*.rs ; do cargo run --example "$(basename "${example%.rs}")" ; done
 
+  miri:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install nightly with Miri
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          profile: minimal
+          override: true
+          components: miri
+      - name: Run Miri tests
+        run: MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-tree-borrows" cargo +nightly miri test --no-default-features --features std,derive
+
   coverage:
     needs: build
     name: coverage
