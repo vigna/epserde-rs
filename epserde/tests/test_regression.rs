@@ -118,15 +118,15 @@ fn test_stdlib_types() {
     assert_eq!(get_type_hash::<Range<i32>>(), 0x837a1968d53dcff1);
     assert_eq!(get_align_hash::<Range<i32>>(), 0xde0fd80637b3a4da);
     assert_eq!(get_type_hash::<RangeFrom<i32>>(), 0xad8267db843d93b8);
-    assert_eq!(get_align_hash::<RangeFrom<i32>>(), 0xde0fd80637b3a4da);
+    assert_eq!(get_align_hash::<RangeFrom<i32>>(), 0x6881f435bc0ca85f);
     assert_eq!(get_type_hash::<RangeInclusive<i32>>(), 0xf90fab627ecbd1a6);
-    assert_eq!(get_align_hash::<RangeInclusive<i32>>(), 0xde0fd80637b3a4da);
+    assert_eq!(get_align_hash::<RangeInclusive<i32>>(), 0xf875a366be1ab169);
     assert_eq!(get_type_hash::<RangeTo<i32>>(), 0xd889856367fa2fe3);
-    assert_eq!(get_align_hash::<RangeTo<i32>>(), 0xde0fd80637b3a4da);
+    assert_eq!(get_align_hash::<RangeTo<i32>>(), 0x6881f435bc0ca85f);
     assert_eq!(get_type_hash::<RangeToInclusive<i32>>(), 0xc3682b190d94704d);
     assert_eq!(
         get_align_hash::<RangeToInclusive<i32>>(),
-        0xde0fd80637b3a4da
+        0x6881f435bc0ca85f
     );
     assert_eq!(get_type_hash::<RangeFull>(), 0x1d5d4cc6e963d594);
     assert_eq!(get_align_hash::<RangeFull>(), 0xd1fba762150c532c);

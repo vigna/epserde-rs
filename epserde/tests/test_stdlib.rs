@@ -11,6 +11,7 @@ extern crate alloc;
 
 #[cfg(not(feature = "std"))]
 use alloc::rc::Rc;
+use core::ops::ControlFlow;
 #[cfg(feature = "std")]
 use std::{
     hash::{BuildHasherDefault, DefaultHasher},
@@ -152,6 +153,19 @@ fn test_range_bound_deep_copy_idx() {
     assert_eq!(eps.end_bound(), Bound::Included(&"b"));
 }
 
+#[test]
+fn test_control_flow() {
+    test_generic::<ControlFlow<i32, f64>>(ControlFlow::Break(42));
+    test_generic::<ControlFlow<i32, f64>>(ControlFlow::Continue(1.618));
+}
+
+#[test]
+fn test_bound() {
+    test_generic::<core::ops::Bound<i32>>(core::ops::Bound::Unbounded);
+    test_generic::<core::ops::Bound<i32>>(core::ops::Bound::Included(42));
+    test_generic::<core::ops::Bound<i32>>(core::ops::Bound::Excluded(42));
+}
+
 #[cfg(feature = "std")]
 #[test]
 fn test_builder_hasher_default() {
@@ -162,8 +176,7 @@ fn test_builder_hasher_default() {
     let full =
         unsafe { BuildHasherDefault::<DefaultHasher>::deserialize_full(&mut cursor).unwrap() };
     assert_eq!(&full, &bhd);
-    cursor.set_position(0);
     let eps =
-        unsafe { BuildHasherDefault::<DefaultHasher>::deserialize_full(&mut cursor).unwrap() };
+        unsafe { BuildHasherDefault::<DefaultHasher>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(&eps, &bhd);
 }

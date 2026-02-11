@@ -1,5 +1,24 @@
 # Change Log
 
+## [0.12.0] - 2026-02-11
+
+### Changed
+
+* Removed old attributes `zero_copy` and `deep_copy` as they were deprecated in favor of
+  `epserde_zero_copy` and `epserde_deep_copy` in 0.10.4.
+
+* Updated `mmap-rs` dependency to 0.7.0 and `mem_dbg` to 0.4.0.
+
+### Fixed
+
+* What were previously panics in the derive code are now proper compiler
+  errors.
+
+* Several bug fixes, in particular the deserialization of `ControlFlow`.
+
+* The `AlignHash` implementation for ranges has been fixed. This might
+  cause some serialized files to be no longer deserializable.
+
 ## [0.11.5] - 2025-12-19
 
 ### Changed

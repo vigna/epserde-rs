@@ -78,8 +78,8 @@ impl<T: Default + Clone> AlignedCursor<T> {
     ///
     /// Note that the reference is always to the whole storage, independently of
     /// the current [position](AlignedCursor::position).
-    pub fn as_bytes(&mut self) -> &[u8] {
-        let ptr = self.vec.as_mut_ptr() as *mut u8;
+    pub fn as_bytes(&self) -> &[u8] {
+        let ptr = self.vec.as_ptr() as *const u8;
         unsafe { slice::from_raw_parts(ptr, self.len) }
     }
 
@@ -152,10 +152,8 @@ impl<T: Default + Clone> crate::deser::ReadNoStd for AlignedCursor<T> {
             return Err(crate::deser::Error::ReadError);
         }
         let pos = self.pos;
-        let rem = self.len - pos;
-        let to_copy = core::cmp::min(buf.len(), rem) as usize;
-        buf[..to_copy].copy_from_slice(&self.as_bytes()[pos..pos + to_copy]);
-        self.pos += to_copy;
+        buf.copy_from_slice(&self.as_bytes()[pos..pos + buf.len()]);
+        self.pos += buf.len();
         Ok(())
     }
 }

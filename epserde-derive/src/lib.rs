@@ -9,7 +9,6 @@
 
 //! Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) crate.
 
-use proc_macro_error::{emit_warning, proc_macro_error};
 use quote::{ToTokens, quote};
 use std::{collections::HashSet, vec};
 use syn::{
@@ -156,32 +155,19 @@ fn get_type_const_params(
     Ok((type_const_params, type_params, const_params))
 }
 
-fn check_and_warn(path: &syn::Path, attr_name: &str) -> bool {
-    if path.is_ident(attr_name) {
-        emit_warning!(
-            path,
-            format!(
-                "Attribute `{}` is deprecated, please use `epserde_{}` instead",
-                attr_name, attr_name
-            )
-        );
-        true
-    } else {
-        false
-    }
-}
-
 /// Returns whether the struct has attributes `repr(C)`, `epserde_zero_copy`, and `epserde_deep_copy`.
 fn check_attrs(input: &DeriveInput) -> syn::Result<(bool, bool, bool)> {
     let is_repr_c = input.attrs.iter().any(|x| {
         x.meta.path().is_ident("repr") && x.meta.require_list().unwrap().tokens.to_string() == "C"
     });
-    let is_zero_copy = input.attrs.iter().any(|x| {
-        check_and_warn(x.meta.path(), "zero_copy") || x.meta.path().is_ident("epserde_zero_copy")
-    });
-    let is_deep_copy = input.attrs.iter().any(|x| {
-        check_and_warn(x.meta.path(), "deep_copy") || x.meta.path().is_ident("epserde_deep_copy")
-    });
+    let is_zero_copy = input
+        .attrs
+        .iter()
+        .any(|x| x.meta.path().is_ident("epserde_zero_copy"));
+    let is_deep_copy = input
+        .attrs
+        .iter()
+        .any(|x| x.meta.path().is_ident("epserde_deep_copy"));
     if is_zero_copy && !is_repr_c {
         return Err(syn::Error::new_spanned(
             &input.ident,
@@ -874,10 +860,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// no attribute, a warning will be issued every time you serialize an instance
 /// of the type. The warning can be silenced adding the explicit attribute
 /// `epserde_deep_copy`.
-#[proc_macro_error(proc_macro_hack)]
 #[proc_macro_derive(
     Epserde,
-    attributes(zero_copy, deep_copy, epserde_zero_copy, epserde_deep_copy)
+    attributes(epserde_zero_copy, epserde_deep_copy)
 )]
 pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // This part is in common with type_info_derive
@@ -1341,10 +1326,9 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 /// It generates implementations just for the traits `CopyType`, `AlignTo`,
 /// `TypeHash`, and `AlignHash`. See the documentation of [`Epserde`] for
 /// more information.
-#[proc_macro_error(proc_macro_hack)]
 #[proc_macro_derive(
     TypeInfo,
-    attributes(zero_copy, deep_copy, epserde_zero_copy, epserde_deep_copy)
+    attributes(epserde_zero_copy, epserde_deep_copy)
 )]
 pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut derive_input = parse_macro_input!(input as DeriveInput);

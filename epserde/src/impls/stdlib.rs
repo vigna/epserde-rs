@@ -87,12 +87,6 @@ macro_rules! impl_ranges {
             }
         }
 
-        impl<Idx: AlignHash> AlignHash for $ty<Idx> {
-            fn align_hash(hasher: &mut impl core::hash::Hasher, offset_of: &mut usize) {
-                Idx::align_hash(hasher, offset_of);
-                Idx::align_hash(hasher, offset_of);
-            }
-        }
     };
 }
 
@@ -101,6 +95,39 @@ impl_ranges!(RangeFrom);
 impl_ranges!(RangeInclusive);
 impl_ranges!(RangeTo);
 impl_ranges!(RangeToInclusive);
+
+impl<Idx: AlignHash> AlignHash for Range<Idx> {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        Idx::align_hash(hasher, &mut 0);
+        Idx::align_hash(hasher, &mut 0);
+    }
+}
+
+impl<Idx: AlignHash> AlignHash for RangeFrom<Idx> {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        Idx::align_hash(hasher, &mut 0);
+    }
+}
+
+impl<Idx: AlignHash> AlignHash for RangeInclusive<Idx> {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        Idx::align_hash(hasher, &mut 0);
+        Idx::align_hash(hasher, &mut 0);
+        bool::align_hash(hasher, &mut 0);
+    }
+}
+
+impl<Idx: AlignHash> AlignHash for RangeTo<Idx> {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        Idx::align_hash(hasher, &mut 0);
+    }
+}
+
+impl<Idx: AlignHash> AlignHash for RangeToInclusive<Idx> {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        Idx::align_hash(hasher, &mut 0);
+    }
+}
 
 // RangeFull is a zero-sized type, so it is always zero-copy.
 
@@ -272,7 +299,7 @@ impl<Idx: DeserInner> DeserInner for RangeToInclusive<Idx> {
 
 impl SerInner for RangeFull {
     type SerType = RangeFull;
-    const IS_ZERO_COPY: bool = false;
+    const IS_ZERO_COPY: bool = true;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
