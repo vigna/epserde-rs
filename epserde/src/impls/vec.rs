@@ -29,11 +29,6 @@ impl<T: TypeHash> TypeHash for Vec<T> {
     }
 }
 
-// For use with PhantomData
-impl<T> AlignHash for Vec<T> {
-    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
-}
-
 impl<T: CopyType + SerInner> SerInner for Vec<T>
 where
     Vec<T>: SerHelper<<T as CopyType>::Copy>,

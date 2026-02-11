@@ -63,7 +63,7 @@ fn test_primitive_types() {
 #[test]
 fn test_option() {
     assert_eq!(get_type_hash::<Option<i32>>(), 0x36d9437e00a00833);
-    assert_eq!(get_align_hash::<Option<i32>>(), 0x6881f435bc0ca85f);
+    assert_eq!(get_align_hash::<Option<i32>>(), 0xd1fba762150c532c);
 }
 
 #[test]
@@ -135,7 +135,7 @@ fn test_stdlib_types() {
     assert_eq!(get_type_hash::<ControlFlow<i32, f64>>(), 0x5f4feceae713afe0);
     assert_eq!(
         get_align_hash::<ControlFlow<i32, f64>>(),
-        0xc3caaeef7aa4605a
+        0xd1fba762150c532c
     );
 }
 

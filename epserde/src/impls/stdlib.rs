@@ -392,11 +392,8 @@ impl<B: TypeHash, C: TypeHash> TypeHash for ControlFlow<B, C> {
     }
 }
 
-impl<B: AlignHash, C: AlignHash> AlignHash for ControlFlow<B, C> {
-    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
-        B::align_hash(hasher, &mut 0);
-        C::align_hash(hasher, &mut 0);
-    }
+impl<B, C> AlignHash for ControlFlow<B, C> {
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
 impl<B: SerInner, C: SerInner> SerInner for ControlFlow<B, C> {

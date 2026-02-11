@@ -310,10 +310,8 @@ impl<T: TypeHash> TypeHash for Option<T> {
     }
 }
 
-impl<T: AlignHash> AlignHash for Option<T> {
-    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
-        T::align_hash(hasher, &mut 0);
-    }
+impl<T> AlignHash for Option<T> {
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
 impl<T: SerInner> SerInner for Option<T> {

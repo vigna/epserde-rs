@@ -39,7 +39,7 @@ pub trait TypeHash {
     }
 }
 
-/// Recursively compute an alignment hash for a type.
+/// Recursively compute an alignment hash for a zero-copy type.
 ///
 /// [`align_hash`](AlignHash::align_hash) is a recursive function that computes
 /// alignment information about zero-copy types. It is used to check that the
@@ -52,17 +52,14 @@ pub trait TypeHash {
 /// the type, hashes in the type size, and finally increases `offset_of` by
 /// [`core::mem::size_of`] the type.
 ///
-/// All deep-copy types must implement [`AlignHash`] by calling the [`AlignHash`]
-/// implementations of their fields with offset argument `&mut 0` (or a mutable
-/// reference to a variable initialized to 0).
-///
-/// If a type has inherently no alignment requirements (e.g., all types of
-/// strings), the implementation can be a no-op.
+/// All deep-copy types must implement [`AlignHash`] as a no-op.
 ///
 /// When serializing an instance of type `T`,
 /// [`SerType<T>`](crate::ser::SerInner::SerType) must implement this trait.
 /// Thus, if `T` different from its serialization type it is not necessary to
-/// implement this trait for `T`.
+/// implement this trait for `T`. For example, [`String`] does not need to
+/// implement this trait, because its serialization type is `Box<str>`,
+/// which indeed implements this trait.
 pub trait AlignHash {
     /// Accumulates alignment information in `hasher` assuming to be positioned
     /// at `offset_of`.
