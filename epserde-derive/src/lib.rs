@@ -860,10 +860,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// no attribute, a warning will be issued every time you serialize an instance
 /// of the type. The warning can be silenced adding the explicit attribute
 /// `epserde_deep_copy`.
-#[proc_macro_derive(
-    Epserde,
-    attributes(epserde_zero_copy, epserde_deep_copy)
-)]
+#[proc_macro_derive(Epserde, attributes(epserde_zero_copy, epserde_deep_copy))]
 pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // This part is in common with type_info_derive
     let mut derive_input = parse_macro_input!(input as DeriveInput);
@@ -1326,10 +1323,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 /// It generates implementations just for the traits `CopyType`, `AlignTo`,
 /// `TypeHash`, and `AlignHash`. See the documentation of [`Epserde`] for
 /// more information.
-#[proc_macro_derive(
-    TypeInfo,
-    attributes(epserde_zero_copy, epserde_deep_copy)
-)]
+#[proc_macro_derive(TypeInfo, attributes(epserde_zero_copy, epserde_deep_copy))]
 pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut derive_input = parse_macro_input!(input as DeriveInput);
 

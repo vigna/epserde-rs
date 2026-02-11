@@ -86,7 +86,6 @@ macro_rules! impl_ranges {
                 Idx::type_hash(hasher);
             }
         }
-
     };
 }
 
