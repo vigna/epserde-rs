@@ -571,7 +571,7 @@ the type might have changed their copy type (zero or deep). You might also be
 trying to deserialize an array, whose alignment hash has been fixed in 0.8.0.
 It is also possible that you are trying to deserialize a file serialized before
 version 0.10.0 in which repr attributes were not sorted lexicographically, or
-a range in a file serialized before version 0.11.0."#
+a range in a file serialized before version 0.12.0."#
     )]
     /// The type representation hash is wrong. Probably the user is trying to
     /// deserialize a file with some zero-copy type that has different

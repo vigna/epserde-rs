@@ -73,11 +73,11 @@ impl Flags {
 pub type MemoryAlignment = crate::Aligned64;
 
 /// Possible backends of a [`MemCase`]. The [`None`](MemBackend::None) variant
-/// is used when the instance is owned; the [`Memory`](MemBackend::Memory) variant
-/// is used when the instance has been deserialized a heap-allocated memory
-/// region; the [`Mmap`](MemBackend::Mmap) variant is used when the instance has
-/// been deserialized from a `mmap()`-based region, either coming from an
-/// allocation or a from mapping a file.
+/// is used when the instance is owned; the [`Memory`](MemBackend::Memory)
+/// variant is used when the instance has been deserialized from a
+/// heap-allocated memory region; the [`Mmap`](MemBackend::Mmap) variant is used
+/// when the instance has been deserialized from a `mmap()`-based region, either
+/// coming from an allocation or a from mapping a file.
 #[derive(Debug)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub enum MemBackend {
@@ -282,8 +282,8 @@ impl<S: DeserInner> MemCase<S> {
     }
 }
 
-unsafe impl<S: DeserInner + Send> Send for MemCase<S> {}
-unsafe impl<S: DeserInner + Sync> Sync for MemCase<S> {}
+unsafe impl<S: DeserInner> Send for MemCase<S> where DeserType<'static, S>: Send {}
+unsafe impl<S: DeserInner> Sync for MemCase<S> where DeserType<'static, S>: Sync {}
 
 impl<A, S: DeserInner> AsRef<A> for MemCase<S>
 where

@@ -55,7 +55,7 @@ pub mod prelude {
 /// (Major, Minor) version of the file format, this follows semantic versioning
 pub const VERSION: (u16, u16) = (1, 1);
 
-/// Magic cookie, also used as endian ess marker.
+/// Magic cookie, also used as endianness marker.
 pub const MAGIC: u64 = u64::from_ne_bytes(*b"epserde ");
 /// What we will read if the endianness is mismatched.
 pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
@@ -67,9 +67,9 @@ pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
 /// instances with 128-bit alignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
+#[cfg_attr(feature = "mem_dbg", mem_size_flat)]
 #[repr(align(16))]
 #[derive(Default)]
-#[mem_size_flat]
 pub struct Aligned16(pub [u8; 16]);
 
 /// A 64-bit aligned type.
@@ -79,8 +79,8 @@ pub struct Aligned16(pub [u8; 16]);
 /// instances with 64-bit alignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
+#[cfg_attr(feature = "mem_dbg", mem_size_flat)]
 #[repr(align(64))]
-#[mem_size_flat]
 pub struct Aligned64(pub [u8; 64]);
 
 impl Default for Aligned64 {
@@ -201,8 +201,8 @@ impl<T: DeserInner> DeserInner for PhantomDeserData<T> {
     }
 }
 
+#[cfg(test)]
 #[test]
-
 fn test_pad_align_to() {
     assert_eq!(7 + pad_align_to(7, 8), 8);
     assert_eq!(8 + pad_align_to(8, 8), 8);

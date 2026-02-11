@@ -20,10 +20,10 @@ use alloc::vec::Vec;
 /// [`std::io::Write`]. In particular, in such a context you can use [`std::io::Cursor`]
 /// for in-memory serialization.
 pub trait WriteNoStd {
-    /// Write some bytes.
+    /// See [`write_all`](http://doc.rust-lang.org/std/io/trait.Write.html#method.write_all) for more details.
     fn write_all(&mut self, buf: &[u8]) -> ser::Result<()>;
 
-    /// Flush all changes to the underlying storage if applicable.
+    /// See [`flush`](http://doc.rust-lang.org/std/io/trait.Write.html#method.flush) for more details.
     fn flush(&mut self) -> ser::Result<()>;
 }
 

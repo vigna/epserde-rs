@@ -168,7 +168,7 @@ impl<T: Default + Clone> crate::ser::WriteNoStd for AlignedCursor<T> {
         }
 
         let cap = self.vec.len().saturating_mul(core::mem::size_of::<T>());
-        let rem = cap - self.pos;
+        let rem = cap.saturating_sub(self.pos);
         if rem < len {
             self.vec.resize(
                 (self.pos + len).div_ceil(core::mem::size_of::<T>()),
@@ -204,7 +204,7 @@ impl<T: Default + Clone> std::io::Read for AlignedCursor<T> {
         }
         let pos = self.pos;
         let rem = self.len - pos;
-        let to_copy = core::cmp::min(buf.len(), rem) as usize;
+        let to_copy = core::cmp::min(buf.len(), rem);
         buf[..to_copy].copy_from_slice(&self.as_bytes()[pos..pos + to_copy]);
         self.pos += to_copy;
         Ok(to_copy)
@@ -223,7 +223,7 @@ impl<T: Default + Clone> std::io::Write for AlignedCursor<T> {
         }
 
         let cap = self.vec.len().saturating_mul(core::mem::size_of::<T>());
-        let rem = cap - self.pos;
+        let rem = cap.saturating_sub(self.pos);
         if rem < len {
             self.vec.resize(
                 (self.pos + len).div_ceil(core::mem::size_of::<T>()),

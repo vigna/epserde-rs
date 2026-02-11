@@ -17,7 +17,7 @@ use crate::prelude::*;
 /// types that implement [`std::io::Read`]. In particular, in such a context you
 /// can use [`AlignedCursor`] for ε-copy deserialization.
 pub trait ReadNoStd {
-    /// Read some bytes
+    /// See [`read_exact`](http://doc.rust-lang.org/std/io/trait.Read.html#method.read_exact) for more details.
     fn read_exact(&mut self, buf: &mut [u8]) -> deser::Result<()>;
 }
 
@@ -36,9 +36,9 @@ impl<W: Read> ReadNoStd for W {
 /// This is needed because the [`Read`] trait doesn't have a `seek` method and
 /// [`std::io::Seek`] would be a requirement much stronger than needed.
 pub trait ReadWithPos: ReadNoStd + Sized {
-    /// Return the current position.
+    /// Returns the current position.
     fn pos(&self) -> usize;
 
-    /// Pad the cursor to the next multiple of [`AlignTo::align_to`] 'T'.
+    /// Pads the cursor to the next multiple of [`AlignTo::align_to`] 'T'.
     fn align<T: AlignTo>(&mut self) -> deser::Result<()>;
 }

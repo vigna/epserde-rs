@@ -40,6 +40,11 @@ impl TypeHash for String {
     }
 }
 
+// For use with PhantomData
+impl AlignHash for String {
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+}
+
 impl SerInner for String {
     type SerType = Box<str>;
     const IS_ZERO_COPY: bool = false;
