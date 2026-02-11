@@ -395,10 +395,10 @@ impl<B: DeserInner, C: DeserInner> DeserInner for ControlFlow<B, C> {
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
-            1 => Ok(ControlFlow::Break(unsafe {
+            0 => Ok(ControlFlow::Break(unsafe {
                 B::_deser_full_inner(backend)
             }?)),
-            2 => Ok(ControlFlow::Continue(unsafe {
+            1 => Ok(ControlFlow::Continue(unsafe {
                 C::_deser_full_inner(backend)
             }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
@@ -412,8 +412,8 @@ impl<B: DeserInner, C: DeserInner> DeserInner for ControlFlow<B, C> {
     ) -> deser::Result<Self::DeserType<'a>> {
         let tag = unsafe { u8::_deser_full_inner(backend) }?;
         match tag {
-            1 => Ok(ControlFlow::Break(unsafe { B::_deser_eps_inner(backend) }?)),
-            2 => Ok(ControlFlow::Continue(unsafe {
+            0 => Ok(ControlFlow::Break(unsafe { B::_deser_eps_inner(backend) }?)),
+            1 => Ok(ControlFlow::Continue(unsafe {
                 C::_deser_eps_inner(backend)
             }?)),
             _ => Err(deser::Error::InvalidTag(tag as usize)),
