@@ -925,7 +925,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         Data::Union(_) => {
             return syn::Error::new_spanned(&derive_input.ident, "Union types are not supported")
                 .to_compile_error()
-                .into()
+                .into();
         }
     }
     .into();

@@ -9,7 +9,6 @@ use crate::prelude::*;
 
 use super::ReadNoStd;
 
-
 /// A wrapper for a [`ReadNoStd`] that implements [`ReadWithPos`]
 /// by keeping track of the current position.
 #[derive(Debug)]
