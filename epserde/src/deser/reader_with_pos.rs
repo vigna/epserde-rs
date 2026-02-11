@@ -9,8 +9,6 @@ use crate::prelude::*;
 
 use super::ReadNoStd;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec;
 
 /// A wrapper for a [`ReadNoStd`] that implements [`ReadWithPos`]
 /// by keeping track of the current position.
@@ -46,8 +44,13 @@ impl<F: ReadNoStd> ReadWithPos for ReaderWithPos<'_, F> {
 
     fn align<T: AlignTo>(&mut self) -> deser::Result<()> {
         // Skip bytes as needed
-        let padding = crate::pad_align_to(self.pos, T::align_to());
-        self.read_exact(&mut vec![0; padding])?;
+        let mut padding = crate::pad_align_to(self.pos, T::align_to());
+        let mut buf = [0u8; 64];
+        while padding > 0 {
+            let n = padding.min(buf.len());
+            self.read_exact(&mut buf[..n])?;
+            padding -= n;
+        }
         // No alignment check, we are fully deserializing
         Ok(())
     }

@@ -52,7 +52,6 @@ pub trait WriteWithNames: WriteWithPos + Sized {
     /// The default implementation simply delegates to [`SerInner::_ser_inner`].
     /// Other implementations might use the name information (e.g., [`SchemaWriter`]),
     /// but they must in the end delegate to [`SerInner::_ser_inner`].
-    /// TODO: unsafe
     fn write<V: SerInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
         unsafe { value._ser_inner(self) }
     }

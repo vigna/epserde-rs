@@ -186,7 +186,7 @@ impl DeserInner for bool {
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let res = backend.data[0] != 0;
+        let res = *backend.data.first().ok_or(deser::Error::ReadError)? != 0;
         backend.skip(1);
         Ok(res)
     }
@@ -351,7 +351,7 @@ impl<T: DeserInner> DeserInner for Option<T> {
         match tag {
             0 => Ok(None),
             1 => Ok(Some(unsafe { T::_deser_eps_inner(backend) }?)),
-            _ => Err(deser::Error::InvalidTag(backend.data[0] as usize)),
+            _ => Err(deser::Error::InvalidTag(tag as usize)),
         }
     }
 }
