@@ -188,6 +188,13 @@ impl<T> SerInner for PhantomDeserData<T> {
 }
 
 impl<T: DeserInner> DeserInner for PhantomDeserData<T> {
+    fn __check_covariance<'__long: '__short, '__short>(
+        p: deser::CovariantProof<Self::DeserType<'__long>>,
+    ) -> deser::CovariantProof<Self::DeserType<'__short>> {
+        // SAFETY: PhantomDeserData is a zero-sized wrapper around PhantomData,
+        // and T::DeserType is covariant (enforced by T's own __check_covariance).
+        unsafe { core::mem::transmute(p) }
+    }
     #[inline(always)]
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomDeserData(PhantomData))

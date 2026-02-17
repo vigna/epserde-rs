@@ -136,6 +136,12 @@ pub type MemOwned<T> = MemCase<Owned<T>>;
 impl<T> DeserInner for Owned<T> {
     type DeserType<'a> = T;
 
+    fn __check_covariance<'__long: '__short, '__short>(
+        p: super::CovariantProof<Self::DeserType<'__long>>,
+    ) -> super::CovariantProof<Self::DeserType<'__short>> {
+        p
+    }
+
     unsafe fn _deser_full_inner(_backend: &mut impl super::ReadWithPos) -> super::Result<Self> {
         unimplemented!();
     }
@@ -261,9 +267,15 @@ impl<S: DeserInner> MemCase<S> {
     /// Both the lifetime of the returned reference and the lifetime of
     /// the inner deserialization type will be that of `self`.
     pub fn uncase<'a>(&'a self) -> &'a DeserType<'a, S> {
-        // SAFETY: 'static outlives 'a, and DeserType<S, '_> is required to be
-        // covariant (i.e., it's a normal struct/enum and not, say, a closure with
-        // 'a as argument)
+        // Call the covariance check. This is a ZST-in, ZST-out no-op that the
+        // optimizer eliminates entirely in release builds. In debug builds, a
+        // non-returning implementation (todo!(), panic!(), loop {}) would be
+        // caught here.
+        let _ = S::__check_covariance(super::CovariantProof::<DeserType<'static, S>>::new());
+        // SAFETY: 'static outlives 'a, and DeserType<S, '_> is covariant in its
+        // lifetime parameter, as enforced by the required method
+        // DeserInner::__check_covariance. Returning safe bypasses are
+        // impossible because CovariantProof has a private field.
         unsafe { core::mem::transmute::<&'a DeserType<'static, S>, &'a DeserType<'a, S>>(&self.0) }
     }
 

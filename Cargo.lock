@@ -91,7 +91,7 @@ dependencies = [
 
 [[package]]
 name = "epserde"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -107,7 +107,7 @@ dependencies = [
 
 [[package]]
 name = "epserde-derive"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "proc-macro2",
  "quote",

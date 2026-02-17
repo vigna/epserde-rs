@@ -60,6 +60,15 @@ where
     Vec<T>: DeserHelper<<T as CopyType>::Copy, FullType = Vec<T>>,
 {
     type DeserType<'a> = <Vec<T> as DeserHelper<<T as CopyType>::Copy>>::DeserType<'a>;
+    fn __check_covariance<'__long: '__short, '__short>(
+        p: deser::CovariantProof<Self::DeserType<'__long>>,
+    ) -> deser::CovariantProof<Self::DeserType<'__short>> {
+        // SAFETY: In the Zero case, DeserType<'a> = &'a [T], which is covariant.
+        // In the Deep case, DeserType<'a> = Vec<T::DeserType<'a>>; Vec is
+        // covariant in its parameter, and T::DeserType is covariant
+        // (enforced by T's own __check_covariance).
+        unsafe { core::mem::transmute(p) }
+    }
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         unsafe { <Vec<T> as DeserHelper<<T as CopyType>::Copy>>::_deser_full_inner_impl(backend) }

@@ -47,6 +47,12 @@ pub type SerType<T> = <T as SerInner>::SerType;
 /// Serializing to such a vector and accessing such bytes will lead to undefined
 /// behavior as padding bytes are uninitialized.
 ///
+/// If you are concerned about this issue, you must organize your structures so
+/// that they do not contain any padding (e.g., by creating explicit padding
+/// bytes). Traits like
+/// [`FromByte`](https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html)
+/// can provide this guarantee.
+///
 /// For example, this code reads a portion of the stack:
 ///
 /// ```ignore
@@ -67,10 +73,6 @@ pub type SerType<T> = <T as SerInner>::SerType;
 ///     println!("{:016x}", u64::from_ne_bytes(chunk.try_into().unwrap()));
 /// }
 /// ```
-///
-/// If you are concerned about this issue, you must organize your structures so
-/// that they do not contain any padding (e.g., by creating explicit padding
-/// bytes).
 pub trait Serialize {
     /// Serializes the type using the given backend.
     ///

@@ -64,6 +64,15 @@ where
     Box<[T]>: DeserHelper<<T as CopyType>::Copy, FullType = Box<[T]>>,
 {
     type DeserType<'a> = <Box<[T]> as DeserHelper<<T as CopyType>::Copy>>::DeserType<'a>;
+    fn __check_covariance<'__long: '__short, '__short>(
+        p: deser::CovariantProof<Self::DeserType<'__long>>,
+    ) -> deser::CovariantProof<Self::DeserType<'__short>> {
+        // SAFETY: In the Zero case, DeserType<'a> = &'a [T], which is covariant.
+        // In the Deep case, DeserType<'a> = Box<[T::DeserType<'a>]>; Box and
+        // slices are covariant, and T::DeserType is covariant
+        // (enforced by T's own __check_covariance).
+        unsafe { core::mem::transmute(p) }
+    }
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         unsafe { <Box<[T]> as DeserHelper<<T as CopyType>::Copy>>::_deser_full_inner_impl(backend) }

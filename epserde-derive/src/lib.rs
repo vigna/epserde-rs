@@ -488,6 +488,12 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             #[automatically_derived]
             impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause
             {
+                fn __check_covariance<'__long: '__short, '__short>(
+                    p: ::epserde::deser::CovariantProof<Self::DeserType<'__long>>,
+                ) -> ::epserde::deser::CovariantProof<Self::DeserType<'__short>> {
+                    p
+                }
+
                 unsafe fn _deser_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
@@ -544,6 +550,16 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
             #[automatically_derived]
             impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause {
+                #[allow(clippy::useless_transmute)]
+                fn __check_covariance<'__long: '__short, '__short>(
+                    p: ::epserde::deser::CovariantProof<Self::DeserType<'__long>>,
+                ) -> ::epserde::deser::CovariantProof<Self::DeserType<'__short>> {
+                    // SAFETY: structs are covariant in all their fields, and each
+                    // field's DeserType is covariant (enforced by its own
+                    // __check_covariance).
+                    unsafe { ::core::mem::transmute(p) }
+                }
+
                 unsafe fn _deser_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
@@ -751,6 +767,12 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
             #[automatically_derived]
             impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause {
+                fn __check_covariance<'__long: '__short, '__short>(
+                    p: ::epserde::deser::CovariantProof<Self::DeserType<'__long>>,
+                ) -> ::epserde::deser::CovariantProof<Self::DeserType<'__short>> {
+                    p
+                }
+
                 unsafe fn _deser_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {
@@ -808,6 +830,16 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
             }
             #[automatically_derived]
             impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause {
+                #[allow(clippy::useless_transmute)]
+                fn __check_covariance<'__long: '__short, '__short>(
+                    p: ::epserde::deser::CovariantProof<Self::DeserType<'__long>>,
+                ) -> ::epserde::deser::CovariantProof<Self::DeserType<'__short>> {
+                    // SAFETY: enums are covariant in all their fields, and each
+                    // field's DeserType is covariant (enforced by its own
+                    // __check_covariance).
+                    unsafe { ::core::mem::transmute(p) }
+                }
+
                 unsafe fn _deser_full_inner(
                     backend: &mut impl ::epserde::deser::ReadWithPos,
                 ) -> ::core::result::Result<Self, ::epserde::deser::Error> {

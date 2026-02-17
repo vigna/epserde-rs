@@ -44,6 +44,27 @@ pub type Result<T> = core::result::Result<T, Error>;
 /// type](DeserInner::DeserType).
 pub type DeserType<'a, T> = <T as DeserInner>::DeserType<'a>;
 
+/// A covariance witness type used by
+/// [`DeserInner::__check_covariance`].
+///
+/// This newtype wraps a [`PhantomData<fn() -> T>`](core::marker::PhantomData),
+/// making it covariant in `T` and zero-sized. Its field is private, so it
+/// cannot be constructed outside of the `epserde` crate. This ensures that any
+/// returning bypass of the covariance check requires `unsafe` code.
+#[doc(hidden)]
+pub struct CovariantProof<T>(core::marker::PhantomData<fn() -> T>);
+
+impl<T> CovariantProof<T> {
+    /// Constructs a new [`CovariantProof`].
+    ///
+    /// This constructor is `pub(crate)` so that only code within `epserde`
+    /// can create instances (e.g., in [`MemCase::uncase`](super::mem_case::MemCase::uncase)).
+    #[doc(hidden)]
+    pub(crate) fn new() -> Self {
+        CovariantProof(core::marker::PhantomData)
+    }
+}
+
 /// Main deserialization trait. It is separated from [`DeserInner`] to
 /// avoid that the user modify its behavior, and hide internal serialization
 /// methods.
@@ -68,10 +89,13 @@ pub type DeserType<'a, T> = <T as DeserInner>::DeserType<'a>;
 ///   incompatible structures using the same code, or cause undefined behavior
 ///   by loading data with an incorrect alignment.
 /// - Memory-mapped files might be modified externally.
-/// - If you use a method coupling a deserialized structure with its serialized
-///   support using [`MemCase`] (e.g., [`Deserialize::mmap`]),
-///   [`DeserInner::DeserType`] must be covariant (i.e., behave like a
-///   structure, not a closure with a generic argument)
+///
+/// The first problem can be solved by traits like
+/// [`FromByte`](https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html).
+/// The second issue is a non-problem with the standard library.
+///
+/// The last two issues are more an issue of security than undefined behavior,
+/// but that is in the eye of the beholder.
 pub trait Deserialize: DeserInner {
     /// Fully deserializes a structure of this type from the given backend.
     ///
@@ -354,6 +378,30 @@ pub trait DeserInner: Sized {
     /// The deserialization type associated with this type. It can be retrieved
     /// conveniently with the alias [`DeserType`].
     type DeserType<'a>;
+
+    /// Compile-time covariance check for [`DeserType`].
+    ///
+    /// [`MemCase::uncase`](super::mem_case::MemCase::uncase) transmutes
+    /// `DeserType<'static, S>` to `DeserType<'a, S>`, which is only sound if
+    /// `DeserType` is covariant in its lifetime parameter.
+    ///
+    /// This method enforces that invariant: the only safe implementation is
+    /// `{ p }`, which compiles only when `DeserType` is covariant. For generic
+    /// container types where the compiler cannot see through associated-type
+    /// projections, the body must be `unsafe { core::mem::transmute(p) }` with
+    /// a SAFETY comment justifying covariance compositionally.
+    ///
+    /// The parameter and return types use [`CovariantProof`], a newtype with a
+    /// private field that cannot be constructed outside of this crate. This
+    /// ensures that any returning bypass of the covariance check requires
+    /// `unsafe` code. Moreover,
+    /// [`MemCase::uncase`](super::mem_case::MemCase::uncase) actually calls
+    /// this method, so non-returning implementations (`todo!()`, `panic!()`,
+    /// `loop {}`) are detected at runtime.
+    #[doc(hidden)]
+    fn __check_covariance<'__long: '__short, '__short>(
+        p: CovariantProof<Self::DeserType<'__long>>,
+    ) -> CovariantProof<Self::DeserType<'__short>>;
 
     /// # Safety
     ///

@@ -8,4 +8,4 @@ members = [
 
 [workspace.dependencies]
 epserde = { path="./epserde" }
-epserde-derive = { path="./epserde-derive", version = "0.12.0" }
+epserde-derive = { path="./epserde-derive", version = "0.12.1" }

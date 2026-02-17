@@ -50,6 +50,11 @@ impl SerInner for String {
 }
 
 impl DeserInner for String {
+    fn __check_covariance<'__long: '__short, '__short>(
+        p: deser::CovariantProof<Self::DeserType<'__long>>,
+    ) -> deser::CovariantProof<Self::DeserType<'__short>> {
+        p
+    }
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let slice = unsafe { deser_full_vec_zero(backend) }?;
         Ok(String::from_utf8(slice).unwrap())
@@ -96,6 +101,11 @@ impl SerInner for Box<str> {
 }
 
 impl DeserInner for Box<str> {
+    fn __check_covariance<'__long: '__short, '__short>(
+        p: deser::CovariantProof<Self::DeserType<'__long>>,
+    ) -> deser::CovariantProof<Self::DeserType<'__short>> {
+        p
+    }
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(unsafe { String::_deser_full_inner(backend) }?.into_boxed_str())
