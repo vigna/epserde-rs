@@ -556,7 +556,10 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 ) -> ::epserde::deser::CovariantProof<Self::DeserType<'__short>> {
                     // SAFETY: structs are covariant in all their fields, and each
                     // field's DeserType is covariant (enforced by its own
-                    // __check_covariance).
+                    // __check_covariance, which is called below).
+                    #(
+                        ::epserde::deser::__check_field_covariance::<#field_types>();
+                    )*
                     unsafe { ::core::mem::transmute(p) }
                 }
 
@@ -836,7 +839,10 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 ) -> ::epserde::deser::CovariantProof<Self::DeserType<'__short>> {
                     // SAFETY: enums are covariant in all their fields, and each
                     // field's DeserType is covariant (enforced by its own
-                    // __check_covariance).
+                    // __check_covariance, which is called below).
+                    #(
+                        ::epserde::deser::__check_field_covariance::<#all_fields_types>();
+                    )*
                     unsafe { ::core::mem::transmute(p) }
                 }
 

@@ -269,8 +269,8 @@ impl<S: DeserInner> MemCase<S> {
     pub fn uncase<'a>(&'a self) -> &'a DeserType<'a, S> {
         // Call the covariance check. This is a ZST-in, ZST-out no-op that the
         // optimizer eliminates entirely in release builds. In debug builds, a
-        // non-returning implementation (todo!(), panic!(), loop {}) would be
-        // caught here.
+        // non-returning implementation (todo!(), unimplemented!(), panic!(),
+        // loop {}, etc.) would be caught here.
         let _ = S::__check_covariance(super::CovariantProof::<DeserType<'static, S>>::new());
         // SAFETY: 'static outlives 'a, and DeserType<S, '_> is covariant in its
         // lifetime parameter, as enforced by the required method

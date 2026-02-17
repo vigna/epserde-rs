@@ -65,6 +65,16 @@ impl<T> CovariantProof<T> {
     }
 }
 
+/// Calls [`DeserInner::__check_covariance`] on `T`, detecting non-returning
+/// implementations at runtime.
+///
+/// This function is used by the derive macro to verify field-level covariance
+/// from generated code without exposing [`CovariantProof::new`].
+#[doc(hidden)]
+pub fn __check_field_covariance<T: DeserInner>() {
+    let _ = T::__check_covariance(CovariantProof::<T::DeserType<'static>>::new());
+}
+
 /// Main deserialization trait. It is separated from [`DeserInner`] to
 /// avoid that the user modify its behavior, and hide internal serialization
 /// methods.
@@ -397,7 +407,7 @@ pub trait DeserInner: Sized {
     /// `unsafe` code. Moreover,
     /// [`MemCase::uncase`](super::mem_case::MemCase::uncase) actually calls
     /// this method, so non-returning implementations (`todo!()`, `panic!()`,
-    /// `loop {}`) are detected at runtime.
+    /// `unimplemented!()|, `loop {}`, etc.) are detected at runtime.
     #[doc(hidden)]
     fn __check_covariance<'__long: '__short, '__short>(
         p: CovariantProof<Self::DeserType<'__long>>,
