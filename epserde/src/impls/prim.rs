@@ -65,9 +65,9 @@ macro_rules! impl_prim_ser_des {
 		impl DeserInner for $ty {
             type DeserType<'a> = Self;
             fn __check_covariance<'__long: '__short, '__short>(
-                p: deser::CovariantProof<Self::DeserType<'__long>>,
+                proof: deser::CovariantProof<Self::DeserType<'__long>>,
             ) -> deser::CovariantProof<Self::DeserType<'__short>> {
-                p
+                proof
             }
             #[inline(always)]
             unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
@@ -115,9 +115,9 @@ macro_rules! impl_nonzero_ser_des {
 		impl DeserInner for $ty {
             type DeserType<'a> = Self;
             fn __check_covariance<'__long: '__short, '__short>(
-                p: deser::CovariantProof<Self::DeserType<'__long>>,
+                proof: deser::CovariantProof<Self::DeserType<'__long>>,
             ) -> deser::CovariantProof<Self::DeserType<'__short>> {
-                p
+                proof
             }
             #[inline(always)]
             unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
@@ -188,9 +188,9 @@ impl SerInner for bool {
 
 impl DeserInner for bool {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
-        p
+        proof
     }
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<bool> {
@@ -221,9 +221,9 @@ impl SerInner for char {
 
 impl DeserInner for char {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
-        p
+        proof
     }
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
@@ -252,9 +252,9 @@ impl SerInner for () {
 
 impl DeserInner for () {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
-        p
+        proof
     }
     #[inline(always)]
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
@@ -309,9 +309,9 @@ impl<T: ?Sized> SerInner for PhantomData<T> {
 
 impl<T: ?Sized> DeserInner for PhantomData<T> {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
-        p
+        proof
     }
     #[inline(always)]
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
@@ -362,11 +362,11 @@ impl<T: SerInner> SerInner for Option<T> {
 
 impl<T: DeserInner> DeserInner for Option<T> {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
         // SAFETY: Option is covariant in T, and T::DeserType is covariant
         // in its lifetime (enforced by T's own __check_covariance).
-        unsafe { core::mem::transmute(p) }
+        unsafe { core::mem::transmute(proof) }
     }
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {

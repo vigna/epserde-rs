@@ -8,13 +8,13 @@
 [![Latest version](https://img.shields.io/crates/v/epserde.svg)](https://crates.io/crates/epserde)
 [![Documentation](https://docs.rs/epserde/badge.svg)](https://docs.rs/epserde)
 
-ε-serde is a Rust framework for *ε*-copy *ser*ialization and *de*serialization.
+ε-serde is a Rust framework for _ε_-copy *ser*ialization and *de*serialization.
 
 ## Why
 
 Large immutable data structures need time to be deserialized using the [serde]
 approach. A possible solution for this problem is given by frameworks such as
-[Abomonation], [rkiv], and [zerovec], which provide *zero-copy* deserialization:
+[Abomonation], [rkiv], and [zerovec], which provide _zero-copy_ deserialization:
 the stream of bytes serializing the data structure can be used directly as a
 Rust structure. In particular, this approach makes it possible to map into
 memory an on-disk data structure, making it available instantly. It also makes
@@ -31,7 +31,7 @@ different tradeoffs.
 Since in these data structures typically most of the data is given by large
 chunks of memory in the form of slices or vectors, at deserialization time one
 can build quickly a proper Rust structure whose referenced memory, however, is
-not copied. We call this approach *ε-copy deserialization*, as typically a
+not copied. We call this approach _ε-copy deserialization_, as typically a
 minuscule fraction of the serialized data is copied to build the structure. The
 result is similar to that of the frameworks above, but the performance of the
 deserialized structure will be identical to that of a standard, in-memory Rust
@@ -40,7 +40,7 @@ structure, as references are resolved at deserialization time.
 We provide procedural macros implementing serialization and deserialization
 methods, basic (de)serialization for primitive types, vectors, etc., convenience
 memory-mapping methods based on [mmap_rs], and a [`MemCase`] structure that
-couples a deserialized structure with its backend (e.g., a slice of memory or a
+couples a deserialized instance with its backend (e.g., a slice of memory or a
 memory-mapped region). A [`MemCase`] provides a [`uncase`] method that yields
 references to the deserialized instance it contains. Moreover, a [`MemCase`] can
 also contain an owned instance, making it possible to use the same code for both
@@ -405,6 +405,7 @@ struct MyStructParam<A> {
 ```
 
 The result will be an error message similar to the following:
+
 ```text
 |
 | #[derive(Epserde, Debug, PartialEq)]
@@ -655,9 +656,9 @@ All ε-serde structures implement the [`MemDbg`] and [`MemSize`] traits.
 Every type (de)serializable with ε-serde has three features that are in principle
 orthogonal, but that in practice often condition one another:
 
-- the type has an *associated serialization type*, which is the type we
+- the type has an _associated serialization type_, which is the type we
   write when serializing;
-- the type has an *associated deserialization type*, which is the type you
+- the type has an _associated deserialization type_, which is the type you
   obtain when deserializing;
 - the type can be either deep-copy or zero-copy.
 
@@ -687,8 +688,8 @@ implements neither [`ZeroCopy`] nor [`DeepCopy`], even if in that case
 [`CopyType`] documentation for a deeper explanation).
 
 Logically, zero-copy types should be deserialized to references, and this indeed
-happens in most cases, and certainly in the derived code: however, *primitive
-types are always fully deserialized*. There are two reasons behind this
+happens in most cases, and certainly in the derived code: however, _primitive
+types are always fully deserialized_. There are two reasons behind this
 non-orthogonal choice:
 
 - primitive types occupy so little space that deserializing them as a reference
@@ -794,12 +795,14 @@ that no type parameter is both replaceable and irreplaceable. This means that
 you cannot have a type parameter that appears both as the type of a field and as
 a type parameter of the type of a field. If that happen, you will have to write
 the (de)serialization code by hand. For example, in the following structure
+
 ```rust
 struct Bad<A> {
     data: A,
     vec: Vec<A>,
 }
 ```
+
 the type parameter `A` is both replaceable (it is the type of the field `data`)
 and irreplaceable (it is a type parameter of the type of field `vec`).
 
@@ -833,12 +836,12 @@ bound `A: AsRef<[Z]>`.
 
 An ε-serde serialization process involves two types:
 
-* `S`, the _serializable type_, which is the type of the instance you want to
+- `S`, the _serializable type_, which is the type of the instance you want to
   serialize. It must implement [`SerInner`] with associated type
   [`SerInner::SerType`] implementing [`TypeHash`] and [`AlignHash`] (which
   implies [`Serialize`] on `S` by a blanket implementation).
 
-* Its associated _serialization type_ [`<S as SerInner>::SerType`].
+- Its associated _serialization type_ [`<S as SerInner>::SerType`].
 
 In general the serialization type of `S` is `S`, but there is some normalization
 and erasure involved (e.g., vectors become boxed slices, and some smart pointers
@@ -856,15 +859,15 @@ recursively the data contained in the instance.
 
 An ε-serde deserialization process involves instead three types:
 
-* `D`, the _deserializable type_, which must implement [`DeserInner`], and again
+- `D`, the _deserializable type_, which must implement [`DeserInner`], and again
   [`SerInner`] with associated type [`SerInner::SerType`] implementing
   [`TypeHash`] and [`AlignHash`], so the blanket implementation for
   [`Deserialize`] applies. This is the type on which deserialization methods are
   invoked.
 
-* The associated _serialization type_  [`D::SerType`].
+- The associated _serialization type_ [`D::SerType`].
 
-* The associated _deserialization type_ [`D::DeserType<'_>`].
+- The associated _deserialization type_ [`D::DeserType<'_>`].
 
 In general `D` is the same as `S`, but the only relevant condition for
 deserializing using the deserializable type `D` an instance serialized with
@@ -882,30 +885,30 @@ their deserialization type.
 
 For example:
 
-* `T::DeserType<'_>` is `&T` if `T` is zero-copy, but
+- `T::DeserType<'_>` is `&T` if `T` is zero-copy, but
   `T` if `T` is deep-copy;
 
-* `<Vec<T>>::DeserType<'_>` is `&[T]` if `T` is zero-copy, but
+- `<Vec<T>>::DeserType<'_>` is `&[T]` if `T` is zero-copy, but
   `Vec<T>` if `T` is deep-copy;
 
-* `<Good<T>>::DeserType<'_>` is `Good<&T>` if `T` is zero-copy, but
+- `<Good<T>>::DeserType<'_>` is `Good<&T>` if `T` is zero-copy, but
   `Good<T>` if `T` is deep-copy;
 
-* `Good<Vec<T>>::DeserType<'_>` is `Good<&[T]>` if `T` is zero-copy, but
+- `Good<Vec<T>>::DeserType<'_>` is `Good<&[T]>` if `T` is zero-copy, but
   `Good<Vec<T>>` if `T` is deep-copy;
 
-* `Good<Vec<Vec<T>>>::DeserType<'_>` is `Good<Vec<&[T]>>` if `T` is zero-copy,
+- `Good<Vec<Vec<T>>>::DeserType<'_>` is `Good<Vec<&[T]>>` if `T` is zero-copy,
   but again `Good<Vec<Vec<T>>>` if `T` is deep-copy.
 
 There are now two types of deserialization:
 
-* [`deserialize_full`] performs _full-copy deserialization_, which reads recursively
+- [`deserialize_full`] performs _full-copy deserialization_, which reads recursively
   the serialized data from a [`Read`] and builds an instance of `D`. This is
   basically a standard deserialization, except that it is usually much faster if
   you have large sequences of zero-copy types, as they are deserialized in a
   single [`read_exact`].
 
-* [`deserialize_eps`] perform _ε-copy deserialization_, which accesses the
+- [`deserialize_eps`] perform _ε-copy deserialization_, which accesses the
   serialized data as a byte slice, and builds an instance of `D::DeserType<'_>`
   that refers to the data inside the byte slice.
 
@@ -935,36 +938,36 @@ Given a user-defined type `T`:
 
 For standard types and [`PhantomDeserData`], we have:
 
-* all primitive types, such as `u8`, `i32`, `f64`, `char`, `bool`, etc., `()`,
+- all primitive types, such as `u8`, `i32`, `f64`, `char`, `bool`, etc., `()`,
   and `PhantomData<T>` are zero-copy and their (de)serialization type is
   themselves;
 
-* `Option<T>` and `PhantomDeserData<T>` are deep-copy and their
+- `Option<T>` and `PhantomDeserData<T>` are deep-copy and their
   (de)serialization type is themselves, with `T` replaced by its
   (de)serialization type;
 
-* `Vec<T>`, `Box<[T]>`, `&[T]` and `SerIter<T>` are deep-copy, and their
+- `Vec<T>`, `Box<[T]>`, `&[T]` and `SerIter<T>` are deep-copy, and their
   serialization type is `Box<[T::SerType]>`; the deserialization type of
   `Vec<T>`/`Box<[T]>` is `&[T]` if `T` is zero-copy, and
   `Vec<T::DeserType<'_>>`/`Box<[T::DeserType<'_>]>` if `T` is deep-copy; `&[T]`
   and `SerIter<T>` are not deserializable.
 
-* arrays `[T; N]` are zero-copy if and only if `T` is zero-copy: their
+- arrays `[T; N]` are zero-copy if and only if `T` is zero-copy: their
   serialization type is `[T::SerType; N]`, and their deserialization type is
   `&[T; N]` if `T` is zero-copy, but `[T::DeserType<'_>; N]` if `T` is
   deep-copy;
 
-* tuples up to size 12 made of the same zero-copy type `T` are zero-copy, their
+- tuples up to size 12 made of the same zero-copy type `T` are zero-copy, their
   serialization type is themselves, and their deserialization type is a
   reference to themselves (the other cases must be covered using [newtypes]);
 
-* [`String`], `Box<str>` and `&str` are deep-copy, and their serialization type
+- [`String`], `Box<str>` and `&str` are deep-copy, and their serialization type
   is `Box<str>`; the deserialization type of [`String`] and `Box<str>` is `&str`,
   whereas `&str` is not deserializable;
 
-* ranges and `ControlFlow<B, C>` behave like user-defined deep-copy types;
+- ranges and `ControlFlow<B, C>` behave like user-defined deep-copy types;
 
-* `Box<T>`, `Rc<T>`, and `Arc<T>`, for sized `T`, are deep-copy, and their
+- `Box<T>`, `Rc<T>`, and `Arc<T>`, for sized `T`, are deep-copy, and their
   serialization/deserialization type are the same of `T` (e.g., they are
   _erased_).
 
@@ -980,12 +983,12 @@ the root, labeled by `D`, is connected to the root of the syntax trees of
 its fields, and each children is further labeled by the name of the field.
 Replacement happens in two cases:
 
-* There is a path starting at the root, traversing only fields whose type is a
+- There is a path starting at the root, traversing only fields whose type is a
   replaceable parameter, and ending at node that is a vector/boxed slice/array
   whose elements are zero-copy: it will be replaced with a reference to a
   slice.
 
-* There is a _shortest_ path starting at the root, traversing only fields whose
+- There is a _shortest_ path starting at the root, traversing only fields whose
   type is a replaceable parameter, and ending at a node that is zero-copy: it
   will be replaced with a reference to the same type.
 
@@ -1018,67 +1021,67 @@ Views and opinions expressed are however those of the authors only and do not
 necessarily reflect those of the European Union or the Italian MUR. Neither the
 European Union nor the Italian MUR can be held responsible for them.
 
-[`MemCase`]: <https://docs.rs/epserde/latest/epserde/deser/mem_case/struct.MemCase.html>
-[`uncase`]: <https://docs.rs/epserde/latest/epserde/deser/mem_case/struct.MemCase.html#method.uncase>
-[`ZeroCopy`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.ZeroCopy.html>
-[`DeepCopy`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.DeepCopy.html>
-[`CopyType`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html>
-[`AlignTo`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignTo.html>
-[alignment hash]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignTo.html>
-[`TypeHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html>
-[`AlignHash`]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignHash.html>
-[type hash]: <https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html>
-[`DeserInner`]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html>
-[`Deserialize`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html>
-[`SerInner`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html>
-[`Serialize`]: <https://docs.rs/epserde/latest/epserde/ser/trait.Serialize.html>
-[`TypeInfo`]: <https://docs.rs/epserde/latest/epserde/derive.TypeInfo.html>
-[`Epserde`]: <https://docs.rs/epserde/latest/epserde_derive/derive.Epserde.html>
-[`Deserialize::load_full`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_full>
-[`deserialize_full`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#tymethod.deserialize_full>
-[`deserialize_eps`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#tymethod.deserialize_eps>
-[`DeserType`]: <https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html>
-[`Deserialize::load_mem`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mem>
-[`Deserialize::load_mmap`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mmap>
-[`Deserialize::read_mem`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.read_mem>
-[`Deserialize::read_mmap`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.read_mmap>
-[`Deserialize::mmap`]: <https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.mmap>
-[a few prerequisites]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html>
-[deserialization type]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html#associatedtype.DeserType>
-[`DeserType<'_>`]: <https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html>
-[`DeserType<'_,T>`]: <https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html>
-[`sux`]: <http://crates.io/sux/>
-[serde]: <https://serde.rs/>
-[Abomonation]: <https://crates.io/crates/abomonation>
-[rkiv]: <https://crates.io/crates/rkyv/>
-[zerovec]: <https://crates.io/crates/zerovec>
-[mmap_rs]: <https://crates.io/crates/mmap-rs>
+[`MemCase`]: https://docs.rs/epserde/latest/epserde/deser/mem_case/struct.MemCase.html
+[`uncase`]: https://docs.rs/epserde/latest/epserde/deser/mem_case/struct.MemCase.html#method.uncase
+[`ZeroCopy`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.ZeroCopy.html
+[`DeepCopy`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.DeepCopy.html
+[`CopyType`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html
+[`AlignTo`]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignTo.html
+[alignment hash]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignTo.html
+[`TypeHash`]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html
+[`AlignHash`]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignHash.html
+[type hash]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html
+[`DeserInner`]: https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html
+[`Deserialize`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html
+[`SerInner`]: https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html
+[`Serialize`]: https://docs.rs/epserde/latest/epserde/ser/trait.Serialize.html
+[`TypeInfo`]: https://docs.rs/epserde/latest/epserde/derive.TypeInfo.html
+[`Epserde`]: https://docs.rs/epserde/latest/epserde_derive/derive.Epserde.html
+[`Deserialize::load_full`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_full
+[`deserialize_full`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#tymethod.deserialize_full
+[`deserialize_eps`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#tymethod.deserialize_eps
+[`DeserType`]: https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html
+[`Deserialize::load_mem`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mem
+[`Deserialize::load_mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mmap
+[`Deserialize::read_mem`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.read_mem
+[`Deserialize::read_mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.read_mmap
+[`Deserialize::mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.mmap
+[a few prerequisites]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html
+[deserialization type]: https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html#associatedtype.DeserType
+[`DeserType<'_>`]: https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html
+[`DeserType<'_,T>`]: https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html
+[`sux`]: http://crates.io/sux/
+[serde]: https://serde.rs/
+[Abomonation]: https://crates.io/crates/abomonation
+[rkiv]: https://crates.io/crates/rkyv/
+[zerovec]: https://crates.io/crates/zerovec
+[mmap_rs]: https://crates.io/crates/mmap-rs
 [`MemDbg`]: https://docs.rs/mem_dbg/latest/mem_dbg/trait.MemDbg.html
 [`MemSize`]: https://docs.rs/mem_dbg/latest/mem_dbg/trait.MemSize.html
-[`PhantomData`]: <https://doc.rust-lang.org/std/marker/struct.PhantomData.html>
-[`Iterator`]: <https://doc.rust-lang.org/std/iter/trait.Iterator.html>
-[`SerIter`]: <https://docs.rs/epserde/latest/epserde/impls/iter/struct.SerIter.html>
-[`PhantomDeserData`]: <https://docs.rs/epserde/latest/epserde/struct.PhantomDeserData.html>
-[`Box`]: <https://doc.rust-lang.org/std/boxed/struct.Box.html>
-[`Rc`]: <https://doc.rust-lang.org/std/rc/struct.Rc.html>
-[`Arc`]: <https://doc.rust-lang.org/std/sync/struct.Arc.html>
-[`pointer`]: <https://docs.rs/epserde/latest/epserde/impls/pointer/index.html>
-[`BitFieldVec`]: <https://docs.rs/sux/latest/sux/bits/bit_field_vec/struct.BitFieldVec.html>
-[`BitFieldSlice`]: <https://docs.rs/sux/latest/sux/traits/bit_field_slice/trait.BitFieldSlice.html>
-[`S::SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType>
-[`D::SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType>
-[`SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType>
-[`D::DeserType<'_>`]: <https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html#associatedtype.DeserType>
-[`Read`]: <https://doc.rust-lang.org/std/io/trait.Read.html>
-[`read_exact`]: <https://doc.rust-lang.org/std/io/trait.Read.html#method.read_exact>
-[_deep-copy_]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.DeepCopy.html>
-[_zero-copy_]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.ZeroCopy.html>
-[`Deep`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/struct.Deep.html>
-[`Zero`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/struct.Zero.html>
-[newtypes]: <https://docs.rs/epserde/latest/epserde/impls/tuple/index.html>
-[`Copy`]: <https://doc.rust-lang.org/std/marker/trait.Copy.html>
-[`SerInner::SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType>
-[`<S as SerInner>::SerType`]: <https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType>
-[`sux-rs`]: <https://crates.io/crates/sux-rs>
-[`CopyType::Copy`]: <https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html#associatedtype.Copy>
-[`String`]: <https://doc.rust-lang.org/std/string/struct.String.html>
+[`PhantomData`]: https://doc.rust-lang.org/std/marker/struct.PhantomData.html
+[`Iterator`]: https://doc.rust-lang.org/std/iter/trait.Iterator.html
+[`SerIter`]: https://docs.rs/epserde/latest/epserde/impls/iter/struct.SerIter.html
+[`PhantomDeserData`]: https://docs.rs/epserde/latest/epserde/struct.PhantomDeserData.html
+[`Box`]: https://doc.rust-lang.org/std/boxed/struct.Box.html
+[`Rc`]: https://doc.rust-lang.org/std/rc/struct.Rc.html
+[`Arc`]: https://doc.rust-lang.org/std/sync/struct.Arc.html
+[`pointer`]: https://docs.rs/epserde/latest/epserde/impls/pointer/index.html
+[`BitFieldVec`]: https://docs.rs/sux/latest/sux/bits/bit_field_vec/struct.BitFieldVec.html
+[`BitFieldSlice`]: https://docs.rs/sux/latest/sux/traits/bit_field_slice/trait.BitFieldSlice.html
+[`S::SerType`]: https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType
+[`D::SerType`]: https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType
+[`SerType`]: https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType
+[`D::DeserType<'_>`]: https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html#associatedtype.DeserType
+[`Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
+[`read_exact`]: https://doc.rust-lang.org/std/io/trait.Read.html#method.read_exact
+[_deep-copy_]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.DeepCopy.html
+[_zero-copy_]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.ZeroCopy.html
+[`Deep`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/struct.Deep.html
+[`Zero`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/struct.Zero.html
+[newtypes]: https://docs.rs/epserde/latest/epserde/impls/tuple/index.html
+[`Copy`]: https://doc.rust-lang.org/std/marker/trait.Copy.html
+[`SerInner::SerType`]: https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType
+[`<S as SerInner>::SerType`]: https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType
+[`sux-rs`]: https://crates.io/crates/sux-rs
+[`CopyType::Copy`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html#associatedtype.Copy
+[`String`]: https://doc.rust-lang.org/std/string/struct.String.html

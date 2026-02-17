@@ -370,18 +370,23 @@ pub trait Deserialize: DeserInner {
     }
 }
 
-#[allow(clippy::missing_safety_doc)] // Clippy bug
-/// Inner trait to implement deserialization of a type. This trait exists to
-/// separate the user-facing [`Deserialize`] trait from the low-level
-/// deserialization mechanisms of [`DeserInner::_deser_full_inner`]
-/// and [`DeserInner::_deser_eps_inner`]. Moreover, it makes it
-/// possible to behave slightly differently at the top of the recursion tree
-/// (e.g., to check the endianness marker), and to prevent the user from
-/// modifying the methods in [`Deserialize`].
+/// Inner trait to implement deserialization of a type.
+///
+/// This trait exists to separate the user-facing [`Deserialize`] trait from the
+/// low-level deserialization mechanisms of [`DeserInner::_deser_full_inner`]
+/// and [`DeserInner::_deser_eps_inner`]. Moreover, it makes it possible to
+/// behave slightly differently at the top of the recursion tree (e.g., to check
+/// the endianness marker), and to prevent the user from modifying the methods
+/// in [`Deserialize`].
+///
+/// The [`__check_covariance`](Self::__check_covariance) method guarantees that
+/// the deserialization type associated with this type is covariant in its
+/// lifetime parameter, which is necessary for the safety of the inner workings
+/// of [`MemCase`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
 ///
-/// # Safety
+/// # Safety
 ///
 /// See [`Deserialize`].
 pub trait DeserInner: Sized {
@@ -391,26 +396,27 @@ pub trait DeserInner: Sized {
 
     /// Compile-time covariance check for [`DeserType`].
     ///
-    /// [`MemCase::uncase`](super::mem_case::MemCase::uncase) transmutes
+    /// [`MemCase::uncase`](crate::deser::MemCase::uncase) transmutes
     /// `DeserType<'static, S>` to `DeserType<'a, S>`, which is only sound if
     /// `DeserType` is covariant in its lifetime parameter.
     ///
     /// This method enforces that invariant: the only safe implementation is
     /// `{ p }`, which compiles only when `DeserType` is covariant. For generic
     /// container types where the compiler cannot see through associated-type
-    /// projections, the body must be `unsafe { core::mem::transmute(p) }` with
-    /// a SAFETY comment justifying covariance compositionally.
+    /// projections, the body must be `unsafe { core::mem::transmute(proof) }` with
+    /// a safety comment justifying covariance compositionally. The derive code, for
+    /// example, when considering deep-copy types generates a call to this method
+    /// for all fields, so to prove that the whole type is covariant.
     ///
     /// The parameter and return types use [`CovariantProof`], a newtype with a
     /// private field that cannot be constructed outside of this crate. This
     /// ensures that any returning bypass of the covariance check requires
     /// `unsafe` code. Moreover,
-    /// [`MemCase::uncase`](super::mem_case::MemCase::uncase) actually calls
+    /// [`MemCase::uncase`](crate::deser::MemCase::uncase) actually calls
     /// this method, so non-returning implementations (`todo!()`, `panic!()`,
     /// `unimplemented!()|, `loop {}`, etc.) are detected at runtime.
-    #[doc(hidden)]
     fn __check_covariance<'__long: '__short, '__short>(
-        p: CovariantProof<Self::DeserType<'__long>>,
+        proof: CovariantProof<Self::DeserType<'__long>>,
     ) -> CovariantProof<Self::DeserType<'__short>>;
 
     /// # Safety

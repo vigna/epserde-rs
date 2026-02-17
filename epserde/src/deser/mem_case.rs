@@ -137,9 +137,9 @@ impl<T> DeserInner for Owned<T> {
     type DeserType<'a> = T;
 
     fn __check_covariance<'__long: '__short, '__short>(
-        p: super::CovariantProof<Self::DeserType<'__long>>,
+        proof: super::CovariantProof<Self::DeserType<'__long>>,
     ) -> super::CovariantProof<Self::DeserType<'__short>> {
-        p
+        proof
     }
 
     unsafe fn _deser_full_inner(_backend: &mut impl super::ReadWithPos) -> super::Result<Self> {
@@ -268,9 +268,8 @@ impl<S: DeserInner> MemCase<S> {
     /// the inner deserialization type will be that of `self`.
     pub fn uncase<'a>(&'a self) -> &'a DeserType<'a, S> {
         // Call the covariance check. This is a ZST-in, ZST-out no-op that the
-        // optimizer eliminates entirely in release builds. In debug builds, a
-        // non-returning implementation (todo!(), unimplemented!(), panic!(),
-        // loop {}, etc.) would be caught here.
+        // optimizer eliminates entirely in release builds unless it doesn't
+        // return (e.g., todo!(), panic!(), etc.).
         let _ = S::__check_covariance(super::CovariantProof::<DeserType<'static, S>>::new());
         // SAFETY: 'static outlives 'a, and DeserType<S, '_> is covariant in its
         // lifetime parameter, as enforced by the required method

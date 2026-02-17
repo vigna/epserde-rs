@@ -29,7 +29,7 @@
   as it should. This might cause some serialized files to be no longer
   deserializable.
 
-- The `Send`/`Sync` bounds for `MemCase` are now on the deserialized
+- The `Send`/`Sync` bounds for `MemCase` are now on the deserialization
   type and not on the deserialization type.
 
 ## [0.11.5] - 2025-12-19

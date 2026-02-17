@@ -110,11 +110,11 @@ macro_rules! impl_all {
         impl<T: DeserInner> DeserInner for $type<T> {
             type DeserType<'a> = $type<DeserType<'a, T>>;
             fn __check_covariance<'__long: '__short, '__short>(
-                p: deser::CovariantProof<Self::DeserType<'__long>>,
+                proof: deser::CovariantProof<Self::DeserType<'__long>>,
             ) -> deser::CovariantProof<Self::DeserType<'__short>> {
                 // SAFETY: Box/Rc/Arc are covariant in T, and T::DeserType is
                 // covariant (enforced by T's own __check_covariance).
-                unsafe { core::mem::transmute(p) }
+                unsafe { core::mem::transmute(proof) }
             }
 
             #[inline(always)]

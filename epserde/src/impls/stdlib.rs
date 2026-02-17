@@ -62,9 +62,9 @@ impl<H> SerInner for BuildHasherDefault<H> {
 
 impl<H> DeserInner for BuildHasherDefault<H> {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
-        p
+        proof
     }
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(BuildHasherDefault::default())
@@ -169,11 +169,11 @@ impl<Idx: SerInner> SerInner for Range<Idx> {
 
 impl<Idx: DeserInner> DeserInner for Range<Idx> {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
         // SAFETY: Range is covariant in Idx, and Idx::DeserType is covariant
         // (enforced by Idx's own __check_covariance).
-        unsafe { core::mem::transmute(p) }
+        unsafe { core::mem::transmute(proof) }
     }
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
@@ -205,11 +205,11 @@ impl<Idx: SerInner> SerInner for RangeFrom<Idx> {
 
 impl<Idx: DeserInner> DeserInner for RangeFrom<Idx> {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
         // SAFETY: RangeFrom is covariant in Idx, and Idx::DeserType is covariant
         // (enforced by Idx's own __check_covariance).
-        unsafe { core::mem::transmute(p) }
+        unsafe { core::mem::transmute(proof) }
     }
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
@@ -241,11 +241,11 @@ impl<Idx: SerInner> SerInner for RangeInclusive<Idx> {
 
 impl<Idx: DeserInner> DeserInner for RangeInclusive<Idx> {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
         // SAFETY: RangeInclusive is covariant in Idx, and Idx::DeserType is
         // covariant (enforced by Idx's own __check_covariance).
-        unsafe { core::mem::transmute(p) }
+        unsafe { core::mem::transmute(proof) }
     }
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
@@ -281,11 +281,11 @@ impl<Idx: SerInner> SerInner for RangeTo<Idx> {
 
 impl<Idx: DeserInner> DeserInner for RangeTo<Idx> {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
         // SAFETY: RangeTo is covariant in Idx, and Idx::DeserType is covariant
         // (enforced by Idx's own __check_covariance).
-        unsafe { core::mem::transmute(p) }
+        unsafe { core::mem::transmute(proof) }
     }
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
@@ -315,11 +315,11 @@ impl<Idx: SerInner> SerInner for RangeToInclusive<Idx> {
 
 impl<Idx: DeserInner> DeserInner for RangeToInclusive<Idx> {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
         // SAFETY: RangeToInclusive is covariant in Idx, and Idx::DeserType is
         // covariant (enforced by Idx's own __check_covariance).
-        unsafe { core::mem::transmute(p) }
+        unsafe { core::mem::transmute(proof) }
     }
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
@@ -348,9 +348,9 @@ impl SerInner for RangeFull {
 
 impl DeserInner for RangeFull {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
-        p
+        proof
     }
     #[inline(always)]
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
@@ -401,11 +401,11 @@ impl<T: SerInner> SerInner for Bound<T> {
 
 impl<T: DeserInner> DeserInner for Bound<T> {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
         // SAFETY: Bound is covariant in T, and T::DeserType is covariant
         // (enforced by T's own __check_covariance).
-        unsafe { core::mem::transmute(p) }
+        unsafe { core::mem::transmute(proof) }
     }
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let tag = unsafe { u8::_deser_full_inner(backend) }?;
@@ -468,11 +468,11 @@ impl<B: SerInner, C: SerInner> SerInner for ControlFlow<B, C> {
 
 impl<B: DeserInner, C: DeserInner> DeserInner for ControlFlow<B, C> {
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
         // SAFETY: ControlFlow is covariant in B and C, and both B::DeserType
         // and C::DeserType are covariant (enforced by their own __check_covariance).
-        unsafe { core::mem::transmute(p) }
+        unsafe { core::mem::transmute(proof) }
     }
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let tag = unsafe { u8::_deser_full_inner(backend) }?;

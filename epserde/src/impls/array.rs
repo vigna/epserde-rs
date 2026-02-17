@@ -74,13 +74,13 @@ where
 {
     type DeserType<'a> = <[T; N] as DeserHelper<<T as CopyType>::Copy>>::DeserType<'a>;
     fn __check_covariance<'__long: '__short, '__short>(
-        p: deser::CovariantProof<Self::DeserType<'__long>>,
+        proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {
         // SAFETY: In the Zero case, DeserType<'a> = &'a [T; N], which is covariant.
         // In the Deep case, DeserType<'a> = [T::DeserType<'a>; N]; arrays are
         // covariant in their element type, and T::DeserType is covariant
         // (enforced by T's own __check_covariance).
-        unsafe { core::mem::transmute(p) }
+        unsafe { core::mem::transmute(proof) }
     }
 
     #[inline(always)]
