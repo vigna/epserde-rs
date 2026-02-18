@@ -75,6 +75,56 @@ pub fn __check_field_covariance<T: DeserInner>() {
     let _ = T::__check_covariance(CovariantProof::<T::DeserType<'static>>::new());
 }
 
+/// Implements [`DeserInner::__check_covariance`] for types whose
+/// [`DeserType`] is directly covariant in its lifetime parameter (i.e.,
+/// `{ proof }` compiles).
+///
+/// Use this when [`DeserType<'a>`](DeserInner::DeserType) does not involve
+/// any associated-type projection, so the compiler can verify covariance
+/// directly. Typical cases include types where `DeserType<'a>` is `Self`,
+/// `&'a Self`, or any other concrete covariant type.
+#[macro_export]
+macro_rules! check_covariance {
+    () => {
+        fn __check_covariance<'__long: '__short, '__short>(
+            proof: $crate::deser::CovariantProof<Self::DeserType<'__long>>,
+        ) -> $crate::deser::CovariantProof<Self::DeserType<'__short>> {
+            proof
+        }
+    };
+}
+
+/// Implements [`DeserInner::__check_covariance`] with an `unsafe` transmute,
+/// for generic container types where the compiler cannot see through
+/// associated-type projections.
+///
+/// The macro accepts a list of field types whose covariance is verified by
+/// calling [`__check_field_covariance`] on each, mirroring what the derive
+/// macro does for structs and enums.
+///
+/// # Safety
+///
+/// The caller must ensure that the container itself is covariant in its type
+/// parameters. The macro verifies that each listed field type's `DeserType` is
+/// covariant (via its own `__check_covariance`), but the container's own
+/// covariance (e.g., `Vec`, `Option`, `Box` being covariant) must be known
+/// from its definition.
+#[macro_export]
+macro_rules! unsafe_assume_covariance {
+    ($($field_type:ty),* $(,)?) => {
+        #[allow(clippy::useless_transmute)]
+        fn __check_covariance<'__long: '__short, '__short>(
+            proof: $crate::deser::CovariantProof<Self::DeserType<'__long>>,
+        ) -> $crate::deser::CovariantProof<Self::DeserType<'__short>> {
+            $(
+                $crate::deser::__check_field_covariance::<$field_type>();
+            )*
+            // SAFETY: see the safety documentation of this macro.
+            unsafe { ::core::mem::transmute(proof) }
+        }
+    };
+}
+
 /// Main deserialization trait. It is separated from [`DeserInner`] to
 /// avoid that the user modify its behavior, and hide internal serialization
 /// methods.
@@ -401,12 +451,19 @@ pub trait DeserInner: Sized {
     /// `DeserType` is covariant in its lifetime parameter.
     ///
     /// This method enforces that invariant: the only safe implementation is
-    /// `{ p }`, which compiles only when `DeserType` is covariant. For generic
-    /// container types where the compiler cannot see through associated-type
-    /// projections, the body must be `unsafe { core::mem::transmute(proof) }` with
-    /// a safety comment justifying covariance compositionally. The derive code, for
-    /// example, when considering deep-copy types generates a call to this method
-    /// for all fields, so to prove that the whole type is covariant.
+    /// `{ proof }`, which compiles only when `DeserType` is covariant. For
+    /// generic container types where the compiler cannot see through
+    /// associated-type projections, the body must be
+    /// `unsafe { core::mem::transmute(proof) }` with a safety comment
+    /// justifying covariance compositionally. The derive code, for example,
+    /// when considering deep-copy types generates a call to this method for all
+    /// fields, so to prove that the whole type is covariant.
+    ///
+    /// Two ready-made implementations are provided as macros:
+    /// - [`check_covariance!()`] — the safe `{ proof }` body, for types
+    ///   whose `DeserType` is a concrete covariant type;
+    /// - [`unsafe_assume_covariance!()`] — the `unsafe` transmute body, for
+    ///   generic containers that are compositionally covariant.
     ///
     /// The parameter and return types use [`CovariantProof`], a newtype with a
     /// private field that cannot be constructed outside of this crate. This
@@ -414,7 +471,7 @@ pub trait DeserInner: Sized {
     /// `unsafe` code. Moreover,
     /// [`MemCase::uncase`](crate::deser::MemCase::uncase) actually calls
     /// this method, so non-returning implementations (`todo!()`, `panic!()`,
-    /// `unimplemented!()|, `loop {}`, etc.) are detected at runtime.
+    /// `unimplemented!()`, `loop {}`, etc.) are detected at runtime.
     fn __check_covariance<'__long: '__short, '__short>(
         proof: CovariantProof<Self::DeserType<'__long>>,
     ) -> CovariantProof<Self::DeserType<'__short>>;

@@ -85,11 +85,7 @@ macro_rules! impl_tuples {
         }
 
 		impl<T: ZeroCopy> DeserInner for ($($t,)*) {
-            fn __check_covariance<'__long: '__short, '__short>(
-                proof: deser::CovariantProof<Self::DeserType<'__long>>,
-            ) -> deser::CovariantProof<Self::DeserType<'__short>> {
-                proof
-            }
+            crate::check_covariance!();
             type DeserType<'a> = &'a ($($t,)*);
             unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
                 unsafe { deser_full_zero::<($($t,)*)>(backend) }

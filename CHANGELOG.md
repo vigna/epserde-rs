@@ -1,5 +1,12 @@
 # Change Log
 
+## [unreleased]
+
+### New
+
+- Covariance-checking macros for leaner code and custom-implementation
+  support.
+
 ## [0.12.1] - 2026-02-17
 
 - Covariance-checking infrastructure makes undefined behavior from `MemCase`
