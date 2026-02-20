@@ -98,8 +98,8 @@ macro_rules! check_covariance {
 /// # Safety
 ///
 /// The caller must ensure that the type itself is covariant in its type
-/// parameters. The macro verifies that each listed type
-/// [`DeserType`](DeserInner::DeserType) is covariant (via its own
+/// parameters. The macro verifies that the [`DeserType`](DeserInner::DeserType)
+/// of each listed type is covariant (via its own
 /// [`__check_covariance`](crate::deser::DeserInner::__check_covariance)), but
 /// the type's own covariance (e.g., `Vec`, `Box` being covariant) must be known
 /// from its definition.
