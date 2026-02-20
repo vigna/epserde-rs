@@ -488,6 +488,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             #[automatically_derived]
             impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause
             {
+                #[inline(always)]
                 fn __check_covariance<'__long: '__short, '__short>(
                     proof: ::epserde::deser::CovariantProof<Self::DeserType<'__long>>,
                 ) -> ::epserde::deser::CovariantProof<Self::DeserType<'__short>> {
@@ -551,6 +552,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             #[automatically_derived]
             impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause {
                 #[allow(clippy::useless_transmute)]
+                #[inline(always)]
                 fn __check_covariance<'__long: '__short, '__short>(
                     proof: ::epserde::deser::CovariantProof<Self::DeserType<'__long>>,
                 ) -> ::epserde::deser::CovariantProof<Self::DeserType<'__short>> {
@@ -770,6 +772,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
             #[automatically_derived]
             impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause {
+                #[inline(always)]
                 fn __check_covariance<'__long: '__short, '__short>(
                     proof: ::epserde::deser::CovariantProof<Self::DeserType<'__long>>,
                 ) -> ::epserde::deser::CovariantProof<Self::DeserType<'__short>> {
@@ -834,6 +837,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
             #[automatically_derived]
             impl #generics_for_impl ::epserde::deser::DeserInner for #name #generics_for_type #deser_where_clause {
                 #[allow(clippy::useless_transmute)]
+                #[inline(always)]
                 fn __check_covariance<'__long: '__short, '__short>(
                     proof: ::epserde::deser::CovariantProof<Self::DeserType<'__long>>,
                 ) -> ::epserde::deser::CovariantProof<Self::DeserType<'__short>> {

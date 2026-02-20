@@ -188,6 +188,7 @@ impl<T> SerInner for PhantomDeserData<T> {
 }
 
 impl<T: DeserInner> DeserInner for PhantomDeserData<T> {
+    #[inline(always)]
     fn __check_covariance<'__long: '__short, '__short>(
         proof: deser::CovariantProof<Self::DeserType<'__long>>,
     ) -> deser::CovariantProof<Self::DeserType<'__short>> {

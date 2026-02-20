@@ -68,9 +68,10 @@ impl<T> CovariantProof<T> {
 /// Calls [`DeserInner::__check_covariance`] on `T`, detecting non-returning
 /// implementations at runtime.
 ///
-/// This function is used by the derive macro to verify field-level covariance
-/// from generated code without exposing [`CovariantProof::new`].
-#[doc(hidden)]
+/// This function can be used in custom implementations to verify field-level
+/// covariance without accessing [`CovariantProof`]'s constructor. In
+/// particular, it used by the derive macro.
+#[inline(always)]
 pub fn __check_field_covariance<T: DeserInner>() {
     let _ = T::__check_covariance(CovariantProof::<T::DeserType<'static>>::new());
 }
@@ -86,6 +87,7 @@ pub fn __check_field_covariance<T: DeserInner>() {
 #[macro_export]
 macro_rules! check_covariance {
     () => {
+        #[inline(always)]
         fn __check_covariance<'__long: '__short, '__short>(
             proof: $crate::deser::CovariantProof<Self::DeserType<'__long>>,
         ) -> $crate::deser::CovariantProof<Self::DeserType<'__short>> {
@@ -113,6 +115,7 @@ macro_rules! check_covariance {
 macro_rules! unsafe_assume_covariance {
     ($($field_type:ty),* $(,)?) => {
         #[allow(clippy::useless_transmute)]
+        #[inline(always)]
         fn __check_covariance<'__long: '__short, '__short>(
             proof: $crate::deser::CovariantProof<Self::DeserType<'__long>>,
         ) -> $crate::deser::CovariantProof<Self::DeserType<'__short>> {
@@ -456,8 +459,11 @@ pub trait DeserInner: Sized {
     /// associated-type projections, the body must be
     /// `unsafe { core::mem::transmute(proof) }` with a safety comment
     /// justifying covariance compositionally. The derive code, for example,
-    /// when considering deep-copy types generates a call to this method for all
-    /// fields, so to prove that the whole type is covariant.
+    /// when considering deep-copy types generates a [call to this method for all
+    /// fields](crate::deser::__check_field_covariance), so to prove that the whole type is covariant.
+    ///
+    /// All implementations must be `#[inline(always)]` to ensure that the
+    /// covariance check has no cost.
     ///
     /// Two ready-made implementations are provided as macros:
     /// - [`check_covariance!()`] — the safe `{ proof }` body, for types

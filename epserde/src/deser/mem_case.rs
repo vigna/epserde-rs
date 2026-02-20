@@ -136,6 +136,7 @@ pub type MemOwned<T> = MemCase<Owned<T>>;
 impl<T> DeserInner for Owned<T> {
     type DeserType<'a> = T;
 
+    #[inline(always)]
     fn __check_covariance<'__long: '__short, '__short>(
         proof: super::CovariantProof<Self::DeserType<'__long>>,
     ) -> super::CovariantProof<Self::DeserType<'__short>> {

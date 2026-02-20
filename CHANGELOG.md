@@ -7,6 +7,10 @@
 - Covariance-checking macros for leaner code and custom-implementation
   support.
 
+### Improved
+
+- All `__check_covariance` implementations are now `#[inline(always)]`.
+
 ## [0.12.1] - 2026-02-17
 
 - Covariance-checking infrastructure makes undefined behavior from `MemCase`
