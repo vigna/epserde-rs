@@ -271,7 +271,7 @@ impl<S: DeserInner> MemCase<S> {
         // Call the covariance check. This is a ZST-in, ZST-out no-op that the
         // optimizer eliminates entirely in release builds unless it doesn't
         // return (e.g., todo!(), panic!(), etc.).
-        let _ = S::__check_covariance(super::CovariantProof::<DeserType<'static, S>>::new());
+        super::__check_type_covariance::<S>();
         // SAFETY: 'static outlives 'a, and DeserType<S, '_> is covariant in its
         // lifetime parameter, as enforced by the required method
         // DeserInner::__check_covariance. Returning safe bypasses are
