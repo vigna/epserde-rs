@@ -272,10 +272,9 @@ impl<S: DeserInner> MemCase<S> {
         // optimizer eliminates entirely in release builds unless it doesn't
         // return (e.g., todo!(), panic!(), etc.).
         super::__check_type_covariance::<S>();
-        // SAFETY: 'static outlives 'a, and DeserType<S, '_> is covariant in its
+        // SAFETY: 'static outlives 'a, and DeserType<_', S> is covariant in its
         // lifetime parameter, as enforced by the required method
-        // DeserInner::__check_covariance. Returning safe bypasses are
-        // impossible because CovariantProof has a private field.
+        // DeserInner::__check_covariance.
         unsafe { core::mem::transmute::<&'a DeserType<'static, S>, &'a DeserType<'a, S>>(&self.0) }
     }
 

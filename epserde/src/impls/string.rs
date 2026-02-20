@@ -18,7 +18,7 @@
 //! We provide type hashes for `String` and `str` so that they can be used
 //! in [`PhantomData`](core::marker::PhantomData).
 
-use crate::prelude::*;
+use crate::{check_covariance, prelude::*};
 use core::hash::Hash;
 use deser::*;
 use ser::*;
@@ -50,7 +50,7 @@ impl SerInner for String {
 }
 
 impl DeserInner for String {
-    crate::check_covariance!();
+    check_covariance!();
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let slice = unsafe { deser_full_vec_zero(backend) }?;
         Ok(String::from_utf8(slice).unwrap())
@@ -97,7 +97,7 @@ impl SerInner for Box<str> {
 }
 
 impl DeserInner for Box<str> {
-    crate::check_covariance!();
+    check_covariance!();
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(unsafe { String::_deser_full_inner(backend) }?.into_boxed_str())

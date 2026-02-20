@@ -105,7 +105,7 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
 /// still contain `T`. To fix this issue, you can use [`PhantomDeserData`]
 /// instead.
 ///
-/// Note that `T` must be sized.
+/// Note that `T` must be sized because of a trait bound on [`DeserInner`].
 ///
 /// # Examples
 ///
@@ -129,7 +129,7 @@ pub fn pad_align_to(value: usize, align_to: usize) -> usize {
 /// }
 /// ```
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PhantomDeserData<T: ?Sized>(pub PhantomData<T>);
+pub struct PhantomDeserData<T>(pub PhantomData<T>);
 
 impl<T: DeserInner> PhantomDeserData<T> {
     /// A custom deserialization method for [`PhantomDeserData`] that transmutes
@@ -142,7 +142,7 @@ impl<T: DeserInner> PhantomDeserData<T> {
     pub unsafe fn _deser_eps_inner_special<'a>(
         _backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<PhantomDeserData<T::DeserType<'a>>> {
-        // SAFETY: types are zero-length
+        // SAFETY: it is a zero-sized type
         Ok(unsafe {
             transmute::<DeserType<'a, PhantomDeserData<T>>, PhantomDeserData<T::DeserType<'a>>>(
                 PhantomDeserData(PhantomData),
@@ -176,8 +176,7 @@ impl<T> AlignHash for PhantomDeserData<T> {
 }
 
 impl<T> SerInner for PhantomDeserData<T> {
-    // This type is nominal only; nothing will be serialized
-    // or deserialized.
+    // This type is nominal only; nothing will be serialized or deserialized.
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
 
@@ -188,14 +187,8 @@ impl<T> SerInner for PhantomDeserData<T> {
 }
 
 impl<T: DeserInner> DeserInner for PhantomDeserData<T> {
-    #[inline(always)]
-    fn __check_covariance<'__long: '__short, '__short>(
-        proof: deser::CovariantProof<Self::DeserType<'__long>>,
-    ) -> deser::CovariantProof<Self::DeserType<'__short>> {
-        // SAFETY: PhantomDeserData is a zero-sized wrapper around PhantomData,
-        // and T::DeserType is covariant (enforced by T's own __check_covariance).
-        unsafe { core::mem::transmute(proof) }
-    }
+    // SAFETY: it is a zero-sized type
+    unsafe_assume_covariance!();
     #[inline(always)]
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomDeserData(PhantomData))

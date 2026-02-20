@@ -7,7 +7,7 @@
 
 //! Implementations for primitive types, `()`, [`PhantomData`] and [`Option`].
 
-use crate::prelude::*;
+use crate::{check_covariance, prelude::*};
 use common_traits::NonZero;
 use core::hash::Hash;
 use core::marker::PhantomData;
@@ -64,7 +64,7 @@ macro_rules! impl_prim_ser_des {
 
 		impl DeserInner for $ty {
             type DeserType<'a> = Self;
-            crate::check_covariance!();
+            check_covariance!();
             #[inline(always)]
             unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
                 let mut buf = [0; size_of::<$ty>()];
@@ -110,7 +110,7 @@ macro_rules! impl_nonzero_ser_des {
 
 		impl DeserInner for $ty {
             type DeserType<'a> = Self;
-            crate::check_covariance!();
+            check_covariance!();
             #[inline(always)]
             unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
                 let mut buf = [0; size_of::<$ty>()];
@@ -179,7 +179,7 @@ impl SerInner for bool {
 }
 
 impl DeserInner for bool {
-    crate::check_covariance!();
+    check_covariance!();
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<bool> {
         Ok(unsafe { u8::_deser_full_inner(backend) }? != 0)
@@ -208,7 +208,7 @@ impl SerInner for char {
 }
 
 impl DeserInner for char {
-    crate::check_covariance!();
+    check_covariance!();
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(char::from_u32(unsafe { u32::_deser_full_inner(backend) }?).unwrap())
@@ -235,7 +235,7 @@ impl SerInner for () {
 }
 
 impl DeserInner for () {
-    crate::check_covariance!();
+    check_covariance!();
     #[inline(always)]
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(())
@@ -288,7 +288,7 @@ impl<T: ?Sized> SerInner for PhantomData<T> {
 }
 
 impl<T: ?Sized> DeserInner for PhantomData<T> {
-    crate::check_covariance!();
+    check_covariance!();
     #[inline(always)]
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomData)

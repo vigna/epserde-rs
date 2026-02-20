@@ -11,7 +11,7 @@
 //! the case of [`RangeFull`], because they are not `repr(C)`.
 use ser::WriteWithNames;
 
-use crate::prelude::*;
+use crate::{check_covariance, prelude::*};
 use core::hash::{BuildHasherDefault, Hash};
 use core::ops::{
     Bound, ControlFlow, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo,
@@ -61,7 +61,7 @@ impl<H> SerInner for BuildHasherDefault<H> {
 }
 
 impl<H> DeserInner for BuildHasherDefault<H> {
-    crate::check_covariance!();
+    check_covariance!();
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(BuildHasherDefault::default())
     }
@@ -323,7 +323,7 @@ impl SerInner for RangeFull {
 }
 
 impl DeserInner for RangeFull {
-    crate::check_covariance!();
+    check_covariance!();
     #[inline(always)]
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(RangeFull)

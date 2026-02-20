@@ -22,6 +22,7 @@
 //! mixed zero-copy types. If you serialized a structure using such a tuple,
 //! it will be no longer deserializable.
 
+use crate::check_covariance;
 use crate::prelude::*;
 use core::hash::Hash;
 use deser::*;
@@ -85,7 +86,7 @@ macro_rules! impl_tuples {
         }
 
 		impl<T: ZeroCopy> DeserInner for ($($t,)*) {
-            crate::check_covariance!();
+            check_covariance!();
             type DeserType<'a> = &'a ($($t,)*);
             unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
                 unsafe { deser_full_zero::<($($t,)*)>(backend) }
