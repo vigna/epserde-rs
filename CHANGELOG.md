@@ -1,6 +1,6 @@
 # Change Log
 
-## [unreleased]
+## [0.12.2] - 2026-02-20
 
 ### New
 
@@ -10,6 +10,10 @@
 ### Improved
 
 - All `__check_covariance` implementations are now `#[inline(always)]`.
+
+### Changed
+
+- `__check_field_covariance` has been renamed `__check_type_covariance`.
 
 ## [0.12.1] - 2026-02-17
 
