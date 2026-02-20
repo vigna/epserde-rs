@@ -72,7 +72,7 @@ impl<T> CovariantProof<T> {
 /// covariance without accessing [`CovariantProof`]'s constructor. In
 /// particular, it used by the derive macro.
 #[inline(always)]
-pub fn __check_field_covariance<T: DeserInner>() {
+pub fn __check_type_covariance<T: DeserInner>() {
     let _ = T::__check_covariance(CovariantProof::<T::DeserType<'static>>::new());
 }
 
@@ -101,7 +101,7 @@ macro_rules! check_covariance {
 /// associated-type projections.
 ///
 /// The macro accepts a list of field types whose covariance is verified by
-/// calling [`__check_field_covariance`] on each, mirroring what the derive
+/// calling [`__check_type_covariance`] on each, mirroring what the derive
 /// macro does for structs and enums.
 ///
 /// # Safety
@@ -120,7 +120,7 @@ macro_rules! unsafe_assume_covariance {
             proof: $crate::deser::CovariantProof<Self::DeserType<'__long>>,
         ) -> $crate::deser::CovariantProof<Self::DeserType<'__short>> {
             $(
-                $crate::deser::__check_field_covariance::<$field_type>();
+                $crate::deser::__check_type_covariance::<$field_type>();
             )*
             // SAFETY: see the safety documentation of this macro.
             unsafe { ::core::mem::transmute(proof) }
@@ -460,7 +460,7 @@ pub trait DeserInner: Sized {
     /// `unsafe { core::mem::transmute(proof) }` with a safety comment
     /// justifying covariance compositionally. The derive code, for example,
     /// when considering deep-copy types generates a [call to this method for all
-    /// fields](crate::deser::__check_field_covariance), so to prove that the whole type is covariant.
+    /// fields](crate::deser::__check_type_covariance), so to prove that the whole type is covariant.
     ///
     /// All implementations must be `#[inline(always)]` to ensure that the
     /// covariance check has no cost.

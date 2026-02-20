@@ -560,7 +560,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     // field's DeserType is covariant (enforced by its own
                     // __check_covariance, which is called below).
                     #(
-                        ::epserde::deser::__check_field_covariance::<#field_types>();
+                        ::epserde::deser::__check_type_covariance::<#field_types>();
                     )*
                     unsafe { ::core::mem::transmute(proof) }
                 }
@@ -845,7 +845,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     // field's DeserType is covariant (enforced by its own
                     // __check_covariance, which is called below).
                     #(
-                        ::epserde::deser::__check_field_covariance::<#all_fields_types>();
+                        ::epserde::deser::__check_type_covariance::<#all_fields_types>();
                     )*
                     unsafe { ::core::mem::transmute(proof) }
                 }
