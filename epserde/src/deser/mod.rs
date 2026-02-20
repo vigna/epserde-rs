@@ -44,21 +44,13 @@ pub type Result<T> = core::result::Result<T, Error>;
 /// type](DeserInner::DeserType).
 pub type DeserType<'a, T> = <T as DeserInner>::DeserType<'a>;
 
-/// A covariance witness type used by
-/// [`DeserInner::__check_covariance`].
-///
-/// This newtype wraps a [`PhantomData<fn() -> T>`](core::marker::PhantomData),
-/// making it covariant in `T` and zero-sized. Its field is private, so it
-/// cannot be constructed outside of the `epserde` crate. This ensures that any
-/// returning bypass of the covariance check requires `unsafe` code.
+/// A zero-sized covariance witness whose private field prevents construction
+/// outside this crate, making it impossible to implement
+/// [`DeserInner::__check_covariance`] with a returning body without `unsafe`.
 #[doc(hidden)]
 pub struct CovariantProof<T>(core::marker::PhantomData<fn() -> T>);
 
 impl<T> CovariantProof<T> {
-    /// Constructs a new [`CovariantProof`].
-    ///
-    /// This constructor is `pub(crate)` so that only code within `epserde`
-    /// can create instances (e.g., in [`MemCase::uncase`](super::mem_case::MemCase::uncase)).
     #[doc(hidden)]
     pub(crate) fn new() -> Self {
         CovariantProof(core::marker::PhantomData)
