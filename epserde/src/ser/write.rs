@@ -75,7 +75,7 @@ pub struct WriterWithPos<'a, F: WriteNoStd> {
 impl<'a, F: WriteNoStd> WriterWithPos<'a, F> {
     #[inline(always)]
     /// Create a new [`WriterWithPos`] on top of a generic [`WriteNoStd`] `F`.
-    pub fn new(backend: &'a mut F) -> Self {
+    pub const fn new(backend: &'a mut F) -> Self {
         Self { backend, pos: 0 }
     }
 }

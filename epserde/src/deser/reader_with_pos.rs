@@ -23,7 +23,7 @@ pub struct ReaderWithPos<'a, F: ReadNoStd> {
 impl<'a, F: ReadNoStd> ReaderWithPos<'a, F> {
     /// Create a new [`ReadWithPos`] on top of a generic [`ReadNoStd`].
     #[inline(always)]
-    pub fn new(backend: &'a mut F) -> Self {
+    pub const fn new(backend: &'a mut F) -> Self {
         Self { backend, pos: 0 }
     }
 }

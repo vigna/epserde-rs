@@ -95,17 +95,17 @@ impl<T: Default + Clone> AlignedCursor<T> {
     }
 
     /// Returns the length in bytes of the data in this cursor.
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.len
     }
 
     /// Returns whether this cursor contains no data.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     /// Returns the current position of this cursor.
-    pub fn position(&self) -> usize {
+    pub const fn position(&self) -> usize {
         self.pos
     }
 

@@ -259,7 +259,7 @@ impl<S: DeserInner> MemCase<S> {
     /// able to work back `T` from `MemOwned<T>::DeserType<'a>`. The
     /// [convenient implementation of `From<T>` for
     /// `MemOwned<T>`](#impl-From<T>-for-MemCase<Owned<T>>) is usually easier to use.
-    pub fn encase<T>(s: T) -> MemOwned<T> {
+    pub const fn encase<T>(s: T) -> MemOwned<T> {
         MemCase(s, MemBackend::None)
     }
 

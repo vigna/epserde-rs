@@ -18,7 +18,7 @@ pub struct SliceWithPos<'a> {
 }
 
 impl<'a> SliceWithPos<'a> {
-    pub fn new(backend: &'a [u8]) -> Self {
+    pub const fn new(backend: &'a [u8]) -> Self {
         Self {
             data: backend,
             pos: 0,
