@@ -8,7 +8,6 @@
 //! Implementations for primitive types, `()`, [`PhantomData`] and [`Option`].
 
 use crate::{check_covariance, prelude::*};
-use common_traits::NonZero;
 use core::hash::Hash;
 use core::marker::PhantomData;
 use core::mem::size_of;
@@ -95,7 +94,7 @@ impl_prim_ser_des!(
 );
 
 macro_rules! impl_nonzero_ser_des {
-    ($($ty:ty),*) => {$(
+    ($($ty:ty => $base:ty),*) => {$(
 		impl SerInner for $ty {
             type SerType = Self;                // Note that primitive types are declared zero-copy to be able to
             // be part of zero-copy types, but we actually deserialize
@@ -115,13 +114,13 @@ macro_rules! impl_nonzero_ser_des {
             unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
                 let mut buf = [0; size_of::<$ty>()];
                 backend.read_exact(&mut buf)?;
-                Ok(<$ty as NonZero>::BaseType::from_ne_bytes(buf).try_into().unwrap())
+                Ok(<$base>::from_ne_bytes(buf).try_into().unwrap())
             }
             #[inline(always)]
             unsafe fn _deser_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
             ) -> deser::Result<Self::DeserType<'a>> {
-                let res = <$ty as NonZero>::BaseType::from_ne_bytes(
+                let res = <$base>::from_ne_bytes(
                         backend.data.get(..size_of::<$ty>()).ok_or(deser::Error::ReadError)?
                             .try_into()
                             .unwrap()).try_into().unwrap();
@@ -149,18 +148,18 @@ impl_prim_type_hash!(
 );
 
 impl_nonzero_ser_des!(
-    NonZeroIsize,
-    NonZeroI8,
-    NonZeroI16,
-    NonZeroI32,
-    NonZeroI64,
-    NonZeroI128,
-    NonZeroUsize,
-    NonZeroU8,
-    NonZeroU16,
-    NonZeroU32,
-    NonZeroU64,
-    NonZeroU128
+    NonZeroIsize => isize,
+    NonZeroI8 => i8,
+    NonZeroI16 => i16,
+    NonZeroI32 => i32,
+    NonZeroI64 => i64,
+    NonZeroI128 => i128,
+    NonZeroUsize => usize,
+    NonZeroU8 => u8,
+    NonZeroU16 => u16,
+    NonZeroU32 => u32,
+    NonZeroU64 => u64,
+    NonZeroU128 => u128
 );
 
 impl_prim_type_hash!(bool, char, ());

@@ -1,6 +1,10 @@
 # Change Log
 
-## [unreleased]
+## [0.12.3] - 2026-03-07
+
+### Changed
+
+- Removed dependency from `common_traits`.
 
 ## [0.12.2] - 2026-02-20
 
