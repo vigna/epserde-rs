@@ -1,5 +1,11 @@
 # Change Log
 
+## Unreleased
+
+### Fixed
+
+- Too large files now generate an error on 32-bit architectures.
+
 ## [0.12.3] - 2026-03-07
 
 ### Changed
