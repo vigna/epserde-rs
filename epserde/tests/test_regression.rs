@@ -22,6 +22,44 @@ fn get_align_hash<T: AlignHash + ?Sized>() -> u64 {
     hasher.finish()
 }
 
+#[derive(Epserde, Debug, PartialEq)]
+struct MyStruct {
+    a: i32,
+    b: f64,
+}
+
+#[derive(Epserde, Debug, PartialEq, Eq)]
+struct MyStructGeneric<T: PartialEq> {
+    a: T,
+}
+
+#[derive(Epserde, Debug, PartialEq)]
+enum MyEnum {
+    A,
+    B(i32),
+    C { a: i32, b: f64 },
+}
+
+#[derive(Epserde, Debug, PartialEq, Eq)]
+struct MyStructConst<const N: usize> {
+    a: [i32; N],
+}
+
+#[derive(Epserde, Debug, PartialEq, Eq)]
+struct MyStructMixed<T: PartialEq, const N: usize> {
+    a: T,
+    b: [i32; N],
+}
+
+#[derive(Epserde, Debug, PartialEq, Eq)]
+struct MyStructConstThenType<const N: usize, T: PartialEq> {
+    a: [i32; N],
+    b: T,
+}
+
+// x86_64 / aarch64 regression tests
+
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_primitive_types() {
     assert_eq!(get_type_hash::<isize>(), 0xad77ef2a0c071b87);
@@ -60,12 +98,14 @@ fn test_primitive_types() {
     assert_eq!(get_align_hash::<()>(), 0x76be999e3e25b2a0);
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_option() {
     assert_eq!(get_type_hash::<Option<i32>>(), 0x36d9437e00a00833);
     assert_eq!(get_align_hash::<Option<i32>>(), 0xd1fba762150c532c);
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_string_types() {
     assert_eq!(get_type_hash::<String>(), 0xe4297f5be0f5dd50);
@@ -74,12 +114,14 @@ fn test_string_types() {
     assert_eq!(get_align_hash::<Box<str>>(), 0xd1fba762150c532c);
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_array_types() {
     assert_eq!(get_type_hash::<[i32; 5]>(), 0xff020632241e51b0);
     assert_eq!(get_align_hash::<[i32; 5]>(), 0x6881f435bc0ca85f);
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_slice_types() {
     assert_eq!(get_type_hash::<[i32]>(), 0xe053d268c8ad5c04);
@@ -87,12 +129,14 @@ fn test_slice_types() {
     assert_eq!(get_align_hash::<SerType<&[i32]>>(), 0x6881f435bc0ca85f);
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_boxed_slice_types() {
     assert_eq!(get_type_hash::<Box<[i32]>>(), 0x400f9211e94c1834);
     assert_eq!(get_align_hash::<Box<[i32]>>(), 0x6881f435bc0ca85f);
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_tuple_types() {
     assert_eq!(get_type_hash::<(i32,)>(), 0x4c6eb7a52a31e7b9);
@@ -100,11 +144,13 @@ fn test_tuple_types() {
     assert_eq!(get_type_hash::<(i32, f64)>(), 0x6c1bf8932e12dc1);
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_vec_types() {
     assert_eq!(get_type_hash::<Vec<i32>>(), 0x400f9211e94c1834);
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_stdlib_types() {
     use core::ops::{
@@ -139,65 +185,35 @@ fn test_stdlib_types() {
     );
 }
 
-#[derive(Epserde, Debug, PartialEq)]
-struct MyStruct {
-    a: i32,
-    b: f64,
-}
-
-#[derive(Epserde, Debug, PartialEq, Eq)]
-struct MyStructGeneric<T: PartialEq> {
-    a: T,
-}
-
-#[derive(Epserde, Debug, PartialEq)]
-enum MyEnum {
-    A,
-    B(i32),
-    C { a: i32, b: f64 },
-}
-
-#[derive(Epserde, Debug, PartialEq, Eq)]
-struct MyStructConst<const N: usize> {
-    a: [i32; N],
-}
-
-#[derive(Epserde, Debug, PartialEq, Eq)]
-struct MyStructMixed<T: PartialEq, const N: usize> {
-    a: T,
-    b: [i32; N],
-}
-
-#[derive(Epserde, Debug, PartialEq, Eq)]
-struct MyStructConstThenType<const N: usize, T: PartialEq> {
-    a: [i32; N],
-    b: T,
-}
-
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_derive_struct() {
     assert_eq!(get_type_hash::<MyStruct>(), 0x65125c7b120befff);
     assert_eq!(get_align_hash::<MyStruct>(), 0xc3caaeef7aa4605a);
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_derive_struct_generic() {
     assert_eq!(get_type_hash::<MyStructGeneric<i32>>(), 0x6dced006dd1acb8f);
     assert_eq!(get_align_hash::<MyStructGeneric<i32>>(), 0x6881f435bc0ca85f);
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_derive_enum() {
     assert_eq!(get_type_hash::<MyEnum>(), 0xf5e19aa69f2d9fac);
     assert_eq!(get_align_hash::<MyEnum>(), 0x7c4ea1189a62724c);
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_derive_struct_const() {
     assert_eq!(get_type_hash::<MyStructConst<5>>(), 0x87c97042d431cbf7);
     assert_eq!(get_align_hash::<MyStructConst<5>>(), 0x6881f435bc0ca85f);
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_derive_struct_mixed() {
     assert_eq!(get_type_hash::<MyStructMixed<i32, 5>>(), 0xa8a943379dbe6ea7);
@@ -207,6 +223,7 @@ fn test_derive_struct_mixed() {
     );
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_derive_struct_const_then_type() {
     assert_eq!(
@@ -216,5 +233,181 @@ fn test_derive_struct_const_then_type() {
     assert_eq!(
         get_align_hash::<MyStructConstThenType<5, i32>>(),
         0xde0fd80637b3a4da
+    );
+}
+
+// i686 regression tests
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_primitive_types() {
+    assert_eq!(get_type_hash::<isize>(), 0xad77ef2a0c071b87);
+    assert_eq!(get_align_hash::<isize>(), 0x832178dce3dc2030);
+    assert_eq!(get_type_hash::<i8>(), 0x1bb527fe1af58754);
+    assert_eq!(get_align_hash::<i8>(), 0x609ada9fcd0d4297);
+    assert_eq!(get_type_hash::<i16>(), 0x568b3e81c4910f1b);
+    assert_eq!(get_align_hash::<i16>(), 0xfac4ea0239a7e51f);
+    assert_eq!(get_type_hash::<i32>(), 0x19b22886e521147a);
+    assert_eq!(get_align_hash::<i32>(), 0x832178dce3dc2030);
+    assert_eq!(get_type_hash::<i64>(), 0xba3703df82fb4e98);
+    assert_eq!(get_align_hash::<i64>(), 0x5cef13c907be3ad0);
+    assert_eq!(get_type_hash::<i128>(), 0x29a957130a3bc847);
+    assert_eq!(get_align_hash::<i128>(), 0x612e9a0b5fc8d4f6);
+    assert_eq!(get_type_hash::<usize>(), 0xa12462c6d36e68b0);
+    assert_eq!(get_align_hash::<usize>(), 0x832178dce3dc2030);
+    assert_eq!(get_type_hash::<u8>(), 0xbc9d6eeaea22ffb5);
+    assert_eq!(get_align_hash::<u8>(), 0x609ada9fcd0d4297);
+    assert_eq!(get_type_hash::<u16>(), 0x704072ef7f3dd44);
+    assert_eq!(get_align_hash::<u16>(), 0xfac4ea0239a7e51f);
+    assert_eq!(get_type_hash::<u32>(), 0x20aa0c10687491ad);
+    assert_eq!(get_align_hash::<u32>(), 0x832178dce3dc2030);
+    assert_eq!(get_type_hash::<u64>(), 0xaee7f05a097ffa16);
+    assert_eq!(get_align_hash::<u64>(), 0x5cef13c907be3ad0);
+    assert_eq!(get_type_hash::<u128>(), 0x19c3bfd795ae2ec8);
+    assert_eq!(get_align_hash::<u128>(), 0x612e9a0b5fc8d4f6);
+    assert_eq!(get_type_hash::<f32>(), 0xc80e25fc3a1c97d8);
+    assert_eq!(get_align_hash::<f32>(), 0x832178dce3dc2030);
+    assert_eq!(get_type_hash::<f64>(), 0x7b785833ec3cc6e8);
+    assert_eq!(get_align_hash::<f64>(), 0x5cef13c907be3ad0);
+    assert_eq!(get_type_hash::<bool>(), 0x947c0c03c59c6f07);
+    assert_eq!(get_align_hash::<bool>(), 0x609ada9fcd0d4297);
+    assert_eq!(get_type_hash::<char>(), 0x80aa991b46310ff6);
+    assert_eq!(get_align_hash::<char>(), 0x832178dce3dc2030);
+    assert_eq!(get_type_hash::<()>(), 0x2439715d39cd513);
+    assert_eq!(get_align_hash::<()>(), 0xbd60acb658c79e45);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_option() {
+    assert_eq!(get_type_hash::<Option<i32>>(), 0x36d9437e00a00833);
+    assert_eq!(get_align_hash::<Option<i32>>(), 0xd1fba762150c532c);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_string_types() {
+    assert_eq!(get_type_hash::<String>(), 0xe4297f5be0f5dd50);
+    assert_eq!(get_type_hash::<str>(), 0x393e833de113cd8c);
+    assert_eq!(get_type_hash::<Box<str>>(), 0x19aa1d67f7ad7a3e);
+    assert_eq!(get_align_hash::<Box<str>>(), 0xd1fba762150c532c);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_array_types() {
+    assert_eq!(get_type_hash::<[i32; 5]>(), 0x269a95634f2c1c51);
+    assert_eq!(get_align_hash::<[i32; 5]>(), 0x832178dce3dc2030);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_slice_types() {
+    assert_eq!(get_type_hash::<[i32]>(), 0xe053d268c8ad5c04);
+    assert_eq!(get_type_hash::<SerType<&[i32]>>(), 0x400f9211e94c1834);
+    assert_eq!(get_align_hash::<SerType<&[i32]>>(), 0x832178dce3dc2030);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_boxed_slice_types() {
+    assert_eq!(get_type_hash::<Box<[i32]>>(), 0x400f9211e94c1834);
+    assert_eq!(get_align_hash::<Box<[i32]>>(), 0x832178dce3dc2030);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_tuple_types() {
+    assert_eq!(get_type_hash::<(i32,)>(), 0x4c6eb7a52a31e7b9);
+    assert_eq!(get_align_hash::<(i32,)>(), 0x832178dce3dc2030);
+    assert_eq!(get_type_hash::<(i32, f64)>(), 0x6c1bf8932e12dc1);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_vec_types() {
+    assert_eq!(get_type_hash::<Vec<i32>>(), 0x400f9211e94c1834);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_stdlib_types() {
+    use core::ops::{
+        Bound, ControlFlow, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
+    };
+    #[cfg(feature = "std")]
+    use std::collections::hash_map::DefaultHasher;
+    #[cfg(feature = "std")]
+    assert_eq!(get_type_hash::<DefaultHasher>(), 0x216366ce6df79e86);
+
+    assert_eq!(get_type_hash::<Range<i32>>(), 0x837a1968d53dcff1);
+    assert_eq!(get_align_hash::<Range<i32>>(), 0x896839ed01ec9b9);
+    assert_eq!(get_type_hash::<RangeFrom<i32>>(), 0xad8267db843d93b8);
+    assert_eq!(get_align_hash::<RangeFrom<i32>>(), 0x832178dce3dc2030);
+    assert_eq!(get_type_hash::<RangeInclusive<i32>>(), 0xf90fab627ecbd1a6);
+    assert_eq!(get_align_hash::<RangeInclusive<i32>>(), 0xf6991b1bbbd78c8a);
+    assert_eq!(get_type_hash::<RangeTo<i32>>(), 0xd889856367fa2fe3);
+    assert_eq!(get_align_hash::<RangeTo<i32>>(), 0x832178dce3dc2030);
+    assert_eq!(get_type_hash::<RangeToInclusive<i32>>(), 0xc3682b190d94704d);
+    assert_eq!(
+        get_align_hash::<RangeToInclusive<i32>>(),
+        0x832178dce3dc2030
+    );
+    assert_eq!(get_type_hash::<RangeFull>(), 0x1d5d4cc6e963d594);
+    assert_eq!(get_align_hash::<RangeFull>(), 0xd1fba762150c532c);
+    assert_eq!(get_type_hash::<Bound<i32>>(), 0x1f77c5db6e0be477);
+    assert_eq!(get_align_hash::<Bound<i32>>(), 0xd1fba762150c532c);
+    assert_eq!(get_type_hash::<ControlFlow<i32, f64>>(), 0x5f4feceae713afe0);
+    assert_eq!(
+        get_align_hash::<ControlFlow<i32, f64>>(),
+        0xd1fba762150c532c
+    );
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_derive_struct() {
+    assert_eq!(get_type_hash::<MyStruct>(), 0x65125c7b120befff);
+    assert_eq!(get_align_hash::<MyStruct>(), 0x7bc9c77917deb867);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_derive_struct_generic() {
+    assert_eq!(get_type_hash::<MyStructGeneric<i32>>(), 0x6dced006dd1acb8f);
+    assert_eq!(get_align_hash::<MyStructGeneric<i32>>(), 0x832178dce3dc2030);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_derive_enum() {
+    assert_eq!(get_type_hash::<MyEnum>(), 0xf5e19aa69f2d9fac);
+    assert_eq!(get_align_hash::<MyEnum>(), 0x8aa3c35a7ab6a4c);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_derive_struct_const() {
+    assert_eq!(get_type_hash::<MyStructConst<5>>(), 0x33e7076b1820eeb2);
+    assert_eq!(get_align_hash::<MyStructConst<5>>(), 0x832178dce3dc2030);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_derive_struct_mixed() {
+    assert_eq!(get_type_hash::<MyStructMixed<i32, 5>>(), 0xb46248f37fa83bd0);
+    assert_eq!(get_align_hash::<MyStructMixed<i32, 5>>(), 0x896839ed01ec9b9);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_derive_struct_const_then_type() {
+    assert_eq!(
+        get_type_hash::<MyStructConstThenType<5, i32>>(),
+        0x1001f80a4db7423a
+    );
+    assert_eq!(
+        get_align_hash::<MyStructConstThenType<5, i32>>(),
+        0x896839ed01ec9b9
     );
 }

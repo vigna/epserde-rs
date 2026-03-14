@@ -317,7 +317,7 @@ mod tests {
                 let pos = cursor.seek(SeekFrom::Start(i * core::mem::size_of::<usize>() as u64))?;
                 assert_eq!(pos, cursor.position() as u64);
                 cursor.read_exact(&mut buf).unwrap();
-                assert_eq!(i.to_ne_bytes(), buf);
+                assert_eq!((i as usize).to_ne_bytes(), buf);
             }
 
             for i in (0..1000).rev() {
@@ -327,7 +327,7 @@ mod tests {
                 ))?;
                 assert_eq!(pos, cursor.position() as u64);
                 cursor.read_exact(&mut buf).unwrap();
-                assert_eq!((999 - i).to_ne_bytes(), buf);
+                assert_eq!(((999 - i) as usize).to_ne_bytes(), buf);
             }
 
             cursor.set_position(0);

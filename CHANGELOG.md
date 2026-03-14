@@ -6,6 +6,8 @@
 
 - Too large files now generate an error on 32-bit architectures.
 
+- Fixed regression tests and pinned them to known architectures.
+
 ## [0.12.3] - 2026-03-07
 
 ### Changed
