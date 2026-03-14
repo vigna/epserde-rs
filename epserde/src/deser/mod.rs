@@ -275,9 +275,12 @@ pub trait Deserialize: DeserInner {
     /// See the [trait documentation](Deserialize).
     #[cfg(feature = "std")]
     unsafe fn load_mem(path: impl AsRef<Path>) -> anyhow::Result<MemCase<Self>> {
-        let file_len: usize = path.as_ref().metadata()?.len().try_into().map_err(|_| {
-            anyhow::anyhow!("File too large for the current architecture (longer than usize::MAX)")
-        })?;
+        let file_len = path.as_ref().metadata()?.len();
+        anyhow::ensure!(
+            file_len <= isize::MAX as u64,
+            "File too large for the current architecture (longer than isize::MAX)"
+        );
+        let file_len = file_len as usize;
         let file = std::fs::File::open(path)?;
         unsafe { Self::read_mem(file, file_len) }
     }
@@ -368,9 +371,12 @@ pub trait Deserialize: DeserInner {
     /// documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(all(feature = "mmap", feature = "std"))]
     unsafe fn load_mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
-        let file_len: usize = path.as_ref().metadata()?.len().try_into().map_err(|_| {
-            anyhow::anyhow!("File too large for the current architecture (longer than usize::MAX)")
-        })?;
+        let file_len = path.as_ref().metadata()?.len();
+        anyhow::ensure!(
+            file_len <= isize::MAX as u64,
+            "File too large for the current architecture (longer than isize::MAX)"
+        );
+        let file_len = file_len as usize;
         let file = std::fs::File::open(path)?;
         unsafe { Self::read_mmap(file, file_len, flags) }
     }
@@ -389,9 +395,12 @@ pub trait Deserialize: DeserInner {
     /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
     #[cfg(all(feature = "mmap", feature = "std"))]
     unsafe fn mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
-        let file_len: usize = path.as_ref().metadata()?.len().try_into().map_err(|_| {
-            anyhow::anyhow!("File too large for the current architecture (longer than usize::MAX)")
-        })?;
+        let file_len = path.as_ref().metadata()?.len();
+        anyhow::ensure!(
+            file_len <= isize::MAX as u64,
+            "File too large for the current architecture (longer than isize::MAX)"
+        );
+        let file_len = file_len as usize;
         let file = std::fs::File::open(path)?;
 
         let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
