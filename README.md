@@ -1,13 +1,12 @@
 # ε-serde
 
-[![downloads](https://img.shields.io/crates/d/epserde)](https://crates.io/crates/epserde)
-[![dependents](https://img.shields.io/librariesio/dependents/cargo/epserde)](https://crates.io/crates/epserde/reverse_dependencies)
-![GitHub CI](https://github.com/vigna/epserde-rs/actions/workflows/rust.yml/badge.svg)
+[![crates.io](https://img.shields.io/crates/v/epserde.svg)](https://crates.io/crates/epserde)
+[![docs.rs](https://docs.rs/epserde/badge.svg)](https://docs.rs/epserde)
+[![rustc](https://img.shields.io/badge/rustc-1.85+-red.svg)](https://rust-lang.github.io/rfcs/2495-min-rust-version.html)
+[![CI](https://github.com/vigna/epserde-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/vigna/epserde-rs/actions)
 ![license](https://img.shields.io/crates/l/epserde)
-[![](https://tokei.rs/b1/github/vigna/epserde-rs?type=Rust,Python)](https://github.com/vigna/epserde-rs)
-[![Latest version](https://img.shields.io/crates/v/epserde.svg)](https://crates.io/crates/epserde)
-[![Documentation](https://docs.rs/epserde/badge.svg)](https://docs.rs/epserde)
-[![minimum rustc 1.85](https://img.shields.io/badge/rustc-1.85+-red.svg)](https://rust-lang.github.io/rfcs/2495-min-rust-version.html)
+[![downloads](https://img.shields.io/crates/d/epserde)](https://crates.io/crates/epserde)
+[![coveralls](https://coveralls.io/repos/github/vigna/epserde-rs/badge.svg?branch=main)](https://coveralls.io/github/vigna/epserde-rs?branch=main)
 
 ε-serde is a Rust framework for _ε_-copy *ser*ialization and *de*serialization.
 
