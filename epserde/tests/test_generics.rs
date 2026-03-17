@@ -158,9 +158,7 @@ impl HasWord for &[usize] {
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-#[epserde(bound(
-    deser = "for<'__a> <B as DeserInner>::DeserType<'__a>: HasWord<Word = B::Word>"
-))]
+#[epserde(bound(deser = "for<'__a> <B as DeserInner>::DeserType<'__a>: HasWord<Word = B::Word>"))]
 struct WithAssocType<B: HasWord> {
     data: B,
     word: B::Word,
