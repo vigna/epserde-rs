@@ -60,7 +60,7 @@ pub type SerType<T> = <T as SerInner>::SerType;
 ///
 /// #[repr(C)]
 /// #[repr(align(1024))]
-/// #[epserde_zero_copy]
+/// #[epserde(zero_copy)]
 ///
 /// struct Example(u8);
 ///

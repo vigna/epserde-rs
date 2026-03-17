@@ -17,7 +17,7 @@ impl AlignTo for NotZeroCopy {
 
 #[derive(Epserde, Clone, Copy)]
 #[repr(C)]
-#[epserde_zero_copy]
+#[epserde(zero_copy)]
 struct Bad(NotZeroCopy);
 
 fn main() {}

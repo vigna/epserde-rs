@@ -155,19 +155,82 @@ fn get_type_const_params(
     Ok((type_const_params, type_params, const_params))
 }
 
-/// Returns whether the struct has attributes `repr(C)`, `epserde_zero_copy`, and `epserde_deep_copy`.
-fn check_attrs(input: &DeriveInput) -> syn::Result<(bool, bool, bool)> {
+/// Parsed epserde attributes.
+struct EpserdeAttrs {
+    /// Whether the type has `#[repr(C)]`.
+    is_repr_c: bool,
+    /// Whether `#[epserde(zero_copy)]` or `#[epserde(zero_copy)]` was specified.
+    is_zero_copy: bool,
+    /// Whether `#[epserde(deep_copy)]` or `#[epserde_deep_copy]` was specified.
+    is_deep_copy: bool,
+    /// Additional where-clause predicates for `DeserInner` impl.
+    deser_bounds: Vec<WherePredicate>,
+    /// Additional where-clause predicates for `SerInner` impl.
+    ser_bounds: Vec<WherePredicate>,
+    /// Whether old-style `#[epserde(zero_copy)]` was used.
+    deprecated_zero_copy: bool,
+    /// Whether old-style `#[epserde_deep_copy]` was used.
+    deprecated_deep_copy: bool,
+}
+
+/// Parses epserde attributes from `#[epserde(...)]`, `#[epserde(zero_copy)]`,
+/// and `#[epserde_deep_copy]`.
+fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
     let is_repr_c = input.attrs.iter().any(|x| {
         x.meta.path().is_ident("repr") && x.meta.require_list().unwrap().tokens.to_string() == "C"
     });
-    let is_zero_copy = input
-        .attrs
-        .iter()
-        .any(|x| x.meta.path().is_ident("epserde_zero_copy"));
-    let is_deep_copy = input
-        .attrs
-        .iter()
-        .any(|x| x.meta.path().is_ident("epserde_deep_copy"));
+
+    let mut is_zero_copy = false;
+    let mut is_deep_copy = false;
+    let mut deser_bounds = Vec::new();
+    let mut ser_bounds = Vec::new();
+    let mut deprecated_zero_copy = false;
+    let mut deprecated_deep_copy = false;
+
+    for attr in &input.attrs {
+        if attr.meta.path().is_ident("epserde_zero_copy") {
+            is_zero_copy = true;
+            deprecated_zero_copy = true;
+        } else if attr.meta.path().is_ident("epserde_deep_copy") {
+            is_deep_copy = true;
+            deprecated_deep_copy = true;
+        } else if attr.meta.path().is_ident("epserde") {
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("zero_copy") {
+                    is_zero_copy = true;
+                    Ok(())
+                } else if meta.path.is_ident("deep_copy") {
+                    is_deep_copy = true;
+                    Ok(())
+                } else if meta.path.is_ident("bound") {
+                    meta.parse_nested_meta(|inner| {
+                        if inner.path.is_ident("deser") {
+                            let value = inner.value()?;
+                            let lit: syn::LitStr = value.parse()?;
+                            let preds = lit.parse_with(
+                                Punctuated::<WherePredicate, token::Comma>::parse_terminated,
+                            )?;
+                            deser_bounds.extend(preds);
+                            Ok(())
+                        } else if inner.path.is_ident("ser") {
+                            let value = inner.value()?;
+                            let lit: syn::LitStr = value.parse()?;
+                            let preds = lit.parse_with(
+                                Punctuated::<WherePredicate, token::Comma>::parse_terminated,
+                            )?;
+                            ser_bounds.extend(preds);
+                            Ok(())
+                        } else {
+                            Err(inner.error("expected `deser` or `ser`"))
+                        }
+                    })
+                } else {
+                    Err(meta.error("expected `zero_copy`, `deep_copy`, or `bound`"))
+                }
+            })?;
+        }
+    }
+
     if is_zero_copy && !is_repr_c {
         return Err(syn::Error::new_spanned(
             &input.ident,
@@ -187,7 +250,30 @@ fn check_attrs(input: &DeriveInput) -> syn::Result<(bool, bool, bool)> {
         ));
     }
 
-    Ok((is_repr_c, is_zero_copy, is_deep_copy))
+    Ok(EpserdeAttrs {
+        is_repr_c,
+        is_zero_copy,
+        is_deep_copy,
+        deser_bounds,
+        ser_bounds,
+        deprecated_zero_copy,
+        deprecated_deep_copy,
+    })
+}
+
+/// Emits deprecation warnings for old-style `#[epserde(zero_copy)]` and
+/// `#[epserde_deep_copy]` attributes during compilation.
+fn emit_deprecation_warnings(attrs: &EpserdeAttrs, type_name: &syn::Ident) {
+    if attrs.deprecated_zero_copy {
+        eprintln!(
+            "warning: use `#[epserde(zero_copy)]` instead of `#[epserde(zero_copy)]` on type `{type_name}`"
+        );
+    }
+    if attrs.deprecated_deep_copy {
+        eprintln!(
+            "warning: use `#[epserde(deep_copy)]` instead of `#[epserde_deep_copy]` on type `{type_name}`"
+        );
+    }
 }
 
 /// For each bounded type parameter that is the type of some field, bounds the
@@ -419,10 +505,16 @@ struct EpserdeContext<'a> {
     where_clause: &'a WhereClause,
     /// Whether the type has `#[repr(C)]`
     is_repr_c: bool,
-    /// Whether the type has `#[epserde_zero_copy]`
+    /// Whether the type has `#[epserde(zero_copy)]`
     is_zero_copy: bool,
-    /// Whether the type has `#[epserde_deep_copy]`
+    /// Whether the type has `#[epserde(deep_copy)]`
     is_deep_copy: bool,
+    /// Additional where-clause predicates for `DeserInner` impl from
+    /// `#[epserde(bound(deser = "..."))]`.
+    deser_bounds: Vec<WherePredicate>,
+    /// Additional where-clause predicates for `SerInner` impl from
+    /// `#[epserde(bound(ser = "..."))]`.
+    ser_bounds: Vec<WherePredicate>,
 }
 
 /// [`Epserde`] derive code for struct types.
@@ -458,6 +550,14 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
     let (mut ser_where_clause, mut deser_where_clause) =
         gen_ser_deser_where_clauses(&field_types, ctx.is_zero_copy);
+
+    // Add user-specified bounds from #[epserde(bound(...))]
+    ser_where_clause
+        .predicates
+        .extend(ctx.ser_bounds.iter().cloned());
+    deser_where_clause
+        .predicates
+        .extend(ctx.deser_bounds.iter().cloned());
 
     let name = &ctx.derive_input.ident;
     let generics_for_impl = &ctx.generics_for_impl;
@@ -540,7 +640,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     // Check whether the type could be zero-copy but it is not
                     // declared as such, and the attribute `epserde_deep_copy`
                     // is missing
-                    const { assert!(!(! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*), concat!("Structure ", #name_str, " could be zero-copy, but it has not been declared as such; use either the #[epserde_zero_copy] or the #[epserde_deep_copy] attribute to silence this error")); }
+                    const { assert!(!(! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*), concat!("Structure ", #name_str, " could be zero-copy, but it has not been declared as such; use either #[epserde(zero_copy)] or #[epserde(deep_copy)] to silence this error")); }
 
                     #(
                         unsafe { WriteWithNames::write(backend, stringify!(#field_names), &self.#field_names)?; }
@@ -742,6 +842,14 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     let (mut ser_where_clause, mut deser_where_clause) =
         gen_ser_deser_where_clauses(&all_fields_types, ctx.is_zero_copy);
 
+    // Add user-specified bounds from #[epserde(bound(...))]
+    ser_where_clause
+        .predicates
+        .extend(ctx.ser_bounds.iter().cloned());
+    deser_where_clause
+        .predicates
+        .extend(ctx.deser_bounds.iter().cloned());
+
     let name = &ctx.derive_input.ident;
     let is_deep_copy = ctx.is_deep_copy;
     let generics_for_impl = &ctx.generics_for_impl;
@@ -824,7 +932,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     // Check whether the type could be zero-copy but it is not
                     // declared as such, and the attribute `epserde_deep_copy`
                     // is missing
-                    const { assert!(!(! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*), concat!("Enum ", #name_str, " could be zero-copy, but it has not been declared as such; use either the #[epserde_zero_copy] or the #[epserde_deep_copy] attribute to silence this error")); }
+                    const { assert!(!(! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*), concat!("Enum ", #name_str, " could be zero-copy, but it has not been declared as such; use either #[epserde(zero_copy)] or #[epserde(deep_copy)] to silence this error")); }
 
                     match self {
                         #(
@@ -893,16 +1001,32 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// Presently we do not support unions, where clauses on the original type,
 /// and lifetime generics.
 ///
-/// The attribute `epserde_zero_copy` can be used to generate an implementation for a
-/// zero-copy type, but the type must be `repr(C)` and all fields must be
-/// zero-copy.
+/// The attribute `#[epserde(zero_copy)]` can be used to generate an
+/// implementation for a zero-copy type, but the type must be `repr(C)` and all
+/// fields must be zero-copy.
 ///
-/// If you do not specify `epserde_zero_copy`, the macro assumes your structure is
-/// deep-copy. However, if you have a structure that could be zero-copy, but has
-/// no attribute, a warning will be issued every time you serialize an instance
-/// of the type. The warning can be silenced adding the explicit attribute
-/// `epserde_deep_copy`.
-#[proc_macro_derive(Epserde, attributes(epserde_zero_copy, epserde_deep_copy))]
+/// If you do not specify `#[epserde(zero_copy)]`, the macro assumes your
+/// structure is deep-copy. However, if you have a structure that could be
+/// zero-copy, but has no attribute, a warning will be issued every time you
+/// serialize an instance of the type. The warning can be silenced adding the
+/// explicit attribute `#[epserde(deep_copy)]`.
+///
+/// You can specify additional where-clause bounds for the generated
+/// (de)serialization implementations using `#[epserde(bound(deser = "...", ser
+/// = "..."))]`. This is useful when a field's type involves an associated type
+/// of a replaceable type parameter, as the associated type needs to be pinned
+/// to remain the same after replacement. For example:
+/// ```ignore
+/// #[derive(Epserde)]
+/// #[epserde(bound(
+///     deser = "for<'a> <B as DeserInner>::DeserType<'a>: WordType<Word = B::Word>"
+/// ))]
+/// pub struct BitFieldVec<B: WordType = Vec<usize>> {
+///     bits: B,
+///     mask: B::Word,
+/// }
+/// ```
+#[proc_macro_derive(Epserde, attributes(epserde_zero_copy, epserde_deep_copy, epserde))]
 pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // This part is in common with type_info_derive
     let mut derive_input = parse_macro_input!(input as DeriveInput);
@@ -921,7 +1045,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         derive_input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 
-    let (is_repr_c, is_zero_copy, is_deep_copy) = match check_attrs(&derive_input) {
+    let attrs = match parse_epserde_attrs(&derive_input) {
         Ok(v) => v,
         Err(e) => return e.to_compile_error().into(),
     };
@@ -931,6 +1055,8 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         Err(e) => return e.to_compile_error().into(),
     };
 
+    emit_deprecation_warnings(&attrs, &derive_input.ident);
+
     let ctx = EpserdeContext {
         derive_input: &derive_input,
         type_const_params,
@@ -938,9 +1064,11 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         generics_for_impl,
         generics_for_type,
         where_clause,
-        is_repr_c,
-        is_zero_copy,
-        is_deep_copy,
+        is_repr_c: attrs.is_repr_c,
+        is_zero_copy: attrs.is_zero_copy,
+        is_deep_copy: attrs.is_deep_copy,
+        deser_bounds: attrs.deser_bounds,
+        ser_bounds: attrs.ser_bounds,
     };
 
     let mut out: proc_macro::TokenStream = match &derive_input.data {
@@ -1365,7 +1493,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 /// It generates implementations just for the traits `CopyType`, `AlignTo`,
 /// `TypeHash`, and `AlignHash`. See the documentation of [`Epserde`] for
 /// more information.
-#[proc_macro_derive(TypeInfo, attributes(epserde_zero_copy, epserde_deep_copy))]
+#[proc_macro_derive(TypeInfo, attributes(epserde_zero_copy, epserde_deep_copy, epserde))]
 pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut derive_input = parse_macro_input!(input as DeriveInput);
 
@@ -1383,7 +1511,7 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         derive_input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 
-    let (_, is_zero_copy, _) = match check_attrs(&derive_input) {
+    let attrs = match parse_epserde_attrs(&derive_input) {
         Ok(v) => v,
         Err(e) => return e.to_compile_error().into(),
     };
@@ -1392,6 +1520,8 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         Err(e) => return e.to_compile_error().into(),
     };
 
+    emit_deprecation_warnings(&attrs, &derive_input.ident);
+
     _type_info_derive(
         &derive_input,
         type_params,
@@ -1399,7 +1529,7 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         generics_for_impl,
         generics_for_type,
         where_clause,
-        is_zero_copy,
+        attrs.is_zero_copy,
     )
 }
 

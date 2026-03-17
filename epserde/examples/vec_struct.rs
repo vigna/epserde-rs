@@ -14,7 +14,7 @@ use epserde::{deser::DeserType, prelude::*, ser::SerType};
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone, Copy)]
 #[repr(C)]
-#[epserde_zero_copy]
+#[epserde(zero_copy)]
 struct Data {
     a: usize,
 }

@@ -113,10 +113,10 @@ These are the main limitations you should be aware of before choosing to use
 
 ## Warning to Previous Users
 
-The attributes `#[zero_copy]` and `#[deep_copy]` have been renamed to
-`#[epserde_zero_copy]` and `#[epserde_deep_copy]`, respectively, to avoid
-conflicts with other crates. The old names will continue to work and raise a
-warning on nightly, but we plan to remove them in the next major release.
+The attributes `#[epserde_zero_copy]` and `#[epserde_deep_copy]` have been
+renamed to `#[epserde(zero_copy)]` and `#[epserde(deep_copy)]`, respectively.
+The old names will continue to work and raise a deprecation warning, but we
+plan to remove them in the next major release.
 
 ## Example: Zero-copy of standard types
 
@@ -238,7 +238,7 @@ as `AsRef<[usize]>`.
 
 You can define your types to be zero-copy, in which case they will work like
 `usize` in the previous examples. This requires the structure to be made of
-zero-copy fields, and to be annotated with `#[epserde_zero_copy]` and `#[repr(C)]`
+zero-copy fields, and to be annotated with `#[epserde(zero_copy)]` and `#[repr(C)]`
 (which means that you will lose the possibility that the compiler reorders the
 fields to optimize memory usage):
 
@@ -246,7 +246,7 @@ fields to optimize memory usage):
 # use epserde::prelude::*;
 #[derive(Epserde, Debug, PartialEq, Copy, Clone)]
 #[repr(C)]
-#[epserde_zero_copy]
+#[epserde(zero_copy)]
 struct Data {
     foo: usize,
     bar: usize,
@@ -285,7 +285,7 @@ deserialized into vectors/boxed slices.
 
 If you define a type that satisfies the requirements for being zero-copy, but
 has no annotation, ε-serde will cause a compilation error. You must annotate the
-type with either `#[epserde_zero_copy]` or `#[epserde_deep_copy]` to silence the
+type with either `#[epserde(zero_copy)]` or `#[epserde(deep_copy)]` to silence the
 error.
 
 ## Example: User-defined structures with parameters
@@ -458,7 +458,7 @@ example,
 # use epserde::prelude::*;
 #[derive(Epserde, Debug, PartialEq, Clone, Copy)]
 #[repr(C)]
-#[epserde_zero_copy]
+#[epserde(zero_copy)]
 struct MyStruct<A: ZeroCopy> {
     data: A,
 }
@@ -562,6 +562,45 @@ let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? 
 
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
+
+## Example: Pinning associated types with `bound`
+
+When a type parameter `B` has a trait bound with an associated type, and both
+`B` and that associated type are used as a field type, the latter will be
+replaced with the type associated to [`DeserType<'_, B>`], which might cause
+problems as the compiler does not know how the new associated type is related to
+the original one. You can sometimes solve this problem by adding trait bounds
+using the `bound` attribute. In this case, we pin the associated type `Mask` of
+the trait `HasMask` to be the same for both the original type `B` and its
+deserialization type:
+
+```rust
+use epserde::prelude::*;
+
+trait HasMask {
+    type Mask: SerInner + DeserInner + Copy + 'static;
+}
+
+# impl HasMask for Vec<usize> { type Mask = usize; }
+# impl HasMask for Box<[usize]> { type Mask = usize; }
+# impl HasMask for &[usize] { type Mask = usize; }
+#[derive(Epserde, Debug, Clone)]
+#[epserde(bound(
+    deser = "for<'a> <B as DeserInner>::DeserType<'a>: HasMask<Mask = B::Mask>"
+))]
+struct Data<B: HasMask> {
+    bits: B,
+    mask: B::Mask,
+}
+```
+
+Without the `bound` attribute, this would fail to compile because the
+deserialization type `Data<B::DeserType<'a>>` expects a field of type
+`<B::DeserType<'a> as HasMask>::Mask`, but the generated code produces a value
+of type `<B as HasMask>::Mask`. The bound tells the compiler these are the same
+type. This works because we expect `Mask` to be a primitive type, whose
+deserialization type is itself, but in general more complex bounds might be
+needed.
 
 ## Example: (Structures containing) iterators
 
@@ -1001,9 +1040,13 @@ second condition, and indeed `D::DeserType<'_>` is `&D`.
 
 We strongly suggest using the procedural macro [`Epserde`] to make your own
 types serializable and deserializable. Just invoking the macro on your structure
-will make it fully functional with ε-serde. The attribute `#[epserde_zero_copy]`
+will make it fully functional with ε-serde. The attribute `#[epserde(zero_copy)]`
 can be used to make a structure zero-copy, albeit it must satisfy [a few
 prerequisites].
+
+The macro provides also an #[`epserde(bound(ser = ..., deser = ...)`] attribute,
+which can be used to add trait bounds to the generated code (see the example
+above on pinning associated types).
 
 You can also implement manually the traits [`CopyType`], [`AlignTo`],
 [`TypeHash`], [`AlignHash`], [`SerInner`], and [`DeserInner`], but
@@ -1050,6 +1093,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [deserialization type]: https://docs.rs/epserde/latest/epserde/deser/trait.DeserInner.html#associatedtype.DeserType
 [`DeserType<'_>`]: https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html
 [`DeserType<'_,T>`]: https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html
+[`DeserType<'_,B>`]: https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html
 [`sux`]: http://crates.io/sux/
 [serde]: https://serde.rs/
 [Abomonation]: https://crates.io/crates/abomonation

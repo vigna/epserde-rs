@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use epserde::{prelude::*, ser::SerType};
+use epserde::{deser::DeserInner, prelude::*, ser::SerType};
 use std::marker::PhantomData;
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data<A: PartialEq = usize, const Q: usize = 3> {
@@ -69,7 +69,7 @@ fn test_inner_param_eps() {
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Copy)]
-#[epserde_zero_copy]
+#[epserde(zero_copy)]
 #[repr(C)]
 struct Data3<const N: usize = 10>;
 
@@ -118,7 +118,7 @@ fn test_types_deep_copy_param() {
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
 #[repr(C)]
-#[epserde_zero_copy]
+#[epserde(zero_copy)]
 struct ZeroCopyParam<T: ZeroCopy> {
     data: T,
 }
@@ -138,4 +138,51 @@ fn test_types_zero_copy_param() {
 #[repr(align(16))]
 enum DeepCopyEnumParam<T: ZeroCopy> {
     A(T),
+}
+
+// Test #[epserde(bound(...))] for pinning associated types.
+trait HasWord {
+    type Word: epserde::ser::SerInner + DeserInner + Copy + 'static;
+}
+
+impl HasWord for Vec<usize> {
+    type Word = usize;
+}
+
+impl HasWord for Box<[usize]> {
+    type Word = usize;
+}
+
+impl HasWord for &[usize] {
+    type Word = usize;
+}
+
+#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+#[epserde(bound(
+    deser = "for<'__a> <B as DeserInner>::DeserType<'__a>: HasWord<Word = B::Word>"
+))]
+struct WithAssocType<B: HasWord> {
+    data: B,
+    word: B::Word,
+}
+
+#[test]
+fn test_bound_attr() {
+    let val = WithAssocType::<Vec<usize>> {
+        data: vec![1, 2, 3],
+        word: 42,
+    };
+
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    let _bytes_written = unsafe { val.serialize(&mut cursor).unwrap() };
+
+    // Full-copy deserialization
+    cursor.set_position(0);
+    let full = unsafe { <WithAssocType<Vec<usize>>>::deserialize_full(&mut cursor).unwrap() };
+    assert_eq!(val, full);
+
+    // ε-copy deserialization
+    let eps = unsafe { <WithAssocType<Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    assert_eq!(val.data, eps.data);
+    assert_eq!(val.word, eps.word);
 }

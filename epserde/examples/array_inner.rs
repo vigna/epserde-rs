@@ -13,7 +13,7 @@ use epserde::{prelude::*, ser::SerType};
 
 #[derive(Epserde, Copy, Clone, Debug)]
 #[repr(C)]
-#[epserde_zero_copy]
+#[epserde(zero_copy)]
 struct Data {
     a: [i32; 10],
 }

@@ -1,6 +1,15 @@
 # Change Log
 
-## Unreleased
+## [0.12.4] - 2026-03-17
+
+### New
+
+- It is now possible to add bounds to the serialization and deserialization
+  types. This is particularly useful with associated types, as it makes it
+  possible, for example, to pin them in the deserialization type so that they
+  are identical to the original type.
+
+- Better attribute names `epserde(zero_copy)` and `epserde(deep_copy)`.
 
 ### Fixed
 

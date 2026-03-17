@@ -16,7 +16,7 @@ use epserde::{deser::DeserType, prelude::*, ser::SerType};
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Default, Clone)]
 #[repr(C)]
-#[epserde_zero_copy]
+#[epserde(zero_copy)]
 struct USize(usize);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
