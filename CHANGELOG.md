@@ -1,5 +1,11 @@
 # Change Log
 
+## Unreleased
+
+### Fixed
+
+- Fixed error message for usage of `epserde_zero_copy`.
+
 ## [0.12.4] - 2026-03-17
 
 ### New

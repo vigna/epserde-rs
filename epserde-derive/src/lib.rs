@@ -266,7 +266,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
 fn emit_deprecation_warnings(attrs: &EpserdeAttrs, type_name: &syn::Ident) {
     if attrs.deprecated_zero_copy {
         eprintln!(
-            "warning: use `#[epserde(zero_copy)]` instead of `#[epserde(zero_copy)]` on type `{type_name}`"
+            "warning: use `#[epserde(zero_copy)]` instead of `#[epserde_zero_copy]` on type `{type_name}`"
         );
     }
     if attrs.deprecated_deep_copy {
