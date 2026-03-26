@@ -77,8 +77,8 @@
 //! # }
 //! ```
 
-use core::hash::Hash;
 use crate::prelude::*;
+use core::hash::Hash;
 use ser::*;
 
 macro_rules! impl_ser {
