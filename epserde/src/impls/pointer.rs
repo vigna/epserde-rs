@@ -76,8 +76,8 @@
 //! # Ok(())
 //! # }
 //! ```
-use std::hash::Hash;
 
+use core::hash::Hash;
 use crate::prelude::*;
 use ser::*;
 
