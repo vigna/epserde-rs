@@ -1,6 +1,11 @@
 # Change Log
 
-## Unreleased
+## [0.12.5] - 2026-03-26
+
+### New
+
+- `*const T` now implements `TypeHash`, making it possible to use the
+  expression in tuples in a `PhantomData` when `T` is unsized.
 
 ### Fixed
 

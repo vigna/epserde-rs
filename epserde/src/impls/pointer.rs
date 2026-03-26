@@ -20,8 +20,14 @@
 //! if it is `Box<T>`, `Rc<T>`, or `Arc<T>` we deserialize `T` and then wrap
 //! it in the appropriate smart pointer.
 //!
-//! In particular, this means that it is always possible to wrap in a smart pointer
-//! type parameters, even if the serialized data did not come from a smart pointer.
+//! In particular, this means that it is always possible to wrap in a smart
+//! pointer type parameters, even if the serialized data did not come from a
+//! smart pointer.
+//!
+//! We also provide an implementation of [`TypeHash`] for `*const T`, which is
+//! useful to write tuples in [`PhantomData`](core::marker::PhantomData) with
+//! unsized type parameters, such as `PhantomData<(*const T, U)>` when `T` is
+//! unsized.
 //!
 //! # Examples
 //!
@@ -70,6 +76,8 @@
 //! # Ok(())
 //! # }
 //! ```
+use std::hash::Hash;
+
 use crate::prelude::*;
 use ser::*;
 
@@ -85,6 +93,15 @@ macro_rules! impl_ser {
             }
         }
     };
+}
+
+// For use with PhantomData<(*const T, ...)>, with T unsized
+
+impl<T: ?Sized + TypeHash> TypeHash for *const T {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "*const".hash(hasher);
+        T::type_hash(hasher);
+    }
 }
 
 impl_ser!(&T);

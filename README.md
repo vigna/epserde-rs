@@ -680,7 +680,8 @@ are the concrete type of a type parameter).
 
 [`PhantomData`] undergoes a special treatment: its type parameter `T` does not
 have to be (de)serializable or sized—it is sufficient that it implements
-[`TypeHash`].
+[`TypeHash`]. For this reason, we provide [`TypeHash`] implementations for
+`*const T`, `str`, and `[T]`.
 
 There might be corner cases in which `T` appears both as a parameter of
 [`PhantomData`] and as a type parameter of a field of a type. In this case, you

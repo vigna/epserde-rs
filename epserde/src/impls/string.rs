@@ -15,8 +15,8 @@
 //! a convenience [`SerInner`] implementation for `&str` that
 //! serializes it as `Box<str>`.
 //!
-//! We provide type hashes for `String` and `str` so that they can be used
-//! in [`PhantomData`](core::marker::PhantomData).
+//! We implement [`TypeHash`] for `str` so that it can be used in
+//! [`PhantomData`](core::marker::PhantomData).
 
 use crate::{check_covariance, prelude::*};
 use core::hash::Hash;
@@ -33,7 +33,6 @@ unsafe impl CopyType for String {
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
-// For use with PhantomData
 impl TypeHash for String {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "String".hash(hasher);
@@ -120,7 +119,6 @@ impl TypeHash for str {
     }
 }
 
-// For use with PhantomData
 impl TypeHash for &str {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "&str".hash(hasher);
