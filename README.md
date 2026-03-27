@@ -83,7 +83,12 @@ These are the main limitations you should be aware of before choosing to use
   [`Deserialize::read_mem`], [`Deserialize::load_mmap`],
   [`Deserialize::read_mmap`], and [`Deserialize::mmap`].
 
-- No validation or padding cleaning is performed on deserialized instance. If
+- You must write `impl` blocks that works both for `T` and for
+  `DeserType<'_,T>`. For example, if you have a field of type `Vec<T>`, you will
+  get a field of type `&[T]` after deserialization, so you must write your code
+  in a way that works for both types (e.g., by using `AsRef<[T]>`).
+
+- No validation or padding cleaning is performed on deserialized instances. If
   you plan to serialize data and distribute it, you must take care of these
   issues.
 
