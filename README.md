@@ -154,14 +154,10 @@ assert_eq!(s, *t);
 
 // This is a traditional deserialization instead
 let t: [usize; 1000] =
-    unsafe { <[usize; 1000]>::deserialize_full(
-        &mut std::fs::File::open(&file)?
-    )? };
+    unsafe { <[usize; 1000]>::deserialize_full(&mut std::fs::File::open(&file)?)? };
 assert_eq!(s, t);
 
 // In this case we map the data structure into memory
-//
-// Note: requires the `mmap` feature.
 let u: MemCase<[usize; 1000]> =
     unsafe { <[usize; 1000]>::mmap(&file, Flags::empty())? };
 
@@ -204,7 +200,7 @@ unsafe { s.serialize(&mut std::fs::File::create(&file)?)? };
 let b = std::fs::read(&file)?;
 
 // The type of t will be inferred--it is shown here only for clarity
-let t: DeserType<'_, Vec<usize>> =
+let t: &[usize] =
     unsafe { <Vec<usize>>::deserialize_eps(b.as_ref())? };
 
 assert_eq!(s, *t);
@@ -267,7 +263,7 @@ unsafe { s.serialize(&mut std::fs::File::create(&file)?)? };
 let b = std::fs::read(&file)?;
 
 // The type of t will be inferred--it is shown here only for clarity
-let t: DeserType<'_, Vec<Data>> =
+let t: &[Data] =
     unsafe { <Vec<Data>>::deserialize_eps(b.as_ref())? };
 
 assert_eq!(s, *t);
@@ -397,7 +393,7 @@ parameter that appears both as the type of a field and as a type parameter of
 another field. For example, the following code will not compile:
 
 ```compile_fail
-# # use epserde::prelude::*;
+# use epserde::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[derive(Epserde, Debug, PartialEq)]
 struct MyStructParam<A> {
@@ -418,6 +414,28 @@ The result will be an error message similar to the following:
 | struct MyStructParam<A> {
 |                      - found this type parameter
 ```
+
+Here are however workarounds for this issue. For example, you can wrap the field
+type in a newtype:
+
+```rust
+# use epserde::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[derive(Epserde, Debug, PartialEq)]
+struct NewType<T>(T);
+
+#[derive(Epserde, Debug, PartialEq)]
+struct MyStructParam<A> {
+    id: isize,
+    data: NewType<A>,
+    vec: Vec<A>
+}
+#     Ok(())
+# }
+```
+
+In some cases, you can simply add a bound to the type parameter: see the example
+below on pinning associated types.
 
 ## Example: User-defined deep-copy structures with internal parameters
 
@@ -606,6 +624,55 @@ of type `<B as HasMask>::Mask`. The bound tells the compiler these are the same
 type. This works because we expect `Mask` to be a primitive type, whose
 deserialization type is itself, but in general more complex bounds might be
 needed.
+
+## Example: `impl` blocks for nested types
+
+When you write `impl` blocks that work both for the original type and for the
+deserialization type, for type parameters that are replaced by a reference you need
+to use a suitable trait bound, usually `AsRef<[T]>`. For example,
+
+```rust
+# use epserde::prelude::*;
+// Intended usage: MyStruct<Vec<usize>> or MyStruct<Box<[usize]>>
+#[derive(Epserde)]
+struct MyStruct<A> {
+    data: A,
+}
+
+/// This method can be called on both an original and an ε-copied structure
+impl <A: AsRef<[usize]>> MyStruct<A> {
+    fn sum(&self) -> usize {
+        self.data.as_ref().iter().sum()
+    }
+}
+```
+
+However, if we start to nest opaque types, `impl` section needs to be written
+by unrolling the nested type, as we need to bound the inner type parameters:
+
+```rust
+# use epserde::prelude::*;
+# #[derive(Epserde)]
+# struct MyStruct<A> {
+#     data: A,
+# }
+# impl <A: AsRef<[usize]>> MyStruct<A> {
+#     fn sum(&self) -> usize {
+#         self.data.as_ref().iter().sum()
+#     }
+# }
+#[derive(Epserde)]
+struct MyNestedStruct<B> {
+    inner: B,
+}
+
+/// Note how we had to unroll the nested type
+impl <A: AsRef<[usize]>> MyNestedStruct<MyStruct<A>> {
+    fn sum(&self) -> usize {
+        self.inner.sum()
+    }
+}
+```
 
 ## Example: (Structures containing) iterators
 
@@ -852,7 +919,9 @@ the type parameter `A` is both replaceable (it is the type of the field `data`)
 and irreplaceable (it is a type parameter of the type of field `vec`).
 
 The only exception to this rule is for type parameters that appear inside a
-[`PhantomDeserData`], which must be replaceable.
+[`PhantomDeserData`], which must be replaceable. Moreover, you can use the
+`bound` attribute to solve some cases (e.g., when [`DeserType<'_, A>`] is equal
+to `A`—see the example above about pinning associated types).
 
 The fundamental idea at the basis of ε-serde is that replaceable parameters make
 it possible for an instance of a deserialization type to refer to serialized
@@ -1100,6 +1169,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [`DeserType<'_>`]: https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html
 [`DeserType<'_,T>`]: https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html
 [`DeserType<'_,B>`]: https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html
+[`DeserType<'_,A>`]: https://docs.rs/epserde/latest/epserde/deser/type.DeserType.html
 [`sux`]: http://crates.io/sux/
 [serde]: https://serde.rs/
 [Abomonation]: https://crates.io/crates/abomonation

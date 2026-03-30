@@ -67,7 +67,7 @@ pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
 /// instances with 128-bit alignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
-#[cfg_attr(feature = "mem_dbg", mem_size_flat)]
+#[cfg_attr(feature = "mem_dbg", mem_size(flat))]
 #[repr(align(16))]
 #[derive(Default)]
 pub struct Aligned16(pub [u8; 16]);
@@ -79,7 +79,7 @@ pub struct Aligned16(pub [u8; 16]);
 /// instances with 64-bit alignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
-#[cfg_attr(feature = "mem_dbg", mem_size_flat)]
+#[cfg_attr(feature = "mem_dbg", mem_size(flat))]
 #[repr(align(64))]
 pub struct Aligned64(pub [u8; 64]);
 
