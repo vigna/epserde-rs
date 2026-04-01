@@ -8,7 +8,7 @@
 [![downloads](https://img.shields.io/crates/d/epserde)](https://crates.io/crates/epserde)
 [![coveralls](https://coveralls.io/repos/github/vigna/epserde-rs/badge.svg?branch=main)](https://coveralls.io/github/vigna/epserde-rs?branch=main)
 
-ε-serde is a Rust framework for _ε_-copy *ser*ialization and *de*serialization.
+ε-serde is a Rust framework for ε-*copy* *ser*ialization and *de*serialization.
 
 ## Why
 
