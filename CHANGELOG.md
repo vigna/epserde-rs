@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.12.6] - 2026-04-02
+
+### Fixed
+
+- No more warnings for `mem_size_flat`.
+
 ## [0.12.5] - 2026-03-26
 
 ### New
