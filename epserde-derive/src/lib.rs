@@ -79,10 +79,20 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
 fn type_contains_any(ty: &syn::Type, params: &HashSet<&syn::Ident>) -> bool {
     match ty {
         syn::Type::Path(syn::TypePath { path, .. }) => {
-            for segment in &path.segments {
-                if params.contains(&segment.ident) {
+            // A bare single-segment path like `T` (no leading colon, no angle
+            // brackets) is itself a replaceable parameter if found in `params`.
+            if path.leading_colon.is_none() && path.segments.len() == 1 {
+                let seg = &path.segments[0];
+                if seg.arguments.is_empty() && params.contains(&seg.ident) {
                     return true;
                 }
+            }
+            // In all cases, recurse into angle-bracketed generic arguments of
+            // every segment (e.g. `Vec<T>`, `Box<T>`, `HashMap<K, V>`).
+            // We do NOT match the segment ident itself in multi-segment paths:
+            // a path like `B::Word` has `B` as a qualifier, not as the type,
+            // so `B` should not be counted as "containing" the param `B`.
+            for segment in &path.segments {
                 if let syn::PathArguments::AngleBracketed(ab) = &segment.arguments {
                     for arg in &ab.args {
                         if let syn::GenericArgument::Type(t) = arg {
@@ -572,26 +582,35 @@ struct EpserdeContext<'a> {
 
 /// [`Epserde`] derive code for struct types.
 fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
+    // Pass 1: compute the set of replaceable parameters, unioning the
+    // naturally-detected ones (single-segment type-param fields) with the
+    // user-declared `enforce_repl` idents.
+    let mut repl_params: HashSet<&syn::Ident> = HashSet::new();
+    for field in s.fields.iter() {
+        if let Some(field_type_id) = get_ident(&field.ty) {
+            if ctx.type_params.contains(field_type_id) {
+                repl_params.insert(field_type_id);
+            }
+        }
+    }
+    for ident in &ctx.enforce_repl {
+        repl_params.insert(ident);
+    }
+
+    // Pass 2: gather field metadata and generate the per-field ε-deser
+    // method calls using the unified `repl_params`.
     let mut field_names = vec![];
     let mut field_types = vec![];
     let mut method_calls = vec![];
-    let mut repl_params = HashSet::new();
 
     for (field_idx, field) in s.fields.iter().enumerate() {
         let field_name = get_field_name(field, field_idx);
         let field_type = &field.ty;
 
-        // We look for type parameters that are types of fields
-        if let Some(field_type_id) = get_ident(field_type) {
-            if ctx.type_params.contains(field_type_id) {
-                repl_params.insert(field_type_id);
-            }
-        }
-
         method_calls.push(gen_eps_deser_method_call(
             &field_name,
             field_type,
-            &ctx.type_params,
+            &repl_params,
         ));
 
         field_names.push(field_name);
