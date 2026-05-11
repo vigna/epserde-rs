@@ -1483,7 +1483,10 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
                 "`force_repl` and `force_irrepl` are mutually exclusive on the same field",
             ));
         }
-        if saw_force_irrepl && get_ident(&field.ty).is_none() {
+        if saw_force_irrepl
+            && get_ident(&field.ty)
+                .map_or(true, |id| !type_params.contains(id))
+        {
             return Err(syn::Error::new_spanned(
                 field,
                 "`force_irrepl` may only be applied to a field whose type is a single-segment \

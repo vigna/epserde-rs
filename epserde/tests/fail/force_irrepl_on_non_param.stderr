@@ -1,0 +1,6 @@
+error: `force_irrepl` may only be applied to a field whose type is a single-segment struct generic; there is no direct parameter occurrence to reclassify here
+  --> tests/fail/force_irrepl_on_non_param.rs:15:5
+   |
+15 | /     #[epserde(force_irrepl)]
+16 | |     bad: Vec<T>,
+   | |_______________^
