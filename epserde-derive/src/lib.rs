@@ -65,19 +65,59 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
     None
 }
 
+/// Returns `true` if `ty` syntactically contains any identifier in `params`
+/// at any position (path segment, type argument, tuple element, etc.).
+///
+/// Used to decide whether a field should be ε-copy deserialized: a field
+/// whose type mentions a replaceable parameter must be ε-copy deserialized
+/// so that the result's type matches the corresponding slot in the parent's
+/// substituted `DeserType<'_>`.
+///
+/// Recurses into the variants of [`syn::Type`] that epserde supports:
+/// `Path`, `Tuple`, `Array`, `Slice`, `Paren`, and `Group`. All other
+/// variants return `false`.
+fn type_contains_any(ty: &syn::Type, params: &HashSet<&syn::Ident>) -> bool {
+    match ty {
+        syn::Type::Path(syn::TypePath { path, .. }) => {
+            for segment in &path.segments {
+                if params.contains(&segment.ident) {
+                    return true;
+                }
+                if let syn::PathArguments::AngleBracketed(ab) = &segment.arguments {
+                    for arg in &ab.args {
+                        if let syn::GenericArgument::Type(t) = arg {
+                            if type_contains_any(t, params) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            false
+        }
+        syn::Type::Tuple(t) => t.elems.iter().any(|e| type_contains_any(e, params)),
+        syn::Type::Array(a) => type_contains_any(&a.elem, params),
+        syn::Type::Slice(s) => type_contains_any(&s.elem, params),
+        syn::Type::Paren(p) => type_contains_any(&p.elem, params),
+        syn::Type::Group(g) => type_contains_any(&g.elem, params),
+        _ => false,
+    }
+}
+
 /// Generates a method call for field ε-copy deserialization.
 ///
-/// This methods takes care of choosing `_deser_eps_inner` or
-/// `_deser_full_inner` depending on whether a field type is a type parameter or
-/// not, and to use the special method `_deser_eps_inner_special` for
+/// Takes care of choosing `_deser_eps_inner` or `_deser_full_inner`
+/// depending on whether the field type mentions a replaceable parameter,
+/// and uses the special method `_deser_eps_inner_special` for
 /// `PhantomDeserData`.
 ///
-/// The type of `field_name` is [`proc_macro2::TokenStream`] because it can be
-/// either an identifier (for named fields) or an index (for unnamed fields).
+/// The type of `field_name` is [`proc_macro2::TokenStream`] because it
+/// can be either an identifier (for named fields) or an index (for
+/// unnamed fields).
 fn gen_eps_deser_method_call(
     field_name: &proc_macro2::TokenStream,
     field_type: &syn::Type,
-    type_params: &HashSet<&syn::Ident>,
+    repl_params: &HashSet<&syn::Ident>,
 ) -> proc_macro2::TokenStream {
     if let syn::Type::Path(syn::TypePath {
         qself: None,
@@ -94,15 +134,15 @@ fn gen_eps_deser_method_call(
                 return syn::parse_quote!(#field_name: unsafe { <#field_type>::_deser_eps_inner_special(backend)? });
             }
         }
-
-        // If it's a replaceable type parameter we proceed with ε-copy
-        // deserialization
-        if segments.len() == 1 && type_params.contains(&segments[0].ident) {
-            return syn::parse_quote!(#field_name: unsafe  { <#field_type as DeserInner>::_deser_eps_inner(backend)? });
-        }
     }
 
-    syn::parse_quote!(#field_name: unsafe { <#field_type as DeserInner>::_deser_full_inner(backend)? })
+    // If the field type mentions any replaceable parameter we proceed
+    // with ε-copy deserialization; otherwise full-copy.
+    if type_contains_any(field_type, repl_params) {
+        syn::parse_quote!(#field_name: unsafe { <#field_type as DeserInner>::_deser_eps_inner(backend)? })
+    } else {
+        syn::parse_quote!(#field_name: unsafe { <#field_type as DeserInner>::_deser_full_inner(backend)? })
+    }
 }
 
 /// Generates the `IS_ZERO_COPY` expression.
