@@ -18,7 +18,9 @@ struct OptionWrapper<T> {
 
 #[test]
 fn test_option_wrapper_some() -> anyhow::Result<()> {
-    let original: OptionWrapper<Vec<u32>> = OptionWrapper { inner: Some(vec![1, 2, 3]) };
+    let original: OptionWrapper<Vec<u32>> = OptionWrapper {
+        inner: Some(vec![1, 2, 3]),
+    };
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
 

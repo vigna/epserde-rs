@@ -19,7 +19,9 @@ struct BoxWrapper<T> {
 
 #[test]
 fn test_box_wrapper() -> anyhow::Result<()> {
-    let original: BoxWrapper<Vec<u32>> = BoxWrapper { inner: Box::new(vec![1, 2, 3]) };
+    let original: BoxWrapper<Vec<u32>> = BoxWrapper {
+        inner: Box::new(vec![1, 2, 3]),
+    };
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
 

@@ -104,7 +104,6 @@ fn field_marker(field: &syn::Field) -> FieldMarker {
     result
 }
 
-
 /// Per-field classification record produced by `classify_repl_params`.
 ///
 /// One entry per generic type parameter of the struct/enum being derived.
@@ -172,7 +171,12 @@ fn classify_repl_params<'a>(
         // nothing is recorded.
         let field_is_marked = matches!(marker, FieldMarker::ForceRepl);
         collect_occurrences(
-            field_type, field_is_marked, field_name, type_params, &mut out, false,
+            field_type,
+            field_is_marked,
+            field_name,
+            type_params,
+            &mut out,
+            false,
         );
     }
 
@@ -201,9 +205,8 @@ fn collect_occurrences<'a>(
                             syn::GenericArgument::Type(t) => {
                                 // If t is a bare single-segment generic ident,
                                 // record this position; otherwise recurse into t.
-                                let bare = get_ident(t).and_then(|id| {
-                                    type_params.iter().find(|p| **p == id).copied()
-                                });
+                                let bare = get_ident(t)
+                                    .and_then(|id| type_params.iter().find(|p| **p == id).copied());
                                 if let Some(p_ident) = bare {
                                     if !descend_inside_phantom {
                                         let rec = out
@@ -246,21 +249,46 @@ fn collect_occurrences<'a>(
         syn::Type::Tuple(t) => {
             for e in &t.elems {
                 collect_occurrences(
-                    e, field_marked, field_name, type_params, out, inside_phantom,
+                    e,
+                    field_marked,
+                    field_name,
+                    type_params,
+                    out,
+                    inside_phantom,
                 );
             }
         }
         syn::Type::Array(a) => collect_occurrences(
-            &a.elem, field_marked, field_name, type_params, out, inside_phantom,
+            &a.elem,
+            field_marked,
+            field_name,
+            type_params,
+            out,
+            inside_phantom,
         ),
         syn::Type::Slice(s) => collect_occurrences(
-            &s.elem, field_marked, field_name, type_params, out, inside_phantom,
+            &s.elem,
+            field_marked,
+            field_name,
+            type_params,
+            out,
+            inside_phantom,
         ),
         syn::Type::Paren(p) => collect_occurrences(
-            &p.elem, field_marked, field_name, type_params, out, inside_phantom,
+            &p.elem,
+            field_marked,
+            field_name,
+            type_params,
+            out,
+            inside_phantom,
         ),
         syn::Type::Group(g) => collect_occurrences(
-            &g.elem, field_marked, field_name, type_params, out, inside_phantom,
+            &g.elem,
+            field_marked,
+            field_name,
+            type_params,
+            out,
+            inside_phantom,
         ),
         _ => {}
     }
@@ -784,7 +812,9 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     }
                     msg.push_str(&format!("`{}`", fname));
                 }
-                msg.push_str("\nnote: irreplaceable: appears as a type argument inside unmarked field(s) ");
+                msg.push_str(
+                    "\nnote: irreplaceable: appears as a type argument inside unmarked field(s) ",
+                );
                 for (i, fname) in c.irreplaceable_in.iter().enumerate() {
                     if i > 0 {
                         msg.push_str(", ");
@@ -1039,7 +1069,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     }
                     msg.push_str(&format!("`{}`", fname));
                 }
-                msg.push_str("\nnote: irreplaceable: appears as a type argument inside unmarked field(s) ");
+                msg.push_str(
+                    "\nnote: irreplaceable: appears as a type argument inside unmarked field(s) ",
+                );
                 for (i, fname) in c.irreplaceable_in.iter().enumerate() {
                     if i > 0 {
                         msg.push_str(", ");
@@ -1398,15 +1430,64 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// }
 /// ```
 ///
-/// # The `force_repl` field attribute
+/// # `force_repl` and `force_irrepl` attributes
 ///
-/// `#[epserde(force_repl)]` on a field makes type parameters that appear inside
-/// the field's wrapper type contribute to the replaceable set, even though they
-/// do not appear as a direct (single-segment) field type. See the [ε-serde
-/// documentation] for the rationale behind this attribute.
+/// Two symmetric **field-level** markers (no arguments) that override the
+/// default replaceable/irreplaceable classification for the field they
+/// decorate.
 ///
-/// [ε-serde documentation]:
-/// https://docs.rs/epserde/latest/epserde/#example-forcing-transitive-replaceability-with-force_repl
+/// `#[epserde(force_repl)]` applies to a field whose type is concrete
+/// (e.g. `A<T>`, `Vec<T>`). It reclassifies the parameter occurrences inside
+/// that type from contributing to *irreplaceability* to contributing to
+/// *replaceability*, and flips the field's dispatch from full-copy to
+/// ε-deserialization. The wrapper's `DeserInner` impl must substitute its
+/// parameters uniformly in `DeserType<'_>` (and its `SerInner` impl in
+/// `SerType`):
+/// `<F<A, B, …> as DeserInner>::DeserType<'a> == F<A::DeserType<'a>, B::DeserType<'a>, …>`.
+/// Standard library wrappers that satisfy the contract: `Box<T>`, `Rc<T>`,
+/// `Arc<T>`, `Option<T>`, `Range<T>` and its kin, tuples, and arrays for
+/// deep-copy `T`. `Vec<T>`/`Box<[T]>`/`[T; N]`/`String` satisfy it only for
+/// deep-copy inner parameters. `PhantomData<T>` is handled natively and
+/// always works.
+///
+/// `#[epserde(force_irrepl)]` applies to a field whose type is a single-
+/// segment struct generic (e.g. `data: T`). It reclassifies that direct
+/// occurrence from contributing to *replaceability* to contributing to
+/// *irreplaceability*, and flips the field's dispatch from ε-deserialization
+/// to full-copy. The marker is useful when the parameter must stay
+/// un-substituted across the struct — for example, because a sibling field
+/// contains the parameter as a type argument and substituting would not be
+/// meaningful.
+///
+/// Both markers are rejected on fields of `zero_copy` types and on the item
+/// itself; both reject any arguments; they are mutually exclusive on the
+/// same field; `force_irrepl` is rejected on fields whose type is not a
+/// single-segment generic.
+///
+/// The pre-existing rule "a type parameter cannot be both replaceable and
+/// irreplaceable" still holds. When the classifier sees a parameter in both
+/// buckets, the derive emits a clear error naming the conflicting fields.
+///
+/// Example:
+///
+/// ```ignore
+/// #[derive(Epserde)]
+/// struct Inner<T>(T);
+///
+/// #[derive(Epserde)]
+/// struct Outer<T> {
+///     #[epserde(force_repl)]
+///     inner: Inner<T>,
+/// }
+///
+/// #[derive(Epserde)]
+/// struct Stays<T> {
+///     #[epserde(force_irrepl)]
+///     data: T,            // stays as T in DeserType<'_>
+///     wrapped: Vec<T>,    // T's type-argument occurrence here drives
+///                         // the (now consistent) irreplaceable classification
+/// }
+/// ```
 #[proc_macro_derive(Epserde, attributes(epserde_zero_copy, epserde_deep_copy, epserde))]
 pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // This part is in common with type_info_derive
@@ -1483,10 +1564,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
                 "`force_repl` and `force_irrepl` are mutually exclusive on the same field",
             ));
         }
-        if saw_force_irrepl
-            && get_ident(&field.ty)
-                .map_or(true, |id| !type_params.contains(id))
-        {
+        if saw_force_irrepl && get_ident(&field.ty).is_none_or(|id| !type_params.contains(id)) {
             return Err(syn::Error::new_spanned(
                 field,
                 "`force_irrepl` may only be applied to a field whose type is a single-segment \
@@ -1505,7 +1583,10 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 
     if let Err(e) = match &derive_input.data {
         Data::Struct(s) => validate_fields(&s.fields),
-        Data::Enum(e) => e.variants.iter().try_for_each(|v| validate_fields(&v.fields)),
+        Data::Enum(e) => e
+            .variants
+            .iter()
+            .try_for_each(|v| validate_fields(&v.fields)),
         Data::Union(_) => Ok(()),
     } {
         return e.to_compile_error().into();

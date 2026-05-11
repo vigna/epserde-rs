@@ -21,7 +21,9 @@ struct B<T> {
 
 #[test]
 fn test_force_repl_wrapper() -> anyhow::Result<()> {
-    let original: B<Vec<u32>> = B { inner: A(vec![1, 2, 3, 4]) };
+    let original: B<Vec<u32>> = B {
+        inner: A(vec![1, 2, 3, 4]),
+    };
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
 
@@ -79,7 +81,9 @@ struct Bounded<T: Clone> {
 
 #[test]
 fn test_force_repl_bounded() -> anyhow::Result<()> {
-    let original: Bounded<Vec<u32>> = Bounded { inner: A(vec![7, 8, 9]) };
+    let original: Bounded<Vec<u32>> = Bounded {
+        inner: A(vec![7, 8, 9]),
+    };
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
 
@@ -106,7 +110,9 @@ struct Redundant<T> {
 
 #[test]
 fn test_force_repl_redundant_on_natural() -> anyhow::Result<()> {
-    let original: Redundant<Vec<u32>> = Redundant { inner: vec![100, 200] };
+    let original: Redundant<Vec<u32>> = Redundant {
+        inner: vec![100, 200],
+    };
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
 
