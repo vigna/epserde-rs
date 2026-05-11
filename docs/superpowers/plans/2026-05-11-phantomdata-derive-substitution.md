@@ -179,8 +179,12 @@ Open `epserde/tests/test_phantom.rs` and append the following at the end of the 
 // PhantomData<T> after deserialization. With enforce_repl(T), T is
 // substituted, and the derive's native PhantomData arm produces
 // PhantomData<T::DeserType<'_>> for the phantom slot.
+// `deep_copy` is required because both `other: u32` and `phantom:
+// PhantomData<T>` are zero-copyable, so the derive's static
+// zero-copy assertion otherwise complains that the struct could be
+// zero-copy and demands an explicit declaration.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
-#[epserde(enforce_repl(T))]
+#[epserde(deep_copy, enforce_repl(T))]
 struct OnlyPhantomEnforceRepl<T> {
     other: u32,
     phantom: PhantomData<T>,
