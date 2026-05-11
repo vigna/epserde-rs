@@ -775,8 +775,21 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     let mut variant_full_des = vec![];
     // For each variant, ε-copy deserialization code
     let mut variant_eps_des = vec![];
-    // Type parameters that are types of some fields in some variant
-    let mut all_repl_params = HashSet::new();
+    // Type parameters that are types of some fields in some variant,
+    // unioned with the user-declared `enforce_repl` idents.
+    let mut all_repl_params: HashSet<&syn::Ident> = HashSet::new();
+    for variant in &e.variants {
+        for field in variant.fields.iter() {
+            if let Some(field_type_id) = get_ident(&field.ty) {
+                if ctx.type_params.contains(field_type_id) {
+                    all_repl_params.insert(field_type_id);
+                }
+            }
+        }
+    }
+    for ident in &ctx.enforce_repl {
+        all_repl_params.insert(ident);
+    }
     // All field types for all variants
     let mut all_fields_types = vec![];
 
@@ -804,13 +817,6 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     // It's a named field
                     let field_name = field.ident.as_ref().unwrap();
                     let field_type = &field.ty;
-
-                    // We look for type parameters that are types of fields
-                    if let Some(field_type_id) = get_ident(field_type) {
-                        if ctx.type_params.contains(field_type_id) {
-                            all_repl_params.insert(field_type_id);
-                        }
-                    }
 
                     method_calls.push(gen_eps_deser_method_call(
                         &field_name.to_token_stream(),
@@ -856,13 +862,6 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 for (field_idx, field) in fields.unnamed.iter().enumerate() {
                     let field_name = syn::Index::from(field_idx);
                     let field_type = &field.ty;
-
-                    // We look for type parameters that are types of fields
-                    if let Some(field_type_id) = get_ident(field_type) {
-                        if ctx.type_params.contains(field_type_id) {
-                            all_repl_params.insert(field_type_id);
-                        }
-                    }
 
                     field_indices.push(
                         syn::Ident::new(&format!("v{}", field_idx), proc_macro2::Span::call_site())
