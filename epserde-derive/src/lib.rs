@@ -65,6 +65,45 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
     None
 }
 
+/// Field-level marker state for the new symmetric attributes.
+///
+/// `Default` means "neither marker present" — the field follows the
+/// default classification and dispatch rules.
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+enum FieldMarker {
+    #[default]
+    None,
+    /// `#[epserde(force_repl)]` — contributes wrapper occurrences to
+    /// replaceability; dispatch flips to `_deser_eps_inner`.
+    ForceRepl,
+    /// `#[epserde(force_irrepl)]` — contributes a direct (single-segment
+    /// generic) occurrence to irreplaceability; dispatch flips to
+    /// `_deser_full_inner`.
+    ForceIrrepl,
+}
+
+/// Reads `#[epserde(force_repl)]` / `#[epserde(force_irrepl)]` off a field.
+/// The two markers are mutually exclusive on the same field; validation
+/// for that (and for argument shape) lives in Task 7.
+fn field_marker(field: &syn::Field) -> FieldMarker {
+    let mut result = FieldMarker::None;
+    for attr in &field.attrs {
+        if !attr.meta.path().is_ident("epserde") {
+            continue;
+        }
+        // Parse errors are intentionally swallowed here; the per-field validator runs the same attribute walk with proper error propagation and emits the diagnostic.
+        let _ = attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("force_repl") {
+                result = FieldMarker::ForceRepl;
+            } else if meta.path.is_ident("force_irrepl") {
+                result = FieldMarker::ForceIrrepl;
+            }
+            Ok(())
+        });
+    }
+    result
+}
+
 /// Returns `true` if `ty` syntactically contains any identifier in `params`
 /// at any position (path segment, type argument, tuple element, etc.).
 ///
