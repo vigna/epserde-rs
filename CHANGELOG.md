@@ -1,5 +1,13 @@
 # Change Log
 
+## [0.12.7] - unreleased
+
+### New
+
+- The `force_repl` attribute can be use to force a type parameter to be
+  replaceable, making it possible to replace type parameters of field
+  types.
+
 ## [0.12.6] - 2026-04-02
 
 ### Fixed

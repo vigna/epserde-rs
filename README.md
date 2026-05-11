@@ -911,9 +911,9 @@ defined recursively, replacement can happen at any depth level. For example, a
 field of type `A = Vec<Vec<Vec<usize>>>` will be deserialized as a `A =
 Vec<Vec<&[usize]>>`.
 
-Note, however, that field types are not replaced if they are not type
+Note that by default field types are not replaced if they are not type
 parameters. In particular, by default you cannot have `T` both as the type of a
-field and as a type parameter of another field; the structure-level
+field and as a type parameter of another field; however, the structure-level
 [`#[epserde(force_repl(T))]`](#example-forcing-transitive-replaceability-with-force_repl)
 attribute lifts this restriction when every wrapper around `T` substitutes its
 parameter transitively, and [`PhantomData<T>`] is handled natively by the
@@ -1004,14 +1004,17 @@ struct Bad<A> {
 ```
 
 the type parameter `A` is both replaceable (it is the type of the field `data`)
-and irreplaceable (it is a type parameter of the type of field `vec`). You can
-lift this restriction with the structure-level attribute
-[`#[epserde(force_repl(A))]`](#example-forcing-transitive-replaceability-with-force_repl)
-when every wrapper around `A` substitutes its parameter transitively in its own
-deserialization type—see that section for the contract and its caveats. The
-same attribute is also how you make a parameter replaceable when it appears
-only inside such wrappers (e.g., `Vec<A>` with no separate `A` field), so its
-inner content is still substituted in the deserialization type.
+and irreplaceable (it is a type parameter of the type of field `vec`).
+
+You can lift this restriction with the structure-level attribute
+[`#[epserde(force_repl(T, U,
+…))]`](#example-forcing-transitive-replaceability-with-force_repl). The
+attribute forces the listed types to be replaceable (and not irreplaceable). It
+can also be used to make a type replaceable when it is purely irreplaceable, so
+its inner content is still substituted in the deserialization type. It can be
+used only when every wrapper around the listed types substitutes its parameter
+transitively in its own deserialization type, or a compile error will be
+produced in the `_deser_eps_inner` body.
 
 [`PhantomData<T>`] is not subject to this rule at all: the `Epserde` derive
 substitutes `T` inside [`PhantomData<T>`] fields natively, so a parameter that
@@ -1145,9 +1148,7 @@ Given a user-defined type `T`:
   `T₀`, `T₁`, `T₂`, …, then the deserialization type is obtained by resolving
   each replaceable type parameter `Pᵢ` with the deserialization type of `Tᵢ`
   instead. (Note that the first rule still applies, so if `Tᵢ` is zero-copy the
-  its deserialization type is `&Tᵢ`.) A parameter named in
-  [`#[epserde(force_repl(…))]`](#example-forcing-transitive-replaceability-with-force_repl)
-  counts as replaceable here.
+  its deserialization type is `&Tᵢ`.)
 
 For standard types, we have:
 
