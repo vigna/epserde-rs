@@ -171,6 +171,8 @@ struct EpserdeAttrs {
     deprecated_zero_copy: bool,
     /// Whether old-style `#[epserde_deep_copy]` was used.
     deprecated_deep_copy: bool,
+    /// Type-parameter idents listed in `#[epserde(enforce_repl(...))]`.
+    enforce_repl: Vec<syn::Ident>,
 }
 
 /// Parses epserde attributes from `#[epserde(...)]`, `#[epserde(zero_copy)]`,
@@ -186,6 +188,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
     let mut ser_bounds = Vec::new();
     let mut deprecated_zero_copy = false;
     let mut deprecated_deep_copy = false;
+    let mut enforce_repl: Vec<syn::Ident> = Vec::new();
 
     for attr in &input.attrs {
         if attr.meta.path().is_ident("epserde_zero_copy") {
@@ -224,8 +227,14 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
                             Err(inner.error("expected `deser` or `ser`"))
                         }
                     })
+                } else if meta.path.is_ident("enforce_repl") {
+                    meta.parse_nested_meta(|inner| {
+                        let ident = inner.path.require_ident()?.clone();
+                        enforce_repl.push(ident);
+                        Ok(())
+                    })
                 } else {
-                    Err(meta.error("expected `zero_copy`, `deep_copy`, or `bound`"))
+                    Err(meta.error("expected 'zero_copy', 'deep_copy', 'bound', or 'enforce_repl'"))
                 }
             })?;
         }
@@ -258,6 +267,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
         ser_bounds,
         deprecated_zero_copy,
         deprecated_deep_copy,
+        enforce_repl,
     })
 }
 
