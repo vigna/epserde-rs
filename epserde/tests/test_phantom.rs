@@ -162,6 +162,7 @@ fn test_only_phantom() {
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
 struct DataWithPhantomDeserData<T> {
     data: T,
+    #[epserde(force_repl)]
     phantom: PhantomDeserData<T>,
 }
 

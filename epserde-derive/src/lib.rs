@@ -766,7 +766,37 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     // Classify each generic parameter's occurrences.
     let classifications = classify_repl_params(&ctx.type_const_params, &fields_info);
 
-    // Conflict diagnostic comes in Task 7; for now just compute repl_params.
+    // Detect "both replaceable and irreplaceable" conflicts and surface
+    // a clear diagnostic before the impl is generated. The check is
+    // skipped for zero-copy types: they never replace type parameters
+    // during deserialization, so the classification is irrelevant there.
+    if !ctx.is_zero_copy {
+        for c in &classifications {
+            if !c.replaceable_in.is_empty() && !c.irreplaceable_in.is_empty() {
+                let mut msg = format!(
+                    "type parameter `{}` is both replaceable and irreplaceable",
+                    c.ident,
+                );
+                msg.push_str("\nnote: replaceable: appears in field(s) ");
+                for (i, fname) in c.replaceable_in.iter().enumerate() {
+                    if i > 0 {
+                        msg.push_str(", ");
+                    }
+                    msg.push_str(&format!("`{}`", fname));
+                }
+                msg.push_str("\nnote: irreplaceable: appears as a type argument inside unmarked field(s) ");
+                for (i, fname) in c.irreplaceable_in.iter().enumerate() {
+                    if i > 0 {
+                        msg.push_str(", ");
+                    }
+                    msg.push_str(&format!("`{}`", fname));
+                }
+                msg.push_str("\nhelp: add `#[epserde(force_repl)]` to the irreplaceable field(s) if their type substitutes the parameter transitively, or `#[epserde(force_irrepl)]` to the replaceable field(s) to pin the parameter as irreplaceable across the struct");
+                return syn::Error::new_spanned(c.ident, msg).to_compile_error();
+            }
+        }
+    }
+
     let repl_params: HashSet<&syn::Ident> = classifications
         .iter()
         .filter(|c| !c.replaceable_in.is_empty())
@@ -991,7 +1021,37 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     // Classify each generic parameter's occurrences across all variants.
     let classifications = classify_repl_params(&ctx.type_const_params, &all_fields_info);
 
-    // Conflict diagnostic comes in Task 7; for now just compute repl_params.
+    // Detect "both replaceable and irreplaceable" conflicts and surface
+    // a clear diagnostic before the impl is generated. The check is
+    // skipped for zero-copy types: they never replace type parameters
+    // during deserialization, so the classification is irrelevant there.
+    if !ctx.is_zero_copy {
+        for c in &classifications {
+            if !c.replaceable_in.is_empty() && !c.irreplaceable_in.is_empty() {
+                let mut msg = format!(
+                    "type parameter `{}` is both replaceable and irreplaceable",
+                    c.ident,
+                );
+                msg.push_str("\nnote: replaceable: appears in field(s) ");
+                for (i, fname) in c.replaceable_in.iter().enumerate() {
+                    if i > 0 {
+                        msg.push_str(", ");
+                    }
+                    msg.push_str(&format!("`{}`", fname));
+                }
+                msg.push_str("\nnote: irreplaceable: appears as a type argument inside unmarked field(s) ");
+                for (i, fname) in c.irreplaceable_in.iter().enumerate() {
+                    if i > 0 {
+                        msg.push_str(", ");
+                    }
+                    msg.push_str(&format!("`{}`", fname));
+                }
+                msg.push_str("\nhelp: add `#[epserde(force_repl)]` to the irreplaceable field(s) if their type substitutes the parameter transitively, or `#[epserde(force_irrepl)]` to the replaceable field(s) to pin the parameter as irreplaceable across the struct");
+                return syn::Error::new_spanned(c.ident, msg).to_compile_error();
+            }
+        }
+    }
+
     let all_repl_params: HashSet<&syn::Ident> = classifications
         .iter()
         .filter(|c| !c.replaceable_in.is_empty())

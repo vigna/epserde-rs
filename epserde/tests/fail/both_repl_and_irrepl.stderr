@@ -1,0 +1,8 @@
+error: type parameter `T` is both replaceable and irreplaceable
+       note: replaceable: appears in field(s) `direct`
+       note: irreplaceable: appears as a type argument inside unmarked field(s) `wrapped`
+       help: add `#[epserde(force_repl)]` to the irreplaceable field(s) if their type substitutes the parameter transitively, or `#[epserde(force_irrepl)]` to the replaceable field(s) to pin the parameter as irreplaceable across the struct
+  --> tests/fail/both_repl_and_irrepl.rs:19:26
+   |
+19 | struct BothReplAndIrrepl<T> {
+   |                          ^
