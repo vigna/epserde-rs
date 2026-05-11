@@ -143,6 +143,14 @@ fn gen_eps_deser_method_call(
             if segment.ident == "PhantomDeserData" {
                 return syn::parse_quote!(#field_name: unsafe { <#field_type>::_deser_eps_inner_special(backend)? });
             }
+            // PhantomData<...> is handled natively: we emit a literal
+            // PhantomData whose generic parameter is inferred from the
+            // surrounding Self::DeserType<'a> struct literal. This
+            // matches whatever substitution is applied to the parent
+            // type, without the derive computing it explicitly.
+            if segment.ident == "PhantomData" {
+                return syn::parse_quote!(#field_name: ::core::marker::PhantomData);
+            }
         }
     }
 
