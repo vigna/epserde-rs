@@ -6,10 +6,12 @@
 
 use epserde::prelude::*;
 
-#[derive(Epserde)]
-#[epserde(enforce_repl(X))]
-struct G<T>(T);
+#[derive(Epserde, Clone, Copy)]
+#[epserde(zero_copy)]
+#[epserde(force_repl(T))]
+#[repr(C)]
+struct H<T: Copy>(T);
 
 fn main() {
-    let _ = G::<u32>(0);
+    let _ = H::<u32>(0);
 }

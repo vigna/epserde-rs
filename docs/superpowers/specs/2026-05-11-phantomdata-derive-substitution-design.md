@@ -28,7 +28,7 @@ the derived `_deser_eps_inner` body.
 own substituting `DeserType<'a> = PhantomDeserData<T::DeserType<'a>>` and a
 zero-size transmute inside `_deser_eps_inner_special`.
 
-The new `enforce_repl` attribute introduces *additional* cases where this same
+The new `force_repl` attribute introduces *additional* cases where this same
 mismatch arises (a `PhantomData<T>` field inside a struct that opts a parameter
 into substitution), so the workaround surface grows rather than shrinks.
 
@@ -65,10 +65,10 @@ Worked examples (all with `#[derive(Epserde)]`):
   the emitted literal infers to that.
 - `struct S<T> { p: PhantomData<()> }`: slot is `PhantomData<()>`; literal
   infers to `PhantomData<()>`.
-- `struct S<T> { p: PhantomData<T> }` with `#[epserde(enforce_repl(T))]`:
+- `struct S<T> { p: PhantomData<T> }` with `#[epserde(force_repl(T))]`:
   slot is `PhantomData<T::DeserType<'a>>`; literal infers correctly.
 - `struct S<T> { data: Vec<T>, p: PhantomData<Vec<T>> }` with
-  `enforce_repl(T)`: slot is `PhantomData<Vec<T::DeserType<'a>>>`; literal
+  `force_repl(T)`: slot is `PhantomData<Vec<T::DeserType<'a>>>`; literal
   infers correctly.
 
 ### Detection
@@ -152,9 +152,9 @@ Append two new positive tests to `epserde/tests/test_phantom.rs`:
    phantom: PhantomData<T> }`, round-trip a `Data<Vec<u32>>`, and assert that
    the ε-deserialized form's `data` field is `&[u32]` (the natural ε-form of
    `Vec<u32>`) and that `phantom` has type `PhantomData<&[u32]>`.
-2. **PhantomData substitution under `enforce_repl`** — define `struct
+2. **PhantomData substitution under `force_repl`** — define `struct
    OnlyPhantom<T> { other: u32, phantom: PhantomData<T> }` with
-   `#[epserde(enforce_repl(T))]`, round-trip `OnlyPhantom::<Vec<u32>>`, and
+   `#[epserde(force_repl(T))]`, round-trip `OnlyPhantom::<Vec<u32>>`, and
    assert that the ε-deserialized form's `phantom` has type
    `PhantomData<&[u32]>`.
 

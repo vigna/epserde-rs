@@ -1,4 +1,4 @@
-# `#[epserde(enforce_repl(...))]`: forcing transitive replaceability
+# `#[epserde(force_repl(...))]`: forcing transitive replaceability
 
 ## Motivation
 
@@ -43,7 +43,7 @@ A new arm of the existing `#[epserde(...)]` attribute:
 
 ```rust
 #[derive(Epserde)]
-#[epserde(enforce_repl(T))]
+#[epserde(force_repl(T))]
 struct B<T>(A<Vec<T>>);
 ```
 
@@ -57,7 +57,7 @@ struct B<T>(A<Vec<T>>);
 
 ### Semantics
 
-`enforce_repl(T)` asserts that every field type in which `T` appears
+`force_repl(T)` asserts that every field type in which `T` appears
 substitutes `T` transitively in its own `DeserType<'a>` and `SerType`. That is,
 for every field type `F<…T…>` of the annotated item:
 
@@ -74,11 +74,11 @@ literal).
 Stdlib impls already satisfy the contract for their parameters (`Vec<T>`,
 `Box<T>`, `Option<T>`, `Range<T>`, tuples, arrays, `Rc<T>`, `Arc<T>`). User
 types derived with `Epserde` satisfy it for their naturally-replaceable
-parameters and for any parameter they themselves declare with `enforce_repl`.
+parameters and for any parameter they themselves declare with `force_repl`.
 
 ### Effects on the derived code
 
-Let `repl_params := natural ∪ enforce_repl_idents`.
+Let `repl_params := natural ∪ force_repl_idents`.
 
 1. `Self::DeserType<'a>` substitutes every ident in `repl_params` with
    `<that ident as DeserInner>::DeserType<'a>`. (Already handled by
@@ -96,7 +96,7 @@ Let `repl_params := natural ∪ enforce_repl_idents`.
 
 The "appears both as field type and as parameter of another field type"
 invariant is naturally lifted: if T is naturally replaceable *and* listed in
-`enforce_repl`, both syntactic positions resolve to the same substituted form
+`force_repl`, both syntactic positions resolve to the same substituted form
 because dispatch now consults type-containment, not exact equality.
 
 ### Type-containment walk
@@ -123,27 +123,27 @@ Lifetime and const generic arguments are ignored.
 
 Performed at derive-expansion time:
 
-- `enforce_repl(X)` where X is not a declared generic type parameter →
+- `force_repl(X)` where X is not a declared generic type parameter →
   compile error spanned on X.
-- `enforce_repl(...)` on a `zero_copy` type → compile error.
-- `enforce_repl` with a lifetime or const ident → compile error.
-- A duplicate ident inside one `enforce_repl(...)` list is silently deduped.
-- Listing a naturally-replaceable parameter in `enforce_repl(...)` is allowed
+- `force_repl(...)` on a `zero_copy` type → compile error.
+- `force_repl` with a lifetime or const ident → compile error.
+- A duplicate ident inside one `force_repl(...)` list is silently deduped.
+- Listing a naturally-replaceable parameter in `force_repl(...)` is allowed
   (no-op).
 
 ### Implementation surface
 
 Localized to `epserde-derive/src/lib.rs`:
 
-1. `EpserdeAttrs`: add `enforce_repl: Vec<syn::Ident>`.
-2. `parse_epserde_attrs`: parse `enforce_repl(...)` as a new arm in the
+1. `EpserdeAttrs`: add `force_repl: Vec<syn::Ident>`.
+2. `parse_epserde_attrs`: parse `force_repl(...)` as a new arm in the
    nested-meta walk.
 3. `EpserdeContext` (or its construction): after the existing
-   `get_type_const_params` call, validate the parsed `enforce_repl` list
+   `get_type_const_params` call, validate the parsed `force_repl` list
    against the declared generics; emit errors per the validation rules above.
 4. `gen_epserde_struct_impl` and `gen_epserde_enum_impl`: after the existing
    natural field-scan that populates `repl_params`, union the validated
-   `enforce_repl` idents.
+   `force_repl` idents.
 5. New helper `type_contains_any` (free function in the same file).
 6. `gen_eps_deser_method_call`: replace the existing single-segment check
    with a `type_contains_any(field_type, repl_params)` check. Preserve the
@@ -154,47 +154,47 @@ No changes to:
 - The runtime crate `epserde`.
 - `TypeHash`, `AlignHash`, `AlignTo` derive paths (they don't consult
   replaceability).
-- Existing behavior in the absence of `enforce_repl(...)`.
+- Existing behavior in the absence of `force_repl(...)`.
 
 ## Testing
 
 Add tests under `epserde/tests/`:
 
-- **Wrapper case**: `struct B<T>(A<Vec<T>>)` with `#[epserde(enforce_repl(T))]`,
+- **Wrapper case**: `struct B<T>(A<Vec<T>>)` with `#[epserde(force_repl(T))]`,
   round-tripped with `T = u32` (inner is zero-copy) and `T = Vec<u8>` (inner
   is deep-copy). Assertions on the ε-copy deserialized form's type.
 - **Mixed-position case**: a struct where T appears both as a direct field and
   as a parameter of another field's type, demonstrating that
-  `enforce_repl(T)` lifts the old invariant.
-- **Bounded parameter**: `struct C<T: Clone>(...)` with `enforce_repl(T)`,
+  `force_repl(T)` lifts the old invariant.
+- **Bounded parameter**: `struct C<T: Clone>(...)` with `force_repl(T)`,
   ensuring bound propagation onto `T::DeserType<'_>` and `SerType<T>` still
   works.
 - **Enum**: an enum with at least one variant whose field type contains a
   forced-repl parameter.
 - **Idempotency**: a struct where T is already naturally replaceable, also
-  listed in `enforce_repl(T)`; the resulting derived code is observably the
+  listed in `force_repl(T)`; the resulting derived code is observably the
   same as without the attribute.
 
 Add `trybuild` compile-fail cases under `epserde/tests/` (the existing `fail/`
 pattern):
 
-- `enforce_repl(X)` where X is not a generic parameter.
-- `enforce_repl(...)` on a `zero_copy` struct.
-- Contract violation: a struct using `enforce_repl(T)` whose field is a
+- `force_repl(X)` where X is not a generic parameter.
+- `force_repl(...)` on a `zero_copy` struct.
+- Contract violation: a struct using `force_repl(T)` whose field is a
   user-defined wrapper that does not substitute T transitively. (The compile
   error should point at the derived `_deser_eps_inner` body.)
-- `enforce_repl` naming a lifetime or const parameter.
+- `force_repl` naming a lifetime or const parameter.
 
 ## Documentation
 
 - Doc comment on `#[derive(Epserde)]` in `epserde-derive/src/lib.rs` lists
-  `enforce_repl(...)` alongside `zero_copy`, `deep_copy`, and `bound(...)`.
+  `force_repl(...)` alongside `zero_copy`, `deep_copy`, and `bound(...)`.
 - Prose section in `epserde/src/lib.rs` near the existing `PhantomDeserData`
   documentation, explaining the contract and showing the motivating
   wrapper-through-Vec example.
 - `CLAUDE.md` "Key Invariants" entry on the "appears both as field type and as
   parameter of another field type" rule is updated to note that
-  `#[epserde(enforce_repl(...))]` lifts the restriction.
+  `#[epserde(force_repl(...))]` lifts the restriction.
 
 ## Out of scope
 
@@ -210,7 +210,7 @@ pattern):
 
 ## Failure modes
 
-A user who declares `enforce_repl(T)` but has a field type `Foo<T>` whose own
+A user who declares `force_repl(T)` but has a field type `Foo<T>` whose own
 `DeserType<'a>` does not substitute T transitively produces, in the generated
 `_deser_eps_inner`:
 

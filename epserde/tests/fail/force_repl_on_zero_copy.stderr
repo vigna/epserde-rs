@@ -1,0 +1,5 @@
+error: `force_repl` cannot be used with zero-copy types
+  --> tests/fail/force_repl_on_zero_copy.rs:11:22
+   |
+11 | #[epserde(force_repl(T))]
+   |                      ^

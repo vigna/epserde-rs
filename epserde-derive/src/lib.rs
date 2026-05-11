@@ -229,8 +229,8 @@ struct EpserdeAttrs {
     deprecated_zero_copy: bool,
     /// Whether old-style `#[epserde_deep_copy]` was used.
     deprecated_deep_copy: bool,
-    /// Type-parameter idents listed in `#[epserde(enforce_repl(...))]`.
-    enforce_repl: Vec<syn::Ident>,
+    /// Type-parameter idents listed in `#[epserde(force_repl(...))]`.
+    force_repl: Vec<syn::Ident>,
 }
 
 /// Parses epserde attributes from `#[epserde(...)]`, `#[epserde(zero_copy)]`,
@@ -246,7 +246,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
     let mut ser_bounds = Vec::new();
     let mut deprecated_zero_copy = false;
     let mut deprecated_deep_copy = false;
-    let mut enforce_repl: Vec<syn::Ident> = Vec::new();
+    let mut force_repl: Vec<syn::Ident> = Vec::new();
 
     for attr in &input.attrs {
         if attr.meta.path().is_ident("epserde_zero_copy") {
@@ -285,14 +285,14 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
                             Err(inner.error("expected `deser` or `ser`"))
                         }
                     })
-                } else if meta.path.is_ident("enforce_repl") {
+                } else if meta.path.is_ident("force_repl") {
                     meta.parse_nested_meta(|inner| {
                         let ident = inner.path.require_ident()?.clone();
-                        enforce_repl.push(ident);
+                        force_repl.push(ident);
                         Ok(())
                     })
                 } else {
-                    Err(meta.error("expected `zero_copy`, `deep_copy`, `bound`, or `enforce_repl`"))
+                    Err(meta.error("expected `zero_copy`, `deep_copy`, `bound`, or `force_repl`"))
                 }
             })?;
         }
@@ -325,7 +325,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
         ser_bounds,
         deprecated_zero_copy,
         deprecated_deep_copy,
-        enforce_repl,
+        force_repl,
     })
 }
 
@@ -480,7 +480,7 @@ fn gen_generics_for_ser_type(
 fn gen_ser_deser_where_clauses(
     field_types: &[&syn::Type],
     is_zero_copy: bool,
-    enforce_repl: &HashSet<&syn::Ident>,
+    force_repl: &HashSet<&syn::Ident>,
 ) -> (WhereClause, WhereClause) {
     let mut ser_where_clause = empty_where_clause();
     let mut deser_where_clause = empty_where_clause();
@@ -488,12 +488,12 @@ fn gen_ser_deser_where_clauses(
     // Add trait bounds for all field types
     for field_type in field_types {
         // Skip the field_type: SerInner/DeserInner bound for field types
-        // that mention an enforce_repl parameter. Such bounds would shadow
+        // that mention an force_repl parameter. Such bounds would shadow
         // the impl's DeserType<'_> projection (Rust issue #152409) and
         // prevent the derived _deser_eps_inner body from type-checking.
         // The forced-repl T: SerInner/DeserInner bound added by the caller
         // is enough for Rust to resolve the wrapper's impl directly.
-        if !is_zero_copy && type_contains_any(field_type, enforce_repl) {
+        if !is_zero_copy && type_contains_any(field_type, force_repl) {
             continue;
         }
         add_ser_deser_trait_bounds(
@@ -593,16 +593,16 @@ struct EpserdeContext<'a> {
     /// Additional where-clause predicates for `SerInner` impl from
     /// `#[epserde(bound(ser = "..."))]`.
     ser_bounds: Vec<WherePredicate>,
-    /// Type-parameter idents listed in `#[epserde(enforce_repl(...))]`,
+    /// Type-parameter idents listed in `#[epserde(force_repl(...))]`,
     /// validated against `type_params`.
-    enforce_repl: Vec<syn::Ident>,
+    force_repl: Vec<syn::Ident>,
 }
 
 /// [`Epserde`] derive code for struct types.
 fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     // Pass 1: compute the set of replaceable parameters, unioning the
     // naturally-detected ones (single-segment type-param fields) with the
-    // user-declared enforce_repl idents.
+    // user-declared force_repl idents.
     let mut repl_params: HashSet<&syn::Ident> = HashSet::new();
     for field in s.fields.iter() {
         if let Some(field_type_id) = get_ident(&field.ty) {
@@ -611,7 +611,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             }
         }
     }
-    for ident in &ctx.enforce_repl {
+    for ident in &ctx.force_repl {
         repl_params.insert(ident);
     }
 
@@ -638,9 +638,9 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &repl_params);
     let generics_for_ser_type = gen_generics_for_ser_type(ctx, &repl_params);
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
-    let enforce_repl_set: HashSet<&syn::Ident> = ctx.enforce_repl.iter().collect();
+    let force_repl_set: HashSet<&syn::Ident> = ctx.force_repl.iter().collect();
     let (mut ser_where_clause, mut deser_where_clause) =
-        gen_ser_deser_where_clauses(&field_types, ctx.is_zero_copy, &enforce_repl_set);
+        gen_ser_deser_where_clauses(&field_types, ctx.is_zero_copy, &force_repl_set);
 
     // Add user-specified bounds from #[epserde(bound(...))]
     ser_where_clause
@@ -650,13 +650,13 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         .predicates
         .extend(ctx.deser_bounds.iter().cloned());
 
-    // For enforce_repl parameters, add T: SerInner and T: DeserInner so
+    // For force_repl parameters, add T: SerInner and T: DeserInner so
     // that the substituted forms SerType<T> and DeserType<'_, T> are
     // well-formed. Naturally-replaceable parameters get these bounds for
     // free because the parameter is itself a field type, but forced-repl
     // parameters appear only inside wrappers, so we need them explicitly.
     if !ctx.is_zero_copy {
-        for ident in &ctx.enforce_repl {
+        for ident in &ctx.force_repl {
             ser_where_clause.predicates.push(syn::parse_quote!(
                 #ident: ::epserde::ser::SerInner
             ));
@@ -811,7 +811,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     // For each variant, ε-copy deserialization code
     let mut variant_eps_des = vec![];
     // Type parameters that are types of some fields in some variant,
-    // unioned with the user-declared enforce_repl idents.
+    // unioned with the user-declared force_repl idents.
     let mut all_repl_params: HashSet<&syn::Ident> = HashSet::new();
     for variant in &e.variants {
         for field in variant.fields.iter() {
@@ -822,7 +822,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
             }
         }
     }
-    for ident in &ctx.enforce_repl {
+    for ident in &ctx.force_repl {
         all_repl_params.insert(ident);
     }
     // All field types for all variants
@@ -945,9 +945,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     let tag = (0..variant_arm.len()).collect::<Vec<_>>();
 
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &all_fields_types);
-    let enforce_repl_set: HashSet<&syn::Ident> = ctx.enforce_repl.iter().collect();
+    let force_repl_set: HashSet<&syn::Ident> = ctx.force_repl.iter().collect();
     let (mut ser_where_clause, mut deser_where_clause) =
-        gen_ser_deser_where_clauses(&all_fields_types, ctx.is_zero_copy, &enforce_repl_set);
+        gen_ser_deser_where_clauses(&all_fields_types, ctx.is_zero_copy, &force_repl_set);
 
     // Add user-specified bounds from #[epserde(bound(...))]
     ser_where_clause
@@ -957,11 +957,11 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
         .predicates
         .extend(ctx.deser_bounds.iter().cloned());
 
-    // For enforce_repl parameters, add T: SerInner and T: DeserInner so
+    // For force_repl parameters, add T: SerInner and T: DeserInner so
     // that the substituted forms SerType<T> and DeserType<'_, T> are
     // well-formed. See gen_epserde_struct_impl for the rationale.
     if !ctx.is_zero_copy {
-        for ident in &ctx.enforce_repl {
+        for ident in &ctx.force_repl {
             ser_where_clause.predicates.push(syn::parse_quote!(
                 #ident: ::epserde::ser::SerInner
             ));
@@ -1148,9 +1148,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// }
 /// ```
 ///
-/// # `enforce_repl` attribute
+/// # `force_repl` attribute
 ///
-/// `#[epserde(enforce_repl(T, U, ...))]` forces the named type parameters
+/// `#[epserde(force_repl(T, U, ...))]` forces the named type parameters
 /// to be treated as transitively replaceable in `Self::DeserType<'_>` and
 /// `Self::SerType`, even if they do not appear as a direct field type.
 ///
@@ -1169,7 +1169,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// contract produces a compile error in the generated `_deser_eps_inner`
 /// body.
 ///
-/// `enforce_repl` is rejected on zero-copy types and on idents that do
+/// `force_repl` is rejected on zero-copy types and on idents that do
 /// not name a generic type parameter of the annotated item. Listing a
 /// naturally-replaceable parameter is allowed (no-op).
 ///
@@ -1180,7 +1180,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// struct A<T>(T);
 ///
 /// #[derive(Epserde)]
-/// #[epserde(enforce_repl(T))]
+/// #[epserde(force_repl(T))]
 /// struct B<T>(A<T>);
 /// ```
 #[proc_macro_derive(Epserde, attributes(epserde_zero_copy, epserde_deep_copy, epserde))]
@@ -1214,8 +1214,8 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 
     emit_deprecation_warnings(&attrs, &derive_input.ident);
 
-    // Validate enforce_repl idents: each must be a declared type parameter.
-    for ident in &attrs.enforce_repl {
+    // Validate force_repl idents: each must be a declared type parameter.
+    for ident in &attrs.force_repl {
         if !type_params.contains(ident) {
             return syn::Error::new_spanned(
                 ident,
@@ -1226,11 +1226,11 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         }
     }
 
-    // enforce_repl is incompatible with zero-copy types.
-    if attrs.is_zero_copy && !attrs.enforce_repl.is_empty() {
+    // force_repl is incompatible with zero-copy types.
+    if attrs.is_zero_copy && !attrs.force_repl.is_empty() {
         return syn::Error::new_spanned(
-            &attrs.enforce_repl[0],
-            "`enforce_repl` cannot be used with zero-copy types",
+            &attrs.force_repl[0],
+            "`force_repl` cannot be used with zero-copy types",
         )
         .to_compile_error()
         .into();
@@ -1248,7 +1248,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         is_deep_copy: attrs.is_deep_copy,
         deser_bounds: attrs.deser_bounds,
         ser_bounds: attrs.ser_bounds,
-        enforce_repl: attrs.enforce_repl,
+        force_repl: attrs.force_repl,
     };
 
     let mut out: proc_macro::TokenStream = match &derive_input.data {

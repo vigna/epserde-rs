@@ -100,4 +100,4 @@ This project follows https://github.com/vigna/rust-dev-guidelines. Key conventio
 - Zero-copy types must be `#[repr(C)]` and contain no references
 - Type hashes include alignment/padding info — mismatches cause deserialization errors
 - Serialization writes uninitialized padding bytes (unsafe)
-- A replaceable type parameter must not appear both as a field type and as a parameter of another field type, unless the type is annotated with `#[epserde(enforce_repl(T))]`
+- A replaceable type parameter must not appear both as a field type and as a parameter of another field type, unless the type is annotated with `#[epserde(force_repl(T))]`

@@ -82,7 +82,7 @@ generic parameter from the surrounding Self::DeserType<'a> struct
 literal, so the field's type matches the substituted slot without the
 derive computing the substitution explicitly. This makes
 PhantomData<T> behave correctly in structs where T is substituted
-(both naturally and via enforce_repl), removing the need for the
+(both naturally and via force_repl), removing the need for the
 PhantomDeserData workaround.
 EOF
 )"
@@ -164,7 +164,7 @@ EOF
 
 ---
 
-## Task 3: Positive test — `PhantomData` substitution under `enforce_repl`
+## Task 3: Positive test — `PhantomData` substitution under `force_repl`
 
 **Files:**
 - Modify: `epserde/tests/test_phantom.rs`
@@ -175,8 +175,8 @@ Open `epserde/tests/test_phantom.rs` and append the following at the end of the 
 
 ```rust
 // PhantomData<T> as the only mention of T in a struct: without
-// enforce_repl(T), T is non-replaceable and the phantom field stays
-// PhantomData<T> after deserialization. With enforce_repl(T), T is
+// force_repl(T), T is non-replaceable and the phantom field stays
+// PhantomData<T> after deserialization. With force_repl(T), T is
 // substituted, and the derive's native PhantomData arm produces
 // PhantomData<T::DeserType<'_>> for the phantom slot.
 // `deep_copy` is required because both `other: u32` and `phantom:
@@ -184,15 +184,15 @@ Open `epserde/tests/test_phantom.rs` and append the following at the end of the 
 // zero-copy assertion otherwise complains that the struct could be
 // zero-copy and demands an explicit declaration.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
-#[epserde(deep_copy, enforce_repl(T))]
-struct OnlyPhantomEnforceRepl<T> {
+#[epserde(deep_copy, force_repl(T))]
+struct OnlyPhantomForceRepl<T> {
     other: u32,
     phantom: PhantomData<T>,
 }
 
 #[test]
-fn test_phantom_data_enforce_repl() -> anyhow::Result<()> {
-    let obj: OnlyPhantomEnforceRepl<Vec<i32>> = OnlyPhantomEnforceRepl {
+fn test_phantom_data_force_repl() -> anyhow::Result<()> {
+    let obj: OnlyPhantomForceRepl<Vec<i32>> = OnlyPhantomForceRepl {
         other: 42,
         phantom: PhantomData,
     };
@@ -202,13 +202,13 @@ fn test_phantom_data_enforce_repl() -> anyhow::Result<()> {
 
     cursor.set_position(0);
     let full =
-        unsafe { <OnlyPhantomEnforceRepl<Vec<i32>>>::deserialize_full(&mut cursor)? };
+        unsafe { <OnlyPhantomForceRepl<Vec<i32>>>::deserialize_full(&mut cursor)? };
     assert_eq!(obj, full);
 
     let eps =
-        unsafe { <OnlyPhantomEnforceRepl<Vec<i32>>>::deserialize_eps(cursor.as_bytes())? };
+        unsafe { <OnlyPhantomForceRepl<Vec<i32>>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(obj.other, eps.other);
-    // The phantom slot must be PhantomData<&[i32]> after enforce_repl
+    // The phantom slot must be PhantomData<&[i32]> after force_repl
     // substitutes T into <Vec<i32> as DeserInner>::DeserType<'_>.
     let _phantom_check: PhantomData<&[i32]> = eps.phantom;
 
@@ -218,7 +218,7 @@ fn test_phantom_data_enforce_repl() -> anyhow::Result<()> {
 
 - [ ] **Step 2: Run the new test**
 
-Run: `cargo test --test test_phantom test_phantom_data_enforce_repl`.
+Run: `cargo test --test test_phantom test_phantom_data_force_repl`.
 Expected: PASS.
 
 - [ ] **Step 3: Run the full test suite**
@@ -231,11 +231,11 @@ Expected: PASS.
 ```bash
 git -C /Users/vigna/git/epserde-rs add epserde/tests/test_phantom.rs
 git -C /Users/vigna/git/epserde-rs commit -m "$(cat <<'EOF'
-Test PhantomData substitution driven by enforce_repl
+Test PhantomData substitution driven by force_repl
 
-Round-trips OnlyPhantomEnforceRepl<Vec<i32>> and asserts that the
+Round-trips OnlyPhantomForceRepl<Vec<i32>> and asserts that the
 phantom slot is substituted to PhantomData<&[i32]>. This is the case
-that enforce_repl alone could not solve previously: it now works
+that force_repl alone could not solve previously: it now works
 through the derive's native PhantomData arm.
 EOF
 )"
@@ -346,10 +346,11 @@ EOF
 
 ---
 
-## Task 5: Update README with the new behaviour and deprecation note
+## Task 5: Update README and the `PhantomDeserData` docstring with the new behaviour
 
 **Files:**
 - Modify: `README.md` (workspace root; `epserde/README.md` is a symlink pointing here)
+- Modify: `epserde/src/lib.rs` (the `///` doc-comment block on `PhantomDeserData`)
 
 - [ ] **Step 1: Locate the existing `PhantomData`-related prose**
 
@@ -451,6 +452,6 @@ Expected: all PASS.
 Confirm by inspection that:
 
 1. `test_phantom_data_substitution` (added in Task 2) exercises the canonical case where `T` is both a direct field and inside `PhantomData<T>`, and asserts via the type annotation `let _phantom_check: PhantomData<&[i32]> = eps.phantom;` that the phantom slot is substituted.
-2. `test_phantom_data_enforce_repl` (added in Task 3) exercises the `enforce_repl` interaction case and asserts the same substitution.
+2. `test_phantom_data_force_repl` (added in Task 3) exercises the `force_repl` interaction case and asserts the same substitution.
 
 If both pass, the implementation matches the spec.

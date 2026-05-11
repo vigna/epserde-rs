@@ -1,0 +1,5 @@
+error: `X` is not a generic type parameter of this item
+  --> tests/fail/force_repl_unknown_param.rs:10:22
+   |
+10 | #[epserde(force_repl(X))]
+   |                      ^

@@ -1,5 +1,0 @@
-error: `enforce_repl` cannot be used with zero-copy types
-  --> tests/fail/enforce_repl_on_zero_copy.rs:11:24
-   |
-11 | #[epserde(enforce_repl(T))]
-   |                        ^

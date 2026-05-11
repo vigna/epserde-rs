@@ -274,20 +274,20 @@ fn test_phantom_data_substitution() -> anyhow::Result<()> {
 }
 
 // PhantomData<T> as the only mention of T in a struct: without
-// enforce_repl(T), T is non-replaceable and the phantom field stays
-// PhantomData<T> after deserialization. With enforce_repl(T), T is
+// force_repl(T), T is non-replaceable and the phantom field stays
+// PhantomData<T> after deserialization. With force_repl(T), T is
 // substituted, and the derive's native PhantomData arm produces
 // PhantomData<T::DeserType<'_>> for the phantom slot.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
-#[epserde(deep_copy, enforce_repl(T))]
-struct OnlyPhantomEnforceRepl<T> {
+#[epserde(deep_copy, force_repl(T))]
+struct OnlyPhantomForceRepl<T> {
     other: u32,
     phantom: PhantomData<T>,
 }
 
 #[test]
-fn test_phantom_data_enforce_repl() -> anyhow::Result<()> {
-    let obj: OnlyPhantomEnforceRepl<Vec<i32>> = OnlyPhantomEnforceRepl {
+fn test_phantom_data_force_repl() -> anyhow::Result<()> {
+    let obj: OnlyPhantomForceRepl<Vec<i32>> = OnlyPhantomForceRepl {
         other: 42,
         phantom: PhantomData,
     };
@@ -296,12 +296,12 @@ fn test_phantom_data_enforce_repl() -> anyhow::Result<()> {
     unsafe { obj.serialize(&mut cursor)? };
 
     cursor.set_position(0);
-    let full = unsafe { <OnlyPhantomEnforceRepl<Vec<i32>>>::deserialize_full(&mut cursor)? };
+    let full = unsafe { <OnlyPhantomForceRepl<Vec<i32>>>::deserialize_full(&mut cursor)? };
     assert_eq!(obj, full);
 
-    let eps = unsafe { <OnlyPhantomEnforceRepl<Vec<i32>>>::deserialize_eps(cursor.as_bytes())? };
+    let eps = unsafe { <OnlyPhantomForceRepl<Vec<i32>>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(obj.other, eps.other);
-    // The phantom slot must be PhantomData<&[i32]> after enforce_repl
+    // The phantom slot must be PhantomData<&[i32]> after force_repl
     // substitutes T into <Vec<i32> as DeserInner>::DeserType<'_>.
     let _phantom_check: PhantomData<&[i32]> = eps.phantom;
 

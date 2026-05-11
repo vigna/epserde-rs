@@ -114,7 +114,7 @@ pub const fn pad_align_to(value: usize, align_to: usize) -> usize {
 /// Note that `T` must be sized because of a trait bound on [`DeserInner`].
 #[deprecated(
     since = "0.13.0",
-    note = "use plain `PhantomData<T>` instead — the `Epserde` derive now substitutes \
+    note = "use plain `PhantomData<T>` instead: the `Epserde` derive now substitutes \
 its parameter natively. Note: switching an existing struct from \
 `PhantomDeserData<T>` to `PhantomData<T>` changes the struct's type hash, so \
 previously-serialized files will fail to deserialize against the new definition."

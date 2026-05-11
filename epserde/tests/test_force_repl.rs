@@ -12,14 +12,14 @@ use epserde::prelude::*;
 struct A<T>(T);
 
 // T does *not* appear as a direct field, only inside A<T>. Without
-// enforce_repl(T), T would be non-replaceable in B and the ε-copy
+// force_repl(T), T would be non-replaceable in B and the ε-copy
 // deserialized form would keep T as-is.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-#[epserde(enforce_repl(T))]
+#[epserde(force_repl(T))]
 struct B<T>(A<T>);
 
 #[test]
-fn test_enforce_repl_wrapper() -> anyhow::Result<()> {
+fn test_force_repl_wrapper() -> anyhow::Result<()> {
     let original: B<Vec<u32>> = B(A(vec![1, 2, 3, 4]));
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
@@ -38,15 +38,15 @@ fn test_enforce_repl_wrapper() -> anyhow::Result<()> {
 }
 
 // T appears both as a direct field *and* through a wrapper. Without
-// enforce_repl(T) this is rejected because the generated code's
-// DeserType<'_> would have inconsistent slots. With enforce_repl(T)
+// force_repl(T) this is rejected because the generated code's
+// DeserType<'_> would have inconsistent slots. With force_repl(T)
 // both slots are substituted uniformly.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-#[epserde(enforce_repl(T))]
+#[epserde(force_repl(T))]
 struct Mixed<T>(T, A<T>);
 
 #[test]
-fn test_enforce_repl_mixed_position() -> anyhow::Result<()> {
+fn test_force_repl_mixed_position() -> anyhow::Result<()> {
     let original: Mixed<Vec<u32>> = Mixed(vec![10, 20], A(vec![30, 40, 50]));
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
@@ -64,14 +64,14 @@ fn test_enforce_repl_mixed_position() -> anyhow::Result<()> {
     Ok(())
 }
 
-// enforce_repl on a parameter with trait bounds must propagate those
+// force_repl on a parameter with trait bounds must propagate those
 // bounds onto the substituted form (DeserType<'_, T>: Clone).
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-#[epserde(enforce_repl(T))]
+#[epserde(force_repl(T))]
 struct Bounded<T: Clone>(A<T>);
 
 #[test]
-fn test_enforce_repl_bounded() -> anyhow::Result<()> {
+fn test_force_repl_bounded() -> anyhow::Result<()> {
     let original: Bounded<Vec<u32>> = Bounded(A(vec![7, 8, 9]));
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
@@ -89,14 +89,14 @@ fn test_enforce_repl_bounded() -> anyhow::Result<()> {
     Ok(())
 }
 
-// `enforce_repl(T)` on a parameter that is already naturally replaceable
+// `force_repl(T)` on a parameter that is already naturally replaceable
 // is a no-op: the derived code must behave identically to A<T> above.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-#[epserde(enforce_repl(T))]
+#[epserde(force_repl(T))]
 struct Redundant<T>(T);
 
 #[test]
-fn test_enforce_repl_redundant() -> anyhow::Result<()> {
+fn test_force_repl_redundant() -> anyhow::Result<()> {
     let original: Redundant<Vec<u32>> = Redundant(vec![100, 200]);
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
@@ -115,7 +115,7 @@ fn test_enforce_repl_redundant() -> anyhow::Result<()> {
 // Forced replaceability works on enum parameters across all variant
 // shapes (unit, unnamed, named).
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-#[epserde(enforce_repl(T))]
+#[epserde(force_repl(T))]
 enum E<T> {
     Empty,
     Single(A<T>),
@@ -123,7 +123,7 @@ enum E<T> {
 }
 
 #[test]
-fn test_enforce_repl_enum() -> anyhow::Result<()> {
+fn test_force_repl_enum() -> anyhow::Result<()> {
     let original: E<Vec<u32>> = E::Single(A(vec![5, 6, 7]));
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };

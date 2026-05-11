@@ -1,10 +1,10 @@
-# `#[epserde(enforce_repl(...))]` Implementation Plan
+# `#[epserde(force_repl(...))]` Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a struct/enum-level `#[epserde(enforce_repl(T, U, ...))]` attribute to the `Epserde` derive macro that forces named type parameters to be treated as transitively replaceable in `Self::DeserType<'a>` and `Self::SerType`.
+**Goal:** Add a struct/enum-level `#[epserde(force_repl(T, U, ...))]` attribute to the `Epserde` derive macro that forces named type parameters to be treated as transitively replaceable in `Self::DeserType<'a>` and `Self::SerType`.
 
-**Architecture:** Localized to `epserde-derive/src/lib.rs`. Four changes: (1) parse a new attribute arm into `EpserdeAttrs`; (2) validate the named idents and plumb them into `EpserdeContext`; (3) introduce a `type_contains_any` helper and change `gen_eps_deser_method_call` to dispatch on type-containment instead of single-segment match; (4) update the struct and enum impl generators to compute a unified `repl_params = natural ∪ enforce_repl` upfront. Failure mode for a violated contract is a compile error in the derived `_deser_eps_inner` body.
+**Architecture:** Localized to `epserde-derive/src/lib.rs`. Four changes: (1) parse a new attribute arm into `EpserdeAttrs`; (2) validate the named idents and plumb them into `EpserdeContext`; (3) introduce a `type_contains_any` helper and change `gen_eps_deser_method_call` to dispatch on type-containment instead of single-segment match; (4) update the struct and enum impl generators to compute a unified `repl_params = natural ∪ force_repl` upfront. Failure mode for a violated contract is a compile error in the derived `_deser_eps_inner` body.
 
 **Tech Stack:** Rust 2024 (MSRV 1.85), `syn` 2 / `quote` 1 (proc-macro crate), `trybuild` for compile-fail tests.
 
@@ -12,7 +12,7 @@
 
 ---
 
-## Task 1: Parse the `enforce_repl(...)` attribute
+## Task 1: Parse the `force_repl(...)` attribute
 
 **Files:**
 - Modify: `epserde-derive/src/lib.rs` (the `EpserdeAttrs` struct and `parse_epserde_attrs` function)
@@ -38,14 +38,14 @@ struct EpserdeAttrs {
     deprecated_zero_copy: bool,
     /// Whether old-style `#[epserde_deep_copy]` was used.
     deprecated_deep_copy: bool,
-    /// Type-parameter idents listed in `#[epserde(enforce_repl(...))]`.
-    enforce_repl: Vec<syn::Ident>,
+    /// Type-parameter idents listed in `#[epserde(force_repl(...))]`.
+    force_repl: Vec<syn::Ident>,
 }
 ```
 
 - [ ] **Step 2: Initialize and parse the field**
 
-In `parse_epserde_attrs`, locate the block that initializes the locals (around line 183). Add `enforce_repl` next to the others:
+In `parse_epserde_attrs`, locate the block that initializes the locals (around line 183). Add `force_repl` next to the others:
 
 ```rust
     let mut is_zero_copy = false;
@@ -54,24 +54,24 @@ In `parse_epserde_attrs`, locate the block that initializes the locals (around l
     let mut ser_bounds = Vec::new();
     let mut deprecated_zero_copy = false;
     let mut deprecated_deep_copy = false;
-    let mut enforce_repl: Vec<syn::Ident> = Vec::new();
+    let mut force_repl: Vec<syn::Ident> = Vec::new();
 ```
 
 In the same function, find the nested-meta walk (the `attr.parse_nested_meta(|meta| { ... })` block). Locate the branch that handles `bound` (it starts with `} else if meta.path.is_ident("bound") {`). Add a new branch immediately *before* the final `else` branch:
 
 ```rust
-                } else if meta.path.is_ident("enforce_repl") {
+                } else if meta.path.is_ident("force_repl") {
                     meta.parse_nested_meta(|inner| {
                         let ident = inner.path.require_ident()?.clone();
-                        enforce_repl.push(ident);
+                        force_repl.push(ident);
                         Ok(())
                     })
                 } else {
-                    Err(meta.error("expected `zero_copy`, `deep_copy`, `bound`, or `enforce_repl`"))
+                    Err(meta.error("expected `zero_copy`, `deep_copy`, `bound`, or `force_repl`"))
                 }
 ```
 
-Note: replace the existing error message in the `else` branch ("expected `zero_copy`, `deep_copy`, or `bound`") with the new one listing `enforce_repl`. The project convention is to use backticks (not single quotes) around code-like names in error messages (see commit `433d7a4` "No more single quotation marks in error messages"); apply the same convention everywhere in this plan.
+Note: replace the existing error message in the `else` branch ("expected `zero_copy`, `deep_copy`, or `bound`") with the new one listing `force_repl`. The project convention is to use backticks (not single quotes) around code-like names in error messages (see commit `433d7a4` "No more single quotation marks in error messages"); apply the same convention everywhere in this plan.
 
 - [ ] **Step 3: Return the parsed value**
 
@@ -86,7 +86,7 @@ At the bottom of `parse_epserde_attrs`, find the `Ok(EpserdeAttrs { ... })` bloc
         ser_bounds,
         deprecated_zero_copy,
         deprecated_deep_copy,
-        enforce_repl,
+        force_repl,
     })
 ```
 
@@ -100,9 +100,9 @@ Expected: clean build with no warnings related to the new field. The existing te
 ```bash
 git add epserde-derive/src/lib.rs
 git commit -m "$(cat <<'EOF'
-Parse enforce_repl attribute in EpserdeAttrs
+Parse force_repl attribute in EpserdeAttrs
 
-Adds parsing of #[epserde(enforce_repl(T, U, ...))] into a
+Adds parsing of #[epserde(force_repl(T, U, ...))] into a
 Vec<syn::Ident> on EpserdeAttrs. No behavior change yet; the parsed
 list is unused until subsequent tasks plumb it through EpserdeContext.
 EOF
@@ -111,7 +111,7 @@ EOF
 
 ---
 
-## Task 2: Validate `enforce_repl` idents and plumb into `EpserdeContext`
+## Task 2: Validate `force_repl` idents and plumb into `EpserdeContext`
 
 **Files:**
 - Modify: `epserde-derive/src/lib.rs` (the `EpserdeContext` struct, `epserde_derive` entry point)
@@ -148,9 +148,9 @@ struct EpserdeContext<'a> {
     /// Additional where-clause predicates for `SerInner` impl from
     /// `#[epserde(bound(ser = "..."))]`.
     ser_bounds: Vec<WherePredicate>,
-    /// Type-parameter idents listed in `#[epserde(enforce_repl(...))]`,
+    /// Type-parameter idents listed in `#[epserde(force_repl(...))]`,
     /// validated against `type_params`.
-    enforce_repl: Vec<syn::Ident>,
+    force_repl: Vec<syn::Ident>,
 }
 ```
 
@@ -173,8 +173,8 @@ Add validation immediately after the `emit_deprecation_warnings` call:
 ```rust
     emit_deprecation_warnings(&attrs, &derive_input.ident);
 
-    // Validate `enforce_repl` idents: each must be a declared type parameter.
-    for ident in &attrs.enforce_repl {
+    // Validate `force_repl` idents: each must be a declared type parameter.
+    for ident in &attrs.force_repl {
         if !type_params.contains(ident) {
             return syn::Error::new_spanned(
                 ident,
@@ -188,11 +188,11 @@ Add validation immediately after the `emit_deprecation_warnings` call:
         }
     }
 
-    // `enforce_repl` is incompatible with zero-copy types.
-    if attrs.is_zero_copy && !attrs.enforce_repl.is_empty() {
+    // `force_repl` is incompatible with zero-copy types.
+    if attrs.is_zero_copy && !attrs.force_repl.is_empty() {
         return syn::Error::new_spanned(
-            &attrs.enforce_repl[0],
-            "`enforce_repl` cannot be used with zero-copy types",
+            &attrs.force_repl[0],
+            "`force_repl` cannot be used with zero-copy types",
         )
         .to_compile_error()
         .into();
@@ -216,7 +216,7 @@ In the same function, update the `EpserdeContext { ... }` literal to include the
         is_deep_copy: attrs.is_deep_copy,
         deser_bounds: attrs.deser_bounds,
         ser_bounds: attrs.ser_bounds,
-        enforce_repl: attrs.enforce_repl,
+        force_repl: attrs.force_repl,
     };
 ```
 
@@ -230,10 +230,10 @@ Expected: clean build.
 ```bash
 git add epserde-derive/src/lib.rs
 git commit -m "$(cat <<'EOF'
-Validate enforce_repl idents and store in EpserdeContext
+Validate force_repl idents and store in EpserdeContext
 
-Rejects 'enforce_repl(X)' when X is not a generic type parameter and
-rejects 'enforce_repl' on zero-copy types. The validated list is stored
+Rejects 'force_repl(X)' when X is not a generic type parameter and
+rejects 'force_repl' on zero-copy types. The validated list is stored
 on EpserdeContext for use by the struct/enum impl generators in the
 next task.
 EOF
@@ -346,7 +346,7 @@ The change in Step 2 affects callers (struct and enum impl generators), which cu
 Run: `cargo build --all-features`
 Expected: clean build. The existing test suite *will* change behavior subtly — see the note below — but should still pass because every shape it currently tests is preserved under the new dispatch.
 
-Note on behavior: with this task's change alone (before Tasks 4–5), the struct case will start passing `&ctx.type_params` as `repl_params`, meaning *any* field type that mentions any type parameter (not just a direct single-segment one) will switch to `_deser_eps_inner`. This is the relaxation we want and lifts the implicit "appears twice" invariant. Tasks 4–5 narrow this from "any type param" to "naturally replaceable + `enforce_repl`".
+Note on behavior: with this task's change alone (before Tasks 4–5), the struct case will start passing `&ctx.type_params` as `repl_params`, meaning *any* field type that mentions any type parameter (not just a direct single-segment one) will switch to `_deser_eps_inner`. This is the relaxation we want and lifts the implicit "appears twice" invariant. Tasks 4–5 narrow this from "any type param" to "naturally replaceable + `force_repl`".
 
 - [ ] **Step 4: Run tests**
 
@@ -417,7 +417,7 @@ After:
 fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     // Pass 1: compute the set of replaceable parameters, unioning the
     // naturally-detected ones (single-segment type-param fields) with the
-    // user-declared 'enforce_repl' idents.
+    // user-declared 'force_repl' idents.
     let mut repl_params: HashSet<&syn::Ident> = HashSet::new();
     for field in s.fields.iter() {
         if let Some(field_type_id) = get_ident(&field.ty) {
@@ -426,7 +426,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             }
         }
     }
-    for ident in &ctx.enforce_repl {
+    for ident in &ctx.force_repl {
         repl_params.insert(ident);
     }
 
@@ -468,10 +468,10 @@ Expected: PASS.
 ```bash
 git add epserde-derive/src/lib.rs
 git commit -m "$(cat <<'EOF'
-Unify natural and enforce_repl params for struct dispatch
+Unify natural and force_repl params for struct dispatch
 
 Splits the struct impl generator into two passes: the first computes
-'repl_params = natural ∪ enforce_repl', the second uses it to dispatch
+'repl_params = natural ∪ force_repl', the second uses it to dispatch
 field ε-deserialization. Existing call sites of
 'gen_generics_for_deser_type', 'gen_generics_for_ser_type', and
 'bound_ser_deser_types' pick up the union without further changes.
@@ -499,7 +499,7 @@ Replace those two lines with a pre-pass that computes the unified set across all
 
 ```rust
     // Type parameters that are types of some fields in some variant,
-    // unioned with the user-declared 'enforce_repl' idents.
+    // unioned with the user-declared 'force_repl' idents.
     let mut all_repl_params: HashSet<&syn::Ident> = HashSet::new();
     for variant in &e.variants {
         for field in variant.fields.iter() {
@@ -510,7 +510,7 @@ Replace those two lines with a pre-pass that computes the unified set across all
             }
         }
     }
-    for ident in &ctx.enforce_repl {
+    for ident in &ctx.force_repl {
         all_repl_params.insert(ident);
     }
 ```
@@ -611,10 +611,10 @@ Expected: PASS.
 ```bash
 git add epserde-derive/src/lib.rs
 git commit -m "$(cat <<'EOF'
-Unify natural and enforce_repl params for enum dispatch
+Unify natural and force_repl params for enum dispatch
 
 Pre-computes 'all_repl_params' across every variant and unions in the
-user-declared 'enforce_repl' idents before the variant-generation loop.
+user-declared 'force_repl' idents before the variant-generation loop.
 Removes the incremental updates that previously made dispatch
 order-sensitive across variants.
 EOF
@@ -626,11 +626,11 @@ EOF
 ## Task 6: Positive integration test — basic wrapper case
 
 **Files:**
-- Create: `epserde/tests/test_enforce_repl.rs`
+- Create: `epserde/tests/test_force_repl.rs`
 
 - [ ] **Step 1: Write the test file**
 
-Create `epserde/tests/test_enforce_repl.rs` with the following content:
+Create `epserde/tests/test_force_repl.rs` with the following content:
 
 ```rust
 /*
@@ -647,14 +647,14 @@ use epserde::prelude::*;
 struct A<T>(T);
 
 // T does *not* appear as a direct field, only inside A<T>. Without
-// 'enforce_repl(T)', T would be non-replaceable in B and the ε-copy
+// 'force_repl(T)', T would be non-replaceable in B and the ε-copy
 // deserialized form would keep T as-is.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-#[epserde(enforce_repl(T))]
+#[epserde(force_repl(T))]
 struct B<T>(A<T>);
 
 #[test]
-fn test_enforce_repl_wrapper() -> anyhow::Result<()> {
+fn test_force_repl_wrapper() -> anyhow::Result<()> {
     let original: B<Vec<u32>> = B(A(vec![1, 2, 3, 4]));
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
@@ -675,17 +675,17 @@ fn test_enforce_repl_wrapper() -> anyhow::Result<()> {
 
 - [ ] **Step 2: Run the new test**
 
-Run: `cargo test --test test_enforce_repl`
+Run: `cargo test --test test_force_repl`
 Expected: PASS. The crucial assertion is the `let inner_slice: &[u32] = eps.0.0;` line — it fails to compile if `B<Vec<u32>>::DeserType<'_>` is not `B<&[u32]>`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add epserde/tests/test_enforce_repl.rs
+git add epserde/tests/test_force_repl.rs
 git commit -m "$(cat <<'EOF'
-Add wrapper-case round-trip test for enforce_repl
+Add wrapper-case round-trip test for force_repl
 
-Tests that B<T>(A<T>) with #[epserde(enforce_repl(T))] makes T
+Tests that B<T>(A<T>) with #[epserde(force_repl(T))] makes T
 transitively replaceable in B, so that B<Vec<u32>>'s ε-copy deserialized
 form's inner field has type &[u32] instead of Vec<u32>.
 EOF
@@ -697,23 +697,23 @@ EOF
 ## Task 7: More positive tests — mixed-position, bounded, idempotency, enum
 
 **Files:**
-- Modify: `epserde/tests/test_enforce_repl.rs`
+- Modify: `epserde/tests/test_force_repl.rs`
 
 - [ ] **Step 1: Add mixed-position test**
 
-Append to `epserde/tests/test_enforce_repl.rs`:
+Append to `epserde/tests/test_force_repl.rs`:
 
 ```rust
 // T appears both as a direct field *and* through a wrapper. Without
-// 'enforce_repl(T)' this is rejected because the generated code's
-// 'DeserType<'_>' would have inconsistent slots. With 'enforce_repl(T)'
+// 'force_repl(T)' this is rejected because the generated code's
+// 'DeserType<'_>' would have inconsistent slots. With 'force_repl(T)'
 // both slots are substituted uniformly.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-#[epserde(enforce_repl(T))]
+#[epserde(force_repl(T))]
 struct Mixed<T>(T, A<T>);
 
 #[test]
-fn test_enforce_repl_mixed_position() -> anyhow::Result<()> {
+fn test_force_repl_mixed_position() -> anyhow::Result<()> {
     let original: Mixed<Vec<u32>> = Mixed(vec![10, 20], A(vec![30, 40, 50]));
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
@@ -737,14 +737,14 @@ fn test_enforce_repl_mixed_position() -> anyhow::Result<()> {
 Append:
 
 ```rust
-// 'enforce_repl' on a parameter with trait bounds must propagate those
+// 'force_repl' on a parameter with trait bounds must propagate those
 // bounds onto the substituted form ('DeserType<'_, T>: Clone').
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-#[epserde(enforce_repl(T))]
+#[epserde(force_repl(T))]
 struct Bounded<T: Clone>(A<T>);
 
 #[test]
-fn test_enforce_repl_bounded() -> anyhow::Result<()> {
+fn test_force_repl_bounded() -> anyhow::Result<()> {
     let original: Bounded<Vec<u32>> = Bounded(A(vec![7, 8, 9]));
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
@@ -768,14 +768,14 @@ fn test_enforce_repl_bounded() -> anyhow::Result<()> {
 Append:
 
 ```rust
-// 'enforce_repl(T)' on a parameter that is already naturally replaceable
+// 'force_repl(T)' on a parameter that is already naturally replaceable
 // is a no-op: the derived code must behave identically to A<T> above.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-#[epserde(enforce_repl(T))]
+#[epserde(force_repl(T))]
 struct Redundant<T>(T);
 
 #[test]
-fn test_enforce_repl_redundant() -> anyhow::Result<()> {
+fn test_force_repl_redundant() -> anyhow::Result<()> {
     let original: Redundant<Vec<u32>> = Redundant(vec![100, 200]);
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
@@ -800,7 +800,7 @@ Append:
 // Forced replaceability works on enum parameters across all variant
 // shapes (unit, unnamed, named).
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-#[epserde(enforce_repl(T))]
+#[epserde(force_repl(T))]
 enum E<T> {
     Empty,
     Single(A<T>),
@@ -808,7 +808,7 @@ enum E<T> {
 }
 
 #[test]
-fn test_enforce_repl_enum() -> anyhow::Result<()> {
+fn test_force_repl_enum() -> anyhow::Result<()> {
     let original: E<Vec<u32>> = E::Single(A(vec![5, 6, 7]));
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
@@ -832,7 +832,7 @@ fn test_enforce_repl_enum() -> anyhow::Result<()> {
 
 - [ ] **Step 5: Run all the new tests**
 
-Run: `cargo test --test test_enforce_repl`
+Run: `cargo test --test test_force_repl`
 Expected: all four new tests PASS.
 
 - [ ] **Step 6: Run the full test suite to catch regressions**
@@ -843,13 +843,13 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add epserde/tests/test_enforce_repl.rs
+git add epserde/tests/test_force_repl.rs
 git commit -m "$(cat <<'EOF'
-Add mixed-position, bounded, redundant, and enum enforce_repl tests
+Add mixed-position, bounded, redundant, and enum force_repl tests
 
 Covers the four remaining positive paths from the spec: a parameter
 appearing both directly and through a wrapper, a bounded forced
-parameter, a redundant enforce_repl on a naturally-replaceable
+parameter, a redundant force_repl on a naturally-replaceable
 parameter, and forced replaceability on an enum across all variant
 shapes.
 EOF
@@ -858,17 +858,17 @@ EOF
 
 ---
 
-## Task 8: Compile-fail tests for `enforce_repl`
+## Task 8: Compile-fail tests for `force_repl`
 
 **Files:**
-- Create: `epserde/tests/fail/enforce_repl_unknown_param.rs`
-- Create: `epserde/tests/fail/enforce_repl_unknown_param.stderr`
-- Create: `epserde/tests/fail/enforce_repl_on_zero_copy.rs`
-- Create: `epserde/tests/fail/enforce_repl_on_zero_copy.stderr`
+- Create: `epserde/tests/fail/force_repl_unknown_param.rs`
+- Create: `epserde/tests/fail/force_repl_unknown_param.stderr`
+- Create: `epserde/tests/fail/force_repl_on_zero_copy.rs`
+- Create: `epserde/tests/fail/force_repl_on_zero_copy.stderr`
 
 - [ ] **Step 1: Write the unknown-param fail case**
 
-Create `epserde/tests/fail/enforce_repl_unknown_param.rs`:
+Create `epserde/tests/fail/force_repl_unknown_param.rs`:
 
 ```rust
 /*
@@ -880,7 +880,7 @@ Create `epserde/tests/fail/enforce_repl_unknown_param.rs`:
 use epserde::prelude::*;
 
 #[derive(Epserde)]
-#[epserde(enforce_repl(X))]
+#[epserde(force_repl(X))]
 struct G<T>(T);
 
 fn main() {
@@ -890,7 +890,7 @@ fn main() {
 
 - [ ] **Step 2: Write the zero-copy fail case**
 
-Create `epserde/tests/fail/enforce_repl_on_zero_copy.rs`:
+Create `epserde/tests/fail/force_repl_on_zero_copy.rs`:
 
 ```rust
 /*
@@ -903,7 +903,7 @@ use epserde::prelude::*;
 
 #[derive(Epserde, Clone, Copy)]
 #[epserde(zero_copy)]
-#[epserde(enforce_repl(T))]
+#[epserde(force_repl(T))]
 #[repr(C)]
 struct H<T: Copy>(T);
 
@@ -921,10 +921,10 @@ Expected: PASS. The two new fail tests get fresh `.stderr` files in `epserde/tes
 
 - [ ] **Step 4: Inspect the generated `.stderr` files**
 
-Open `epserde/tests/fail/enforce_repl_unknown_param.stderr` and `epserde/tests/fail/enforce_repl_on_zero_copy.stderr` and confirm they contain, respectively, the messages emitted by the validation in Task 2:
+Open `epserde/tests/fail/force_repl_unknown_param.stderr` and `epserde/tests/fail/force_repl_on_zero_copy.stderr` and confirm they contain, respectively, the messages emitted by the validation in Task 2:
 
-- For `enforce_repl_unknown_param.stderr`: must mention `` `X` is not a generic type parameter of this item ``.
-- For `enforce_repl_on_zero_copy.stderr`: must mention `` `enforce_repl` cannot be used with zero-copy types ``.
+- For `force_repl_unknown_param.stderr`: must mention `` `X` is not a generic type parameter of this item ``.
+- For `force_repl_on_zero_copy.stderr`: must mention `` `force_repl` cannot be used with zero-copy types ``.
 
 If either file is missing the expected message, the error in Task 2 was either spelled differently or never reached. Fix and re-run with `TRYBUILD=overwrite`.
 
@@ -936,15 +936,15 @@ Expected: PASS. The `.stderr` files now contain the recorded output, so the run 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add epserde/tests/fail/enforce_repl_unknown_param.rs \
-        epserde/tests/fail/enforce_repl_unknown_param.stderr \
-        epserde/tests/fail/enforce_repl_on_zero_copy.rs \
-        epserde/tests/fail/enforce_repl_on_zero_copy.stderr
+git add epserde/tests/fail/force_repl_unknown_param.rs \
+        epserde/tests/fail/force_repl_unknown_param.stderr \
+        epserde/tests/fail/force_repl_on_zero_copy.rs \
+        epserde/tests/fail/force_repl_on_zero_copy.stderr
 git commit -m "$(cat <<'EOF'
-Add trybuild compile-fail tests for enforce_repl misuse
+Add trybuild compile-fail tests for force_repl misuse
 
-Covers two validation paths from the design spec: 'enforce_repl(X)'
-where X is not a declared type parameter, and 'enforce_repl' on a
+Covers two validation paths from the design spec: 'force_repl(X)'
+where X is not a declared type parameter, and 'force_repl' on a
 zero-copy type. Recorded .stderr output captures the diagnostic
 messages emitted by the validation in Task 2.
 EOF
@@ -964,14 +964,14 @@ EOF
 
 In `epserde-derive/src/lib.rs`, find the doc comment block immediately preceding `#[proc_macro_derive(Epserde, ...)]` (around line 1029). It documents the existing attributes — `zero_copy`, `deep_copy`, `bound(...)`. Skim it once to match the existing style and indentation.
 
-- [ ] **Step 2: Append `enforce_repl` documentation**
+- [ ] **Step 2: Append `force_repl` documentation**
 
 Insert a new section into that doc comment, after the existing description of `bound(...)`. The exact text to add:
 
 ```rust
-/// # `enforce_repl` attribute
+/// # `force_repl` attribute
 ///
-/// `#[epserde(enforce_repl(T, U, ...))]` forces the named type parameters
+/// `#[epserde(force_repl(T, U, ...))]` forces the named type parameters
 /// to be treated as transitively replaceable in `Self::DeserType<'_>` and
 /// `Self::SerType`, even if they do not appear as a direct field type.
 ///
@@ -990,7 +990,7 @@ Insert a new section into that doc comment, after the existing description of `b
 /// contract produces a compile error in the generated `_deser_eps_inner`
 /// body — no silent miscompilation.
 ///
-/// `enforce_repl` is rejected on zero-copy types and on idents that do
+/// `force_repl` is rejected on zero-copy types and on idents that do
 /// not name a generic type parameter of the annotated item. Listing a
 /// naturally-replaceable parameter is allowed (no-op).
 ///
@@ -1001,17 +1001,17 @@ Insert a new section into that doc comment, after the existing description of `b
 /// struct A<T>(T);
 ///
 /// #[derive(Epserde)]
-/// #[epserde(enforce_repl(T))]
+/// #[epserde(force_repl(T))]
 /// struct B<T>(A<T>);
 /// ```
 ```
 
 - [ ] **Step 3: Add crate-level prose in `epserde/src/lib.rs`**
 
-In `epserde/src/lib.rs`, find the existing crate-level documentation discussing `PhantomDeserData` (search for the heading or paragraph about that helper). Append a new top-level section discussing `enforce_repl`. The exact text:
+In `epserde/src/lib.rs`, find the existing crate-level documentation discussing `PhantomDeserData` (search for the heading or paragraph about that helper). Append a new top-level section discussing `force_repl`. The exact text:
 
 ```rust
-//! ## Forcing transitive replaceability with `enforce_repl`
+//! ## Forcing transitive replaceability with `force_repl`
 //!
 //! By default, a generic type parameter `T` of an `Epserde`-derived
 //! struct or enum is substituted with `T::DeserType<'_>` in
@@ -1021,7 +1021,7 @@ In `epserde/src/lib.rs`, find the existing crate-level documentation discussing 
 //! keeps `T` unchanged, and the ε-copy deserialized form does not benefit
 //! from `T`'s own ε-copy form.
 //!
-//! The struct/enum-level attribute `#[epserde(enforce_repl(T, U, …))]`
+//! The struct/enum-level attribute `#[epserde(force_repl(T, U, …))]`
 //! lets you opt every named parameter into transitive replaceability.
 //! The asserted contract is that every field type containing the
 //! parameter substitutes it transitively in its own `DeserType<'_>` and
@@ -1041,7 +1041,7 @@ Open `CLAUDE.md`. In the "Key Invariants" section, find the line:
 Replace it with:
 
 ```
-- A replaceable type parameter must not appear both as a field type and as a parameter of another field type, unless the type is annotated with `#[epserde(enforce_repl(T))]`
+- A replaceable type parameter must not appear both as a field type and as a parameter of another field type, unless the type is annotated with `#[epserde(force_repl(T))]`
 ```
 
 - [ ] **Step 5: Verify docs build cleanly**
@@ -1059,7 +1059,7 @@ Expected: all PASS.
 ```bash
 git add epserde-derive/src/lib.rs epserde/src/lib.rs CLAUDE.md
 git commit -m "$(cat <<'EOF'
-Document the enforce_repl attribute
+Document the force_repl attribute
 
 Adds documentation on '#[derive(Epserde)]' describing the attribute's
 semantics, the user contract for field types, the failure mode, and an
@@ -1082,6 +1082,6 @@ Expected: all four steps PASS.
 
 - [ ] **Manual sanity check of the motivating example**
 
-Confirm by inspection (no extra test required) that the file `epserde/tests/test_enforce_repl.rs` exercises a `struct B<T>(A<T>)` with `#[epserde(enforce_repl(T))]` and asserts `&[u32]` (not `Vec<u32>`) is recovered after ε-copy deserialization.
+Confirm by inspection (no extra test required) that the file `epserde/tests/test_force_repl.rs` exercises a `struct B<T>(A<T>)` with `#[epserde(force_repl(T))]` and asserts `&[u32]` (not `Vec<u32>`) is recovered after ε-copy deserialization.
 
 If both checks pass, the implementation matches the spec.
