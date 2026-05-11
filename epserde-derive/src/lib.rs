@@ -525,6 +525,9 @@ struct EpserdeContext<'a> {
     /// Additional where-clause predicates for `SerInner` impl from
     /// `#[epserde(bound(ser = "..."))]`.
     ser_bounds: Vec<WherePredicate>,
+    /// Type-parameter idents listed in `#[epserde(enforce_repl(...))]`,
+    /// validated against `type_params`.
+    enforce_repl: Vec<syn::Ident>,
 }
 
 /// [`Epserde`] derive code for struct types.
@@ -1067,6 +1070,31 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 
     emit_deprecation_warnings(&attrs, &derive_input.ident);
 
+    // Validate `enforce_repl` idents: each must be a declared type parameter.
+    for ident in &attrs.enforce_repl {
+        if !type_params.contains(ident) {
+            return syn::Error::new_spanned(
+                ident,
+                format!(
+                    "`{}` is not a generic type parameter of this item",
+                    ident
+                ),
+            )
+            .to_compile_error()
+            .into();
+        }
+    }
+
+    // `enforce_repl` is incompatible with zero-copy types.
+    if attrs.is_zero_copy && !attrs.enforce_repl.is_empty() {
+        return syn::Error::new_spanned(
+            &attrs.enforce_repl[0],
+            "`enforce_repl` cannot be used with zero-copy types",
+        )
+        .to_compile_error()
+        .into();
+    }
+
     let ctx = EpserdeContext {
         derive_input: &derive_input,
         type_const_params,
@@ -1079,6 +1107,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         is_deep_copy: attrs.is_deep_copy,
         deser_bounds: attrs.deser_bounds,
         ser_bounds: attrs.ser_bounds,
+        enforce_repl: attrs.enforce_repl,
     };
 
     let mut out: proc_macro::TokenStream = match &derive_input.data {
