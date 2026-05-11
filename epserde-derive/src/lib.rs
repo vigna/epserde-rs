@@ -79,8 +79,8 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
 fn type_contains_any(ty: &syn::Type, params: &HashSet<&syn::Ident>) -> bool {
     match ty {
         syn::Type::Path(syn::TypePath { path, .. }) => {
-            // A bare single-segment path like `T` (no leading colon, no angle
-            // brackets) is itself a replaceable parameter if found in `params`.
+            // A bare single-segment path like T (no leading colon, no angle
+            // brackets) is itself a replaceable parameter if found in params.
             if path.leading_colon.is_none() && path.segments.len() == 1 {
                 let seg = &path.segments[0];
                 if seg.arguments.is_empty() && params.contains(&seg.ident) {
@@ -88,10 +88,10 @@ fn type_contains_any(ty: &syn::Type, params: &HashSet<&syn::Ident>) -> bool {
                 }
             }
             // In all cases, recurse into angle-bracketed generic arguments of
-            // every segment (e.g. `Vec<T>`, `Box<T>`, `HashMap<K, V>`).
+            // every segment (e.g. Vec<T>, Box<T>, HashMap<K, V>).
             // We do NOT match the segment ident itself in multi-segment paths:
-            // a path like `B::Word` has `B` as a qualifier, not as the type,
-            // so `B` should not be counted as "containing" the param `B`.
+            // a path like B::Word has B as a qualifier, not as the type,
+            // so B should not be counted as "containing" the param B.
             for segment in &path.segments {
                 if let syn::PathArguments::AngleBracketed(ab) = &segment.arguments {
                     for arg in &ab.args {
@@ -479,12 +479,12 @@ fn gen_ser_deser_where_clauses(
 
     // Add trait bounds for all field types
     for field_type in field_types {
-        // Skip the `field_type: SerInner`/`DeserInner` bound for field types
-        // that mention an `enforce_repl` parameter. Such bounds would shadow
-        // the impl's `DeserType<'_>` projection (Rust issue #152409) and
-        // prevent the derived `_deser_eps_inner` body from type-checking.
-        // The forced-repl `T: SerInner`/`DeserInner` bound added by the
-        // caller is enough for Rust to resolve the wrapper's impl directly.
+        // Skip the field_type: SerInner/DeserInner bound for field types
+        // that mention an enforce_repl parameter. Such bounds would shadow
+        // the impl's DeserType<'_> projection (Rust issue #152409) and
+        // prevent the derived _deser_eps_inner body from type-checking.
+        // The forced-repl T: SerInner/DeserInner bound added by the caller
+        // is enough for Rust to resolve the wrapper's impl directly.
         if !is_zero_copy && type_contains_any(field_type, enforce_repl) {
             continue;
         }
@@ -594,7 +594,7 @@ struct EpserdeContext<'a> {
 fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
     // Pass 1: compute the set of replaceable parameters, unioning the
     // naturally-detected ones (single-segment type-param fields) with the
-    // user-declared `enforce_repl` idents.
+    // user-declared enforce_repl idents.
     let mut repl_params: HashSet<&syn::Ident> = HashSet::new();
     for field in s.fields.iter() {
         if let Some(field_type_id) = get_ident(&field.ty) {
@@ -608,7 +608,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     }
 
     // Pass 2: gather field metadata and generate the per-field ε-deser
-    // method calls using the unified `repl_params`.
+    // method calls using the unified repl_params.
     let mut field_names = vec![];
     let mut field_types = vec![];
     let mut method_calls = vec![];
@@ -642,8 +642,8 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         .predicates
         .extend(ctx.deser_bounds.iter().cloned());
 
-    // For `enforce_repl` parameters, add `T: SerInner` and `T: DeserInner`
-    // so that the substituted forms `SerType<T>` and `DeserType<'_, T>` are
+    // For enforce_repl parameters, add T: SerInner and T: DeserInner so
+    // that the substituted forms SerType<T> and DeserType<'_, T> are
     // well-formed. Naturally-replaceable parameters get these bounds for
     // free because the parameter is itself a field type, but forced-repl
     // parameters appear only inside wrappers, so we need them explicitly.
@@ -803,7 +803,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     // For each variant, ε-copy deserialization code
     let mut variant_eps_des = vec![];
     // Type parameters that are types of some fields in some variant,
-    // unioned with the user-declared `enforce_repl` idents.
+    // unioned with the user-declared enforce_repl idents.
     let mut all_repl_params: HashSet<&syn::Ident> = HashSet::new();
     for variant in &e.variants {
         for field in variant.fields.iter() {
@@ -949,9 +949,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
         .predicates
         .extend(ctx.deser_bounds.iter().cloned());
 
-    // For `enforce_repl` parameters, add `T: SerInner` and `T: DeserInner`
-    // so that the substituted forms `SerType<T>` and `DeserType<'_, T>` are
-    // well-formed. See `gen_epserde_struct_impl` for the rationale.
+    // For enforce_repl parameters, add T: SerInner and T: DeserInner so
+    // that the substituted forms SerType<T> and DeserType<'_, T> are
+    // well-formed. See gen_epserde_struct_impl for the rationale.
     if !ctx.is_zero_copy {
         for ident in &ctx.enforce_repl {
             ser_where_clause.predicates.push(syn::parse_quote!(
@@ -1159,7 +1159,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// `Box<T>`, `Option<T>`, tuples, arrays) and `Epserde`-derived types
 /// satisfy it for their naturally-replaceable parameters. A violated
 /// contract produces a compile error in the generated `_deser_eps_inner`
-/// body — no silent miscompilation.
+/// body.
 ///
 /// `enforce_repl` is rejected on zero-copy types and on idents that do
 /// not name a generic type parameter of the annotated item. Listing a
@@ -1206,7 +1206,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 
     emit_deprecation_warnings(&attrs, &derive_input.ident);
 
-    // Validate `enforce_repl` idents: each must be a declared type parameter.
+    // Validate enforce_repl idents: each must be a declared type parameter.
     for ident in &attrs.enforce_repl {
         if !type_params.contains(ident) {
             return syn::Error::new_spanned(
@@ -1218,7 +1218,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         }
     }
 
-    // `enforce_repl` is incompatible with zero-copy types.
+    // enforce_repl is incompatible with zero-copy types.
     if attrs.is_zero_copy && !attrs.enforce_repl.is_empty() {
         return syn::Error::new_spanned(
             &attrs.enforce_repl[0],

@@ -7,12 +7,12 @@
 use epserde::prelude::*;
 
 // A naturally-replaceable wrapper: T appears as a direct field, so its
-// `DeserType<'a>` substitutes T transitively for any T.
+// DeserType<'a> substitutes T transitively for any T.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct A<T>(T);
 
 // T does *not* appear as a direct field, only inside A<T>. Without
-// `enforce_repl(T)`, T would be non-replaceable in B and the ε-copy
+// enforce_repl(T), T would be non-replaceable in B and the ε-copy
 // deserialized form would keep T as-is.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 #[epserde(enforce_repl(T))]
@@ -38,8 +38,8 @@ fn test_enforce_repl_wrapper() -> anyhow::Result<()> {
 }
 
 // T appears both as a direct field *and* through a wrapper. Without
-// `enforce_repl(T)` this is rejected because the generated code's
-// `DeserType<'_>` would have inconsistent slots. With `enforce_repl(T)`
+// enforce_repl(T) this is rejected because the generated code's
+// DeserType<'_> would have inconsistent slots. With enforce_repl(T)
 // both slots are substituted uniformly.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 #[epserde(enforce_repl(T))]
@@ -64,8 +64,8 @@ fn test_enforce_repl_mixed_position() -> anyhow::Result<()> {
     Ok(())
 }
 
-// `enforce_repl` on a parameter with trait bounds must propagate those
-// bounds onto the substituted form (`DeserType<'_, T>: Clone`).
+// enforce_repl on a parameter with trait bounds must propagate those
+// bounds onto the substituted form (DeserType<'_, T>: Clone).
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 #[epserde(enforce_repl(T))]
 struct Bounded<T: Clone>(A<T>);
