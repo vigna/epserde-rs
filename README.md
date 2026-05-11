@@ -440,10 +440,10 @@ below on pinning associated types.
 Finally, when every occurrence of the parameter can be substituted consistently
 (the wrapper around the parameter must itself substitute its own parameter
 transitively), you can use the field-level [`#[epserde(force_repl)]`
-attribute](#example-forcing-transitive-replaceability-with-force_repl) on the
+attribute](#example-forcing-replaceability-with-force_repl-and-force_irrepl) on the
 wrapper field to opt the parameter into substitution, or the symmetric
-[`#[epserde(force_irrepl)]`](#example-forcing-transitive-replaceability-with-force_repl)
-attribute on the direct `T` field to keep the parameter un-substituted.
+[`#[epserde(force_irrepl)]`](#example-forcing-replaceability-with-force_repl-and-force_irrepl)
+attribute on the field whose type is `T` to keep the parameter un-substituted.
 
 ## Example: User-defined deep-copy structures with internal parameters
 
@@ -593,7 +593,7 @@ let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? 
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-## Example: Forcing transitive replaceability with `force_repl`
+## Example: Forcing replaceability with `force_repl` and `force_irrepl`
 
 The default behaviour described above means that a type parameter `T` is
 substituted with its associated deserialization type only when it appears as the
@@ -630,26 +630,32 @@ assert_eq!(s.0.0.as_slice(), t.0.0);
 # }
 ```
 
-The attribute asserts a contract on the user: every field type that mentions a
-forced parameter must substitute it transitively in its own associated
-(de)serialization type. Standard library wrappers (`Vec<T>`, `Box<T>`,
-`Option<T>`, tuples, arrays) and `Epserde`-derived types satisfy this
-automatically for their naturally-replaceable parameters. A violated contract
-produces a compile error in the generated `_deser_eps_inner` body.
+The attribute asserts a contract on the marked field: its type `F<A, B, …>`
+must satisfy `<F<A, B, …> as DeserInner>::DeserType<'a> == F<A::DeserType<'a>,
+B::DeserType<'a>, …>` (uniform parameter substitution), and the corresponding
+equation for `SerInner::SerType`. Standard library wrappers that satisfy the
+contract: `Box<T>`, `Rc<T>`, `Arc<T>`, `Option<T>`, the `Range<T>` family,
+and tuples. `Epserde`-derived types satisfy it for their naturally-replaceable
+parameters. `Vec<T>`, `Box<[T]>`, `[T; N]`, and `String` satisfy it only when
+their parameter is deep-copy — using the marker with a zero-copy inner
+parameter produces a compile error in the derived `_deser_eps_inner` body.
+A violated contract surfaces as a type mismatch, not silent miscompilation.
 
 `force_repl` is rejected on fields of zero-copy types. Marking a field whose
-type is a single-segment generic (a naturally-replaceable parameter) is allowed
-and is a no-op.
+type is a single-segment generic (already naturally-replaceable) is allowed
+and is a silent no-op; marking a parameterless field is also a silent no-op.
 
-`force_repl` also lifts the restriction described earlier on a parameter
-appearing both as a field type and as a parameter of another field's type, as
-long as the user contract holds at every occurrence.
+`force_repl` lifts the restriction described earlier on a parameter
+appearing both as a field type and as a type argument of another field's
+type: when the wrapper field carries the marker, that occurrence stops
+contributing to irreplaceability and starts contributing to replaceability,
+so the parameter is consistently classified.
 
 The symmetric `#[epserde(force_irrepl)]` marker resolves the same restriction
-from the opposite side: applied to a field whose type is a single-segment struct
-generic (e.g., `data: T`), it reclassifies that direct occurrence from
-replaceable to irreplaceable and flips the field's dispatch from ε-deserialization
-to full-copy. Use it when you want the parameter to stay un-substituted across
+from the opposite side: applied to a field whose type is a struct generic
+(e.g., `data: T`), it reclassifies that occurrence from replaceable to
+irreplaceable and flips the field's dispatch from ε-deserialization to
+full-copy. Use it when you want the parameter to stay un-substituted across
 the struct — for example, because a sibling field's type contains the parameter
 as a type argument and substituting would not make sense.
 
@@ -924,10 +930,10 @@ Vec<Vec<&[usize]>>`.
 Note that by default field types are not replaced if they are not type
 parameters. In particular, by default you cannot have `T` both as the type of a
 field and as a type parameter of another field; however, the field-level
-[`#[epserde(force_repl)]`](#example-forcing-transitive-replaceability-with-force_repl)
+[`#[epserde(force_repl)]`](#example-forcing-replaceability-with-force_repl-and-force_irrepl)
 attribute (on the wrapper field) and the symmetric
-[`#[epserde(force_irrepl)]`](#example-forcing-transitive-replaceability-with-force_repl)
-attribute (on the direct `T` field) each lift this restriction from opposite
+[`#[epserde(force_irrepl)]`](#example-forcing-replaceability-with-force_repl-and-force_irrepl)
+attribute (on the field whose type is `T`) each lift this restriction from opposite
 sides, and [`PhantomData<T>`] is handled natively by the derive.
 
 This approach makes it possible to write ε-serde-aware structures that hide from
@@ -1002,13 +1008,13 @@ Given a type `S` with generics, a struct parameter `T` is classified as follows
 (occurrences nested inside `PhantomData<…>` at any depth are excluded from
 both classifications):
 
-- `T` is **replaceable** if it appears as the direct (single-segment) type of
-  a field of `S` that does _not_ carry `#[epserde(force_irrepl)]`, or anywhere
-  inside the type of a field of `S` carrying `#[epserde(force_repl)]`.
+- `T` is **replaceable** if it appears as the type of a field of `S` that
+  does _not_ carry `#[epserde(force_irrepl)]`, or anywhere inside the type
+  of a field of `S` carrying `#[epserde(force_repl)]`.
 
-- `T` is **irreplaceable** if it appears as a type argument inside the type of
-  a field of `S` that does _not_ carry `#[epserde(force_repl)]`, or as the
-  direct type of a field carrying `#[epserde(force_irrepl)]`.
+- `T` is **irreplaceable** if it appears as a type argument inside the type
+  of a field of `S` that does _not_ carry `#[epserde(force_repl)]`, or as
+  the type of a field carrying `#[epserde(force_irrepl)]`.
 
 By default the derived code of ε-serde requires that no type parameter is both
 replaceable and irreplaceable. For example, in the following structure
@@ -1020,22 +1026,22 @@ struct Bad<A> {
 }
 ```
 
-the type parameter `A` is both replaceable (direct type of `data`) and
+the type parameter `A` is both replaceable (type of `data`) and
 irreplaceable (type argument of `vec: Vec<A>`), which produces a compile error.
 
 There are two field-level attributes that lift this restriction:
 
-- [`#[epserde(force_repl)]`](#example-forcing-transitive-replaceability-with-force_repl)
-  placed on the _wrapper_ field (e.g., `vec: Vec<A>`) forces `A` to be treated
+- [`#[epserde(force_repl)]`](#example-forcing-replaceability-with-force_repl-and-force_irrepl)
+  placed on the wrapper field (e.g., `vec: Vec<A>`) forces `A` to be treated
   as replaceable there. Every wrapper around `A` in that field must substitute
   its parameter transitively; a compile error is produced in `_deser_eps_inner`
   if this contract is violated.
 
-- [`#[epserde(force_irrepl)]`](#example-forcing-transitive-replaceability-with-force_repl)
-  placed on the _direct_ field (e.g., `data: A`) forces `A` to be treated as
-  irreplaceable there, flipping that field's deserialization dispatch from
-  ε-copy to full-copy. Use it when substituting `A` would be wrong (e.g.,
-  because a sibling field already uses `A` as a type argument).
+- [`#[epserde(force_irrepl)]`](#example-forcing-replaceability-with-force_repl-and-force_irrepl)
+  placed on a field whose type is the parameter (e.g., `data: A`) forces `A`
+  to be treated as irreplaceable there, flipping that field's deserialization
+  dispatch from ε-copy to full-copy. Use it when substituting `A` would be
+  wrong (e.g., because a sibling field already uses `A` as a type argument).
 
 [`PhantomData<T>`] is not subject to this rule at all: the `Epserde` derive
 substitutes `T` inside [`PhantomData<T>`] fields natively, so a parameter that
@@ -1170,7 +1176,7 @@ Given a user-defined type `T`:
   each replaceable type parameter `Pᵢ` with the deserialization type of `Tᵢ`
   instead. (Note that the first rule still applies, so if `Tᵢ` is zero-copy
   its deserialization type is `&Tᵢ`.) A parameter is replaceable iff it
-  appears as the direct type of some field not marked with
+  appears as the type of some field not marked with
   `#[epserde(force_irrepl)]`, or anywhere inside the type of a field marked
   with `#[epserde(force_repl)]`. Occurrences inside `PhantomData<…>` count
   toward neither classification. See [Replaceable and irreplaceable
