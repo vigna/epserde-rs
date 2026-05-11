@@ -1156,7 +1156,6 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 ///
 /// [ε-serde documentation]:
 /// https://docs.rs/epserde/latest/epserde/#example-forcing-transitive-replaceability-with-force_repl
-
 #[proc_macro_derive(Epserde, attributes(epserde_zero_copy, epserde_deep_copy, epserde))]
 pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // This part is in common with type_info_derive
