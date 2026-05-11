@@ -270,18 +270,24 @@ fn test_phantom_data_substitution() -> anyhow::Result<()> {
     Ok(())
 }
 
+// When T only appears inside a wrapper field (here PhantomDeserData<T>),
+// the classifier needs a hint that T should be replaceable. Using
+// #[epserde(force_repl)] on the PhantomDeserData field achieves this:
+// the marker makes T's occurrence inside the wrapper contribute to the
+// replaceable set, exactly as the old struct-level force_repl(T) did.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
-#[epserde(deep_copy, force_repl(T))]
+#[epserde(deep_copy)]
 struct OnlyPhantomForceRepl<T> {
     other: u32,
-    phantom: PhantomData<T>,
+    #[epserde(force_repl)]
+    phantom: PhantomDeserData<T>,
 }
 
 #[test]
 fn test_phantom_data_force_repl() -> anyhow::Result<()> {
     let obj: OnlyPhantomForceRepl<Vec<i32>> = OnlyPhantomForceRepl {
         other: 42,
-        phantom: PhantomData,
+        phantom: PhantomDeserData(PhantomData),
     };
 
     let mut cursor = <AlignedCursor<Aligned16>>::new();
@@ -293,9 +299,9 @@ fn test_phantom_data_force_repl() -> anyhow::Result<()> {
 
     let eps = unsafe { <OnlyPhantomForceRepl<Vec<i32>>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(obj.other, eps.other);
-    // The phantom slot must be PhantomData<&[i32]> after force_repl
-    // substitutes T into <Vec<i32> as DeserInner>::DeserType<'_>.
-    let _phantom_check: PhantomData<&[i32]> = eps.phantom;
+    // The phantom slot must be PhantomDeserData<&[i32]> after T is
+    // substituted into <Vec<i32> as DeserInner>::DeserType<'_>.
+    let _phantom_check: PhantomDeserData<&[i32]> = eps.phantom;
 
     Ok(())
 }

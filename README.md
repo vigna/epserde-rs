@@ -599,18 +599,18 @@ type of one of the fields. If `T` is buried inside a wrapper type, as in
 `struct MyStruct<T>(Inner<T>)`, then `MyStruct<…>::DeserType<'_>` keeps `T`
 unchanged, and the deserialization type is identical to the original type.
 
-The struct/enum-level attribute `#[epserde(force_repl(T, U, …))]` lets you
-opt the named parameters into substitution anyway:
+The field-level attribute `#[epserde(force_repl)]` lets you opt the field's
+wrapper occurrences of a parameter into substitution:
 
 ```rust
 # use epserde::prelude::*;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[derive(Epserde, Debug, PartialEq)]
+#[epserde(deep_copy)]
 struct Inner<T>(T);
 
 #[derive(Epserde, Debug, PartialEq)]
-#[epserde(force_repl(T))]
-struct Outer<T>(Inner<T>);
+struct Outer<T>(#[epserde(force_repl)] Inner<T>);
 
 let s: Outer<Vec<isize>> = Outer(Inner(vec![0, 1, 2, 3]));
 let mut file = std::env::temp_dir();
@@ -635,9 +635,9 @@ forced parameter must substitute it transitively in its own associated
 automatically for their naturally-replaceable parameters. A violated contract
 produces a compile error in the generated `_deser_eps_inner` body.
 
-`force_repl` is rejected on zero-copy types and on identifiers that do not
-name a generic type parameter of the annotated item. Listing a
-naturally-replaceable parameter is allowed (and a no-op).
+`force_repl` is rejected on fields of zero-copy types. Marking a field whose
+type is a single-segment generic (a naturally-replaceable parameter) is allowed
+and is a no-op.
 
 `force_repl` also lifts the restriction described earlier on a parameter
 appearing both as a field type and as a parameter of another field's type, as

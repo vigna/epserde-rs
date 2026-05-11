@@ -7,6 +7,7 @@
 use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+#[epserde(deep_copy)]
 struct A<T>(T);
 
 // T does not appear as a direct field; only inside A<T>. Marking the
@@ -123,6 +124,7 @@ fn test_force_repl_redundant_on_natural() -> anyhow::Result<()> {
 // Marker on a parameterless field is a silent no-op: the field is
 // eps-dispatched (returns its type unchanged), no parameter contribution.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+#[epserde(deep_copy)]
 struct ParameterlessMarker {
     #[epserde(force_repl)]
     inner: u32,
