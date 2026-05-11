@@ -8,10 +8,12 @@ use epserde::prelude::*;
 
 #[derive(Epserde, Clone, Copy)]
 #[epserde(zero_copy)]
-#[epserde(force_repl(T))]
 #[repr(C)]
-struct H<T: Copy>(T);
+struct H<T: Copy> {
+    #[epserde(force_repl)]
+    inner: T,
+}
 
 fn main() {
-    let _ = H::<u32>(0);
+    let _ = H::<u32> { inner: 0 };
 }

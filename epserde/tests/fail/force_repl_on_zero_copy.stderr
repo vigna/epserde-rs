@@ -1,5 +1,300 @@
-error: `force_repl` cannot be used with zero-copy types
-  --> tests/fail/force_repl_on_zero_copy.rs:11:22
+error[E0309]: the parameter type `T` may not live long enough
+ --> tests/fail/force_repl_on_zero_copy.rs:9:10
+  |
+9 | #[derive(Epserde, Clone, Copy)]
+  |          ^^^^^^^
+  |          |
+  |          the parameter type `T` must be valid for the lifetime `'__epserde_desertype` as defined here...
+  |          ...so that the reference type `&'__epserde_desertype H<T>` does not outlive the data it points at
+  |
+  = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `T: TypeHash` is not satisfied
+  --> tests/fail/force_repl_on_zero_copy.rs:9:10
    |
-11 | #[epserde(force_repl(T))]
-   |                      ^
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ the trait `TypeHash` is not implemented for `T`
+   |
+note: required for `H<T>` to implement `TypeHash`
+  --> tests/fail/force_repl_on_zero_copy.rs:12:8
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ------- type parameter would need to implement `TypeHash`
+...
+12 | struct H<T: Copy> {
+   |        ^^^^^^^^^^
+   = help: consider manually implementing `TypeHash` to avoid undesired bounds
+   = note: required for `H<T>` to implement `ZeroCopy`
+note: required by a bound in `deser_full_zero`
+  --> src/deser/helpers.rs
+   |
+   | pub unsafe fn deser_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> deser::Result<T> {
+   |                                  ^^^^^^^^ required by this bound in `deser_full_zero`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider further restricting type parameter `T` with trait `TypeHash`
+   |
+12 | struct H<T: Copy + epserde::traits::TypeHash> {
+   |                  +++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `T: AlignHash` is not satisfied
+  --> tests/fail/force_repl_on_zero_copy.rs:9:10
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ the trait `AlignHash` is not implemented for `T`
+   |
+note: required for `H<T>` to implement `AlignHash`
+  --> tests/fail/force_repl_on_zero_copy.rs:12:8
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ------- type parameter would need to implement `AlignHash`
+...
+12 | struct H<T: Copy> {
+   |        ^^^^^^^^^^
+   = help: consider manually implementing `AlignHash` to avoid undesired bounds
+   = note: required for `H<T>` to implement `ZeroCopy`
+note: required by a bound in `deser_full_zero`
+  --> src/deser/helpers.rs
+   |
+   | pub unsafe fn deser_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> deser::Result<T> {
+   |                                  ^^^^^^^^ required by this bound in `deser_full_zero`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider further restricting type parameter `T` with trait `AlignHash`
+   |
+12 | struct H<T: Copy + epserde::traits::AlignHash> {
+   |                  ++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `T: AlignTo` is not satisfied
+  --> tests/fail/force_repl_on_zero_copy.rs:9:10
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ the trait `AlignTo` is not implemented for `T`
+   |
+note: required for `H<T>` to implement `AlignTo`
+  --> tests/fail/force_repl_on_zero_copy.rs:12:8
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ------- type parameter would need to implement `AlignTo`
+...
+12 | struct H<T: Copy> {
+   |        ^^^^^^^^^^
+   = help: consider manually implementing `AlignTo` to avoid undesired bounds
+   = note: required for `H<T>` to implement `ZeroCopy`
+note: required by a bound in `deser_full_zero`
+  --> src/deser/helpers.rs
+   |
+   | pub unsafe fn deser_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> deser::Result<T> {
+   |                                  ^^^^^^^^ required by this bound in `deser_full_zero`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider further restricting type parameter `T` with trait `AlignTo`
+   |
+12 | struct H<T: Copy + epserde::traits::AlignTo> {
+   |                  ++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `T: epserde::ser::SerInner` is not satisfied
+  --> tests/fail/force_repl_on_zero_copy.rs:9:10
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ the trait `epserde::ser::SerInner` is not implemented for `T`
+   |
+   = note: required for `T` to implement `ZeroCopy`
+note: required for `H<T>` to implement `epserde::ser::SerInner`
+  --> tests/fail/force_repl_on_zero_copy.rs:12:8
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ------- type parameter would need to implement `epserde::ser::SerInner`
+...
+12 | struct H<T: Copy> {
+   |        ^^^^^^^^^^
+   = help: consider manually implementing `epserde::ser::SerInner` to avoid undesired bounds
+   = note: 1 redundant requirement hidden
+   = note: required for `H<T>` to implement `ZeroCopy`
+note: required by a bound in `deser_full_zero`
+  --> src/deser/helpers.rs
+   |
+   | pub unsafe fn deser_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> deser::Result<T> {
+   |                                  ^^^^^^^^ required by this bound in `deser_full_zero`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider further restricting type parameter `T` with trait `SerInner`
+   |
+12 | struct H<T: Copy + epserde::ser::SerInner> {
+   |                  ++++++++++++++++++++++++
+
+error[E0277]: the trait bound `T: CopyType` is not satisfied
+  --> tests/fail/force_repl_on_zero_copy.rs:9:10
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ the trait `CopyType` is not implemented for `T`
+   |
+   = note: required for `T` to implement `ZeroCopy`
+note: required for `H<T>` to implement `epserde::ser::SerInner`
+  --> tests/fail/force_repl_on_zero_copy.rs:12:8
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ------- type parameter would need to implement `epserde::ser::SerInner`
+...
+12 | struct H<T: Copy> {
+   |        ^^^^^^^^^^
+   = help: consider manually implementing `epserde::ser::SerInner` to avoid undesired bounds
+   = note: 1 redundant requirement hidden
+   = note: required for `H<T>` to implement `ZeroCopy`
+note: required by a bound in `deser_full_zero`
+  --> src/deser/helpers.rs
+   |
+   | pub unsafe fn deser_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> deser::Result<T> {
+   |                                  ^^^^^^^^ required by this bound in `deser_full_zero`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider further restricting type parameter `T` with trait `CopyType`
+   |
+12 | struct H<T: Copy + epserde::traits::CopyType> {
+   |                  +++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `T: TypeHash` is not satisfied
+  --> tests/fail/force_repl_on_zero_copy.rs:9:10
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ the trait `TypeHash` is not implemented for `T`
+   |
+note: required for `H<T>` to implement `TypeHash`
+  --> tests/fail/force_repl_on_zero_copy.rs:12:8
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ------- type parameter would need to implement `TypeHash`
+...
+12 | struct H<T: Copy> {
+   |        ^^^^^^^^^^
+   = help: consider manually implementing `TypeHash` to avoid undesired bounds
+   = note: required for `H<T>` to implement `ZeroCopy`
+note: required by a bound in `deser_eps_zero`
+  --> src/deser/helpers.rs
+   |
+   | pub unsafe fn deser_eps_zero<'a, T: for<'b> ZeroCopy<DeserType<'b> = &'b T>>(
+   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `deser_eps_zero`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider further restricting type parameter `T` with trait `TypeHash`
+   |
+12 | struct H<T: Copy + epserde::traits::TypeHash> {
+   |                  +++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `T: AlignHash` is not satisfied
+  --> tests/fail/force_repl_on_zero_copy.rs:9:10
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ the trait `AlignHash` is not implemented for `T`
+   |
+note: required for `H<T>` to implement `AlignHash`
+  --> tests/fail/force_repl_on_zero_copy.rs:12:8
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ------- type parameter would need to implement `AlignHash`
+...
+12 | struct H<T: Copy> {
+   |        ^^^^^^^^^^
+   = help: consider manually implementing `AlignHash` to avoid undesired bounds
+   = note: required for `H<T>` to implement `ZeroCopy`
+note: required by a bound in `deser_eps_zero`
+  --> src/deser/helpers.rs
+   |
+   | pub unsafe fn deser_eps_zero<'a, T: for<'b> ZeroCopy<DeserType<'b> = &'b T>>(
+   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `deser_eps_zero`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider further restricting type parameter `T` with trait `AlignHash`
+   |
+12 | struct H<T: Copy + epserde::traits::AlignHash> {
+   |                  ++++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `T: AlignTo` is not satisfied
+  --> tests/fail/force_repl_on_zero_copy.rs:9:10
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ the trait `AlignTo` is not implemented for `T`
+   |
+note: required for `H<T>` to implement `AlignTo`
+  --> tests/fail/force_repl_on_zero_copy.rs:12:8
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ------- type parameter would need to implement `AlignTo`
+...
+12 | struct H<T: Copy> {
+   |        ^^^^^^^^^^
+   = help: consider manually implementing `AlignTo` to avoid undesired bounds
+   = note: required for `H<T>` to implement `ZeroCopy`
+note: required by a bound in `deser_eps_zero`
+  --> src/deser/helpers.rs
+   |
+   | pub unsafe fn deser_eps_zero<'a, T: for<'b> ZeroCopy<DeserType<'b> = &'b T>>(
+   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `deser_eps_zero`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider further restricting type parameter `T` with trait `AlignTo`
+   |
+12 | struct H<T: Copy + epserde::traits::AlignTo> {
+   |                  ++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `T: epserde::ser::SerInner` is not satisfied
+  --> tests/fail/force_repl_on_zero_copy.rs:9:10
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ the trait `epserde::ser::SerInner` is not implemented for `T`
+   |
+   = note: required for `T` to implement `ZeroCopy`
+note: required for `H<T>` to implement `epserde::ser::SerInner`
+  --> tests/fail/force_repl_on_zero_copy.rs:12:8
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ------- type parameter would need to implement `epserde::ser::SerInner`
+...
+12 | struct H<T: Copy> {
+   |        ^^^^^^^^^^
+   = help: consider manually implementing `epserde::ser::SerInner` to avoid undesired bounds
+   = note: 1 redundant requirement hidden
+   = note: required for `H<T>` to implement `ZeroCopy`
+note: required by a bound in `deser_eps_zero`
+  --> src/deser/helpers.rs
+   |
+   | pub unsafe fn deser_eps_zero<'a, T: for<'b> ZeroCopy<DeserType<'b> = &'b T>>(
+   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `deser_eps_zero`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider further restricting type parameter `T` with trait `SerInner`
+   |
+12 | struct H<T: Copy + epserde::ser::SerInner> {
+   |                  ++++++++++++++++++++++++
+
+error[E0277]: the trait bound `T: CopyType` is not satisfied
+  --> tests/fail/force_repl_on_zero_copy.rs:9:10
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ the trait `CopyType` is not implemented for `T`
+   |
+   = note: required for `T` to implement `ZeroCopy`
+note: required for `H<T>` to implement `epserde::ser::SerInner`
+  --> tests/fail/force_repl_on_zero_copy.rs:12:8
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ------- type parameter would need to implement `epserde::ser::SerInner`
+...
+12 | struct H<T: Copy> {
+   |        ^^^^^^^^^^
+   = help: consider manually implementing `epserde::ser::SerInner` to avoid undesired bounds
+   = note: 1 redundant requirement hidden
+   = note: required for `H<T>` to implement `ZeroCopy`
+note: required by a bound in `deser_eps_zero`
+  --> src/deser/helpers.rs
+   |
+   | pub unsafe fn deser_eps_zero<'a, T: for<'b> ZeroCopy<DeserType<'b> = &'b T>>(
+   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `deser_eps_zero`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider further restricting type parameter `T` with trait `CopyType`
+   |
+12 | struct H<T: Copy + epserde::traits::CopyType> {
+   |                  +++++++++++++++++++++++++++
+
+error[E0277]: the trait bound `T: epserde::ser::SerInner` is not satisfied
+  --> tests/fail/force_repl_on_zero_copy.rs:9:10
+   |
+ 9 | #[derive(Epserde, Clone, Copy)]
+   |          ^^^^^^^ the trait `epserde::ser::SerInner` is not implemented for `T`
+   |
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider further restricting type parameter `T` with trait `SerInner`
+   |
+12 | struct H<T: Copy + epserde::ser::SerInner> {
+   |                  ++++++++++++++++++++++++
