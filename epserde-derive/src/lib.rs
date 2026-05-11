@@ -328,6 +328,7 @@ fn gen_eps_deser_method_call(
     field_name: &proc_macro2::TokenStream,
     field_type: &syn::Type,
     repl_params: &HashSet<&syn::Ident>,
+    _marker: FieldMarker,
 ) -> proc_macro2::TokenStream {
     if let syn::Type::Path(syn::TypePath {
         qself: None,
@@ -800,23 +801,31 @@ struct EpserdeContext<'a> {
 
 /// [`Epserde`] derive code for struct types.
 fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_macro2::TokenStream {
-    // Pass 1: compute the set of replaceable parameters, unioning the
-    // naturally-detected ones (single-segment type-param fields) with the
-    // user-declared force_repl idents.
-    let mut repl_params: HashSet<&syn::Ident> = HashSet::new();
-    for field in s.fields.iter() {
-        if let Some(field_type_id) = get_ident(&field.ty) {
-            if ctx.type_params.contains(field_type_id) {
-                repl_params.insert(field_type_id);
-            }
-        }
-    }
+    // Per-field metadata: (display name, type, marker). The marker is
+    // consumed by the classifier and by per-field dispatch.
+    let fields_info: Vec<(proc_macro2::TokenStream, &syn::Type, FieldMarker)> = s
+        .fields
+        .iter()
+        .enumerate()
+        .map(|(idx, field)| (get_field_name(field, idx), &field.ty, field_marker(field)))
+        .collect();
+
+    // Classify each generic parameter's occurrences.
+    let classifications = classify_repl_params(&ctx.type_const_params, &fields_info);
+
+    // Conflict diagnostic comes in Task 7; for now just compute repl_params.
+    // Also union in ctx.force_repl (struct-level attribute, removed in Task 6)
+    // so that existing #[epserde(force_repl(T))] tests continue to pass.
+    let mut repl_params: HashSet<&syn::Ident> = classifications
+        .iter()
+        .filter(|c| !c.replaceable_in.is_empty())
+        .map(|c| c.ident)
+        .collect();
     for ident in &ctx.force_repl {
         repl_params.insert(ident);
     }
 
-    // Pass 2: gather field metadata and generate the per-field ε-deser
-    // method calls using the unified repl_params.
+    // Gather field metadata and generate the per-field ε-deser method calls.
     let mut field_names = vec![];
     let mut field_types = vec![];
     let mut method_calls = vec![];
@@ -824,13 +833,13 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     for (field_idx, field) in s.fields.iter().enumerate() {
         let field_name = get_field_name(field, field_idx);
         let field_type = &field.ty;
-
+        let marker = field_marker(field);
         method_calls.push(gen_eps_deser_method_call(
             &field_name,
             field_type,
             &repl_params,
+            marker,
         ));
-
         field_names.push(field_name);
         field_types.push(field_type);
     }
@@ -1057,6 +1066,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                         &field_name.to_token_stream(),
                         field_type,
                         &all_repl_params,
+                        FieldMarker::None,
                     ));
                     field_names.push(quote! { #field_name });
                     field_types.push(field_type);
@@ -1107,6 +1117,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                         &field_name.to_token_stream(),
                         field_type,
                         &all_repl_params,
+                        FieldMarker::None,
                     ));
                     field_types.push(field_type);
                     field_names_in_arm.push(field_name);
