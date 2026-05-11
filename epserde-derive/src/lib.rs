@@ -328,7 +328,7 @@ fn gen_eps_deser_method_call(
     field_name: &proc_macro2::TokenStream,
     field_type: &syn::Type,
     repl_params: &HashSet<&syn::Ident>,
-    _marker: FieldMarker,
+    marker: FieldMarker,
 ) -> proc_macro2::TokenStream {
     if let syn::Type::Path(syn::TypePath {
         qself: None,
@@ -344,20 +344,30 @@ fn gen_eps_deser_method_call(
             if segment.ident == "PhantomDeserData" {
                 return syn::parse_quote!(#field_name: unsafe { <#field_type>::_deser_eps_inner_special(backend)? });
             }
-            // PhantomData<...> is handled natively: we emit a literal
+            // PhantomData<...> is handled natively: emit a literal
             // PhantomData whose generic parameter is inferred from the
-            // surrounding Self::DeserType<'a> struct literal. This
-            // matches whatever substitution is applied to the parent
-            // type, without the derive computing it explicitly.
+            // surrounding Self::DeserType<'a> struct literal.
             if segment.ident == "PhantomData" {
                 return syn::parse_quote!(#field_name: ::core::marker::PhantomData);
             }
         }
     }
 
-    // If the field type mentions any replaceable parameter we proceed
-    // with ε-copy deserialization; otherwise full-copy.
-    if type_contains_any(field_type, repl_params) {
+    // Dispatch:
+    // - force_irrepl marker => full-deser, regardless of field shape.
+    // - force_repl marker => eps-deser.
+    // - No marker, single-segment generic => eps-deser (natural rule).
+    // - Otherwise => full-deser.
+    let is_natural_repl = get_ident(field_type)
+        .map(|id| repl_params.contains(id))
+        .unwrap_or(false);
+    let use_eps = match marker {
+        FieldMarker::ForceIrrepl => false,
+        FieldMarker::ForceRepl => true,
+        FieldMarker::None => is_natural_repl,
+    };
+
+    if use_eps {
         syn::parse_quote!(#field_name: unsafe { <#field_type as DeserInner>::_deser_eps_inner(backend)? })
     } else {
         syn::parse_quote!(#field_name: unsafe { <#field_type as DeserInner>::_deser_full_inner(backend)? })
