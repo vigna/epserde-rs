@@ -662,9 +662,9 @@ pub enum Error {
 Actual: 0x{ser_type_hash:016x}; expected: 0x{self_type_hash:016x}.
 
 The serialized type is
-    '{ser_type_name}',
+    {ser_type_name},
 but the deserializable type on which the deserialization method was invoked is
-    '{self_type_name}',
+    {self_type_name},
 which has serialization type
     {self_ser_type_name}.
 
@@ -693,9 +693,9 @@ before 0.10.0."#
 Actual: 0x{ser_align_hash:016x}; expected: 0x{self_align_hash:016x}.
 
 The serialized type is
-    '{ser_type_name}',
+    {ser_type_name},
 but the deserializable type on which the deserialization method was invoked is
-    '{self_type_name}',
+    {self_type_name},
 which has serialization type
     {self_ser_type_name}.
 
