@@ -29,6 +29,7 @@ pub mod traits;
 pub mod utils;
 
 pub mod prelude {
+    #[allow(deprecated)]
     pub use crate::PhantomDeserData;
     pub use crate::deser;
     pub use crate::deser::DeserHelper;
@@ -128,9 +129,17 @@ pub const fn pad_align_to(value: usize, align_to: usize) -> usize {
 ///     phantom: PhantomDeserData<T>,
 /// }
 /// ```
+#[deprecated(
+    since = "0.13.0",
+    note = "use plain `PhantomData<T>` instead — the `Epserde` derive now substitutes \
+its parameter natively. Note: switching an existing struct from \
+`PhantomDeserData<T>` to `PhantomData<T>` changes the struct's type hash, so \
+previously-serialized files will fail to deserialize against the new definition."
+)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PhantomDeserData<T>(pub PhantomData<T>);
 
+#[allow(deprecated)]
 impl<T: DeserInner> PhantomDeserData<T> {
     /// A custom deserialization method for [`PhantomDeserData`] that transmutes
     /// the inner type.
@@ -151,10 +160,12 @@ impl<T: DeserInner> PhantomDeserData<T> {
     }
 }
 
+#[allow(deprecated)]
 unsafe impl<T> CopyType for PhantomDeserData<T> {
     type Copy = Zero;
 }
 
+#[allow(deprecated)]
 impl<T> AlignTo for PhantomDeserData<T> {
     #[inline(always)]
     fn align_to() -> usize {
@@ -162,6 +173,7 @@ impl<T> AlignTo for PhantomDeserData<T> {
     }
 }
 
+#[allow(deprecated)]
 impl<T: TypeHash> TypeHash for PhantomDeserData<T> {
     #[inline(always)]
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
@@ -170,11 +182,13 @@ impl<T: TypeHash> TypeHash for PhantomDeserData<T> {
     }
 }
 
+#[allow(deprecated)]
 impl<T> AlignHash for PhantomDeserData<T> {
     #[inline(always)]
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
+#[allow(deprecated)]
 impl<T> SerInner for PhantomDeserData<T> {
     // This type is nominal only; nothing will be serialized or deserialized.
     type SerType = Self;
@@ -186,6 +200,7 @@ impl<T> SerInner for PhantomDeserData<T> {
     }
 }
 
+#[allow(deprecated)]
 impl<T: DeserInner> DeserInner for PhantomDeserData<T> {
     // SAFETY: it is a zero-sized type
     unsafe_assume_covariance!();

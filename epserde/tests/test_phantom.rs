@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+// Tests still exercise the deprecated PhantomDeserData type for
+// backward-compatibility coverage; suppress the warnings file-wide.
+#![allow(deprecated)]
+
 use core::marker::PhantomData;
 use epserde::PhantomDeserData;
 use epserde::TypeInfo;
