@@ -15,6 +15,7 @@
 ## Task 1: Parse the `force_repl(...)` attribute
 
 **Files:**
+
 - Modify: `epserde-derive/src/lib.rs` (the `EpserdeAttrs` struct and `parse_epserde_attrs` function)
 
 - [ ] **Step 1: Add the field to `EpserdeAttrs`**
@@ -57,7 +58,7 @@ In `parse_epserde_attrs`, locate the block that initializes the locals (around l
     let mut force_repl: Vec<syn::Ident> = Vec::new();
 ```
 
-In the same function, find the nested-meta walk (the `attr.parse_nested_meta(|meta| { ... })` block). Locate the branch that handles `bound` (it starts with `} else if meta.path.is_ident("bound") {`). Add a new branch immediately *before* the final `else` branch:
+In the same function, find the nested-meta walk (the `attr.parse_nested_meta(|meta| { ... })` block). Locate the branch that handles `bound` (it starts with `} else if meta.path.is_ident("bound") {`). Add a new branch immediately _before_ the final `else` branch:
 
 ```rust
                 } else if meta.path.is_ident("force_repl") {
@@ -114,6 +115,7 @@ EOF
 ## Task 2: Validate `force_repl` idents and plumb into `EpserdeContext`
 
 **Files:**
+
 - Modify: `epserde-derive/src/lib.rs` (the `EpserdeContext` struct, `epserde_derive` entry point)
 
 - [ ] **Step 1: Add the field to `EpserdeContext`**
@@ -245,11 +247,12 @@ EOF
 ## Task 3: Add `type_contains_any` helper and change field dispatch
 
 **Files:**
+
 - Modify: `epserde-derive/src/lib.rs` (add helper, modify `gen_eps_deser_method_call`)
 
 - [ ] **Step 1: Add the `type_contains_any` helper**
 
-Insert the new function immediately *after* the existing `get_ident` function (around line 66):
+Insert the new function immediately _after_ the existing `get_ident` function (around line 66):
 
 ```rust
 /// Returns `true` if `ty` syntactically contains any identifier in `params`
@@ -344,9 +347,9 @@ fn gen_eps_deser_method_call(
 The change in Step 2 affects callers (struct and enum impl generators), which currently pass `&ctx.type_params` or `&all_repl_params`. These callers will still compile because the parameter type didn't change — only its name and semantic meaning. We fix the callers in Tasks 4 and 5.
 
 Run: `cargo build --all-features`
-Expected: clean build. The existing test suite *will* change behavior subtly — see the note below — but should still pass because every shape it currently tests is preserved under the new dispatch.
+Expected: clean build. The existing test suite _will_ change behavior subtly — see the note below — but should still pass because every shape it currently tests is preserved under the new dispatch.
 
-Note on behavior: with this task's change alone (before Tasks 4–5), the struct case will start passing `&ctx.type_params` as `repl_params`, meaning *any* field type that mentions any type parameter (not just a direct single-segment one) will switch to `_deser_eps_inner`. This is the relaxation we want and lifts the implicit "appears twice" invariant. Tasks 4–5 narrow this from "any type param" to "naturally replaceable + `force_repl`".
+Note on behavior: with this task's change alone (before Tasks 4–5), the struct case will start passing `&ctx.type_params` as `repl_params`, meaning _any_ field type that mentions any type parameter (not just a direct single-segment one) will switch to `_deser_eps_inner`. This is the relaxation we want and lifts the implicit "appears twice" invariant. Tasks 4–5 narrow this from "any type param" to "naturally replaceable + `force_repl`".
 
 - [ ] **Step 4: Run tests**
 
@@ -374,6 +377,7 @@ EOF
 ## Task 4: Compute unified `repl_params` in struct impl
 
 **Files:**
+
 - Modify: `epserde-derive/src/lib.rs` (the `gen_epserde_struct_impl` function)
 
 - [ ] **Step 1: Refactor the struct impl to a two-pass shape**
@@ -484,6 +488,7 @@ EOF
 ## Task 5: Compute unified `repl_params` in enum impl
 
 **Files:**
+
 - Modify: `epserde-derive/src/lib.rs` (the `gen_epserde_enum_impl` function)
 
 - [ ] **Step 1: Pre-compute `repl_params` before iterating variants**
@@ -626,6 +631,7 @@ EOF
 ## Task 6: Positive integration test — basic wrapper case
 
 **Files:**
+
 - Create: `epserde/tests/test_force_repl.rs`
 
 - [ ] **Step 1: Write the test file**
@@ -697,6 +703,7 @@ EOF
 ## Task 7: More positive tests — mixed-position, bounded, idempotency, enum
 
 **Files:**
+
 - Modify: `epserde/tests/test_force_repl.rs`
 
 - [ ] **Step 1: Add mixed-position test**
@@ -861,6 +868,7 @@ EOF
 ## Task 8: Compile-fail tests for `force_repl`
 
 **Files:**
+
 - Create: `epserde/tests/fail/force_repl_unknown_param.rs`
 - Create: `epserde/tests/fail/force_repl_unknown_param.stderr`
 - Create: `epserde/tests/fail/force_repl_on_zero_copy.rs`
@@ -956,6 +964,7 @@ EOF
 ## Task 9: Documentation
 
 **Files:**
+
 - Modify: `epserde-derive/src/lib.rs` (doc comment on `#[derive(Epserde)]`)
 - Modify: `epserde/src/lib.rs` (crate-level prose near `PhantomDeserData`)
 - Modify: `CLAUDE.md` (Key Invariants section)
@@ -968,12 +977,12 @@ In `epserde-derive/src/lib.rs`, find the doc comment block immediately preceding
 
 Insert a new section into that doc comment, after the existing description of `bound(...)`. The exact text to add:
 
-```rust
+````rust
 /// # `force_repl` attribute
 ///
-/// `#[epserde(force_repl(T, U, ...))]` forces the named type parameters
-/// to be treated as transitively replaceable in `Self::DeserType<'_>` and
-/// `Self::SerType`, even if they do not appear as a direct field type.
+/// `#[epserde(force_repl(T, U, ...))]` forces the named type parameters to be
+/// replaceable in `Self::DeserType<'_>` and `Self::SerType`, even if they do
+/// not appear as a direct field type.
 ///
 /// The attribute lifts two related restrictions:
 /// - a type parameter that appears only inside a wrapper (e.g. `Vec<T>`
@@ -1004,7 +1013,7 @@ Insert a new section into that doc comment, after the existing description of `b
 /// #[epserde(force_repl(T))]
 /// struct B<T>(A<T>);
 /// ```
-```
+````
 
 - [ ] **Step 3: Add crate-level prose in `epserde/src/lib.rs`**
 

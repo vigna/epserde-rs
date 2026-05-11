@@ -239,9 +239,6 @@ fn test_deser_phantom_zero_copy() {
     let _phantom_check: PhantomDeserData<[i32; 4]> = eps.phantom;
 }
 
-// New behaviour from the native PhantomData arm in the derive:
-// a struct with T both as a direct field and inside PhantomData<T>
-// now compiles and round-trips correctly, without PhantomDeserData.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
 struct DataWithPhantomData<T> {
     data: T,
@@ -273,11 +270,6 @@ fn test_phantom_data_substitution() -> anyhow::Result<()> {
     Ok(())
 }
 
-// PhantomData<T> as the only mention of T in a struct: without
-// force_repl(T), T is non-replaceable and the phantom field stays
-// PhantomData<T> after deserialization. With force_repl(T), T is
-// substituted, and the derive's native PhantomData arm produces
-// PhantomData<T::DeserType<'_>> for the phantom slot.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
 #[epserde(deep_copy, force_repl(T))]
 struct OnlyPhantomForceRepl<T> {

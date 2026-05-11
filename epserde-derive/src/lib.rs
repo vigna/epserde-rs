@@ -488,7 +488,7 @@ fn gen_ser_deser_where_clauses(
     // Add trait bounds for all field types
     for field_type in field_types {
         // Skip the field_type: SerInner/DeserInner bound for field types
-        // that mention an force_repl parameter. Such bounds would shadow
+        // that mention a force_repl parameter. Such bounds would shadow
         // the impl's DeserType<'_> projection (Rust issue #152409) and
         // prevent the derived _deser_eps_inner body from type-checking.
         // The forced-repl T: SerInner/DeserInner bound added by the caller
@@ -652,7 +652,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
 
     // For force_repl parameters, add T: SerInner and T: DeserInner so
     // that the substituted forms SerType<T> and DeserType<'_, T> are
-    // well-formed. Naturally-replaceable parameters get these bounds for
+    // well-formed. Naturally replaceable parameters get these bounds for
     // free because the parameter is itself a field type, but forced-repl
     // parameters appear only inside wrappers, so we need them explicitly.
     if !ctx.is_zero_copy {
@@ -1148,41 +1148,15 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// }
 /// ```
 ///
-/// # `force_repl` attribute
+/// # The `force_repl` attribute
 ///
-/// `#[epserde(force_repl(T, U, ...))]` forces the named type parameters
-/// to be treated as transitively replaceable in `Self::DeserType<'_>` and
-/// `Self::SerType`, even if they do not appear as a direct field type.
+/// `#[epserde(force_repl(T, U, ...))]` forces the listed type parameters to be
+/// replaceable, even if they do not appear as a field type. See the [ε-serde
+/// documentation] for the rationale behind this attribute.
 ///
-/// The attribute lifts two related restrictions:
-/// - a type parameter that appears only inside a wrapper (e.g. `Vec<T>`
-///   in a field of type `A<Vec<T>>`) can still be substituted in the
-///   ε-copy deserialized form;
-/// - a type parameter can appear both as a direct field type and as a
-///   parameter of another field's type.
-///
-/// In both cases, every field type that mentions a forced parameter must
-/// substitute it transitively in its own `DeserType<'_>` and `SerType`.
-/// This is a contract on the user; standard library wrappers (`Vec<T>`,
-/// `Box<T>`, `Option<T>`, tuples, arrays) and `Epserde`-derived types
-/// satisfy it for their naturally-replaceable parameters. A violated
-/// contract produces a compile error in the generated `_deser_eps_inner`
-/// body.
-///
-/// `force_repl` is rejected on zero-copy types and on idents that do
-/// not name a generic type parameter of the annotated item. Listing a
-/// naturally-replaceable parameter is allowed (no-op).
-///
-/// Example:
-///
-/// ```ignore
-/// #[derive(Epserde)]
-/// struct A<T>(T);
-///
-/// #[derive(Epserde)]
-/// #[epserde(force_repl(T))]
-/// struct B<T>(A<T>);
-/// ```
+/// [ε-serde documentation]:
+/// https://docs.rs/epserde/latest/epserde/#example-forcing-transitive-replaceability-with-force_repl
+
 #[proc_macro_derive(Epserde, attributes(epserde_zero_copy, epserde_deep_copy, epserde))]
 pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // This part is in common with type_info_derive
