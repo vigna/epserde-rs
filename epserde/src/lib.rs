@@ -107,8 +107,8 @@ pub const fn pad_align_to(value: usize, align_to: usize) -> usize {
 /// for new code.
 ///
 /// Migrating an existing struct from [`PhantomDeserData<T>`] to
-/// [`PhantomData<T>`] changes the struct's type hash, so previously-serialised
-/// files will fail to deserialise against the new definition; re-serialise the
+/// [`PhantomData<T>`] changes the struct's type hash, so previously-serialized
+/// files will fail to deserialize against the new definition; re-serialize the
 /// data after migration.
 ///
 /// Note that `T` must be sized because of a trait bound on [`DeserInner`].

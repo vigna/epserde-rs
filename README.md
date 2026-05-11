@@ -849,8 +849,8 @@ substitution applied to `data`.
 
 [`PhantomDeserData`] is kept as a deprecated alias for backward compatibility.
 Migrating an existing struct from [`PhantomDeserData<T>`] to [`PhantomData<T>`]
-changes the struct's type hash, so previously-serialised files will fail to
-deserialise against the new definition; re-serialise the data after migration.
+changes the struct's type hash, so previously-serialized files will fail to
+deserialize against the new definition; re-serialize the data after migration.
 
 ## MemDbg / MemSize
 
