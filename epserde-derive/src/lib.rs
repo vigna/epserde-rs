@@ -1139,6 +1139,42 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 ///     mask: B::Word,
 /// }
 /// ```
+///
+/// # `enforce_repl` attribute
+///
+/// `#[epserde(enforce_repl(T, U, ...))]` forces the named type parameters
+/// to be treated as transitively replaceable in `Self::DeserType<'_>` and
+/// `Self::SerType`, even if they do not appear as a direct field type.
+///
+/// The attribute lifts two related restrictions:
+/// - a type parameter that appears only inside a wrapper (e.g. `Vec<T>`
+///   in a field of type `A<Vec<T>>`) can still be substituted in the
+///   ε-copy deserialized form;
+/// - a type parameter can appear both as a direct field type and as a
+///   parameter of another field's type.
+///
+/// In both cases, every field type that mentions a forced parameter must
+/// substitute it transitively in its own `DeserType<'_>` and `SerType`.
+/// This is a contract on the user; standard library wrappers (`Vec<T>`,
+/// `Box<T>`, `Option<T>`, tuples, arrays) and `Epserde`-derived types
+/// satisfy it for their naturally-replaceable parameters. A violated
+/// contract produces a compile error in the generated `_deser_eps_inner`
+/// body — no silent miscompilation.
+///
+/// `enforce_repl` is rejected on zero-copy types and on idents that do
+/// not name a generic type parameter of the annotated item. Listing a
+/// naturally-replaceable parameter is allowed (no-op).
+///
+/// Example:
+///
+/// ```ignore
+/// #[derive(Epserde)]
+/// struct A<T>(T);
+///
+/// #[derive(Epserde)]
+/// #[epserde(enforce_repl(T))]
+/// struct B<T>(A<T>);
+/// ```
 #[proc_macro_derive(Epserde, attributes(epserde_zero_copy, epserde_deep_copy, epserde))]
 pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // This part is in common with type_info_derive
@@ -1175,10 +1211,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         if !type_params.contains(ident) {
             return syn::Error::new_spanned(
                 ident,
-                format!(
-                    "`{}` is not a generic type parameter of this item",
-                    ident
-                ),
+                format!("`{}` is not a generic type parameter of this item", ident),
             )
             .to_compile_error()
             .into();
