@@ -234,7 +234,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
                         Ok(())
                     })
                 } else {
-                    Err(meta.error("expected 'zero_copy', 'deep_copy', 'bound', or 'enforce_repl'"))
+                    Err(meta.error("expected `zero_copy`, `deep_copy`, `bound`, or `enforce_repl`"))
                 }
             })?;
         }

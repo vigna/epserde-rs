@@ -67,11 +67,11 @@ In the same function, find the nested-meta walk (the `attr.parse_nested_meta(|me
                         Ok(())
                     })
                 } else {
-                    Err(meta.error("expected 'zero_copy', 'deep_copy', 'bound', or 'enforce_repl'"))
+                    Err(meta.error("expected `zero_copy`, `deep_copy`, `bound`, or `enforce_repl`"))
                 }
 ```
 
-Note: replace the existing error message in the `else` branch ("expected `zero_copy`, `deep_copy`, or `bound`") with the new one listing `enforce_repl`.
+Note: replace the existing error message in the `else` branch ("expected `zero_copy`, `deep_copy`, or `bound`") with the new one listing `enforce_repl`. The project convention is to use backticks (not single quotes) around code-like names in error messages (see commit `433d7a4` "No more single quotation marks in error messages"); apply the same convention everywhere in this plan.
 
 - [ ] **Step 3: Return the parsed value**
 
@@ -179,7 +179,7 @@ Add validation immediately after the `emit_deprecation_warnings` call:
             return syn::Error::new_spanned(
                 ident,
                 format!(
-                    "'{}' is not a generic type parameter of this item",
+                    "`{}` is not a generic type parameter of this item",
                     ident
                 ),
             )
@@ -192,7 +192,7 @@ Add validation immediately after the `emit_deprecation_warnings` call:
     if attrs.is_zero_copy && !attrs.enforce_repl.is_empty() {
         return syn::Error::new_spanned(
             &attrs.enforce_repl[0],
-            "'enforce_repl' cannot be used with zero-copy types",
+            "`enforce_repl` cannot be used with zero-copy types",
         )
         .to_compile_error()
         .into();
@@ -923,8 +923,8 @@ Expected: PASS. The two new fail tests get fresh `.stderr` files in `epserde/tes
 
 Open `epserde/tests/fail/enforce_repl_unknown_param.stderr` and `epserde/tests/fail/enforce_repl_on_zero_copy.stderr` and confirm they contain, respectively, the messages emitted by the validation in Task 2:
 
-- For `enforce_repl_unknown_param.stderr`: must mention `'X' is not a generic type parameter of this item`.
-- For `enforce_repl_on_zero_copy.stderr`: must mention `'enforce_repl' cannot be used with zero-copy types`.
+- For `enforce_repl_unknown_param.stderr`: must mention `` `X` is not a generic type parameter of this item ``.
+- For `enforce_repl_on_zero_copy.stderr`: must mention `` `enforce_repl` cannot be used with zero-copy types ``.
 
 If either file is missing the expected message, the error in Task 2 was either spelled differently or never reached. Fix and re-run with `TRYBUILD=overwrite`.
 
