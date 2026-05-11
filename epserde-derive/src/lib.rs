@@ -472,12 +472,22 @@ fn gen_generics_for_ser_type(
 fn gen_ser_deser_where_clauses(
     field_types: &[&syn::Type],
     is_zero_copy: bool,
+    enforce_repl: &HashSet<&syn::Ident>,
 ) -> (WhereClause, WhereClause) {
     let mut ser_where_clause = empty_where_clause();
     let mut deser_where_clause = empty_where_clause();
 
     // Add trait bounds for all field types
     for field_type in field_types {
+        // Skip the `field_type: SerInner`/`DeserInner` bound for field types
+        // that mention an `enforce_repl` parameter. Such bounds would shadow
+        // the impl's `DeserType<'_>` projection (Rust issue #152409) and
+        // prevent the derived `_deser_eps_inner` body from type-checking.
+        // The forced-repl `T: SerInner`/`DeserInner` bound added by the
+        // caller is enough for Rust to resolve the wrapper's impl directly.
+        if !is_zero_copy && type_contains_any(field_type, enforce_repl) {
+            continue;
+        }
         add_ser_deser_trait_bounds(
             field_type,
             is_zero_copy,
@@ -620,8 +630,9 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &repl_params);
     let generics_for_ser_type = gen_generics_for_ser_type(ctx, &repl_params);
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
+    let enforce_repl_set: HashSet<&syn::Ident> = ctx.enforce_repl.iter().collect();
     let (mut ser_where_clause, mut deser_where_clause) =
-        gen_ser_deser_where_clauses(&field_types, ctx.is_zero_copy);
+        gen_ser_deser_where_clauses(&field_types, ctx.is_zero_copy, &enforce_repl_set);
 
     // Add user-specified bounds from #[epserde(bound(...))]
     ser_where_clause
@@ -630,6 +641,22 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     deser_where_clause
         .predicates
         .extend(ctx.deser_bounds.iter().cloned());
+
+    // For `enforce_repl` parameters, add `T: SerInner` and `T: DeserInner`
+    // so that the substituted forms `SerType<T>` and `DeserType<'_, T>` are
+    // well-formed. Naturally-replaceable parameters get these bounds for
+    // free because the parameter is itself a field type, but forced-repl
+    // parameters appear only inside wrappers, so we need them explicitly.
+    if !ctx.is_zero_copy {
+        for ident in &ctx.enforce_repl {
+            ser_where_clause.predicates.push(syn::parse_quote!(
+                #ident: ::epserde::ser::SerInner
+            ));
+            deser_where_clause.predicates.push(syn::parse_quote!(
+                #ident: ::epserde::deser::DeserInner
+            ));
+        }
+    }
 
     let name = &ctx.derive_input.ident;
     let generics_for_impl = &ctx.generics_for_impl;
@@ -910,8 +937,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     let tag = (0..variant_arm.len()).collect::<Vec<_>>();
 
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &all_fields_types);
+    let enforce_repl_set: HashSet<&syn::Ident> = ctx.enforce_repl.iter().collect();
     let (mut ser_where_clause, mut deser_where_clause) =
-        gen_ser_deser_where_clauses(&all_fields_types, ctx.is_zero_copy);
+        gen_ser_deser_where_clauses(&all_fields_types, ctx.is_zero_copy, &enforce_repl_set);
 
     // Add user-specified bounds from #[epserde(bound(...))]
     ser_where_clause
@@ -920,6 +948,20 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     deser_where_clause
         .predicates
         .extend(ctx.deser_bounds.iter().cloned());
+
+    // For `enforce_repl` parameters, add `T: SerInner` and `T: DeserInner`
+    // so that the substituted forms `SerType<T>` and `DeserType<'_, T>` are
+    // well-formed. See `gen_epserde_struct_impl` for the rationale.
+    if !ctx.is_zero_copy {
+        for ident in &ctx.enforce_repl {
+            ser_where_clause.predicates.push(syn::parse_quote!(
+                #ident: ::epserde::ser::SerInner
+            ));
+            deser_where_clause.predicates.push(syn::parse_quote!(
+                #ident: ::epserde::deser::DeserInner
+            ));
+        }
+    }
 
     let name = &ctx.derive_input.ident;
     let is_deep_copy = ctx.is_deep_copy;
