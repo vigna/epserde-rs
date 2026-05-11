@@ -637,9 +637,8 @@ equation for `SerInner::SerType`. Standard library wrappers that satisfy the
 contract: `Box<T>`, `Rc<T>`, `Arc<T>`, `Option<T>`, the `Range<T>` family,
 and tuples. `Epserde`-derived types satisfy it for their naturally-replaceable
 parameters. `Vec<T>`, `Box<[T]>`, `[T; N]`, and `String` satisfy it only when
-their parameter is deep-copy — using the marker with a zero-copy inner
+their parameter is deep-copy: using the marker with a zero-copy inner
 parameter produces a compile error in the derived `_deser_eps_inner` body.
-A violated contract surfaces as a type mismatch, not silent miscompilation.
 
 `force_repl` is rejected on fields of zero-copy types. Marking a field whose
 type is a single-segment generic (already naturally-replaceable) is allowed
@@ -652,7 +651,7 @@ contributing to irreplaceability and starts contributing to replaceability,
 so the parameter is consistently classified.
 
 The symmetric `#[epserde(force_irrepl)]` marker resolves the same restriction
-from the opposite side: applied to a field whose type is a struct generic
+from the opposite side: applied to a field whose type is a type parameter
 (e.g., `data: T`), it reclassifies that occurrence from replaceable to
 irreplaceable and flips the field's dispatch from ε-deserialization to
 full-copy. Use it when you want the parameter to stay un-substituted across
@@ -1004,20 +1003,37 @@ Note that all fields of a type you want to (de)serialize must implement
 
 ### Replaceable and irreplaceable parameters
 
-Given a type `S` with generics, a struct parameter `T` is classified as follows
-(occurrences nested inside `PhantomData<…>` at any depth are excluded from
-both classifications):
+Given a type `S` with generics, an occurrence of a type parameter `T` is
+classified as follows:
 
-- `T` is **replaceable** if it appears as the type of a field of `S` that
-  does _not_ carry `#[epserde(force_irrepl)]`, or anywhere inside the type
-  of a field of `S` carrying `#[epserde(force_repl)]`.
+- it is a _head occurrence_ if it is the type of a field of `S` (e.g., `foo: T`).
 
-- `T` is **irreplaceable** if it appears as a type argument inside the type
-  of a field of `S` that does _not_ carry `#[epserde(force_repl)]`, or as
-  the type of a field carrying `#[epserde(force_irrepl)]`.
+- it is a _deep occurrence_ if it is a type parameter of the type of a field of
+  `S` (e.g., `foo: Vec<T>`).
 
-By default the derived code of ε-serde requires that no type parameter is both
-replaceable and irreplaceable. For example, in the following structure
+Finally, `T` is
+
+- _replaceable_ if it has a head occurrence in a field that does not carry
+  `#[epserde(force_irrepl)]`, or a deep occurrence in a field that carries
+  `#[epserde(force_repl)]`;
+
+- _irreplaceable_ if it has a head occurrence in a field that carries
+  `#[epserde(force_irrepl)]`, or a deep occurrence in a field that does not
+  carry `#[epserde(force_repl)]`;
+
+- occurrences nested inside `PhantomData<…>` at any depth
+  are excluded from both classifications.
+
+Thus, by default head occurrences are replaceable and deep occurrences are
+irreplaceable, but the field-level attributes can flip the classification of a
+parameter in either direction. An important restriction is that `force_repl`
+imposes that the field type is _commutative_ (see below), that is, that its
+deserialization type is obtained by replacing type parameters with the
+associated deserialization types.
+
+The derived code of ε-serde requires that no type
+parameter is both replaceable and irreplaceable. For example, in the following
+structure
 
 ```rust
 struct Bad<A> {
@@ -1026,24 +1042,14 @@ struct Bad<A> {
 }
 ```
 
-the type parameter `A` is both replaceable (type of `data`) and
-irreplaceable (type argument of `vec: Vec<A>`), which produces a compile error.
+the type parameter `A` is both replaceable (type of `data`) and irreplaceable
+(type argument of `vec: Vec<A>`), which produces a compile error. One can solve
+this problem by making `data` irreplaceable with `#[epserde(force_irrepl)]`, or
+by making `vec` replaceable with `#[epserde(force_repl)]`. In that case, however,
+`A` must be deep-copy, as `Vec` is commutative only for deep-copy types (as
+the deserialization type of a vector of a zero-copy type is a reference to a slice).
 
-There are two field-level attributes that lift this restriction:
-
-- [`#[epserde(force_repl)]`](#example-forcing-replaceability-with-force_repl-and-force_irrepl)
-  placed on the wrapper field (e.g., `vec: Vec<A>`) forces `A` to be treated
-  as replaceable there. Every wrapper around `A` in that field must substitute
-  its parameter transitively; a compile error is produced in `_deser_eps_inner`
-  if this contract is violated.
-
-- [`#[epserde(force_irrepl)]`](#example-forcing-replaceability-with-force_repl-and-force_irrepl)
-  placed on a field whose type is the parameter (e.g., `data: A`) forces `A`
-  to be treated as irreplaceable there, flipping that field's deserialization
-  dispatch from ε-copy to full-copy. Use it when substituting `A` would be
-  wrong (e.g., because a sibling field already uses `A` as a type argument).
-
-[`PhantomData<T>`] is not subject to this rule at all: the `Epserde` derive
+[`PhantomData<T>`] is not subject to this rule: the `Epserde` derive
 substitutes `T` inside [`PhantomData<T>`] fields natively, so a parameter that
 appears in a [`PhantomData`] field is always consistent with however the same
 parameter is classified elsewhere in the structure. You can also use the `bound`
@@ -1167,20 +1173,19 @@ Given a user-defined type `T`:
 - if `T` is zero-copy, the serialization type is `T`, and the deserialization
   type is `&T`;
 
-- if `T` is deep-copy, the serialization type is obtained by replacing the type
-  of each field with its associated serialization type.
-
 - if `T` is a deep-copy concrete type obtained by resolving the type parameters
   `P₀`, `P₁`, `P₂`, … of a type definition (struct or enum) to concrete types
   `T₀`, `T₁`, `T₂`, …, then the deserialization type is obtained by resolving
   each replaceable type parameter `Pᵢ` with the deserialization type of `Tᵢ`
   instead. (Note that the first rule still applies, so if `Tᵢ` is zero-copy
-  its deserialization type is `&Tᵢ`.) A parameter is replaceable iff it
-  appears as the type of some field not marked with
-  `#[epserde(force_irrepl)]`, or anywhere inside the type of a field marked
-  with `#[epserde(force_repl)]`. Occurrences inside `PhantomData<…>` count
-  toward neither classification. See [Replaceable and irreplaceable
-  parameters](#replaceable-and-irreplaceable-parameters) for the full rules.
+  its deserialization type is `&Tᵢ`.). See [Replaceable and irreplaceable
+  parameters](#replaceable-and-irreplaceable-parameters) for the definition
+  of replaceable parameters.
+
+Finally, a deep-copy type is _commutative_ if all its type parameters are
+replaceable. This means that (de)serialization type is obtained by replacing all
+type parameters with their (de)serialization types: said otherwise, the
+projection to the (de)serialization type and the type constructor _commute_.
 
 For standard types, we have:
 
