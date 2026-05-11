@@ -437,6 +437,12 @@ struct MyStructParam<A> {
 In some cases, you can simply add a bound to the type parameter: see the example
 below on pinning associated types.
 
+Finally, when every occurrence of the parameter can be substituted consistently
+(the wrapper around the parameter must itself substitute its own parameter
+transitively), you can use the [`enforce_repl`
+attribute](#forcing-transitive-replaceability-with-enforce_repl) to opt the
+parameter into substitution everywhere it appears.
+
 ## Example: User-defined deep-copy structures with internal parameters
 
 Internal type parameters, that is, type parameters used by the types of your
@@ -469,6 +475,60 @@ let t: MyStruct<Vec<isize>> =
 
 Note how the field originally of type `Vec<Vec<isize>>` remains of the same
 type.
+
+## Forcing transitive replaceability with `enforce_repl`
+
+The default behaviour described above means that a type parameter `T` is
+substituted with its associated deserialization type only when it appears as the
+exact type of one of the item's fields. If `T` is buried inside a wrapper — for
+example, in `struct MyStruct<T>(Inner<T>)` — then `MyStruct<…>::DeserType<'_>`
+keeps `T` unchanged, and the ε-copy deserialized form does not benefit from
+`T`'s own ε-copy form.
+
+The struct/enum-level attribute `#[epserde(enforce_repl(T, U, …))]` lets you
+opt the named parameters into substitution anyway:
+
+```rust
+# use epserde::prelude::*;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[derive(Epserde, Debug, PartialEq)]
+struct Inner<T>(T);
+
+#[derive(Epserde, Debug, PartialEq)]
+#[epserde(enforce_repl(T))]
+struct Outer<T>(Inner<T>);
+
+let s: Outer<Vec<isize>> = Outer(Inner(vec![0, 1, 2, 3]));
+let mut file = std::env::temp_dir();
+file.push("serialized_enforce_repl");
+unsafe { s.store(&file) };
+let b = std::fs::read(&file)?;
+
+// Without `enforce_repl`, the ε-copy form of Outer<Vec<isize>> would keep
+// Vec<isize> in its inner field. With it, the inner Vec<isize> is replaced
+// by &[isize] just like a top-level vector would be.
+let t: Outer<&[isize]> = unsafe { <Outer<Vec<isize>>>::deserialize_eps(b.as_ref())? };
+assert_eq!(s.0.0.as_slice(), t.0.0);
+
+# Ok::<(), Box<dyn std::error::Error>>(())
+# }
+```
+
+The attribute asserts a contract on the user: every field type that mentions a
+forced parameter must substitute it transitively in its own associated
+(de)serialization type. Standard library wrappers (`Vec<T>`, `Box<T>`,
+`Option<T>`, tuples, arrays) and `Epserde`-derived types satisfy this
+automatically for their naturally-replaceable parameters. A violated contract
+produces a compile error in the generated `_deser_eps_inner` body — there is no
+silent miscompilation.
+
+`enforce_repl` is rejected on zero-copy types and on identifiers that do not
+name a generic type parameter of the annotated item. Listing a
+naturally-replaceable parameter is allowed (and a no-op).
+
+`enforce_repl` also lifts the restriction described earlier on a parameter
+appearing both as a field type and as a parameter of another field's type, as
+long as the user contract holds at every occurrence.
 
 ## Example: User-defined zero-copy structures with parameters
 

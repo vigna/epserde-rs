@@ -128,24 +128,6 @@ pub const fn pad_align_to(value: usize, align_to: usize) -> usize {
 ///     phantom: PhantomDeserData<T>,
 /// }
 /// ```
-///
-/// # Forcing transitive replaceability with `enforce_repl`
-///
-/// By default, a generic type parameter `T` of an `Epserde`-derived
-/// struct or enum is substituted with `T::DeserType<'_>` in
-/// `Self::DeserType<'_>` only if `T` appears as the exact type of one of
-/// the item's fields. If `T` only appears through a wrapper — for
-/// example, in `struct B<T>(A<Vec<T>>)` — then `B<…>::DeserType<'_>`
-/// keeps `T` unchanged, and the ε-copy deserialized form does not benefit
-/// from `T`'s own ε-copy form.
-///
-/// The struct/enum-level attribute `#[epserde(enforce_repl(T, U, …))]`
-/// lets you opt every named parameter into transitive replaceability.
-/// The asserted contract is that every field type containing the
-/// parameter substitutes it transitively in its own `DeserType<'_>` and
-/// `SerType`; standard library wrappers and `Epserde`-derived types
-/// satisfy this automatically. See the documentation of `#[derive(Epserde)]`
-/// for the precise rules and failure modes.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PhantomDeserData<T>(pub PhantomData<T>);
 
