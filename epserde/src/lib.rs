@@ -96,39 +96,22 @@ pub const fn pad_align_to(value: usize, align_to: usize) -> usize {
     value.wrapping_neg() & (align_to - 1)
 }
 
-/// A type semantically equivalent to [`PhantomData`], but whose type parameter
-/// is replaced with its associated deserialization type.
+/// **Deprecated.** Use plain [`PhantomData`] instead.
 ///
-/// In some case, you might find yourself with a deep-copy type that has a type
-/// parameter `T` appearing both in a field and in a [`PhantomData`]. In this
-/// case, the type will not compile, as in its associated deserialization type
-/// `T` will be replaced by `T::DeserType`, but the [`PhantomData`] field will
-/// still contain `T`. To fix this issue, you can use [`PhantomDeserData`]
-/// instead.
+/// This type used to be a workaround for the case where a deep-copy
+/// `Epserde`-derived struct had a type parameter `T` appearing both in a field
+/// and in a [`PhantomData<T>`] field, which would otherwise fail to compile
+/// because [`PhantomData<T>`] does not substitute its parameter. The `Epserde`
+/// derive now handles [`PhantomData<T>`] natively, substituting `T` inside the
+/// derived `Self::DeserType<'_>`, so [`PhantomDeserData`] is no longer needed
+/// for new code.
+///
+/// Migrating an existing struct from [`PhantomDeserData<T>`] to
+/// [`PhantomData<T>`] changes the struct's type hash, so previously-serialised
+/// files will fail to deserialise against the new definition; re-serialise the
+/// data after migration.
 ///
 /// Note that `T` must be sized because of a trait bound on [`DeserInner`].
-///
-/// # Examples
-///
-/// This code will not compile:
-/// ```compile_fail
-/// use epserde::prelude::*;
-/// #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
-/// struct Data<T> {
-///     data: T,
-///     phantom: PhantomData<T>,
-/// }
-/// ```
-///
-/// This code, instead, will compile:
-/// ```
-/// use epserde::prelude::*;
-/// #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
-/// struct Data<T> {
-///     data: T,
-///     phantom: PhantomDeserData<T>,
-/// }
-/// ```
 #[deprecated(
     since = "0.13.0",
     note = "use plain `PhantomData<T>` instead — the `Epserde` derive now substitutes \

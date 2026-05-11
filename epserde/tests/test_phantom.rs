@@ -296,12 +296,10 @@ fn test_phantom_data_enforce_repl() -> anyhow::Result<()> {
     unsafe { obj.serialize(&mut cursor)? };
 
     cursor.set_position(0);
-    let full =
-        unsafe { <OnlyPhantomEnforceRepl<Vec<i32>>>::deserialize_full(&mut cursor)? };
+    let full = unsafe { <OnlyPhantomEnforceRepl<Vec<i32>>>::deserialize_full(&mut cursor)? };
     assert_eq!(obj, full);
 
-    let eps =
-        unsafe { <OnlyPhantomEnforceRepl<Vec<i32>>>::deserialize_eps(cursor.as_bytes())? };
+    let eps = unsafe { <OnlyPhantomEnforceRepl<Vec<i32>>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(obj.other, eps.other);
     // The phantom slot must be PhantomData<&[i32]> after enforce_repl
     // substitutes T into <Vec<i32> as DeserInner>::DeserType<'_>.

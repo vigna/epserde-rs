@@ -449,8 +449,7 @@ Internal type parameters, that is, type parameters used by the types of your
 fields but that do not represent the type of a fields, are left untouched.
 However, to be serializable they must be classified as deep-copy or zero-copy.
 The only exception to this rule is for types inside a [`PhantomData`], which do
-not even need to be serializable, or for types inside a [`PhantomDeserData`].
-For example,
+not even need to be serializable. For example,
 
 ```rust
 # use epserde::prelude::*;
@@ -815,9 +814,43 @@ have to be (de)serializable or sized—it is sufficient that it implements
 [`TypeHash`]. For this reason, we provide [`TypeHash`] implementations for
 `*const T`, `str`, and `[T]`.
 
-There might be corner cases in which `T` appears both as a parameter of
-[`PhantomData`] and as a type parameter of a field of a type. In this case, you
-can use [`PhantomDeserData`] instead of [`PhantomData`].
+When `T` appears both as a parameter of a [`PhantomData`] field and as the type
+of another field, the `Epserde` derive substitutes `T` inside [`PhantomData<T>`]
+natively, so the following code compiles and round-trips correctly:
+
+```rust
+# use epserde::prelude::*;
+# use std::marker::PhantomData;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
+struct Data<T> {
+    data: T,
+    phantom: PhantomData<T>,
+}
+
+let s: Data<Vec<isize>> = Data { data: vec![0, 1, 2, 3], phantom: PhantomData };
+let mut file = std::env::temp_dir();
+file.push("serialized_phantom");
+unsafe { s.store(&file)? };
+let b = std::fs::read(&file)?;
+
+// The data field is substituted to &[isize] in the ε-deserialized form,
+// and so is the phantom slot.
+let t = unsafe { <Data<Vec<isize>>>::deserialize_eps(b.as_ref())? };
+assert_eq!(s.data.as_slice(), t.data);
+let _phantom_check: PhantomData<&[isize]> = t.phantom;
+#     Ok(())
+# }
+```
+
+Note how the phantom field originally of type `PhantomData<Vec<isize>>` becomes
+`PhantomData<&[isize]>` in the ε-deserialized form, consistently with the
+substitution applied to `data`.
+
+[`PhantomDeserData`] is kept as a deprecated alias for backward compatibility.
+Migrating an existing struct from [`PhantomDeserData<T>`] to [`PhantomData<T>`]
+changes the struct's type hash, so previously-serialised files will fail to
+deserialise against the new definition; re-serialise the data after migration.
 
 ## MemDbg / MemSize
 
@@ -979,7 +1012,7 @@ the type parameter `A` is both replaceable (it is the type of the field `data`)
 and irreplaceable (it is a type parameter of the type of field `vec`).
 
 The only exception to this rule is for type parameters that appear inside a
-[`PhantomDeserData`], which must be replaceable. Moreover, you can use the
+[`PhantomData`], which must be replaceable. Moreover, you can use the
 `bound` attribute to solve some cases (e.g., when [`DeserType<'_, A>`] is equal
 to `A`—see the example above about pinning associated types).
 
@@ -1110,15 +1143,16 @@ Given a user-defined type `T`:
   instead. (Note that the first rule still applies, so if `Tᵢ` is zero-copy the
   its deserialization type is `&Tᵢ`.)
 
-For standard types and [`PhantomDeserData`], we have:
+For standard types, we have:
 
 - all primitive types, such as `u8`, `i32`, `f64`, `char`, `bool`, etc., `()`,
   and `PhantomData<T>` are zero-copy and their (de)serialization type is
-  themselves;
+  themselves; note however that when `T` is a replaceable type parameter,
+  the `Epserde` derive substitutes `T` inside `PhantomData<T>` natively,
+  so the ε-deserialized form carries `PhantomData<T::DeserType<'_>>`;
 
-- `Option<T>` and `PhantomDeserData<T>` are deep-copy and their
-  (de)serialization type is themselves, with `T` replaced by its
-  (de)serialization type;
+- `Option<T>` is deep-copy and its (de)serialization type is itself, with `T`
+  replaced by its (de)serialization type;
 
 - `Vec<T>`, `Box<[T]>`, `&[T]` and `SerIter<T>` are deep-copy, and their
   serialization type is `Box<[T::SerType]>`; the deserialization type of
