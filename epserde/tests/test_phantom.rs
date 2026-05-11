@@ -234,3 +234,37 @@ fn test_deser_phantom_zero_copy() {
     // We can't directly compare PhantomData types, but we can verify the deserialization worked
     let _phantom_check: PhantomDeserData<[i32; 4]> = eps.phantom;
 }
+
+// New behaviour from the native PhantomData arm in the derive:
+// a struct with T both as a direct field and inside PhantomData<T>
+// now compiles and round-trips correctly, without PhantomDeserData.
+#[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
+struct DataWithPhantomData<T> {
+    data: T,
+    phantom: PhantomData<T>,
+}
+
+#[test]
+fn test_phantom_data_substitution() -> anyhow::Result<()> {
+    let obj: DataWithPhantomData<Vec<i32>> = DataWithPhantomData {
+        data: vec![1, 2, 3, 4],
+        phantom: PhantomData,
+    };
+
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    unsafe { obj.serialize(&mut cursor)? };
+
+    cursor.set_position(0);
+    let full = unsafe { <DataWithPhantomData<Vec<i32>>>::deserialize_full(&mut cursor)? };
+    assert_eq!(obj, full);
+
+    let eps = unsafe { <DataWithPhantomData<Vec<i32>>>::deserialize_eps(cursor.as_bytes())? };
+    // The data field comes back as &[i32] (Vec<i32>::DeserType<'_>).
+    assert_eq!(obj.data.as_slice(), eps.data);
+    // The phantom field has type PhantomData<&[i32]>. The annotation
+    // forces the type-check; if PhantomData were not substituting its
+    // parameter, this line would fail to compile.
+    let _phantom_check: PhantomData<&[i32]> = eps.phantom;
+
+    Ok(())
+}
