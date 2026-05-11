@@ -153,6 +153,167 @@ fn type_contains_any(ty: &syn::Type, params: &HashSet<&syn::Ident>) -> bool {
     }
 }
 
+/// Per-field classification record produced by `classify_repl_params`.
+///
+/// One entry per generic type parameter of the struct/enum being derived.
+/// The same parameter may show up replaceable (from one field) and
+/// irreplaceable (from another) — the caller detects this as a conflict.
+struct ParamClassification<'a> {
+    /// The parameter being classified.
+    ident: &'a syn::Ident,
+    /// Set of field names where the parameter appears in a position that
+    /// contributes to replaceability. Used for diagnostic messages.
+    replaceable_in: Vec<proc_macro2::TokenStream>,
+    /// Set of field names where the parameter appears in a position that
+    /// contributes to irreplaceability. Used for diagnostic messages.
+    irreplaceable_in: Vec<proc_macro2::TokenStream>,
+}
+
+/// Walks every field's type and classifies each generic parameter's
+/// occurrences as replaceable, irreplaceable, or neither (inside
+/// PhantomData<…> or absent). Returns one record per generic parameter,
+/// in declaration order.
+///
+/// The walker treats PhantomData<…> as a barrier: occurrences inside it
+/// (at any depth) contribute to neither classification.
+///
+/// Marker handling at the direct (single-segment) field level:
+/// - `None` (default) → contributes to replaceable.
+/// - `ForceIrrepl` → contributes to irreplaceable (the marker exists to
+///   override the natural-repl default).
+/// - `ForceRepl` on a direct field → contributes to replaceable (same as
+///   default; the marker is a silent no-op there).
+///
+/// Marker handling at the type-argument level:
+/// - `None` → contributes to irreplaceable.
+/// - `ForceRepl` → contributes to replaceable.
+/// - `ForceIrrepl` is rejected at validation time on non-direct fields
+///   (Task 6), so the walker does not need to handle that combination.
+fn classify_repl_params<'a>(
+    type_params: &[&'a syn::Ident],
+    fields: &[(proc_macro2::TokenStream, &syn::Type, FieldMarker)],
+) -> Vec<ParamClassification<'a>> {
+    let mut out: Vec<ParamClassification<'a>> = type_params
+        .iter()
+        .map(|p| ParamClassification {
+            ident: p,
+            replaceable_in: Vec::new(),
+            irreplaceable_in: Vec::new(),
+        })
+        .collect();
+
+    for (field_name, field_type, marker) in fields {
+        // A field whose type is exactly a single-segment generic adds the
+        // parameter to one of the buckets per the marker.
+        if let Some(ident) = get_ident(field_type) {
+            if let Some(rec) = out.iter_mut().find(|r| r.ident == ident) {
+                match marker {
+                    FieldMarker::ForceIrrepl => rec.irreplaceable_in.push(field_name.clone()),
+                    _ => rec.replaceable_in.push(field_name.clone()),
+                }
+                continue;
+            }
+        }
+        // Otherwise walk the field's type, classifying each generic-ident
+        // occurrence. ForceRepl-marked fields contribute to replaceable;
+        // unmarked fields contribute to irreplaceable. Inside PhantomData<…>
+        // nothing is recorded.
+        let field_is_marked = matches!(marker, FieldMarker::ForceRepl);
+        collect_occurrences(
+            field_type, field_is_marked, field_name, type_params, &mut out, false,
+        );
+    }
+
+    out
+}
+
+/// Recursive helper for `classify_repl_params`. `inside_phantom` becomes
+/// true when the walk descends into the type arguments of a PhantomData
+/// path segment; while it is true, no occurrences are recorded.
+fn collect_occurrences<'a>(
+    ty: &syn::Type,
+    field_marked: bool,
+    field_name: &proc_macro2::TokenStream,
+    type_params: &[&'a syn::Ident],
+    out: &mut [ParamClassification<'a>],
+    inside_phantom: bool,
+) {
+    match ty {
+        syn::Type::Path(syn::TypePath { path, .. }) => {
+            for segment in &path.segments {
+                let segment_is_phantom = segment.ident == "PhantomData";
+                if let syn::PathArguments::AngleBracketed(ab) = &segment.arguments {
+                    let descend_inside_phantom = inside_phantom || segment_is_phantom;
+                    for arg in &ab.args {
+                        match arg {
+                            syn::GenericArgument::Type(t) => {
+                                // If t is a bare single-segment generic ident,
+                                // record this position; otherwise recurse into t.
+                                let bare = get_ident(t).and_then(|id| {
+                                    type_params.iter().find(|p| **p == id).copied()
+                                });
+                                if let Some(p_ident) = bare {
+                                    if !descend_inside_phantom {
+                                        let rec = out
+                                            .iter_mut()
+                                            .find(|r| r.ident == p_ident)
+                                            .expect("ident is in type_params");
+                                        if field_marked {
+                                            rec.replaceable_in.push(field_name.clone());
+                                        } else {
+                                            rec.irreplaceable_in.push(field_name.clone());
+                                        }
+                                    }
+                                } else {
+                                    collect_occurrences(
+                                        t,
+                                        field_marked,
+                                        field_name,
+                                        type_params,
+                                        out,
+                                        descend_inside_phantom,
+                                    );
+                                }
+                            }
+                            syn::GenericArgument::AssocType(a) => {
+                                collect_occurrences(
+                                    &a.ty,
+                                    field_marked,
+                                    field_name,
+                                    type_params,
+                                    out,
+                                    descend_inside_phantom,
+                                );
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+        syn::Type::Tuple(t) => {
+            for e in &t.elems {
+                collect_occurrences(
+                    e, field_marked, field_name, type_params, out, inside_phantom,
+                );
+            }
+        }
+        syn::Type::Array(a) => collect_occurrences(
+            &a.elem, field_marked, field_name, type_params, out, inside_phantom,
+        ),
+        syn::Type::Slice(s) => collect_occurrences(
+            &s.elem, field_marked, field_name, type_params, out, inside_phantom,
+        ),
+        syn::Type::Paren(p) => collect_occurrences(
+            &p.elem, field_marked, field_name, type_params, out, inside_phantom,
+        ),
+        syn::Type::Group(g) => collect_occurrences(
+            &g.elem, field_marked, field_name, type_params, out, inside_phantom,
+        ),
+        _ => {}
+    }
+}
+
 /// Generates a method call for field ε-copy deserialization.
 ///
 /// Takes care of choosing `_deser_eps_inner` or `_deser_full_inner`
