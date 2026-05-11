@@ -8,7 +8,7 @@
 [![downloads](https://img.shields.io/crates/d/epserde)](https://crates.io/crates/epserde)
 [![coveralls](https://coveralls.io/repos/github/vigna/epserde-rs/badge.svg?branch=main)](https://coveralls.io/github/vigna/epserde-rs?branch=main)
 
-ε-serde is a Rust framework for ε-*copy* *ser*ialization and *de*serialization.
+ε-serde is a Rust framework for ε-_copy_ *ser*ialization and *de*serialization.
 
 ## Why
 
@@ -847,11 +847,6 @@ Note how the phantom field originally of type `PhantomData<Vec<isize>>` becomes
 `PhantomData<&[isize]>` in the ε-deserialized form, consistently with the
 substitution applied to `data`.
 
-[`PhantomDeserData`] is kept as a deprecated alias for backward compatibility.
-Migrating an existing struct from [`PhantomDeserData<T>`] to [`PhantomData<T>`]
-changes the struct's type hash, so previously-serialized files will fail to
-deserialize against the new definition; re-serialize the data after migration.
-
 ## MemDbg / MemSize
 
 All ε-serde structures implement the [`MemDbg`] and [`MemSize`] traits.
@@ -995,11 +990,10 @@ Given a type `T`with generics, we say that a type parameter is _replaceable_ if
 it appears as the type of a field of `T`. We say instead that a type parameter
 is _irreplaceable_ if it is a generic parameter of the type of a field of `T`.
 
-The basic assumption in what follows, and in the derived code of ε-serde, is
-that no type parameter is both replaceable and irreplaceable. This means that
-you cannot have a type parameter that appears both as the type of a field and as
-a type parameter of the type of a field. If that happen, you will have to write
-the (de)serialization code by hand. For example, in the following structure
+By default, the derived code of ε-serde assumes that no type parameter is both
+replaceable and irreplaceable. This means that you cannot have a type parameter
+that appears both as the type of a field and as a type parameter of the type of
+a field. For example, in the following structure
 
 ```rust
 struct Bad<A> {
@@ -1009,10 +1003,19 @@ struct Bad<A> {
 ```
 
 the type parameter `A` is both replaceable (it is the type of the field `data`)
-and irreplaceable (it is a type parameter of the type of field `vec`).
+and irreplaceable (it is a type parameter of the type of field `vec`). You can
+lift this restriction with the structure-level attribute
+[`#[epserde(enforce_repl(A))]`](#forcing-transitive-replaceability-with-enforce_repl)
+when every wrapper around `A` substitutes its parameter transitively in its own
+deserialization type—see that section for the contract and its caveats. The
+same attribute is also how you make a parameter replaceable when it appears
+only inside such wrappers (e.g., `Vec<A>` with no separate `A` field), so its
+inner content is still substituted in the deserialization type.
 
-The only exception to this rule is for type parameters that appear inside a
-[`PhantomData`], which must be replaceable. Moreover, you can use the
+[`PhantomData<T>`] is not subject to this rule at all: the `Epserde` derive
+substitutes `T` inside [`PhantomData<T>`] fields natively, so a parameter that
+appears in a [`PhantomData`] field is always consistent with however the same
+parameter is substituted elsewhere in the structure. You can also use the
 `bound` attribute to solve some cases (e.g., when [`DeserType<'_, A>`] is equal
 to `A`—see the example above about pinning associated types).
 
@@ -1141,7 +1144,9 @@ Given a user-defined type `T`:
   `T₀`, `T₁`, `T₂`, …, then the deserialization type is obtained by resolving
   each replaceable type parameter `Pᵢ` with the deserialization type of `Tᵢ`
   instead. (Note that the first rule still applies, so if `Tᵢ` is zero-copy the
-  its deserialization type is `&Tᵢ`.)
+  its deserialization type is `&Tᵢ`.) A parameter named in
+  [`#[epserde(enforce_repl(…))]`](#forcing-transitive-replaceability-with-enforce_repl)
+  counts as replaceable here.
 
 For standard types, we have:
 
