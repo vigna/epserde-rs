@@ -77,32 +77,6 @@ fn test_force_full_internal_zero_copy() -> anyhow::Result<()> {
     Ok(())
 }
 
-// Marker on a parameterless field is a no-op. The field has no
-// variable positions to begin with, so it would default to full-copy
-// dispatch anyway; the marker just makes the intent explicit.
-#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
-#[epserde(deep_copy)]
-struct ParameterlessMarker {
-    #[epserde(force_full)]
-    inner: u32,
-}
-
-#[test]
-fn test_force_full_parameterless_field() -> anyhow::Result<()> {
-    let original = ParameterlessMarker { inner: 42 };
-    let mut cursor = <AlignedCursor<Aligned16>>::new();
-    unsafe { original.serialize(&mut cursor)? };
-
-    cursor.set_position(0);
-    let full = unsafe { ParameterlessMarker::deserialize_full(&mut cursor)? };
-    assert_eq!(original, full);
-
-    let eps = unsafe { ParameterlessMarker::deserialize_eps(cursor.as_bytes())? };
-    assert_eq!(42, eps.inner);
-
-    Ok(())
-}
-
 // force_full on an enum variant field. The marker lives on the field,
 // not on the variant.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]

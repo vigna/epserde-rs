@@ -65,7 +65,7 @@ This distinction drives specialization throughout the crate via `SerHelper<Zero>
 ### Derive Macros (`epserde-derive/src/lib.rs`)
 
 `#[derive(Epserde)]` generates `CopyType`, `SerInner`, `DeserInner`, `TypeHash`, `AlignHash`, and `AlignTo`. Key behavior:
-- **Type parameter replacement**: Every variable-position (bare-parameter) occurrence of a type parameter in an unmarked field's type makes the parameter replaceable; the derive substitutes it with `T::DeserType<'a>` in the deserialized form. Marking a field with `#[epserde(force_full)]` opts it out (full-copy dispatch, type verbatim); fields whose type contains no variable position default to full-copy.
+- **Type parameter replacement**: Every variable-position (bare-parameter) occurrence of a type parameter in an unmarked field's type makes the parameter replaceable; the derive substitutes it with `T::DeserType<'a>` in the deserialized form. Marking a field with `#[epserde(force_full)]` opts it out (full-copy deserialization, type verbatim); fields whose type contains no variable position default to full-copy as well.
 - **Static zero-copy assertion**: Uses const blocks to verify zero-copy candidates at compile time
 - Supports structs and enums (unit, named, unnamed variants)
 

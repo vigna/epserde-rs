@@ -1,4 +1,4 @@
-error: expected `zero_copy`, `deep_copy`, or `bound`
+error: expected "zero_copy", "deep_copy", or "bound"
   --> tests/fail/force_full_on_item.rs:14:11
    |
 14 | #[epserde(force_full)]

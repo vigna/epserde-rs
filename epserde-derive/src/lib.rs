@@ -164,7 +164,7 @@ fn has_param_occurrence(ty: &syn::Type, type_params: &[&syn::Ident]) -> bool {
 /// `_deser_eps_inner` call, a literal `PhantomData`, or a
 /// `_deser_eps_inner_special` call for `PhantomDeserData`. The choice
 /// between `_deser_full_inner` and `_deser_eps_inner` is taken by the
-/// caller via `dispatch_full`; the `PhantomData` and `PhantomDeserData`
+/// caller via `deser_full`; the `PhantomData` and `PhantomDeserData`
 /// branches override that choice based on the field type.
 ///
 /// The type of `field_name` is [`proc_macro2::TokenStream`] because it can be
@@ -172,7 +172,7 @@ fn has_param_occurrence(ty: &syn::Type, type_params: &[&syn::Ident]) -> bool {
 fn gen_eps_deser_method_call(
     field_name: &proc_macro2::TokenStream,
     field_type: &syn::Type,
-    dispatch_full: bool,
+    deser_full: bool,
 ) -> proc_macro2::TokenStream {
     if let syn::Type::Path(syn::TypePath {
         qself: None,
@@ -199,7 +199,7 @@ fn gen_eps_deser_method_call(
         }
     }
 
-    if dispatch_full {
+    if deser_full {
         syn::parse_quote!(#field_name: unsafe { <#field_type as DeserInner>::_deser_full_inner(backend)? })
     } else {
         syn::parse_quote!(#field_name: unsafe { <#field_type as DeserInner>::_deser_eps_inner(backend)? })
@@ -326,7 +326,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
                         }
                     })
                 } else {
-                    Err(meta.error("expected `zero_copy`, `deep_copy`, or `bound`"))
+                    Err(meta.error("expected \"zero_copy\", \"deep_copy\", or \"bound\""))
                 }
             })?;
         }
@@ -367,12 +367,12 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
 fn emit_deprecation_warnings(attrs: &EpserdeAttrs, type_name: &syn::Ident) {
     if attrs.deprecated_zero_copy {
         eprintln!(
-            "warning: use `#[epserde(zero_copy)]` instead of `#[epserde_zero_copy]` on type `{type_name}`"
+            "warning: use #[epserde(zero_copy)] instead of #[epserde_zero_copy] on type {type_name}"
         );
     }
     if attrs.deprecated_deep_copy {
         eprintln!(
-            "warning: use `#[epserde(deep_copy)]` instead of `#[epserde_deep_copy]` on type `{type_name}`"
+            "warning: use #[epserde(deep_copy)] instead of #[epserde_deep_copy] on type {type_name}"
         );
     }
 }
@@ -511,26 +511,31 @@ fn gen_generics_for_ser_type(
 /// The where clauses bound all field types with the trait being implemented,
 /// thus propagating recursively (de)serializability.
 ///
-/// `full_dispatch_fields[i]` is `true` when field `i` is dispatched
+/// `full_deser_fields[i]` is `true` when field `i` is dispatched
 /// full-copy (either because it carries `#[epserde(force_full)]` or
 /// because its type contains no variable position to substitute). For
-/// ε-dispatched fields the field-type bound is suppressed: it would
+/// ε-deserialized fields the field-type bound is suppressed: it would
 /// shadow the impl's `DeserType<'_>` projection (Rust issue #152409),
 /// making the derived `_deser_eps_inner` body fail to type-check. The
 /// per-parameter `T: SerInner`/`T: DeserInner` bounds emitted by the
-/// caller are sufficient for Rust to resolve each wrapper's impl
-/// directly.
+/// caller are sufficient for Rust to resolve impls of wrappers whose
+/// `DeserType<'_>` is uniform across kinds (`Box<T>`, `Rc<T>`,
+/// `Arc<T>`, `Option<T>`, `Range<T>`, tuples). For wrappers whose
+/// resolution depends on `T`'s kind (`Vec<T>`, `Box<[T]>`, `[T; N]`,
+/// `String`), the user must additionally bound `T: ZeroCopy` or
+/// `T: DeepCopy`; the derive does not emit those bounds because the
+/// choice is not derivable from the field type alone.
 fn gen_ser_deser_where_clauses(
     field_types: &[&syn::Type],
     is_zero_copy: bool,
-    full_dispatch_fields: &[bool],
+    full_deser_fields: &[bool],
 ) -> (WhereClause, WhereClause) {
-    debug_assert_eq!(field_types.len(), full_dispatch_fields.len());
+    debug_assert_eq!(field_types.len(), full_deser_fields.len());
     let mut ser_where_clause = empty_where_clause();
     let mut deser_where_clause = empty_where_clause();
 
     // Add trait bounds for all field types
-    for (field_type, &is_full) in field_types.iter().zip(full_dispatch_fields) {
+    for (field_type, &is_full) in field_types.iter().zip(full_deser_fields) {
         if !is_zero_copy && !is_full {
             continue;
         }
@@ -639,16 +644,24 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     let mut field_types = vec![];
     let mut method_calls = vec![];
     let mut repl_params = HashSet::new();
-    let mut full_dispatch_fields = vec![];
+    let mut full_deser_fields = vec![];
 
     for (field_idx, field) in s.fields.iter().enumerate() {
         let field_name = get_field_name(field, field_idx);
         let field_type = &field.ty;
         let force_full = is_force_full(field);
-        // A field is dispatched full-copy when explicitly marked with
+        let has_var_pos = has_param_occurrence(field_type, &ctx.type_const_params);
+        // A field is deserialized full-copy when explicitly marked with
         // #[epserde(force_full)] or when its type has no variable position
         // to substitute.
-        let dispatch_full = force_full || !has_param_occurrence(field_type, &ctx.type_const_params);
+        let deser_full = force_full || !has_var_pos;
+
+        if force_full && (ctx.is_zero_copy || !has_var_pos) {
+            let type_name = &ctx.derive_input.ident;
+            eprintln!(
+                "warning: #[epserde(force_full)] on field {field_name} of type {type_name} has no effect; consider removing the marker"
+            );
+        }
 
         // Replaceable parameters: occurrences at a variable position in
         // an unmarked field.
@@ -659,19 +672,19 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         method_calls.push(gen_eps_deser_method_call(
             &field_name,
             field_type,
-            dispatch_full,
+            deser_full,
         ));
 
         field_names.push(field_name);
         field_types.push(field_type);
-        full_dispatch_fields.push(dispatch_full);
+        full_deser_fields.push(deser_full);
     }
 
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &repl_params);
     let generics_for_ser_type = gen_generics_for_ser_type(ctx, &repl_params);
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
     let (mut ser_where_clause, mut deser_where_clause) =
-        gen_ser_deser_where_clauses(&field_types, ctx.is_zero_copy, &full_dispatch_fields);
+        gen_ser_deser_where_clauses(&field_types, ctx.is_zero_copy, &full_deser_fields);
 
     // Add user-specified bounds from #[epserde(bound(...))]
     ser_where_clause
@@ -682,8 +695,11 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         .extend(ctx.deser_bounds.iter().cloned());
 
     // For every replaceable parameter, emit T: SerInner / T: DeserInner.
-    // The field-type bound was skipped above for ε-dispatched fields, so
-    // these are the path by which Rust learns each wrapper's impl applies.
+    // The field-type bound was skipped above for ε-deserialized fields;
+    // these per-parameter bounds let Rust resolve kind-uniform wrapper
+    // impls (Box, Rc, Arc, Option, Range, tuples). For wrappers whose
+    // resolution depends on T's kind (Vec, Box<[…]>, [T; N], String),
+    // the user must additionally bound T: ZeroCopy or T: DeepCopy.
     if !ctx.is_zero_copy {
         for ident in &repl_params {
             ser_where_clause.predicates.push(syn::parse_quote!(
@@ -844,8 +860,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     let mut all_repl_params = HashSet::new();
     // All field types for all variants
     let mut all_fields_types = vec![];
-    // Whether each entry in all_fields_types is dispatched full-copy.
-    let mut all_full_dispatch_fields = vec![];
+    // Whether each entry in all_fields_types is deserialized full-copy.
+    let mut all_full_deser_fields = vec![];
 
     for (variant_id, variant) in e.variants.iter().enumerate() {
         let ident = &variant.ident;
@@ -872,8 +888,15 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let field_name = field.ident.as_ref().unwrap();
                     let field_type = &field.ty;
                     let force_full = is_force_full(field);
-                    let dispatch_full =
-                        force_full || !has_param_occurrence(field_type, &ctx.type_const_params);
+                    let has_var_pos = has_param_occurrence(field_type, &ctx.type_const_params);
+                    let deser_full = force_full || !has_var_pos;
+
+                    if force_full && (ctx.is_zero_copy || !has_var_pos) {
+                        let type_name = &ctx.derive_input.ident;
+                        eprintln!(
+                            "warning: #[epserde(force_full)] on field {ident}::{field_name} of type {type_name} has no effect; consider removing the marker"
+                        );
+                    }
 
                     if !force_full {
                         collect_param_occurrences(
@@ -887,11 +910,11 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     method_calls.push(gen_eps_deser_method_call(
                         &field_name.to_token_stream(),
                         field_type,
-                        dispatch_full,
+                        deser_full,
                     ));
                     field_names.push(quote! { #field_name });
                     field_types.push(field_type);
-                    all_full_dispatch_fields.push(dispatch_full);
+                    all_full_deser_fields.push(deser_full);
                 }
 
                 all_fields_types.extend(&field_types);
@@ -930,8 +953,17 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let field_name = syn::Index::from(field_idx);
                     let field_type = &field.ty;
                     let force_full = is_force_full(field);
-                    let dispatch_full =
-                        force_full || !has_param_occurrence(field_type, &ctx.type_const_params);
+                    let has_var_pos = has_param_occurrence(field_type, &ctx.type_const_params);
+                    let deser_full = force_full || !has_var_pos;
+
+                    if force_full && (ctx.is_zero_copy || !has_var_pos) {
+                        let type_name = &ctx.derive_input.ident;
+                        let idx = syn::Index::from(field_idx);
+                        eprintln!(
+                            "warning: #[epserde(force_full)] on field {ident}::{idx_index} of type {type_name} has no effect; consider removing the marker",
+                            idx_index = idx.index,
+                        );
+                    }
 
                     if !force_full {
                         collect_param_occurrences(
@@ -950,11 +982,11 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     method_calls.push(gen_eps_deser_method_call(
                         &field_name.to_token_stream(),
                         field_type,
-                        dispatch_full,
+                        deser_full,
                     ));
                     field_types.push(field_type);
                     field_names_in_arm.push(field_name);
-                    all_full_dispatch_fields.push(dispatch_full);
+                    all_full_deser_fields.push(deser_full);
                 }
 
                 all_fields_types.extend(&field_types);
@@ -990,11 +1022,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     let tag = (0..variant_arm.len()).collect::<Vec<_>>();
 
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &all_fields_types);
-    let (mut ser_where_clause, mut deser_where_clause) = gen_ser_deser_where_clauses(
-        &all_fields_types,
-        ctx.is_zero_copy,
-        &all_full_dispatch_fields,
-    );
+    let (mut ser_where_clause, mut deser_where_clause) =
+        gen_ser_deser_where_clauses(&all_fields_types, ctx.is_zero_copy, &all_full_deser_fields);
 
     // Add user-specified bounds from #[epserde(bound(...))]
     ser_where_clause
@@ -1005,8 +1034,11 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
         .extend(ctx.deser_bounds.iter().cloned());
 
     // For every replaceable parameter, emit T: SerInner / T: DeserInner.
-    // The field-type bound was skipped above for ε-dispatched fields, so
-    // these are the path by which Rust learns each wrapper's impl applies.
+    // The field-type bound was skipped above for ε-deserialized fields;
+    // these per-parameter bounds let Rust resolve kind-uniform wrapper
+    // impls (Box, Rc, Arc, Option, Range, tuples). For wrappers whose
+    // resolution depends on T's kind (Vec, Box<[…]>, [T; N], String),
+    // the user must additionally bound T: ZeroCopy or T: DeepCopy.
     if !ctx.is_zero_copy {
         for ident in &all_repl_params {
             ser_where_clause.predicates.push(syn::parse_quote!(
@@ -1201,8 +1233,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// deserialization and keeps its type verbatim in `DeserType<'_>`.
 ///
 /// By default every field of a deep-copy type whose type contains a
-/// type-parameter occurrence at a variable position is dispatched via
-/// ε-deserialization, and that parameter is replaceable: in
+/// type-parameter occurrence at a variable position is deserialized via
+/// the ε-copy path, and that parameter is replaceable: in
 /// `Self::DeserType<'a>` it is substituted with `<T as DeserInner>::
 /// DeserType<'a>`. Occurrences nested inside `PhantomData<…>` are
 /// transparent and do not count. Fields whose type contains no variable
@@ -1210,7 +1242,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 ///
 /// `#[epserde(force_full)]` opts a single field out of the default:
 ///
-/// - the field is dispatched via `_deser_full_inner` rather than
+/// - the field is deserialized via `_deser_full_inner` rather than
 ///   `_deser_eps_inner`;
 /// - its type is preserved verbatim in `Self::DeserType<'a>` (no
 ///   substitution inside it);
@@ -1221,8 +1253,14 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// cannot follow the uniform-substitution contract that ε-deserialization
 /// requires.
 ///
-/// The marker is rejected on fields of `zero_copy` types and takes no
-/// arguments.
+/// The marker takes no arguments and affects only deserialization. On
+/// zero-copy types it has no operational effect: a zero-copy struct is
+/// (de)serialized as a sequence of raw bytes regardless of any per-field
+/// marker, with no field-level choice between `_deser_full_inner` and
+/// `_deser_eps_inner`. On a deep-copy field whose type contains no
+/// variable position the marker is also a silent no-op: the field is
+/// already deserialized full-copy by default, since there is nothing to
+/// substitute.
 ///
 /// Example:
 ///
@@ -1280,20 +1318,15 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
             }
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("force_full") {
-                    if attrs.is_zero_copy {
-                        return Err(meta.error(
-                            "'force_full' cannot be applied to a field of a zero-copy type",
-                        ));
-                    }
                     if meta.input.peek(syn::token::Paren) {
                         return Err(meta.error(
-                            "'force_full' is a field-level marker and takes no arguments; \
+                            "\"force_full\" is a field-level marker and takes no arguments; \
                              use #[epserde(force_full)]",
                         ));
                     }
                     if is_phantom_deser_data {
                         return Err(meta.error(
-                            "'force_full' has no operational effect on a PhantomDeserData<T> field; \
+                            "\"force_full\" has no operational effect on a PhantomDeserData<T> field; \
                              remove the marker, or migrate to PhantomData<T>",
                         ));
                     }

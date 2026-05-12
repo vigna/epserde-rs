@@ -427,16 +427,16 @@ struct MyStructParam<A: DeepCopy> {
 ```
 
 Alternatively, when you want a specific field's type to stay verbatim in the
-deserialization type (no substitution inside it, full-copy dispatch), mark that
-field with the [`#[epserde(force_full)]`
+deserialization type (no substitution inside it, full-copy deserialization),
+mark that field with the [`#[epserde(force_full)]`
 attribute](#example-pinning-a-field-with-force_full).
 
 ## Example: User-defined deep-copy structures without parameters
 
 When a deep-copy structure has no type parameters, its fields have no variable
-position to substitute. The derive dispatches every field via full-copy
-deserialization automatically, and the deserialization type is the original
-type itself. For example,
+position to substitute. The derive deserializes every field via the full-copy
+path automatically, and the deserialization type is the original type itself.
+For example,
 
 ```rust
 # use epserde::prelude::*;
@@ -582,12 +582,12 @@ let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? 
 ## Example: Pinning a field with `force_full`
 
 By default the derive substitutes every variable-position occurrence of a
-type parameter with its associated deserialization type, and dispatches every
-field via ε-copy deserialization. The field-level attribute
+type parameter with its associated deserialization type, and deserializes
+every field via the ε-copy path. The field-level attribute
 `#[epserde(force_full)]` opts a specific field out of that default: the field
-is dispatched via full-copy deserialization, and its type is preserved
-verbatim in the deserialization type. Type-parameter occurrences inside the
-marked field's type do not contribute to the replaceable set.
+is deserialized via the full-copy path, and its type is preserved verbatim in
+the deserialization type. Type-parameter occurrences inside the marked
+field's type do not contribute to the replaceable set.
 
 ```rust
 # use epserde::prelude::*;
@@ -625,9 +625,13 @@ Typical use cases:
   when it is deep-copy, so at a zero-copy kind the marker is the only way to
   keep the field round-tripping.
 
-`force_full` is rejected on fields of zero-copy types and takes no arguments.
-Marking a parameterless field is a silent no-op: its type contains no
-variable position, so the derive already dispatches it full-copy.
+`force_full` takes no arguments and affects only deserialization. On
+zero-copy types it has no operational effect: a zero-copy struct is
+(de)serialized as a sequence of raw bytes regardless of any per-field
+marker, with no field-level choice between `_deser_full_inner` and
+`_deser_eps_inner`. On a deep-copy field whose type contains no variable
+position the marker is also a silent no-op: the field is already
+deserialized full-copy by default, since there is nothing to substitute.
 
 Marking a field whose type contains a parameter that also appears at a
 variable position in another unmarked field leaves the per-occurrence
@@ -909,7 +913,7 @@ Replacement happens at every variable-position (bare-parameter) occurrence of
 a type parameter, including occurrences nested inside other constructors. The
 field-level [`#[epserde(force_full)]`
 attribute](#example-pinning-a-field-with-force_full) opts a specific field out
-of substitution: the field is dispatched via full-copy deserialization and its
+of substitution: the field is deserialized via the full-copy path and its
 type is preserved verbatim in the deserialization type. Occurrences nested
 inside [`PhantomData<T>`] are transparent to the derive: they do not
 contribute to replaceability, and the derive substitutes `T` natively inside
@@ -997,13 +1001,13 @@ every replaceable `T` with `<T as DeserInner>::DeserType<'_>` in the
 deserialization type, and with `<T as SerInner>::SerType` in the serialization
 type. Non-replaceable parameters are kept as-is.
 
-A field marked `#[epserde(force_full)]` is dispatched via full-copy
-deserialization and its type is preserved verbatim in the deserialization
-type; the field's type-parameter occurrences do not contribute to the
-replaceable set. A field whose type contains no variable position
-(e.g., `Vec<i32>`, `String`, `u32`, `[u8; 16]`) is also dispatched full-copy
-by default: its slot in the deserialization type has nothing to substitute,
-so the derive falls back to full-copy automatically.
+A field marked `#[epserde(force_full)]` is deserialized via the full-copy
+path and its type is preserved verbatim in the deserialization type; the
+field's type-parameter occurrences do not contribute to the replaceable set.
+A field whose type contains no variable position (e.g., `Vec<i32>`,
+`String`, `u32`, `[u8; 16]`) is also deserialized full-copy by default: its
+slot in the deserialization type has nothing to substitute, so the derive
+falls back to full-copy automatically.
 
 For a derived type to satisfy the substitution contract, each unmarked field's
 type must be _commutative_ at the kinds visible to the derive, meaning that
