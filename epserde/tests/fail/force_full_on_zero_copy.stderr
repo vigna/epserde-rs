@@ -1,0 +1,5 @@
+error: 'force_full' cannot be applied to a field of a zero-copy type
+  --> tests/fail/force_full_on_zero_copy.rs:13:15
+   |
+13 |     #[epserde(force_full)]
+   |               ^^^^^^^^^^

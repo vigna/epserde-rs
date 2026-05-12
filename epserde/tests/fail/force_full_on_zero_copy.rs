@@ -10,7 +10,7 @@ use epserde::prelude::*;
 #[epserde(zero_copy)]
 #[repr(C)]
 struct H<T: Copy> {
-    #[epserde(force_repl)]
+    #[epserde(force_full)]
     inner: T,
 }
 

@@ -162,7 +162,6 @@ fn test_only_phantom() {
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
 struct DataWithPhantomDeserData<T> {
     data: T,
-    #[epserde(force_repl)]
     phantom: PhantomDeserData<T>,
 }
 
@@ -271,22 +270,20 @@ fn test_phantom_data_substitution() -> anyhow::Result<()> {
     Ok(())
 }
 
-// When T only appears inside a wrapper field (here PhantomDeserData<T>),
-// the classifier needs a hint that T should be replaceable. Using
-// #[epserde(force_repl)] on the PhantomDeserData field achieves this:
-// the marker makes T's occurrence inside the wrapper contribute to the
-// replaceable set, exactly as the old struct-level force_repl(T) did.
+// PhantomDeserData<T> is not a barrier in the classifier (only
+// PhantomData is), so an occurrence of T inside PhantomDeserData<T>
+// is a variable position and T becomes replaceable by default — even
+// when no other field of the struct mentions T.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
 #[epserde(deep_copy)]
-struct OnlyPhantomForceRepl<T> {
+struct OnlyPhantomDeserData<T> {
     other: u32,
-    #[epserde(force_repl)]
     phantom: PhantomDeserData<T>,
 }
 
 #[test]
-fn test_phantom_data_force_repl() -> anyhow::Result<()> {
-    let obj: OnlyPhantomForceRepl<Vec<i32>> = OnlyPhantomForceRepl {
+fn test_only_phantom_deser_data() -> anyhow::Result<()> {
+    let obj: OnlyPhantomDeserData<Vec<i32>> = OnlyPhantomDeserData {
         other: 42,
         phantom: PhantomDeserData(PhantomData),
     };
@@ -295,10 +292,10 @@ fn test_phantom_data_force_repl() -> anyhow::Result<()> {
     unsafe { obj.serialize(&mut cursor)? };
 
     cursor.set_position(0);
-    let full = unsafe { <OnlyPhantomForceRepl<Vec<i32>>>::deserialize_full(&mut cursor)? };
+    let full = unsafe { <OnlyPhantomDeserData<Vec<i32>>>::deserialize_full(&mut cursor)? };
     assert_eq!(obj, full);
 
-    let eps = unsafe { <OnlyPhantomForceRepl<Vec<i32>>>::deserialize_eps(cursor.as_bytes())? };
+    let eps = unsafe { <OnlyPhantomDeserData<Vec<i32>>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(obj.other, eps.other);
     // The phantom slot must be PhantomDeserData<&[i32]> after T is
     // substituted into <Vec<i32> as DeserInner>::DeserType<'_>.

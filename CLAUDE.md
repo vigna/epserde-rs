@@ -65,7 +65,7 @@ This distinction drives specialization throughout the crate via `SerHelper<Zero>
 ### Derive Macros (`epserde-derive/src/lib.rs`)
 
 `#[derive(Epserde)]` generates `CopyType`, `SerInner`, `DeserInner`, `TypeHash`, `AlignHash`, and `AlignTo`. Key behavior:
-- **Type parameter replacement**: Replaceable type params (those appearing as field types) are substituted with `T::DeserType<'a>` in the deserialized form
+- **Type parameter replacement**: Every variable-position (bare-parameter) occurrence of a type parameter in an unmarked field's type makes the parameter replaceable; the derive substitutes it with `T::DeserType<'a>` in the deserialized form. Marking a field with `#[epserde(force_full)]` opts it out (full-copy dispatch, type verbatim); fields whose type contains no variable position default to full-copy.
 - **Static zero-copy assertion**: Uses const blocks to verify zero-copy candidates at compile time
 - Supports structs and enums (unit, named, unnamed variants)
 
@@ -73,9 +73,9 @@ This distinction drives specialization throughout the crate via `SerHelper<Zero>
 
 Each file implements serialization for a category: `prim.rs` (primitives), `vec.rs` (Vec with zero/deep-copy specialization), `boxed_slice.rs`, `string.rs`, `array.rs`, `tuple.rs` (up to 12 elements), `pointer.rs` (Box/Rc/Arc with erasure), `stdlib.rs` (Option, Range, ControlFlow), `slice.rs`, `iter.rs` (SerIter wrapper).
 
-### PhantomDeserData
+### PhantomData
 
-When a deep-copy type has a type parameter `T` appearing both in a field and in a `PhantomData`, use `PhantomDeserData<T>` instead of `PhantomData<T>` to avoid type mismatch after parameter replacement.
+`PhantomData<T>` is handled natively by the derive: `T` is substituted inside the phantom slot of the deserialization type, so a parameter that appears both in a `PhantomData` field and elsewhere stays consistent. The legacy `PhantomDeserData<T>` workaround is `#[deprecated]` (see the doc on `epserde::PhantomDeserData`); new code should use plain `PhantomData<T>`.
 
 ## Development Guidelines
 
@@ -100,4 +100,4 @@ This project follows https://github.com/vigna/rust-dev-guidelines. Key conventio
 - Zero-copy types must be `#[repr(C)]` and contain no references
 - Type hashes include alignment/padding info — mismatches cause deserialization errors
 - Serialization writes uninitialized padding bytes (unsafe)
-- A replaceable type parameter must not appear both as a field type and as a type argument of another field's type. The restriction can be lifted by marking the wrapper field with `#[epserde(force_repl)]` when its type substitutes the parameter transitively, or alternatively by marking the direct field with `#[epserde(force_irrepl)]` to pin the parameter as irreplaceable across the struct. Occurrences inside `PhantomData<…>` do not count toward either classification.
+- Every variable-position (bare-parameter leaf) occurrence of a type parameter in an unmarked field's type makes the parameter replaceable; the derive substitutes it with `<T as DeserInner>::DeserType<'_>` in the deserialization type. Occurrences inside `PhantomData<…>` do not count (transparent slot). Marking a field with `#[epserde(force_full)]` pins it to full-copy deserialization, keeps its type verbatim in the deserialization type, and excludes its type-parameter occurrences from the replaceable set. Fields whose type contains no variable position default to full-copy as well, since they have nothing to substitute.

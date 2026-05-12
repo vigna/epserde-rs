@@ -1,5 +1,0 @@
-error: `force_irrepl` cannot be applied to a field of a zero-copy type
-  --> tests/fail/force_irrepl_on_zero_copy.rs:16:15
-   |
-16 |     #[epserde(force_irrepl)]
-   |               ^^^^^^^^^^^^

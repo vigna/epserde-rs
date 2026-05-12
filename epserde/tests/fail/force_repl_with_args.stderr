@@ -1,5 +1,0 @@
-error: `force_repl` is a field-level marker and takes no arguments; use `#[epserde(force_repl)]`
-  --> tests/fail/force_repl_with_args.rs:15:15
-   |
-15 |     #[epserde(force_repl(T))]
-   |               ^^^^^^^^^^

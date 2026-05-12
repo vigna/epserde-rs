@@ -5,14 +5,13 @@
  */
 
 // Option<T>'s DeserType<'a> is Option<T::DeserType<'a>> (structural
-// substitution), so it satisfies the force_repl user contract. This
-// pins the positive-control behaviour for an Option-wrapped field.
+// substitution). Under the default classification rule, T is a variable
+// position inside Option<T>, so the derive automatically substitutes it.
 
 use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct OptionWrapper<T> {
-    #[epserde(force_repl)]
     inner: Option<T>,
 }
 

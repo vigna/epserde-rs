@@ -4,16 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-// Box<T>'s DeserType<'a> is Box<T::DeserType<'a>> (structural substitution),
-// so it satisfies the force_repl user contract. This pins the positive-
-// control behaviour: a Box<T>-wrapped field marked with force_repl
-// round-trips correctly.
+// Box<T>'s DeserType<'a> is Box<T::DeserType<'a>> (structural substitution).
+// Under the default classification rule, T is a variable position inside
+// Box<T>, so the derive automatically substitutes it.
 
 use epserde::prelude::*;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct BoxWrapper<T> {
-    #[epserde(force_repl)]
     inner: Box<T>,
 }
 

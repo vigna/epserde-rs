@@ -1,7 +1,0 @@
-error: `force_repl` and `force_irrepl` are mutually exclusive on the same field
-  --> tests/fail/force_repl_and_irrepl_together.rs:14:5
-   |
-14 | /     #[epserde(force_repl)]
-15 | |     #[epserde(force_irrepl)]
-16 | |     inner: T,
-   | |____________^
