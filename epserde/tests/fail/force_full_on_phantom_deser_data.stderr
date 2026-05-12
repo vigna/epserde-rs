@@ -1,0 +1,5 @@
+error: 'force_full' has no operational effect on a PhantomDeserData<T> field; remove the marker, or migrate to PhantomData<T>
+  --> tests/fail/force_full_on_phantom_deser_data.rs:21:15
+   |
+21 |     #[epserde(force_full)]
+   |               ^^^^^^^^^^

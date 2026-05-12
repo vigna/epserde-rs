@@ -990,8 +990,11 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     let tag = (0..variant_arm.len()).collect::<Vec<_>>();
 
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &all_fields_types);
-    let (mut ser_where_clause, mut deser_where_clause) =
-        gen_ser_deser_where_clauses(&all_fields_types, ctx.is_zero_copy, &all_full_dispatch_fields);
+    let (mut ser_where_clause, mut deser_where_clause) = gen_ser_deser_where_clauses(
+        &all_fields_types,
+        ctx.is_zero_copy,
+        &all_full_dispatch_fields,
+    );
 
     // Add user-specified bounds from #[epserde(bound(...))]
     ser_where_clause
