@@ -644,6 +644,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     let mut field_types = vec![];
     let mut method_calls = vec![];
     let mut repl_params = HashSet::new();
+    let mut irrepl_params = HashSet::new();
     let mut full_deser_fields = vec![];
 
     for (field_idx, field) in s.fields.iter().enumerate() {
@@ -664,8 +665,16 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         }
 
         // Replaceable parameters: occurrences at a variable position in
-        // an unmarked field.
-        if !force_full {
+        // an unmarked field. Irreplaceable parameters: occurrences at a
+        // variable position in a marked field.
+        if force_full {
+            collect_param_occurrences(
+                field_type,
+                &ctx.type_const_params,
+                &mut irrepl_params,
+                false,
+            );
+        } else {
             collect_param_occurrences(field_type, &ctx.type_const_params, &mut repl_params, false);
         }
 
@@ -678,6 +687,19 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         field_names.push(field_name);
         field_types.push(field_type);
         full_deser_fields.push(deser_full);
+    }
+
+    // A parameter cannot be both replaceable and irreplaceable: the
+    // parameter-level substitution in Self::DeserType<'a> would replace
+    // it everywhere (because it is replaceable), but the marked field
+    // would keep it verbatim, producing a type mismatch in the derived
+    // _deser_eps_inner body. We surface the conflict here with a clear
+    // message instead of relying on rustc's slot-mismatch diagnostic.
+    if let Some(p) = repl_params.intersection(&irrepl_params).next() {
+        let msg = format!(
+            "type parameter {p} is both replaceable and irreplaceable: it appears in fields both with and without #[epserde(force_full)])"
+        );
+        return syn::Error::new_spanned(p, msg).to_compile_error();
     }
 
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &repl_params);
@@ -856,8 +878,11 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     // For each variant, ε-copy deserialization code
     let mut variant_eps_des = vec![];
     // Replaceable parameters: occurrences at a variable position in
-    // some unmarked field of some variant.
+    // some unmarked field of some variant. Irreplaceable parameters:
+    // occurrences at a variable position in some marked field of some
+    // variant.
     let mut all_repl_params = HashSet::new();
+    let mut all_irrepl_params = HashSet::new();
     // All field types for all variants
     let mut all_fields_types = vec![];
     // Whether each entry in all_fields_types is deserialized full-copy.
@@ -898,7 +923,14 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                         );
                     }
 
-                    if !force_full {
+                    if force_full {
+                        collect_param_occurrences(
+                            field_type,
+                            &ctx.type_const_params,
+                            &mut all_irrepl_params,
+                            false,
+                        );
+                    } else {
                         collect_param_occurrences(
                             field_type,
                             &ctx.type_const_params,
@@ -965,7 +997,14 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                         );
                     }
 
-                    if !force_full {
+                    if force_full {
+                        collect_param_occurrences(
+                            field_type,
+                            &ctx.type_const_params,
+                            &mut all_irrepl_params,
+                            false,
+                        );
+                    } else {
                         collect_param_occurrences(
                             field_type,
                             &ctx.type_const_params,
@@ -1015,6 +1054,19 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 });
             }
         }
+    }
+
+    // A parameter cannot be both replaceable and irreplaceable: the
+    // parameter-level substitution in Self::DeserType<'a> would replace
+    // it everywhere (because it is replaceable), but the marked field
+    // would keep it verbatim, producing a type mismatch in the derived
+    // _deser_eps_inner body. We surface the conflict here with a clear
+    // message instead of relying on rustc's slot-mismatch diagnostic.
+    if let Some(p) = all_repl_params.intersection(&all_irrepl_params).next() {
+        let msg = format!(
+            "type parameter {p} is both replaceable and irreplaceable:it appears in fields both with and without #[epserde(force_full)])"
+        );
+        return syn::Error::new_spanned(p, msg).to_compile_error();
     }
 
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &all_repl_params);
@@ -1253,14 +1305,15 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// cannot follow the uniform-substitution contract that ε-deserialization
 /// requires.
 ///
-/// The marker takes no arguments and affects only deserialization. On
-/// zero-copy types it has no operational effect: a zero-copy struct is
-/// (de)serialized as a sequence of raw bytes regardless of any per-field
-/// marker, with no field-level choice between `_deser_full_inner` and
-/// `_deser_eps_inner`. On a deep-copy field whose type contains no
-/// variable position the marker is also a silent no-op: the field is
-/// already deserialized full-copy by default, since there is nothing to
-/// substitute.
+/// The marker takes no arguments and affects only deserialization.
+/// It is rejected if it appears anywhere inside a type marked
+/// `#[epserde(zero_copy)]`: zero-copy structs are (de)serialized as a
+/// sequence of raw bytes with no field-level choice between
+/// `_deser_full_inner` and `_deser_eps_inner`, so the marker has no
+/// operational meaning there. On a deep-copy field whose type contains
+/// no variable position the marker is a silent no-op: the field is
+/// already deserialized full-copy by default, since there is nothing
+/// to substitute.
 ///
 /// Example:
 ///
@@ -1322,6 +1375,11 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
                         return Err(meta.error(
                             "\"force_full\" is a field-level marker and takes no arguments; \
                              use #[epserde(force_full)]",
+                        ));
+                    }
+                    if attrs.is_zero_copy {
+                        return Err(meta.error(
+                            "\"force_full\" cannot appear inside a zero-copy type",
                         ));
                     }
                     if is_phantom_deser_data {
