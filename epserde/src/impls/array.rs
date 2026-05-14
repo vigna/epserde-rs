@@ -47,6 +47,7 @@ where
 {
     type SerType = [T::SerType; N];
     const IS_ZERO_COPY: bool = T::IS_ZERO_COPY;
+    const MIGHT_BE_ZERO_COPY: bool = T::MIGHT_BE_ZERO_COPY;
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         unsafe { SerHelper::_ser_inner(self, backend) }
     }

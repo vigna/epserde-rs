@@ -52,6 +52,7 @@ where
 {
     type SerType = Box<[T::SerType]>;
     const IS_ZERO_COPY: bool = false;
+    const MIGHT_BE_ZERO_COPY: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         // SAFETY: the fake boxed slice we create is never used, and we forget

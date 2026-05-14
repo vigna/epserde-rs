@@ -1,24 +1,20 @@
 # Change Log
 
-## [0.12.7] - unreleased
+## [0.13.0] - unreleased
 
 ### Changed
 
-- The derive's replaceability model is now driven by a single field-level
-  attribute, `#[epserde(force_full)]`. The marker pins a field to
-  full-copy deserialization and keeps its type verbatim in the
-  deserialization type; type-parameter occurrences inside the marked
-  field's type do not contribute to the replaceable set. By default
-  every variable-position (bare-parameter leaf) occurrence in any
-  unmarked field is replaceable; fields whose type contains no
-  variable position default to full-copy as well. The default lifts the
-  old "a parameter cannot be both replaceable and irreplaceable"
-  restriction at the cost of requiring appropriate kind bounds on
-  parameters whose wrappers are not commutative at every kind. As part
-  of the same change, the `Epserde` derive now substitutes `T` natively
-  inside `PhantomData<T>` fields, and `PhantomDeserData<T>` is
-  consequently `#[deprecated]`; new code should use plain
-  `PhantomData<T>`.
+- Major design change: ε-copy deserialization is always propagated through
+  fields (used to stop at fields whose type is not a parameter). The old
+  behavior can be obtained by decorating the field with
+  `#[epserde(force_full)]`. The new design opens the possibility for type
+  replacement inside fields whose type is not a parameter (e.g., `struct
+  S<A>([A; 3])` can have `Vec<usize>` as a parameter, getting the
+  deserialization type `S<&[usize]>`).
+
+- A new constant `SerInner::MIGHT_BE_ZERO_COPY` tracks more accurately
+  when a structure might be zero-copy (as `SerInner::IS_ZERO_COPY` is not
+  aware of pointer erasure).
 
 ## [0.12.6] - 2026-04-02
 

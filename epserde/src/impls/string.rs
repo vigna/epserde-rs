@@ -42,6 +42,7 @@ impl TypeHash for String {
 impl SerInner for String {
     type SerType = Box<str>;
     const IS_ZERO_COPY: bool = false;
+    const MIGHT_BE_ZERO_COPY: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         ser_slice_zero(backend, self.as_bytes())
@@ -89,6 +90,7 @@ impl SerInner for Box<str> {
     type SerType = Self;
     // Box<[$ty]> can, but Vec<Box<[$ty]>> cannot!
     const IS_ZERO_COPY: bool = false;
+    const MIGHT_BE_ZERO_COPY: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         ser_slice_zero(backend, self.as_bytes())
@@ -131,6 +133,7 @@ unsafe impl CopyType for &str {
 impl SerInner for &str {
     type SerType = Box<str>;
     const IS_ZERO_COPY: bool = false;
+    const MIGHT_BE_ZERO_COPY: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         ser_slice_zero(backend, self.as_bytes())

@@ -622,12 +622,13 @@ Typical use cases:
   when it is deep-copy, so at a zero-copy kind the marker is the only way to
   keep the field round-tripping.
 
-`force_full` takes no arguments and affects only deserialization. On
-zero-copy types it has no operational effect: a zero-copy struct is
-(de)serialized as a sequence of raw bytes regardless of any per-field
-marker, with no field-level choice between `_deser_full_inner` and
-`_deser_eps_inner`. On a deep-copy field whose type contains no variable
-position the marker is also a silent no-op: the field is already
+`force_full` takes no arguments and affects only deserialization. It is
+rejected if it appears anywhere inside a type marked
+`#[epserde(zero_copy)]`: zero-copy structs are (de)serialized as a
+sequence of raw bytes with no field-level choice between
+`_deser_full_inner` and `_deser_eps_inner`, so the marker has no
+operational meaning there. On a deep-copy field whose type contains no
+variable position the marker is a silent no-op: the field is already
 deserialized full-copy by default, since there is nothing to substitute.
 
 Marking a field whose type contains a parameter that also appears at a

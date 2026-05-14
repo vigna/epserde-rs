@@ -143,6 +143,19 @@ pub trait SerInner {
     /// serialization will panic.
     const IS_ZERO_COPY: bool;
 
+    /// Whether the type, considered as a Rust value, has a layout
+    /// compatible with zero-copy serialization.
+    ///
+    /// Unlike [`IS_ZERO_COPY`](Self::IS_ZERO_COPY), this constant is not
+    /// forwarded through smart-pointer erasure: [`Box<T>`], [`Rc<T>`],
+    /// [`Arc<T>`], `&T`, and `&mut T` set it to `false` regardless of `T`.
+    /// It is used by the derive macros to decide whether to suggest
+    /// declaring a struct as zero-copy.
+    ///
+    /// [`Rc<T>`]: std::rc::Rc
+    /// [`Arc<T>`]: std::sync::Arc
+    const MIGHT_BE_ZERO_COPY: bool;
+
     /// Serializes this structure using the given backend.
     ///
     /// # Safety

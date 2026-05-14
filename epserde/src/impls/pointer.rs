@@ -86,6 +86,9 @@ macro_rules! impl_ser {
         impl<T: SerInner> SerInner for $type {
             type SerType = T::SerType;
             const IS_ZERO_COPY: bool = <T as SerInner>::IS_ZERO_COPY;
+            // Smart pointers and references are never layout zero-copy,
+            // regardless of T.
+            const MIGHT_BE_ZERO_COPY: bool = false;
 
             #[inline(always)]
             unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {

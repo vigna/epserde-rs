@@ -215,6 +215,18 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, field_types: &[&syn::Type]) -> proc_ma
     }
 }
 
+/// Generates the `MIGHT_BE_ZERO_COPY` expression.
+fn gen_might_be_zero_copy_expr(
+    is_repr_c: bool,
+    field_types: &[&syn::Type],
+) -> proc_macro2::TokenStream {
+    if field_types.is_empty() {
+        quote!(#is_repr_c)
+    } else {
+        quote!(#is_repr_c #(&& <#field_types>::MIGHT_BE_ZERO_COPY)*)
+    }
+}
+
 /// Returns the identifiers of type and const parameters.
 ///
 /// More in detail, returns a tuple containing:
@@ -705,6 +717,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &repl_params);
     let generics_for_ser_type = gen_generics_for_ser_type(ctx, &repl_params);
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
+    let might_be_zero_copy_expr = gen_might_be_zero_copy_expr(ctx.is_repr_c, &field_types);
     let (mut ser_where_clause, mut deser_where_clause) =
         gen_ser_deser_where_clauses(&field_types, ctx.is_zero_copy, &full_deser_fields);
 
@@ -753,6 +766,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 type SerType = Self;
                 // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
+                const MIGHT_BE_ZERO_COPY: bool = #might_be_zero_copy_expr;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     ::epserde::ser::helpers::ser_zero(backend, self)
@@ -807,6 +821,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 type SerType = #name<#(#generics_for_ser_type,)*>;
                 // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
+                const MIGHT_BE_ZERO_COPY: bool = #might_be_zero_copy_expr;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     use ::epserde::ser::WriteWithNames;
@@ -814,7 +829,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     // Check whether the type could be zero-copy but it is not
                     // declared as such, and the attribute `epserde_deep_copy`
                     // is missing
-                    const { assert!(!(! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*), concat!("Structure ", #name_str, " could be zero-copy, but it has not been declared as such; use either #[epserde(zero_copy)] or #[epserde(deep_copy)] to silence this error")); }
+                    const { assert!(!(! #is_deep_copy #(&& <#field_types>::MIGHT_BE_ZERO_COPY)*), concat!("Structure ", #name_str, " could be zero-copy, but it has not been declared as such; use either #[epserde(zero_copy)] or #[epserde(deep_copy)] to silence this error")); }
 
                     #(
                         unsafe { WriteWithNames::write(backend, stringify!(#field_names), &self.#field_names)?; }
@@ -1074,6 +1089,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     let tag = (0..variant_arm.len()).collect::<Vec<_>>();
 
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &all_fields_types);
+    let might_be_zero_copy_expr = gen_might_be_zero_copy_expr(ctx.is_repr_c, &all_fields_types);
     let (mut ser_where_clause, mut deser_where_clause) =
         gen_ser_deser_where_clauses(&all_fields_types, ctx.is_zero_copy, &all_full_deser_fields);
 
@@ -1124,6 +1140,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
+                const MIGHT_BE_ZERO_COPY: bool = #might_be_zero_copy_expr;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     unsafe { ::epserde::ser::helpers::ser_zero(backend, self) }
@@ -1177,6 +1194,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 
                 // Whether the type could be zero-copy
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
+                const MIGHT_BE_ZERO_COPY: bool = #might_be_zero_copy_expr;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
                     use ::epserde::ser::WriteWithNames;
@@ -1184,7 +1202,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     // Check whether the type could be zero-copy but it is not
                     // declared as such, and the attribute `epserde_deep_copy`
                     // is missing
-                    const { assert!(!(! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*), concat!("Enum ", #name_str, " could be zero-copy, but it has not been declared as such; use either #[epserde(zero_copy)] or #[epserde(deep_copy)] to silence this error")); }
+                    const { assert!(!(! #is_deep_copy #(&& <#all_fields_types>::MIGHT_BE_ZERO_COPY)*), concat!("Enum ", #name_str, " could be zero-copy, but it has not been declared as such; use either #[epserde(zero_copy)] or #[epserde(deep_copy)] to silence this error")); }
 
                     match self {
                         #(
