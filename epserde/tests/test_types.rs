@@ -371,3 +371,17 @@ fn test_box_box_generic_compiles() -> anyhow::Result<()> {
     assert_eq!(a, full);
     Ok(())
 }
+
+#[derive(Epserde)]
+#[epserde(bound(deser = "for<'a> X: DeserInner<DeserType<'a> = X>"))]
+#[epserde(deep_copy)]
+struct T<X>(X, #[epserde(force_full)] X);
+
+#[test]
+fn testtest() {
+    use deser::Deserialize;
+    let t = T(2, 3);
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    unsafe { t.serialize(&mut cursor).unwrap() };
+    unsafe { <T<i32>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+}

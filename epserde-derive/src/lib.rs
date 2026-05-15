@@ -215,6 +215,37 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, field_types: &[&syn::Type]) -> proc_ma
     }
 }
 
+/// Generates the fixed-point assertion injected at the top of
+/// `_deser_eps_inner` when one or more type parameters appear in both an
+/// unmarked field and a field marked `#[epserde(force_full)]`.
+///
+/// For each conflicting parameter the assertion requires the bound
+/// `for<'a> <T as DeserInner>::DeserType<'a>: DeserFixedPoint<T>`. The blanket
+/// impl `impl<T> DeserFixedPoint<T> for T` makes the bound trivially hold
+/// when `DeserType<'a> = T` (the fixed-point condition the user can supply
+/// through `bound(deser = ...)`); otherwise the impl does not apply and the
+/// `#[diagnostic::on_unimplemented]` message on `DeserFixedPoint` surfaces an
+/// actionable hint alongside rustc's slot-mismatch error.
+///
+/// Returns an empty token stream when there are no conflicts.
+fn gen_fixed_point_check(conflict_params: &[&syn::Ident]) -> proc_macro2::TokenStream {
+    if conflict_params.is_empty() {
+        return quote!();
+    }
+    quote! {
+        fn __epserde_fixed_point_check<__Outer, __Slot: ?Sized>()
+        where
+            __Slot: ::epserde::deser::DeserFixedPoint<__Outer>,
+        {}
+        #(
+            __epserde_fixed_point_check::<
+                #conflict_params,
+                <#conflict_params as ::epserde::deser::DeserInner>::DeserType<'_>,
+            >();
+        )*
+    }
+}
+
 /// Generates the `MIGHT_BE_ZERO_COPY` expression.
 fn gen_might_be_zero_copy_expr(
     is_repr_c: bool,
@@ -701,21 +732,19 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         full_deser_fields.push(deser_full);
     }
 
-    // A parameter cannot be both replaceable and irreplaceable: the
-    // parameter-level substitution in Self::DeserType<'a> would replace
-    // it everywhere (because it is replaceable), but the marked field
-    // would keep it verbatim, producing a type mismatch in the derived
-    // _deser_eps_inner body. We surface the conflict here with a clear
-    // message instead of relying on rustc's slot-mismatch diagnostic.
-    if let Some(p) = repl_params.intersection(&irrepl_params).next() {
-        let msg = format!(
-            "type parameter {p} is both replaceable and irreplaceable: it appears in fields both with and without #[epserde(force_full)])"
-        );
-        return syn::Error::new_spanned(p, msg).to_compile_error();
-    }
-
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &repl_params);
     let generics_for_ser_type = gen_generics_for_ser_type(ctx, &repl_params);
+    // A type parameter that is both replaceable and irreplaceable produces
+    // a slot mismatch in the generated _deser_eps_inner: one occurrence
+    // becomes <T as DeserInner>::DeserType<'_>, the other stays as T. The
+    // user can resolve the conflict with a bound that forces DeserType<'_>
+    // = T (automatic for ZeroCopy types). The assertion below requests
+    // DeserFixedPoint for each conflicting parameter so that, when the
+    // bound is missing, the on_unimplemented message points at the fix
+    // instead of leaving the user with rustc's raw slot mismatch.
+    let conflict_params: Vec<&syn::Ident> =
+        repl_params.intersection(&irrepl_params).copied().collect();
+    let fixed_point_check = gen_fixed_point_check(&conflict_params);
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
     let might_be_zero_copy_expr = gen_might_be_zero_copy_expr(ctx.is_repr_c, &field_types);
     let (mut ser_where_clause, mut deser_where_clause) =
@@ -871,6 +900,8 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 ) -> ::core::result::Result<Self::DeserType<'deser_eps_inner_lifetime>, ::epserde::deser::Error>
                 {
                     use ::epserde::deser::DeserInner;
+
+                    #fixed_point_check
 
                     Ok(#name{
                         #( #method_calls, )*
@@ -1071,21 +1102,16 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
         }
     }
 
-    // A parameter cannot be both replaceable and irreplaceable: the
-    // parameter-level substitution in Self::DeserType<'a> would replace
-    // it everywhere (because it is replaceable), but the marked field
-    // would keep it verbatim, producing a type mismatch in the derived
-    // _deser_eps_inner body. We surface the conflict here with a clear
-    // message instead of relying on rustc's slot-mismatch diagnostic.
-    if let Some(p) = all_repl_params.intersection(&all_irrepl_params).next() {
-        let msg = format!(
-            "type parameter {p} is both replaceable and irreplaceable:it appears in fields both with and without #[epserde(force_full)])"
-        );
-        return syn::Error::new_spanned(p, msg).to_compile_error();
-    }
-
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &all_repl_params);
     let generics_for_ser_type = gen_generics_for_ser_type(ctx, &all_repl_params);
+    // See the struct branch for the rationale: a parameter that appears in
+    // both unmarked and force_full-marked fields needs DeserType<'_> = T to
+    // make the generated body type-check.
+    let conflict_params: Vec<&syn::Ident> = all_repl_params
+        .intersection(&all_irrepl_params)
+        .copied()
+        .collect();
+    let fixed_point_check = gen_fixed_point_check(&conflict_params);
     let tag = (0..variant_arm.len()).collect::<Vec<_>>();
 
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &all_fields_types);
@@ -1250,6 +1276,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 {
                     use ::epserde::deser::DeserInner;
                     use ::epserde::deser::Error;
+
+                    #fixed_point_check
 
                     match unsafe { <usize as DeserInner>::_deser_full_inner(backend)? } {
                         #(

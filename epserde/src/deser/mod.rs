@@ -500,6 +500,33 @@ pub trait DeserInner: Sized {
     unsafe fn _deser_eps_inner<'a>(backend: &mut SliceWithPos<'a>) -> Result<Self::DeserType<'a>>;
 }
 
+/// Marker trait identifying types that are a fixed point of deserialization
+/// (types `T` whose [`DeserType`] is `T` itself for every lifetime).
+///
+/// The derive emits an assertion against this trait when a type parameter is
+/// both replaceable and irreplaceable (it appears in a field marked
+/// `#[epserde(force_full)]` and in an unmarked field). The (de)serialization
+/// code compiles only when `T` satisfies this trait, and the
+/// `#[diagnostic::on_unimplemented]` attribute below surfaces an actionable
+/// hint when the user has not supplied the required bound.
+///
+/// The derive emits a bound of the form `<T as DeserInner>::DeserType<'_>:
+/// DeserFixedPoint<T>` for each conflicting parameter, so that when the
+/// equality fails the blanket impl `impl<T> DeserFixedPoint<T> for T` does not
+/// apply and rustc reports `DeserFixedPoint<T>` as unimplemented. The
+/// `#[diagnostic::on_unimplemented]` attribute below then suggests the bound
+/// that fixes the issue.
+///
+/// [`DeserType`]: DeserInner::DeserType
+#[diagnostic::on_unimplemented(
+    message = "type parameter `{T}` is both replaceable and irreplaceable (it appears both in a field marked `#[epserde(force_full)]` and in an unmarked field)",
+    label = "the deserialization type of `{T}` is `{Self}`, not `{T}`",
+    note = "consider restricting type parameter `{T}` with `{T}: for<'a> ::epserde::deser::DeserInner<DeserType<'a> = {T}>`"
+)]
+pub trait DeserFixedPoint<T: ?Sized> {}
+
+impl<T: ?Sized> DeserFixedPoint<T> for T {}
+
 /// Blanket implementation that prevents the user from overwriting the
 /// methods in [`Deserialize`].
 ///
