@@ -355,6 +355,7 @@ fn test_enum_zero() {
 // MIGHT_BE_ZERO_COPY is false on Box/Rc/Arc and the lint stays silent.
 #[derive(Epserde, Debug, PartialEq, Eq)]
 struct BoxBox<T> {
+    #[allow(clippy::redundant_allocation)]
     data: Box<Box<T>>,
 }
 
