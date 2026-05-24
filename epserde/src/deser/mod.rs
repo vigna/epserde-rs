@@ -519,9 +519,9 @@ pub trait DeserInner: Sized {
 ///
 /// [`DeserType`]: DeserInner::DeserType
 #[diagnostic::on_unimplemented(
-    message = "type parameter `{T}` is both full copy and ε-copy (it appears both in a field marked `#[epserde(force_full)]` and in an unmarked field)",
+    message = "type parameter `{T}` is both-full copy and ε-copy (it appears both in a field marked `#[epserde(force_full)]` and in an unmarked field)",
     label = "the deserialization type of `{T}` is `{Self}`, not `{T}`",
-    note = "consider restricting type parameter `{T}` with `{T}: for<'a> ::epserde::deser::DeserInner<DeserType<'a> = {T}>`"
+    note = "consider restricting type parameter `{T}` with `{T}: for<'a> DeserInner<DeserType<'a> = {T}>`"
 )]
 pub trait DeserFixedPoint<T: ?Sized> {}
 
