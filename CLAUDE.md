@@ -65,7 +65,7 @@ This distinction drives specialization throughout the crate via `SerHelper<Zero>
 ### Derive Macros (`epserde-derive/src/lib.rs`)
 
 `#[derive(Epserde)]` generates `CopyType`, `SerInner`, `DeserInner`, `TypeHash`, `AlignHash`, and `AlignTo`. Key behavior:
-- **Type parameter replacement**: Every variable-position (bare-parameter) occurrence of a type parameter in an unmarked field's type makes the parameter replaceable; the derive substitutes it with `T::DeserType<'a>` in the deserialized form. Marking a field with `#[epserde(force_full)]` opts it out (full-copy deserialization, type verbatim); fields whose type contains no variable position default to full-copy as well.
+- **Type parameter replacement**: Every variable-position (bare-parameter) occurrence of a type parameter in an unmarked field's type makes the parameter ε-copy; the derive substitutes it with `T::DeserType<'a>` in the deserialized form. Marking a field with `#[epserde(force_full)]` opts it out (full-copy deserialization, type verbatim); fields whose type contains no variable position default to full-copy as well.
 - **Static zero-copy assertion**: Uses const blocks to verify zero-copy candidates at compile time
 - Supports structs and enums (unit, named, unnamed variants)
 
@@ -100,4 +100,4 @@ This project follows https://github.com/vigna/rust-dev-guidelines. Key conventio
 - Zero-copy types must be `#[repr(C)]` and contain no references
 - Type hashes include alignment/padding info — mismatches cause deserialization errors
 - Serialization writes uninitialized padding bytes (unsafe)
-- Every variable-position (bare-parameter leaf) occurrence of a type parameter in an unmarked field's type makes the parameter replaceable; the derive substitutes it with `<T as DeserInner>::DeserType<'_>` in the deserialization type. Occurrences inside `PhantomData<…>` do not count (transparent slot). Marking a field with `#[epserde(force_full)]` pins it to full-copy deserialization, keeps its type verbatim in the deserialization type, and excludes its type-parameter occurrences from the replaceable set. Fields whose type contains no variable position default to full-copy as well, since they have nothing to substitute.
+- Every variable-position (bare-parameter leaf) occurrence of a type parameter in an unmarked field's type makes the parameter ε-copy; the derive substitutes it with `<T as DeserInner>::DeserType<'_>` in the deserialization type. Occurrences inside `PhantomData<…>` do not count (transparent slot). Marking a field with `#[epserde(force_full)]` pins it to full-copy deserialization, keeps its type verbatim in the deserialization type, and excludes its type-parameter occurrences from the ε-copy set. Fields whose type contains no variable position default to full-copy as well, since they have nothing to substitute.

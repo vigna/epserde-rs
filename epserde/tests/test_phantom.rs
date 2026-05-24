@@ -272,7 +272,7 @@ fn test_phantom_data_substitution() -> anyhow::Result<()> {
 
 // PhantomDeserData<T> is not a barrier in the classifier (only
 // PhantomData is), so an occurrence of T inside PhantomDeserData<T>
-// is a variable position and T becomes replaceable by default — even
+// is a variable position and T becomes ε-copy by default — even
 // when no other field of the struct mentions T.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
 #[epserde(deep_copy)]

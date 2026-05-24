@@ -19,7 +19,7 @@ struct A<T>(T);
 
 // A user-defined wrapper whose only occurrence of T is inside force_full.
 // T does not appear at any variable position outside the marked field,
-// so T is not in the replaceable set, and `inner` keeps its verbatim
+// so T is not in the ε-copy set, and `inner` keeps its verbatim
 // slot in DeserType<'_>.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct PinnedWrapper<T> {
@@ -136,11 +136,11 @@ fn test_default_substitution_through_wrapper() -> anyhow::Result<()> {
     Ok(())
 }
 
-// Two parameters: one (P) replaceable via a variable position in an
+// Two parameters: one (P) ε-copy via a variable position in an
 // unmarked field, the other (Q) pinned through force_full. DeserType<'_>
 // substitutes P but keeps Q verbatim; the marked field's slot is
 // A<Q>, not A<Q::DeserType<'_>>, and the test would not compile if
-// Q ended up in the replaceable set.
+// Q ended up in the ε-copy set.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Split<P, Q> {
     a: P,
@@ -149,7 +149,7 @@ struct Split<P, Q> {
 }
 
 #[test]
-fn test_force_full_mixed_replaceable_and_pinned() -> anyhow::Result<()> {
+fn test_force_full_mixed_eps_copy_and_pinned() -> anyhow::Result<()> {
     let original: Split<Vec<u32>, Vec<u32>> = Split {
         a: vec![1, 2, 3],
         b: A(vec![4, 5, 6]),

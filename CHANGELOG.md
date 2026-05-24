@@ -16,6 +16,9 @@
   when a structure might be zero-copy (as `SerInner::IS_ZERO_COPY` is not
   aware of pointer erasure).
 
+- "Replaceable" (variable) and "irreplaceable" is now "ε-copy" and
+  "full-copy".
+
 ## [0.12.6] - 2026-04-02
 
 ### Fixed
@@ -223,7 +226,7 @@
 - Major disruptive change: vectors and boxed slices have now the same
   serialization type. This makes them interchangeable at will in
   (de)serialization, which is an extremely useful feature. Unfortunately, old
-  instances with replaceable type parameters whose concrete type is a vector
+  instances with ε-copy type parameters whose concrete type is a vector
   will no longer be deserializable. The same happens for `String` and
   `Box<str>`.
 

@@ -424,7 +424,7 @@ fn emit_deprecation_warnings(attrs: &EpserdeAttrs, type_name: &syn::Ident) {
 /// associated (de)serialization types with the same trait bounds of the type.
 fn bound_ser_deser_types(
     derive_input: &DeriveInput,
-    repl_params: &HashSet<&syn::Ident>,
+    eps_params: &HashSet<&syn::Ident>,
     ser_where_clause: &mut WhereClause,
     deser_where_clause: &mut WhereClause,
 ) {
@@ -436,7 +436,7 @@ fn bound_ser_deser_types(
 
             // We are just interested in type parameters that are types of
             // fields and that have trait bounds
-            if !t.bounds.is_empty() && repl_params.contains(ident) {
+            if !t.bounds.is_empty() && eps_params.contains(ident) {
                 // The lifetime of the DeserType
                 let mut lifetimes = Punctuated::new();
                 lifetimes.push(GenericParam::Lifetime(LifetimeParam {
@@ -512,16 +512,16 @@ fn add_ser_deser_trait_bounds(
     ));
 }
 
-/// Generates generics for the deserialization type by replacing replaceable
+/// Generates generics for the deserialization type by replacing ε-copy
 /// type parameters with their associated deserialization type.
 fn gen_generics_for_deser_type(
     ctx: &EpserdeContext,
-    repl_params: &HashSet<&syn::Ident>,
+    eps_params: &HashSet<&syn::Ident>,
 ) -> Vec<proc_macro2::TokenStream> {
     ctx.type_const_params
         .iter()
         .map(|ident| {
-            if repl_params.contains(ident) {
+            if eps_params.contains(ident) {
                 quote!(::epserde::deser::DeserType<'__epserde_desertype, #ident>)
             } else {
                 quote!(#ident)
@@ -530,16 +530,16 @@ fn gen_generics_for_deser_type(
         .collect()
 }
 
-/// Generates generics for the serialization type by replacing replaceable
+/// Generates generics for the serialization type by replacing ε-copy
 /// type parameters with their associated serialization type.
 fn gen_generics_for_ser_type(
     ctx: &EpserdeContext,
-    repl_params: &HashSet<&syn::Ident>,
+    eps_params: &HashSet<&syn::Ident>,
 ) -> Vec<proc_macro2::TokenStream> {
     ctx.type_const_params
         .iter()
         .map(|ident| {
-            if repl_params.contains(ident) {
+            if eps_params.contains(ident) {
                 quote!(::epserde::ser::SerType<#ident>)
             } else {
                 quote!(#ident)
@@ -686,8 +686,8 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     let mut field_names = vec![];
     let mut field_types = vec![];
     let mut method_calls = vec![];
-    let mut repl_params = HashSet::new();
-    let mut irrepl_params = HashSet::new();
+    let mut eps_params = HashSet::new();
+    let mut full_params = HashSet::new();
     let mut full_deser_fields = vec![];
 
     for (field_idx, field) in s.fields.iter().enumerate() {
@@ -707,18 +707,13 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             );
         }
 
-        // Replaceable parameters: occurrences at a variable position in
-        // an unmarked field. Irreplaceable parameters: occurrences at a
+        // ε-copy parameters: occurrences at a variable position in
+        // an unmarked field. Full-copy parameters: occurrences at a
         // variable position in a marked field.
         if force_full {
-            collect_param_occurrences(
-                field_type,
-                &ctx.type_const_params,
-                &mut irrepl_params,
-                false,
-            );
+            collect_param_occurrences(field_type, &ctx.type_const_params, &mut full_params, false);
         } else {
-            collect_param_occurrences(field_type, &ctx.type_const_params, &mut repl_params, false);
+            collect_param_occurrences(field_type, &ctx.type_const_params, &mut eps_params, false);
         }
 
         method_calls.push(gen_eps_deser_method_call(
@@ -732,9 +727,9 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         full_deser_fields.push(deser_full);
     }
 
-    let generics_for_deser_type = gen_generics_for_deser_type(ctx, &repl_params);
-    let generics_for_ser_type = gen_generics_for_ser_type(ctx, &repl_params);
-    // A type parameter that is both replaceable and irreplaceable produces
+    let generics_for_deser_type = gen_generics_for_deser_type(ctx, &eps_params);
+    let generics_for_ser_type = gen_generics_for_ser_type(ctx, &eps_params);
+    // A type parameter that is both ε-copy and full-copy produces
     // a slot mismatch in the generated _deser_eps_inner: one occurrence
     // becomes <T as DeserInner>::DeserType<'_>, the other stays as T. The
     // user can resolve the conflict with a bound that forces DeserType<'_>
@@ -743,7 +738,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     // bound is missing, the on_unimplemented message points at the fix
     // instead of leaving the user with rustc's raw slot mismatch.
     let conflict_params: Vec<&syn::Ident> =
-        repl_params.intersection(&irrepl_params).copied().collect();
+        eps_params.intersection(&full_params).copied().collect();
     let fixed_point_check = gen_fixed_point_check(&conflict_params);
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
     let might_be_zero_copy_expr = gen_might_be_zero_copy_expr(ctx.is_repr_c, &field_types);
@@ -758,14 +753,14 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         .predicates
         .extend(ctx.deser_bounds.iter().cloned());
 
-    // For every replaceable parameter, emit T: SerInner / T: DeserInner.
+    // For every ε-copy parameter, emit T: SerInner / T: DeserInner.
     // The field-type bound was skipped above for ε-deserialized fields;
     // these per-parameter bounds let Rust resolve kind-uniform wrapper
     // impls (Box, Rc, Arc, Option, Range, tuples). For wrappers whose
     // resolution depends on T's kind (Vec, Box<[…]>, [T; N], String),
     // the user must additionally bound T: ZeroCopy or T: DeepCopy.
     if !ctx.is_zero_copy {
-        for ident in &repl_params {
+        for ident in &eps_params {
             ser_where_clause.predicates.push(syn::parse_quote!(
                 #ident: ::epserde::ser::SerInner
             ));
@@ -831,7 +826,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     } else {
         bound_ser_deser_types(
             ctx.derive_input,
-            &repl_params,
+            &eps_params,
             &mut ser_where_clause,
             &mut deser_where_clause,
         );
@@ -923,12 +918,12 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     let mut variant_full_des = vec![];
     // For each variant, ε-copy deserialization code
     let mut variant_eps_des = vec![];
-    // Replaceable parameters: occurrences at a variable position in
-    // some unmarked field of some variant. Irreplaceable parameters:
+    // ε-copy parameters: occurrences at a variable position in
+    // some unmarked field of some variant. Full-copy parameters:
     // occurrences at a variable position in some marked field of some
     // variant.
-    let mut all_repl_params = HashSet::new();
-    let mut all_irrepl_params = HashSet::new();
+    let mut all_eps_params = HashSet::new();
+    let mut all_full_params = HashSet::new();
     // All field types for all variants
     let mut all_fields_types = vec![];
     // Whether each entry in all_fields_types is deserialized full-copy.
@@ -973,14 +968,14 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                         collect_param_occurrences(
                             field_type,
                             &ctx.type_const_params,
-                            &mut all_irrepl_params,
+                            &mut all_full_params,
                             false,
                         );
                     } else {
                         collect_param_occurrences(
                             field_type,
                             &ctx.type_const_params,
-                            &mut all_repl_params,
+                            &mut all_eps_params,
                             false,
                         );
                     }
@@ -1047,14 +1042,14 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                         collect_param_occurrences(
                             field_type,
                             &ctx.type_const_params,
-                            &mut all_irrepl_params,
+                            &mut all_full_params,
                             false,
                         );
                     } else {
                         collect_param_occurrences(
                             field_type,
                             &ctx.type_const_params,
-                            &mut all_repl_params,
+                            &mut all_eps_params,
                             false,
                         );
                     }
@@ -1102,13 +1097,13 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
         }
     }
 
-    let generics_for_deser_type = gen_generics_for_deser_type(ctx, &all_repl_params);
-    let generics_for_ser_type = gen_generics_for_ser_type(ctx, &all_repl_params);
+    let generics_for_deser_type = gen_generics_for_deser_type(ctx, &all_eps_params);
+    let generics_for_ser_type = gen_generics_for_ser_type(ctx, &all_eps_params);
     // See the struct branch for the rationale: a parameter that appears in
     // both unmarked and force_full-marked fields needs DeserType<'_> = T to
     // make the generated body type-check.
-    let conflict_params: Vec<&syn::Ident> = all_repl_params
-        .intersection(&all_irrepl_params)
+    let conflict_params: Vec<&syn::Ident> = all_eps_params
+        .intersection(&all_full_params)
         .copied()
         .collect();
     let fixed_point_check = gen_fixed_point_check(&conflict_params);
@@ -1127,14 +1122,14 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
         .predicates
         .extend(ctx.deser_bounds.iter().cloned());
 
-    // For every replaceable parameter, emit T: SerInner / T: DeserInner.
+    // For every ε-copy parameter, emit T: SerInner / T: DeserInner.
     // The field-type bound was skipped above for ε-deserialized fields;
     // these per-parameter bounds let Rust resolve kind-uniform wrapper
     // impls (Box, Rc, Arc, Option, Range, tuples). For wrappers whose
     // resolution depends on T's kind (Vec, Box<[…]>, [T; N], String),
     // the user must additionally bound T: ZeroCopy or T: DeepCopy.
     if !ctx.is_zero_copy {
-        for ident in &all_repl_params {
+        for ident in &all_eps_params {
             ser_where_clause.predicates.push(syn::parse_quote!(
                 #ident: ::epserde::ser::SerInner
             ));
@@ -1201,7 +1196,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     } else {
         bound_ser_deser_types(
             ctx.derive_input,
-            &all_repl_params,
+            &all_eps_params,
             &mut ser_where_clause,
             &mut deser_where_clause,
         );
@@ -1312,7 +1307,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// You can specify additional where-clause bounds for the generated
 /// (de)serialization implementations using `#[epserde(bound(deser = "...", ser
 /// = "..."))]`. This is useful when a field's type involves an associated type
-/// of a replaceable type parameter, as the associated type needs to be pinned
+/// of an ε-copy type parameter, as the associated type needs to be pinned
 /// to remain the same after replacement. For example:
 /// ```ignore
 /// #[derive(Epserde)]
@@ -1332,7 +1327,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 ///
 /// By default every field of a deep-copy type whose type contains a
 /// type-parameter occurrence at a variable position is deserialized via
-/// the ε-copy path, and that parameter is replaceable: in
+/// the ε-copy path, and that parameter is ε-copy: in
 /// `Self::DeserType<'a>` it is substituted with `<T as DeserInner>::
 /// DeserType<'a>`. Occurrences nested inside `PhantomData<…>` are
 /// transparent and do not count. Fields whose type contains no variable
@@ -1344,7 +1339,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 ///   `_deser_eps_inner`;
 /// - its type is preserved verbatim in `Self::DeserType<'a>` (no
 ///   substitution inside it);
-/// - its occurrences do not contribute to the replaceable-parameter set.
+/// - its occurrences do not contribute to the ε-copy-parameter set.
 ///
 /// Typical use: a field whose type is `Vec<T>` but the surrounding struct
 /// is to be deserialized full-copy, or a wrapper whose `DeserType<'_>`
@@ -1772,7 +1767,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
     let mut all_align_hashes = vec![];
     let mut all_align_tos = vec![];
     let mut all_field_types = vec![];
-    let mut all_repl_params = HashSet::new();
+    let mut all_eps_params = HashSet::new();
 
     // Process each variant
     for variant in &e.variants {
@@ -1812,7 +1807,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                         // We look for type parameters that are types of fields
                         if let Some(field_type_id) = get_ident(field_type) {
                             if ctx.type_params.contains(field_type_id) {
-                                all_repl_params.insert(field_type_id);
+                                all_eps_params.insert(field_type_id);
                             }
                         }
                     }
@@ -1846,7 +1841,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                         // We look for type parameters that are types of fields
                         if let Some(field_type_id) = get_ident(field_type) {
                             if ctx.type_params.contains(field_type_id) {
-                                all_repl_params.insert(field_type_id);
+                                all_eps_params.insert(field_type_id);
                             }
                         }
                     }

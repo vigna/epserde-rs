@@ -385,3 +385,6 @@ fn testtest() {
     unsafe { t.serialize(&mut cursor).unwrap() };
     unsafe { <T<i32>>::deserialize_eps(cursor.as_bytes()).unwrap() };
 }
+
+#[derive(Epserde)]
+struct S<T>(T, #[epserde(force_full)] T);
