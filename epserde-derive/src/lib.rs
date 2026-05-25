@@ -10,7 +10,10 @@
 //! Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) crate.
 
 use quote::{ToTokens, quote};
-use std::{collections::HashSet, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    vec,
+};
 use syn::{
     BoundLifetimes, Data, DeriveInput, GenericParam, ImplGenerics, LifetimeParam, PredicateType,
     TypeGenerics, TypeParamBound, WhereClause, WherePredicate, parse_macro_input,
@@ -292,22 +295,37 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, field_types: &[&syn::Type]) -> proc_ma
 /// `#[diagnostic::on_unimplemented]` message on `DeserFixedPoint` surfaces an
 /// actionable hint alongside rustc's slot-mismatch error.
 ///
+/// Each ident in `conflict_params` is expected to be re-spanned to the ε-copy
+/// field that forces the constraint (see [`push_conflict_idents`]), so that the
+/// diagnostic points at that field rather than at the derive invocation. The
+/// ε-copy field is chosen over the `#[epserde(force_full)]` one because the
+/// hint recommends adding `force_full`, so underlining a field that already has
+/// it would be contradictory.
+///
 /// Returns an empty token stream when there are no conflicts.
-fn gen_fixed_point_check(conflict_params: &[&syn::Ident]) -> proc_macro2::TokenStream {
+fn gen_fixed_point_check(conflict_params: &[syn::Ident]) -> proc_macro2::TokenStream {
     if conflict_params.is_empty() {
         return quote!();
     }
+    // The failing bound is on __Slot (the deserialization type), not on the
+    // bare parameter, so re-spanning the parameter alone leaves the error on the
+    // derive invocation. Emitting each call with quote_spanned! at the field
+    // span makes the whole call expression carry that span, so the diagnostic
+    // points at the ε-copy field.
+    let checks = conflict_params.iter().map(|param| {
+        quote::quote_spanned! {param.span()=>
+            __epserde_fixed_point_check::<
+                #param,
+                <#param as ::epserde::deser::DeserInner>::DeserType<'_>,
+            >();
+        }
+    });
     quote! {
         fn __epserde_fixed_point_check<__Outer, __Slot: ?Sized>()
         where
             __Slot: ::epserde::deser::DeserFixedPoint<__Outer>,
         {}
-        #(
-            __epserde_fixed_point_check::<
-                #conflict_params,
-                <#conflict_params as ::epserde::deser::DeserInner>::DeserType<'_>,
-            >();
-        )*
+        #(#checks)*
     }
 }
 
@@ -355,6 +373,25 @@ fn push_seq_deep_idents(
     for p in params {
         let mut id = (*p).clone();
         id.set_span(span);
+        out.push(id);
+    }
+}
+
+/// Computes the conflict parameters (those occurring at a variable position in
+/// both an unmarked field and a field marked `#[epserde(force_full)]`) and
+/// pushes each into `out`, re-spanned to the ε-copy field that uses it (recorded
+/// in `eps_field_spans`), so the fixed-point diagnostic points at that field.
+fn push_conflict_idents(
+    eps_params: &HashSet<&syn::Ident>,
+    full_params: &HashSet<&syn::Ident>,
+    eps_field_spans: &HashMap<&syn::Ident, proc_macro2::Span>,
+    out: &mut Vec<syn::Ident>,
+) {
+    for p in eps_params.intersection(full_params) {
+        let mut id = (*p).clone();
+        if let Some(span) = eps_field_spans.get(*p) {
+            id.set_span(*span);
+        }
         out.push(id);
     }
 }
@@ -805,6 +842,10 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     // element in an ε-copy field, each re-spanned to the field that forces it,
     // so that the stability diagnostic points at the offending field.
     let mut seq_deep_idents: Vec<syn::Ident> = vec![];
+    // For each ε-copy parameter, the span of the first unmarked field that uses
+    // it, so that a parameter that is also full-copy can have its conflict
+    // diagnostic point at that field.
+    let mut eps_field_spans: HashMap<&syn::Ident, proc_macro2::Span> = HashMap::new();
     let mut full_deser_fields = vec![];
 
     for (field_idx, field) in s.fields.iter().enumerate() {
@@ -830,7 +871,14 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         if force_full {
             collect_param_occurrences(field_type, &ctx.type_const_params, &mut full_params, false);
         } else {
-            collect_param_occurrences(field_type, &ctx.type_const_params, &mut eps_params, false);
+            let mut field_eps = HashSet::new();
+            collect_param_occurrences(field_type, &ctx.type_const_params, &mut field_eps, false);
+            for p in &field_eps {
+                eps_field_spans
+                    .entry(*p)
+                    .or_insert_with(|| field_type.span());
+            }
+            eps_params.extend(&field_eps);
             let mut field_seq_deep = HashSet::new();
             collect_seq_forced_deep_params(field_type, &ctx.type_const_params, &mut field_seq_deep);
             push_seq_deep_idents(&field_seq_deep, field_type.span(), &mut seq_deep_idents);
@@ -856,9 +904,16 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     // = T (automatic for ZeroCopy types). The assertion below requests
     // DeserFixedPoint for each conflicting parameter so that, when the
     // bound is missing, the on_unimplemented message points at the fix
-    // instead of leaving the user with rustc's raw slot mismatch.
-    let conflict_params: Vec<&syn::Ident> =
-        eps_params.intersection(&full_params).copied().collect();
+    // instead of leaving the user with rustc's raw slot mismatch. Each
+    // conflicting parameter is re-spanned to the ε-copy field that uses it,
+    // so the diagnostic points at that field.
+    let mut conflict_params: Vec<syn::Ident> = vec![];
+    push_conflict_idents(
+        &eps_params,
+        &full_params,
+        &eps_field_spans,
+        &mut conflict_params,
+    );
     let fixed_point_check = gen_fixed_point_check(&conflict_params);
     let seq_deep_check =
         gen_seq_deep_check(&seq_deep_idents, &ctx.generics_for_impl, ctx.where_clause);
@@ -975,7 +1030,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     use ::epserde::ser::WriteWithNames;
 
                     // Check whether the type could be zero-copy but it is not
-                    // declared as such, and the attribute `epserde_deep_copy`
+                    // declared as such, and the attribute epserde_deep_copy
                     // is missing
                     const { assert!(!(! #is_deep_copy #(&& <#field_types>::MIGHT_BE_ZERO_COPY)*), concat!("Structure ", #name_str, " could be zero-copy, but it has not been declared as such; use either #[epserde(zero_copy)] or #[epserde(deep_copy)] to silence this error")); }
 
@@ -1048,6 +1103,10 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     // variant.
     let mut all_eps_params = HashSet::new();
     let mut all_full_params = HashSet::new();
+    // For each ε-copy parameter, the span of the first unmarked field that uses
+    // it, so that a parameter that is also full-copy can have its conflict
+    // diagnostic point at that field.
+    let mut eps_field_spans: HashMap<&syn::Ident, proc_macro2::Span> = HashMap::new();
     // Parameters forced to be deep-copy because they occur as a sequence
     // element in an ε-copy field, each re-spanned to the offending field.
     let mut seq_deep_idents: Vec<syn::Ident> = vec![];
@@ -1099,12 +1158,19 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                             false,
                         );
                     } else {
+                        let mut field_eps = HashSet::new();
                         collect_param_occurrences(
                             field_type,
                             &ctx.type_const_params,
-                            &mut all_eps_params,
+                            &mut field_eps,
                             false,
                         );
+                        for p in &field_eps {
+                            eps_field_spans
+                                .entry(*p)
+                                .or_insert_with(|| field_type.span());
+                        }
+                        all_eps_params.extend(&field_eps);
                         let mut field_seq_deep = HashSet::new();
                         collect_seq_forced_deep_params(
                             field_type,
@@ -1184,12 +1250,19 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                             false,
                         );
                     } else {
+                        let mut field_eps = HashSet::new();
                         collect_param_occurrences(
                             field_type,
                             &ctx.type_const_params,
-                            &mut all_eps_params,
+                            &mut field_eps,
                             false,
                         );
+                        for p in &field_eps {
+                            eps_field_spans
+                                .entry(*p)
+                                .or_insert_with(|| field_type.span());
+                        }
+                        all_eps_params.extend(&field_eps);
                         let mut field_seq_deep = HashSet::new();
                         collect_seq_forced_deep_params(
                             field_type,
@@ -1250,11 +1323,16 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     let generics_for_ser_type = gen_generics_for_ser_type(ctx, &all_eps_params);
     // See the struct branch for the rationale: a parameter that appears in
     // both unmarked and force_full-marked fields needs DeserType<'_> = T to
-    // make the generated body type-check.
-    let conflict_params: Vec<&syn::Ident> = all_eps_params
-        .intersection(&all_full_params)
-        .copied()
-        .collect();
+    // make the generated body type-check. Each conflicting parameter is
+    // re-spanned to the ε-copy field that uses it, so the diagnostic points
+    // at that field.
+    let mut conflict_params: Vec<syn::Ident> = vec![];
+    push_conflict_idents(
+        &all_eps_params,
+        &all_full_params,
+        &eps_field_spans,
+        &mut conflict_params,
+    );
     let fixed_point_check = gen_fixed_point_check(&conflict_params);
     let seq_deep_check =
         gen_seq_deep_check(&seq_deep_idents, &ctx.generics_for_impl, ctx.where_clause);
@@ -1374,7 +1452,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     use ::epserde::ser::WriteWithNames;
 
                     // Check whether the type could be zero-copy but it is not
-                    // declared as such, and the attribute `epserde_deep_copy`
+                    // declared as such, and the attribute epserde_deep_copy
                     // is missing
                     const { assert!(!(! #is_deep_copy #(&& <#all_fields_types>::MIGHT_BE_ZERO_COPY)*), concat!("Enum ", #name_str, " could be zero-copy, but it has not been declared as such; use either #[epserde(zero_copy)] or #[epserde(deep_copy)] to silence this error")); }
 

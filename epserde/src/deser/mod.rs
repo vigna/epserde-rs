@@ -520,8 +520,9 @@ pub trait DeserInner: Sized {
 /// [`DeserType`]: DeserInner::DeserType
 #[diagnostic::on_unimplemented(
     message = "type parameter `{T}` is both full-copy and ε-copy (it appears both in a field marked `#[epserde(force_full)]` and in an unmarked field)",
-    label = "the deserialization type of `{T}` must be `{T}` itself for it to be used in both positions",
-    note = "consider restricting type parameter `{T}` with `{T}: for<'a> DeserInner<DeserType<'a> = {T}>`"
+    label = "this occurrence of `{T}` in an ε-copy field conflicts with its use in a full-copy field",
+    note = "consider restricting type parameter `{T}` with `{T}: for<'a> DeserInner<DeserType<'a> = {T}>`",
+    note = "alternatively, mark the ε-copy field with `#[epserde(force_full)]`"
 )]
 pub trait DeserFixedPoint<T: ?Sized> {}
 
@@ -538,10 +539,10 @@ impl<T: ?Sized> DeserFixedPoint<T> for T {}
 /// (`&[…]`), a type not expressible as the original sequence; the parameter
 /// is therefore forced to be deep-copy.
 ///
-/// The blanket impl applies to every [`DeepCopy`](crate::traits::DeepCopy)
-/// type, so the assertion holds as soon as the user supplies the required
-/// bound. The `#[diagnostic::do_not_recommend]` attribute keeps the compiler
-/// from reporting the missing `DeepCopy` bound as the root cause, so the
+/// The blanket impl applies to every [`DeepCopy`] type, so the assertion holds
+/// as soon as the user supplies the required bound. The
+/// `#[diagnostic::do_not_recommend]` attribute keeps the compiler from
+/// reporting the missing `DeepCopy` bound as the root cause, so the
 /// `#[diagnostic::on_unimplemented]` message below is what surfaces.
 #[diagnostic::on_unimplemented(
     message = "type parameter `{Self}` must be deep-copy: it occurs as an element of a vector, boxed slice, or array in an ε-copy field",
@@ -730,15 +731,15 @@ before 0.10.0."#
     /// The type hash is wrong. Probably the user is trying to deserialize a
     /// file with the wrong type.
     WrongTypeHash {
-        // The name of the type that was serialized.
+        /// The name of the type that was serialized.
         ser_type_name: String,
-        // The [`TypeHash`] of the type that was serialized.
+        /// The [`TypeHash`] of the type that was serialized.
         ser_type_hash: u64,
-        // The name of the type on which the deserialization method was called.
+        /// The name of the type on which the deserialization method was called.
         self_type_name: String,
-        // The name of the serialization type of `self_type_name`.
+        /// The name of the serialization type of `self_type_name`.
         self_ser_type_name: String,
-        // The [`TypeHash`] of the type on which the deserialization method was called.
+        /// The [`TypeHash`] of the type on which the deserialization method was called.
         self_type_hash: u64,
     },
     #[error(
@@ -766,15 +767,15 @@ a range in a file serialized before version 0.12.0."#
     /// usually because of alignment issues. There are also some backward-compatibility
     /// issues discussed in the error message.
     WrongAlignHash {
-        // The name of the type that was serialized.
+        /// The name of the type that was serialized.
         ser_type_name: String,
-        // The [`AlignHash`] of the type that was serialized.
+        /// The [`AlignHash`] of the type that was serialized.
         ser_align_hash: u64,
-        // The name of the type on which the deserialization method was called.
+        /// The name of the type on which the deserialization method was called.
         self_type_name: String,
-        // The name of the serialization type of `self_type_name`.
+        /// The name of the serialization type of `self_type_name`.
         self_ser_type_name: String,
-        // The [`AlignHash`] of the type on which the deserialization method was called.
+        /// The [`AlignHash`] of the type on which the deserialization method was called.
         self_align_hash: u64,
     },
 }

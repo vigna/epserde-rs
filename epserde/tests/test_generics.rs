@@ -39,7 +39,7 @@ fn test_inner_param_full() {
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data2<P: TypeHash, B> {
     a: B,
-    // this should be ignored, but contains `P` in the type name so it might
+    // this should be ignored, but contains P in the type name so it might
     // be erroneously matched
     _marker2: PhantomData<()>,
     _marker: std::marker::PhantomData<P>,

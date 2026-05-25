@@ -602,7 +602,7 @@ file.push("serialized_force_full");
 unsafe { s.store(&file) };
 let b = std::fs::read(&file)?;
 
-// `force_full` pins the inner field: its type stays Inner<Vec<isize>> in the
+// force_full pins the inner field: its type stays Inner<Vec<isize>> in the
 // deserialization type rather than being substituted to Inner<&[isize]>.
 let t: Outer<Vec<isize>> =
     unsafe { <Outer<Vec<isize>>>::deserialize_eps(b.as_ref())? };
