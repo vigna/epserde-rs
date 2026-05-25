@@ -1,0 +1,5 @@
+error: "force_full" cannot appear inside a zero-copy type
+  --> tests/fail/force_full_in_zero_copy.rs:18:15
+   |
+18 |     #[epserde(force_full)]
+   |               ^^^^^^^^^^

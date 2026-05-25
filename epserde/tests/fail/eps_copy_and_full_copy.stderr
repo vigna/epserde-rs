@@ -1,0 +1,29 @@
+error[E0277]: type parameter `T` is both full-copy and ε-copy (it appears both in a field marked `#[epserde(force_full)]` and in an unmarked field)
+  --> tests/fail/eps_copy_and_full_copy.rs:21:8
+   |
+21 |     a: T,
+   |        ^ this occurrence of `T` in an ε-copy field conflicts with its use in a full-copy field
+   |
+   = help: the trait `DeserFixedPoint<T>` is not implemented for `<T as DeserInner>::DeserType<'_>`
+   = note: consider restricting type parameter `T` with `T: for<'a> DeserInner<DeserType<'a> = T>`
+   = note: alternatively, mark the ε-copy field with `#[epserde(force_full)]`
+note: required by a bound in `__epserde_fixed_point_check`
+  --> tests/fail/eps_copy_and_full_copy.rs:19:10
+   |
+19 | #[derive(Epserde)]
+   |          ^^^^^^^ required by this bound in `__epserde_fixed_point_check`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: `?` operator has incompatible types
+  --> tests/fail/eps_copy_and_full_copy.rs:19:10
+   |
+19 | #[derive(Epserde)]
+   |          ^^^^^^^ expected `Inner<<T as DeserInner>::DeserType<'_>>`, found `Inner<T>`
+20 | struct Outer<T: DeepCopy> {
+   |              - found this type parameter
+   |
+   = note: `?` operator cannot convert from `Inner<T>` to `Inner<<T as DeserInner>::DeserType<'deser_eps_inner_lifetime>>`
+   = note: expected struct `Inner<<T as DeserInner>::DeserType<'deser_eps_inner_lifetime>>`
+              found struct `Inner<T>`
+   = note: you might be missing a type parameter or trait bound
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)

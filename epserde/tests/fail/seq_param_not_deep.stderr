@@ -1,0 +1,181 @@
+error[E0277]: type parameter `A` must be deep-copy: it occurs as an element of a vector, boxed slice, or array in an ε-copy field
+  --> tests/fail/seq_param_not_deep.rs:19:14
+   |
+19 |     payload: Vec<A>,
+   |              ^^^ if `A` were zero-copy, this field would ε-copy deserialize to a slice reference, a type not expressible in the source
+   |
+   = note: consider restricting type parameter `A` with trait `DeepCopy` (more targeted), or mark the field with `#[epserde(force_full)]`
+note: required by a bound in `__check`
+  --> tests/fail/seq_param_not_deep.rs:17:10
+   |
+17 | #[derive(Epserde)]
+   |          ^^^^^^^ required by this bound in `__check`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider restricting type parameter `A` with trait `DeepCopyInSeq`
+   |
+18 | struct SeqParam<A: epserde::deser::DeepCopyInSeq> {
+   |                  +++++++++++++++++++++++++++++++
+
+error[E0599]: the associated item `IS_ZERO_COPY` exists for struct `Vec<A>`, but its trait bounds were not satisfied
+  --> tests/fail/seq_param_not_deep.rs:17:10
+   |
+17 | #[derive(Epserde)]
+   |          ^^^^^^^ associated item cannot be called on `Vec<A>` due to unsatisfied trait bounds
+   |
+  ::: $RUST/alloc/src/vec/mod.rs
+   |
+   | pub struct Vec<T, #[unstable(feature = "allocator_api", issue = "32838")] A: Allocator = Global> {
+   | ------------------------------------------------------------------------------------------------ doesn't satisfy `Vec<A>: SerHelper<_>` or `Vec<A>: epserde::ser::SerInner`
+   |
+   = note: the following trait bounds were not satisfied:
+           `A: CopyType`
+           which is required by `Vec<A>: epserde::ser::SerInner`
+           `Vec<A>: SerHelper<_>`
+           which is required by `Vec<A>: epserde::ser::SerInner`
+           `Vec<A>: epserde::ser::SerInner`
+           which is required by `&Vec<A>: epserde::ser::SerInner`
+           `Vec<A>: epserde::ser::SerInner`
+           which is required by `&mut Vec<A>: epserde::ser::SerInner`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: the associated item `MIGHT_BE_ZERO_COPY` exists for struct `Vec<A>`, but its trait bounds were not satisfied
+  --> tests/fail/seq_param_not_deep.rs:17:10
+   |
+17 | #[derive(Epserde)]
+   |          ^^^^^^^ associated item cannot be called on `Vec<A>` due to unsatisfied trait bounds
+   |
+  ::: $RUST/alloc/src/vec/mod.rs
+   |
+   | pub struct Vec<T, #[unstable(feature = "allocator_api", issue = "32838")] A: Allocator = Global> {
+   | ------------------------------------------------------------------------------------------------ doesn't satisfy `Vec<A>: SerHelper<_>` or `Vec<A>: epserde::ser::SerInner`
+   |
+   = note: the following trait bounds were not satisfied:
+           `A: CopyType`
+           which is required by `Vec<A>: epserde::ser::SerInner`
+           `Vec<A>: SerHelper<_>`
+           which is required by `Vec<A>: epserde::ser::SerInner`
+           `Vec<A>: epserde::ser::SerInner`
+           which is required by `&Vec<A>: epserde::ser::SerInner`
+           `Vec<A>: epserde::ser::SerInner`
+           which is required by `&mut Vec<A>: epserde::ser::SerInner`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `A: CopyType` is not satisfied
+  --> tests/fail/seq_param_not_deep.rs:17:10
+   |
+17 | #[derive(Epserde)]
+   |          ^^^^^^^ the trait `CopyType` is not implemented for `A`
+   |
+   = note: required for `Vec<A>` to implement `epserde::ser::SerInner`
+note: required by a bound in `epserde::ser::WriteWithNames::write`
+  --> src/ser/write_with_names.rs
+   |
+   |     fn write<V: SerInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
+   |                 ^^^^^^^^ required by this bound in `WriteWithNames::write`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `Vec<A>: epserde::ser::SerInner` is not satisfied
+  --> tests/fail/seq_param_not_deep.rs:17:10
+   |
+17 | #[derive(Epserde)]
+   |          ^^^^^^^ the trait `SerHelper<_>` is not implemented for `Vec<A>`
+   |
+help: the following other types implement trait `SerHelper<T>`
+  --> src/impls/vec.rs
+   |
+   | impl<T: ZeroCopy> SerHelper<Zero> for Vec<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Vec<T>` implements `SerHelper<epserde::traits::Zero>`
+...
+   | impl<T: DeepCopy> SerHelper<Deep> for Vec<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Vec<T>` implements `SerHelper<Deep>`
+   = note: required for `Vec<A>` to implement `epserde::ser::SerInner`
+note: required by a bound in `epserde::ser::WriteWithNames::write`
+  --> src/ser/write_with_names.rs
+   |
+   |     fn write<V: SerInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
+   |                 ^^^^^^^^ required by this bound in `WriteWithNames::write`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `A: CopyType` is not satisfied
+  --> tests/fail/seq_param_not_deep.rs:19:14
+   |
+19 |     payload: Vec<A>,
+   |              ^^^^^^ the trait `CopyType` is not implemented for `A`
+   |
+   = note: required for `Vec<A>` to implement `DeserInner`
+note: required by a bound in `__check_type_covariance`
+  --> src/deser/mod.rs
+   |
+   | pub fn __check_type_covariance<T: DeserInner>() {
+   |                                   ^^^^^^^^^^ required by this bound in `__check_type_covariance`
+
+error[E0277]: the trait bound `Vec<A>: DeserInner` is not satisfied
+  --> tests/fail/seq_param_not_deep.rs:19:14
+   |
+19 |     payload: Vec<A>,
+   |              ^^^^^^ the trait `DeserHelper<_>` is not implemented for `Vec<A>`
+   |
+help: the following other types implement trait `DeserHelper<T>`
+  --> src/impls/vec.rs
+   |
+   | impl<T: ZeroCopy + DeserInner> DeserHelper<Zero> for Vec<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Vec<T>` implements `DeserHelper<epserde::traits::Zero>`
+...
+   | impl<T: DeepCopy + DeserInner> DeserHelper<Deep> for Vec<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Vec<T>` implements `DeserHelper<Deep>`
+   = note: required for `Vec<A>` to implement `DeserInner`
+note: required by a bound in `__check_type_covariance`
+  --> src/deser/mod.rs
+   |
+   | pub fn __check_type_covariance<T: DeserInner>() {
+   |                                   ^^^^^^^^^^ required by this bound in `__check_type_covariance`
+
+error[E0277]: the trait bound `A: CopyType` is not satisfied
+  --> tests/fail/seq_param_not_deep.rs:19:14
+   |
+19 |     payload: Vec<A>,
+   |              ^^^^^^ the trait `CopyType` is not implemented for `A`
+   |
+   = note: required for `Vec<A>` to implement `DeserInner`
+
+error[E0277]: the trait bound `Vec<A>: DeserInner` is not satisfied
+  --> tests/fail/seq_param_not_deep.rs:19:14
+   |
+19 |     payload: Vec<A>,
+   |              ^^^^^^ the trait `DeserHelper<_>` is not implemented for `Vec<A>`
+   |
+help: the following other types implement trait `DeserHelper<T>`
+  --> src/impls/vec.rs
+   |
+   | impl<T: ZeroCopy + DeserInner> DeserHelper<Zero> for Vec<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Vec<T>` implements `DeserHelper<epserde::traits::Zero>`
+...
+   | impl<T: DeepCopy + DeserInner> DeserHelper<Deep> for Vec<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Vec<T>` implements `DeserHelper<Deep>`
+   = note: required for `Vec<A>` to implement `DeserInner`
+
+error[E0277]: the trait bound `A: CopyType` is not satisfied
+  --> tests/fail/seq_param_not_deep.rs:17:10
+   |
+17 | #[derive(Epserde)]
+   |          ^^^^^^^ the trait `CopyType` is not implemented for `A`
+   |
+   = note: required for `Vec<A>` to implement `DeserInner`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `Vec<A>: DeserHelper<_>` is not satisfied
+  --> tests/fail/seq_param_not_deep.rs:17:10
+   |
+17 | #[derive(Epserde)]
+   |          ^^^^^^^ the trait `DeserHelper<_>` is not implemented for `Vec<A>`
+   |
+help: the following other types implement trait `DeserHelper<T>`
+  --> src/impls/vec.rs
+   |
+   | impl<T: ZeroCopy + DeserInner> DeserHelper<Zero> for Vec<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Vec<T>` implements `DeserHelper<epserde::traits::Zero>`
+...
+   | impl<T: DeepCopy + DeserInner> DeserHelper<Deep> for Vec<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Vec<T>` implements `DeserHelper<Deep>`
+   = note: required for `Vec<A>` to implement `DeserInner`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
