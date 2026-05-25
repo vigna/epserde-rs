@@ -42,8 +42,29 @@ impl<T: TypeHash> TypeHash for &[T] {
     }
 }
 
+// For use with PhantomData
+impl<T: TypeHash> TypeHash for &mut [T] {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "&mut[]".hash(hasher);
+        T::type_hash(hasher);
+    }
+}
+
 unsafe impl<T> CopyType for &[T] {
     type Copy = Deep;
+}
+
+fn _ser_inner<T>(slice: &[T], backend: &mut impl WriteWithNames) -> ser::Result<()>
+where
+    Box<[T]>: SerInner,
+{
+    // SAFETY: the fake boxed slice we create is never used, and we forget
+    // it immediately after writing it to the backend.
+    let fake = unsafe { Vec::from_raw_parts(slice.as_ptr() as *mut T, slice.len(), slice.len()) }
+        .into_boxed_slice();
+    unsafe { ser::SerInner::_ser_inner(&fake, backend) }?;
+    core::mem::forget(fake);
+    Ok(())
 }
 
 impl<T: SerInner> SerInner for &[T]
@@ -55,12 +76,23 @@ where
     const MIGHT_BE_ZERO_COPY: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        // SAFETY: the fake boxed slice we create is never used, and we forget
-        // it immediately after writing it to the backend.
-        let fake = unsafe { Vec::from_raw_parts(self.as_ptr() as *mut T, self.len(), self.len()) }
-            .into_boxed_slice();
-        unsafe { ser::SerInner::_ser_inner(&fake, backend) }?;
-        core::mem::forget(fake);
-        Ok(())
+        _ser_inner(self, backend)
+    }
+}
+
+unsafe impl<T> CopyType for &mut [T] {
+    type Copy = Deep;
+}
+
+impl<T: SerInner> SerInner for &mut [T]
+where
+    Box<[T]>: SerInner,
+{
+    type SerType = Box<[T::SerType]>;
+    const IS_ZERO_COPY: bool = false;
+    const MIGHT_BE_ZERO_COPY: bool = false;
+
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        _ser_inner(self, backend)
     }
 }

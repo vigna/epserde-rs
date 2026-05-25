@@ -19,6 +19,10 @@
 - "Replaceable" (variable) and "irreplaceable" is now "ε-copy" and
   "full-copy".
 
+### New
+
+- Also mutable references to slices can be now serialized.
+
 ## [0.12.6] - 2026-04-02
 
 ### Fixed

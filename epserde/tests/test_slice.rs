@@ -55,3 +55,52 @@ fn test_slices() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_mut_slices() -> Result<()> {
+    let mut a = vec![1, 2, 3, 4];
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    {
+        let s = a.as_mut_slice();
+        unsafe { s.serialize(&mut cursor)? };
+        cursor.set_position(0);
+    }
+
+    let b = unsafe { <Vec<i32>>::deserialize_full(&mut cursor)? };
+    assert_eq!(a, b);
+    let b = unsafe { <Vec<i32>>::deserialize_eps(cursor.as_bytes())? };
+    assert_eq!(a, b);
+
+    cursor.set_position(0);
+    let d = Data {
+        a: vec![0, 1, 2, 3].into_boxed_slice(),
+        b: [1, 2, 3],
+    };
+    unsafe { d.serialize(&mut cursor)? };
+    cursor.set_position(0);
+    let e = unsafe { Data::<Box<[i32]>>::deserialize_full(&mut cursor)? };
+    assert_eq!(e, d);
+
+    cursor.set_position(0);
+    let mut v = vec![0, 1, 2, 3];
+    let d = Data {
+        a: v.as_mut_slice(),
+        b: [1, 2, 3],
+    };
+    unsafe { d.serialize(&mut cursor)? };
+    cursor.set_position(0);
+    let e = unsafe { Data::<Box<[i32]>>::deserialize_full(&mut cursor)? };
+    assert_eq!(&*e.a, d.a);
+
+    cursor.set_position(0);
+    let d = Data {
+        a: a.as_mut_slice(),
+        b: [1, 2, 3],
+    };
+    unsafe { d.serialize(&mut cursor)? };
+    cursor.set_position(0);
+    let e = unsafe { Data::<Vec<i32>>::deserialize_eps(cursor.as_bytes())? };
+    assert_eq!(e.a, d.a);
+    assert_eq!(e.b, d.b);
+    Ok(())
+}
