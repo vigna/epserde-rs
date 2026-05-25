@@ -832,11 +832,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         } else {
             collect_param_occurrences(field_type, &ctx.type_const_params, &mut eps_params, false);
             let mut field_seq_deep = HashSet::new();
-            collect_seq_forced_deep_params(
-                field_type,
-                &ctx.type_const_params,
-                &mut field_seq_deep,
-            );
+            collect_seq_forced_deep_params(field_type, &ctx.type_const_params, &mut field_seq_deep);
             push_seq_deep_idents(&field_seq_deep, field_type.span(), &mut seq_deep_idents);
         }
 
