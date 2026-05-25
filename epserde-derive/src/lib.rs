@@ -15,6 +15,7 @@ use syn::{
     BoundLifetimes, Data, DeriveInput, GenericParam, ImplGenerics, LifetimeParam, PredicateType,
     TypeGenerics, TypeParamBound, WhereClause, WherePredicate, parse_macro_input,
     punctuated::Punctuated,
+    spanned::Spanned,
     token::{self, Plus},
 };
 
@@ -157,6 +158,70 @@ fn has_param_occurrence(ty: &syn::Type, type_params: &[&syn::Ident]) -> bool {
     !out.is_empty()
 }
 
+/// Records into `out` every type parameter that occurs as the direct element of
+/// a literal `Vec<…>`, boxed/bare slice `[…]`, or array `[…; N]` anywhere within
+/// `ty`. Such a parameter is forced to be deep-copy for ε-copy stability: were
+/// it zero-copy, the containing sequence would ε-copy deserialize to a slice
+/// reference, a type not expressible as the original sequence.
+fn collect_seq_forced_deep_params<'a>(
+    ty: &syn::Type,
+    type_params: &[&'a syn::Ident],
+    out: &mut HashSet<&'a syn::Ident>,
+) {
+    fn record_if_bare<'a>(
+        ty: &syn::Type,
+        type_params: &[&'a syn::Ident],
+        out: &mut HashSet<&'a syn::Ident>,
+    ) {
+        if let syn::Type::Path(syn::TypePath { qself: None, path }) = ty {
+            if path.leading_colon.is_none()
+                && path.segments.len() == 1
+                && path.segments[0].arguments.is_empty()
+            {
+                let id = &path.segments[0].ident;
+                if let Some(p) = type_params.iter().find(|p| **p == id) {
+                    out.insert(*p);
+                }
+            }
+        }
+    }
+
+    match ty {
+        syn::Type::Path(syn::TypePath { path, .. }) => {
+            for segment in &path.segments {
+                if let syn::PathArguments::AngleBracketed(ab) = &segment.arguments {
+                    let is_vec = segment.ident == "Vec";
+                    for arg in &ab.args {
+                        if let syn::GenericArgument::Type(t) = arg {
+                            if is_vec {
+                                record_if_bare(t, type_params, out);
+                            }
+                            collect_seq_forced_deep_params(t, type_params, out);
+                        }
+                    }
+                }
+            }
+        }
+        syn::Type::Slice(s) => {
+            record_if_bare(&s.elem, type_params, out);
+            collect_seq_forced_deep_params(&s.elem, type_params, out);
+        }
+        syn::Type::Array(a) => {
+            record_if_bare(&a.elem, type_params, out);
+            collect_seq_forced_deep_params(&a.elem, type_params, out);
+        }
+        syn::Type::Tuple(t) => {
+            for e in &t.elems {
+                collect_seq_forced_deep_params(e, type_params, out);
+            }
+        }
+        syn::Type::Reference(r) => collect_seq_forced_deep_params(&r.elem, type_params, out),
+        syn::Type::Paren(p) => collect_seq_forced_deep_params(&p.elem, type_params, out),
+        syn::Type::Group(g) => collect_seq_forced_deep_params(&g.elem, type_params, out),
+        _ => {}
+    }
+}
+
 /// Generates the per-field initializer used inside the derived
 /// `_deser_eps_inner` body's struct literal.
 ///
@@ -243,6 +308,54 @@ fn gen_fixed_point_check(conflict_params: &[&syn::Ident]) -> proc_macro2::TokenS
                 <#conflict_params as ::epserde::deser::DeserInner>::DeserType<'_>,
             >();
         )*
+    }
+}
+
+/// Generates the ε-copy stability assertion emitted, as a standalone item, for
+/// each type parameter that occurs as the direct element of a literal `Vec<…>`,
+/// boxed slice, or array in an unmarked field.
+///
+/// The assertion requires `T: DeepCopyInSeq`; the blanket impl holds as soon as
+/// the user bounds `T: DeepCopy`, so the check is silent for well-formed types
+/// and surfaces the `#[diagnostic::on_unimplemented]` hint on `DeepCopyInSeq`
+/// otherwise. It is emitted as a free generic function inside a `const _` block
+/// (carrying the type's own generics and where clause) rather than inside the
+/// (de)serialization bodies, so that its clean hint is reported before the raw
+/// trait-resolution errors that the unbounded parameter triggers elsewhere.
+///
+/// Returns an empty token stream when there are no such parameters.
+fn gen_seq_deep_check(
+    seq_deep_idents: &[syn::Ident],
+    generics_for_impl: &syn::ImplGenerics,
+    where_clause: &syn::WhereClause,
+) -> proc_macro2::TokenStream {
+    if seq_deep_idents.is_empty() {
+        return quote!();
+    }
+    quote! {
+        const _: () = {
+            fn __epserde_seq_deep_assert #generics_for_impl () #where_clause {
+                fn __check<__SeqElem: ::epserde::deser::DeepCopyInSeq>() {}
+                #(
+                    __check::<#seq_deep_idents>();
+                )*
+            }
+        };
+    }
+}
+
+/// Pushes each parameter in `params` into `out`, re-spanned to `span`, so that
+/// the stability assertion generated from `out` points at the field that forces
+/// the parameter to be deep-copy.
+fn push_seq_deep_idents(
+    params: &HashSet<&syn::Ident>,
+    span: proc_macro2::Span,
+    out: &mut Vec<syn::Ident>,
+) {
+    for p in params {
+        let mut id = (*p).clone();
+        id.set_span(span);
+        out.push(id);
     }
 }
 
@@ -688,6 +801,10 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     let mut method_calls = vec![];
     let mut eps_params = HashSet::new();
     let mut full_params = HashSet::new();
+    // Parameters forced to be deep-copy because they occur as a sequence
+    // element in an ε-copy field, each re-spanned to the field that forces it,
+    // so that the stability diagnostic points at the offending field.
+    let mut seq_deep_idents: Vec<syn::Ident> = vec![];
     let mut full_deser_fields = vec![];
 
     for (field_idx, field) in s.fields.iter().enumerate() {
@@ -714,6 +831,13 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             collect_param_occurrences(field_type, &ctx.type_const_params, &mut full_params, false);
         } else {
             collect_param_occurrences(field_type, &ctx.type_const_params, &mut eps_params, false);
+            let mut field_seq_deep = HashSet::new();
+            collect_seq_forced_deep_params(
+                field_type,
+                &ctx.type_const_params,
+                &mut field_seq_deep,
+            );
+            push_seq_deep_idents(&field_seq_deep, field_type.span(), &mut seq_deep_idents);
         }
 
         method_calls.push(gen_eps_deser_method_call(
@@ -740,6 +864,8 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     let conflict_params: Vec<&syn::Ident> =
         eps_params.intersection(&full_params).copied().collect();
     let fixed_point_check = gen_fixed_point_check(&conflict_params);
+    let seq_deep_check =
+        gen_seq_deep_check(&seq_deep_idents, &ctx.generics_for_impl, ctx.where_clause);
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
     let might_be_zero_copy_expr = gen_might_be_zero_copy_expr(ctx.is_repr_c, &field_types);
     let (mut ser_where_clause, mut deser_where_clause) =
@@ -835,6 +961,8 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         let name_str = name.to_string();
 
         quote! {
+            #seq_deep_check
+
             #[automatically_derived]
             unsafe impl #generics_for_impl ::epserde::traits::CopyType for #name #generics_for_type #where_clause {
                 type Copy = ::epserde::traits::Deep;
@@ -924,6 +1052,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     // variant.
     let mut all_eps_params = HashSet::new();
     let mut all_full_params = HashSet::new();
+    // Parameters forced to be deep-copy because they occur as a sequence
+    // element in an ε-copy field, each re-spanned to the offending field.
+    let mut seq_deep_idents: Vec<syn::Ident> = vec![];
     // All field types for all variants
     let mut all_fields_types = vec![];
     // Whether each entry in all_fields_types is deserialized full-copy.
@@ -977,6 +1108,17 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                             &ctx.type_const_params,
                             &mut all_eps_params,
                             false,
+                        );
+                        let mut field_seq_deep = HashSet::new();
+                        collect_seq_forced_deep_params(
+                            field_type,
+                            &ctx.type_const_params,
+                            &mut field_seq_deep,
+                        );
+                        push_seq_deep_idents(
+                            &field_seq_deep,
+                            field_type.span(),
+                            &mut seq_deep_idents,
                         );
                     }
 
@@ -1052,6 +1194,17 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                             &mut all_eps_params,
                             false,
                         );
+                        let mut field_seq_deep = HashSet::new();
+                        collect_seq_forced_deep_params(
+                            field_type,
+                            &ctx.type_const_params,
+                            &mut field_seq_deep,
+                        );
+                        push_seq_deep_idents(
+                            &field_seq_deep,
+                            field_type.span(),
+                            &mut seq_deep_idents,
+                        );
                     }
 
                     field_indices.push(
@@ -1107,6 +1260,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
         .copied()
         .collect();
     let fixed_point_check = gen_fixed_point_check(&conflict_params);
+    let seq_deep_check =
+        gen_seq_deep_check(&seq_deep_idents, &ctx.generics_for_impl, ctx.where_clause);
     let tag = (0..variant_arm.len()).collect::<Vec<_>>();
 
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &all_fields_types);
@@ -1204,6 +1359,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
         let name_str = name.to_string();
 
         quote! {
+            #seq_deep_check
+
             #[automatically_derived]
             unsafe impl #generics_for_impl ::epserde::traits::CopyType for #name #generics_for_type #where_clause {
                 type Copy = ::epserde::traits::Deep;

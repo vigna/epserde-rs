@@ -9,7 +9,7 @@
   behavior can be obtained by decorating the field with
   `#[epserde(force_full)]`. The new design opens the possibility for type
   replacement inside fields whose type is not a parameter (e.g., `struct
-  S<A>([A; 3])` can have `Vec<usize>` as a parameter, getting the
+S<A>([A; 3])` can have `Vec<usize>` as a parameter, getting the
   deserialization type `S<&[usize]>`).
 
 - A new constant `SerInner::MIGHT_BE_ZERO_COPY` tracks more accurately
@@ -22,6 +22,8 @@
 ### New
 
 - Also mutable references to slices can be now serialized.
+
+- Much better diagnostic for violations of ε-copy stability.
 
 ## [0.12.6] - 2026-04-02
 

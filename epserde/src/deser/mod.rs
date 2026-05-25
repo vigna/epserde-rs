@@ -520,12 +520,38 @@ pub trait DeserInner: Sized {
 /// [`DeserType`]: DeserInner::DeserType
 #[diagnostic::on_unimplemented(
     message = "type parameter `{T}` is both full-copy and ε-copy (it appears both in a field marked `#[epserde(force_full)]` and in an unmarked field)",
-    label = "the deserialization type of `{T}` is `{Self}`, not `{T}`",
+    label = "the deserialization type of `{T}` must be `{T}` itself for it to be used in both positions",
     note = "consider restricting type parameter `{T}` with `{T}: for<'a> DeserInner<DeserType<'a> = {T}>`"
 )]
 pub trait DeserFixedPoint<T: ?Sized> {}
 
 impl<T: ?Sized> DeserFixedPoint<T> for T {}
+
+/// Marker trait asserting that a type parameter used as a (possibly nested)
+/// element of a literal vector, boxed slice, or array in an ε-copy field is
+/// deep-copy, as required for ε-copy stability.
+///
+/// The derive emits an assertion against this trait for every type parameter
+/// that occurs as the direct element of a literal `Vec<…>`, `Box<[…]>`, or
+/// `[…; N]` inside an unmarked field. Were such a parameter zero-copy, the
+/// containing sequence would ε-copy deserialize to a slice reference
+/// (`&[…]`), a type not expressible as the original sequence; the parameter
+/// is therefore forced to be deep-copy.
+///
+/// The blanket impl applies to every [`DeepCopy`](crate::traits::DeepCopy)
+/// type, so the assertion holds as soon as the user supplies the required
+/// bound. The `#[diagnostic::do_not_recommend]` attribute keeps the compiler
+/// from reporting the missing `DeepCopy` bound as the root cause, so the
+/// `#[diagnostic::on_unimplemented]` message below is what surfaces.
+#[diagnostic::on_unimplemented(
+    message = "type parameter `{Self}` must be deep-copy: it occurs as an element of a vector, boxed slice, or array in an ε-copy field",
+    label = "if `{Self}` were zero-copy, this field would ε-copy deserialize to a slice reference, a type not expressible in the source",
+    note = "consider restricting type parameter `{Self}` with trait `DeepCopy` (more targeted), or mark the field with `#[epserde(force_full)]`"
+)]
+pub trait DeepCopyInSeq {}
+
+#[diagnostic::do_not_recommend]
+impl<T: crate::traits::DeepCopy> DeepCopyInSeq for T {}
 
 /// Blanket implementation that prevents the user from overwriting the
 /// methods in [`Deserialize`].
