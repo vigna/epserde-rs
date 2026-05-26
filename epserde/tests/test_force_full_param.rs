@@ -8,7 +8,7 @@
 // deserialization: it is removed from the DeserType substitution set and kept
 // verbatim, while SerType keeps normalizing it.
 //
-// The motivating shape is a parameter that the derive's syntactic walk would
+// The motivating example is a parameter that the derive's syntactic walk would
 // classify as ε-copy (it occurs at a variable position in an unmarked field),
 // but that the enclosing field type actually holds full-copy. Here Inner holds
 // T in a field-level force_full slot, so Inner<T>::DeserType<'a> = Inner<T>;

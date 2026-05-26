@@ -189,15 +189,20 @@ fn has_param_occurrence(ty: &syn::Type, type_params: &[&syn::Ident]) -> bool {
 ///   for the ε/full conflict diagnostic; its union with `eps_params` is the
 ///   `SerType` substitution set (all variable-position parameters).
 ///
-/// * `deser_inner_params` - Every parameter (force-full or not) at a
-///   variable position in an ε-copy field, each of which needs a `DeserInner`
-///   bound to deserialize that field.
+/// * `deser_inner_params` - The parameters (force-full or not) at a variable
+///   position in an ε-copy field. For ε-copy fields the field-type bound is
+///   suppressed (it would [shadow the `DeserType<'_>` projection]), so the caller
+///   emits an explicit `T: DeserInner` bound for each of these. Parameters of
+///   full-copy fields instead obtain `DeserInner` from their field-type bound,
+///   so they are not collected here.
 ///
 /// * `eps_field_spans` - Maps each ε-copy parameter to the span of the first
 ///   unmarked field using it, so the conflict diagnostic can point at that field.
 ///
 /// * `seq_deep_idents` - The ε-copy parameters occurring as a sequence element
 ///   in an ε-copy field, each re-spanned to that field.
+///
+/// [shadow the `DeserType<'_>` projection]: https://github.com/rust-lang/rust/issues/152409
 #[allow(clippy::too_many_arguments)]
 fn classify_field<'a>(
     field_type: &'a syn::Type,
@@ -220,8 +225,7 @@ fn classify_field<'a>(
     }
 
     // Unmarked field: a force-full parameter is full-copy, otherwise it is an
-    // ε-copy parameter. The field is full-copy iff it has no ε-copy parameter
-    // (nothing left to substitute in DeserType).
+    // ε-copy parameter. The field is full-copy iff it has no ε-copy parameter.
     let mut has_eps = false;
     for p in &field_occ {
         if forced_params.contains(p) {
@@ -236,8 +240,9 @@ fn classify_field<'a>(
     }
 
     if has_eps {
-        // Every parameter of an ε-copy field needs DeserInner to deserialize it
-        // (force-full ones included).
+        // The field-type DeserInner bound is suppressed for ε-copy fields, so
+        // each of this field's parameters (force-full ones included) needs an
+        // explicit DeserInner bound emitted by the caller.
         deser_inner_params.extend(&field_occ);
         let mut field_seq_deep = HashSet::new();
         collect_seq_forced_deep_params(field_type, type_const_params, &mut field_seq_deep);
@@ -370,17 +375,16 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, field_types: &[&syn::Type]) -> proc_ma
 }
 
 /// Generates the fixed-point assertion injected at the top of
-/// `_deser_eps_inner` when one or more type parameters are ε-copy (substituted
-/// in `DeserType`) yet also occur at a variable position in a field marked
-/// `#[epserde(force_full)]`.
+/// `_deser_eps_inner` when one or more type parameters are ε-copy yet also
+/// occur at a variable position in a field marked `#[epserde(force_full)]`.
 ///
-/// For each conflicting parameter the assertion requires the bound
-/// `for<'a> <T as DeserInner>::DeserType<'a>: DeserFixedPoint<T>`. The blanket
-/// impl `impl<T> DeserFixedPoint<T> for T` makes the bound trivially hold
-/// when `DeserType<'a> = T` (the fixed-point condition the user can supply
-/// through `bound(deser = ...)`); otherwise the impl does not apply and the
-/// `#[diagnostic::on_unimplemented]` message on `DeserFixedPoint` surfaces an
-/// actionable hint alongside rustc's slot-mismatch error.
+/// For each conflicting parameter the assertion requires the bound `for<'a> <T
+/// as DeserInner>::DeserType<'a>: DeserFixedPoint<T>`. The blanket impl
+/// `impl<T> DeserFixedPoint<T> for T` makes the bound trivially hold when
+/// `DeserType<'a> = T` (the fixed-point condition the user can supply through
+/// `bound(deser = ...)`); otherwise the impl does not apply and the
+/// `#[diagnostic::on_unimplemented]` message on `DeserFixedPoint` show a hint
+/// alongside rustc's slot-mismatch error.
 ///
 /// Each ident in `conflict_params` is expected to be re-spanned to the ε-copy
 /// field that forces the constraint (see [`push_conflict_idents`]), so that the
@@ -464,10 +468,9 @@ fn push_seq_deep_idents(
     }
 }
 
-/// Computes the conflict parameters — the intersection of `eps_params` (the
-/// `DeserType`-substituted set the caller passes) with `full_params` (variable
-/// positions of force-full fields), i.e. parameters that are ε-copy yet also
-/// occur in a field marked `#[epserde(force_full)]` — and pushes each into
+/// Computes the conflict parameters—the intersection of `eps_params` (type
+/// parameters in variable position in ε-copy fields) with `full_params` (type
+/// parameters in variable positions of force-full fields) and pushes each into
 /// `out`, re-spanned to the ε-copy field that uses it (recorded in
 /// `eps_field_spans`), so the fixed-point diagnostic points at that field.
 fn push_conflict_idents(
@@ -551,9 +554,8 @@ struct EpserdeAttrs {
     /// Additional where-clause predicates for `SerInner` impl.
     ser_bounds: Vec<WherePredicate>,
     /// Type-parameter idents listed in `#[epserde(force_full(...))]`. These are
-    /// pinned to full-copy deserialization: removed from the `DeserType`
-    /// substitution set, kept verbatim in `DeserType<'a>`. Validated against the
-    /// declared type parameters by the caller.
+    /// pinned to full-copy: removed from the `DeserType` substitution set, and
+    /// kept verbatim in `DeserType<'a>`.
     force_full_params: Vec<syn::Ident>,
     /// Whether old-style `#[epserde(zero_copy)]` was used.
     deprecated_zero_copy: bool,
@@ -561,8 +563,8 @@ struct EpserdeAttrs {
     deprecated_deep_copy: bool,
 }
 
-/// Parses epserde attributes from `#[epserde(...)]`, `#[epserde_zero_copy]`,
-/// and `#[epserde_deep_copy]`.
+/// Parses epserde attributes from `#[epserde(...)]`, `#[epserde(zero_copy)]`,
+/// and `#[epserde_(deep_copy)]`.
 fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
     let is_repr_c = input.attrs.iter().any(|x| {
         x.meta.path().is_ident("repr") && x.meta.require_list().unwrap().tokens.to_string() == "C"
@@ -700,12 +702,11 @@ fn emit_deprecation_warnings(attrs: &EpserdeAttrs, type_name: &syn::Ident) {
 /// * `derive_input` - The item being derived, whose generic parameters carry
 ///   the trait bounds to propagate.
 ///
-/// * `ser_params` - The parameters substituted in `SerType` (every
-///   variable-position parameter); for each, a `SerType<T>` bound is added to
-///   `ser_where_clause`.
+/// * `params` - All type parameters appearing at a variable position; for
+///   each, a `SerType<T>` bound is added to `ser_where_clause`.
 ///
-/// * `deser_params` - The parameters substituted in `DeserType` (the ε-copy
-///   parameters); for each, a `DeserType<'a, T>` bound is added to
+/// * `eps_params` - All ε-copy type parameters appearing at a variable
+///   position; for each, a `DeserType<'a, T>` bound is added to
 ///   `deser_where_clause`.
 ///
 /// * `ser_where_clause` - The `SerInner` where clause, extended in place.
@@ -713,12 +714,12 @@ fn emit_deprecation_warnings(attrs: &EpserdeAttrs, type_name: &syn::Ident) {
 /// * `deser_where_clause` - The `DeserInner` where clause, extended in place.
 fn bound_ser_deser_types(
     derive_input: &DeriveInput,
-    ser_params: &HashSet<&syn::Ident>,
-    deser_params: &HashSet<&syn::Ident>,
+    params: &HashSet<&syn::Ident>,
+    eps_params: &HashSet<&syn::Ident>,
     ser_where_clause: &mut WhereClause,
     deser_where_clause: &mut WhereClause,
 ) {
-    // If there are bounded type parameters which are fields of the struct, we
+    // If there are bounded type parameters which are substituted, we
     // need to impose the same bounds on the associated SerType/DeserType.
     for param in &derive_input.generics.params {
         if let syn::GenericParam::Type(t) = param {
@@ -730,7 +731,7 @@ fn bound_ser_deser_types(
 
             // Add the trait bounds of the type to the DeserType, but only for
             // parameters actually substituted on the deser side.
-            if deser_params.contains(ident) {
+            if eps_params.contains(ident) {
                 // The lifetime of the DeserType
                 let mut lifetimes = Punctuated::new();
                 lifetimes.push(GenericParam::Lifetime(LifetimeParam {
@@ -761,7 +762,7 @@ fn bound_ser_deser_types(
             }
 
             // Add the trait bounds of the type to the SerType.
-            if ser_params.contains(ident) {
+            if params.contains(ident) {
                 ser_where_clause
                     .predicates
                     .push(WherePredicate::Type(PredicateType {
@@ -828,17 +829,16 @@ fn gen_generics_for_deser_type(
 }
 
 /// Generates generics for the serialization type by replacing every type
-/// parameter that occurs at a variable position (any field) with its associated
-/// serialization type. σ normalizes uniformly, so there is no ε-copy /
-/// full-copy / force-full distinction on this side.
+/// parameter that occurs at a variable position with its associated
+/// serialization type.
 fn gen_generics_for_ser_type(
     ctx: &EpserdeContext,
-    subst_params: &HashSet<&syn::Ident>,
+    params: &HashSet<&syn::Ident>,
 ) -> Vec<proc_macro2::TokenStream> {
     ctx.type_const_params
         .iter()
         .map(|ident| {
-            if subst_params.contains(ident) {
+            if params.contains(ident) {
                 quote!(::epserde::ser::SerType<#ident>)
             } else {
                 quote!(#ident)
@@ -853,20 +853,21 @@ fn gen_generics_for_ser_type(
 /// The where clauses bound all field types with the trait being implemented,
 /// thus propagating recursively (de)serializability.
 ///
-/// `full_deser_fields[i]` is `true` when field `i` is full-copy
-/// deserialized (either because it carries `#[epserde(force_full)]` or
-/// because its type contains no variable position to substitute). For
-/// ε-copy fields the field-type bound is suppressed: it would
-/// shadow the impl's `DeserType<'_>` projection (Rust issue #152409),
-/// making the derived `_deser_eps_inner` body fail to type-check. The
-/// per-parameter `T: SerInner`/`T: DeserInner` bounds emitted by the
-/// caller are sufficient for Rust to resolve impls of wrappers whose
-/// `DeserType<'_>` is uniform across kinds (`Box<T>`, `Rc<T>`,
-/// `Arc<T>`, `Option<T>`, `Range<T>`, tuples). For wrappers whose
-/// resolution depends on `T`'s kind (`Vec<T>`, `Box<[T]>`, `[T; N]`,
-/// `String`), the user must additionally bound `T: ZeroCopy` or
-/// `T: DeepCopy`; the derive does not emit those bounds because the
-/// choice is not derivable from the field type alone.
+/// `full_deser_fields[i]` is `true` when field `i` is full-copy (either because
+/// it carries `#[epserde(force_full)]` or because its type contains no variable
+/// position to substitute).
+///
+/// For ε-copy fields the field-type bound is suppressed: it would shadow the
+/// impl's `DeserType<'_>` projection (Rust issue #152409), making the derived
+/// `_deser_eps_inner` body fail to type-check. The per-parameter `T:
+/// SerInner`/`T: DeserInner` bounds emitted by the caller are sufficient for
+/// Rust to resolve impls of wrappers whose `DeserType<'_>` is uniform across
+/// kinds (`Box<T>`, `Rc<T>`, `Arc<T>`, `Option<T>`, `Range<T>`, tuples).
+///
+/// For wrappers whose resolution depends on `T`'s kind (`Vec<T>`, `Box<[T]>`,
+/// `[T; N]`), the user must additionally bound `T: ZeroCopy` or `T:
+/// DeepCopy`; the derive does not emit those bounds because the choice is not
+/// derivable from the field type alone.
 fn gen_ser_deser_where_clauses(
     field_types: &[&syn::Type],
     is_zero_copy: bool,
@@ -995,8 +996,8 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     // field, plus the force_full(...)-listed ones. Used for the ε/full conflict
     // diagnostic; its union with eps_params is the SerType substitution set.
     let mut full_params = HashSet::new();
-    // Parameters occurring in an ε-copy field, for which T: DeserInner
-    // must be emitted (force-full parameters sharing an ε field included).
+    // Parameters in an ε-copy field, whose suppressed field-type bound must be
+    // replaced by an explicit T: DeserInner (force-full ones included).
     let mut deser_inner_params = HashSet::new();
     // Parameters forced to be deep-copy because they occur as a sequence
     // element in an ε-copy field, each re-spanned to the field that forces it,
@@ -1045,7 +1046,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         full_deser_fields.push(deser_full);
     }
 
-    // SerType substitutes every variable-position parameter (σ normalizes
+    // SerType substitutes every variable-position parameter
     // uniformly): the union of the ε-copy and full-copy parameters.
     let params: HashSet<&syn::Ident> = eps_params.union(&full_params).copied().collect();
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &eps_params);
@@ -1088,7 +1089,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     // The field-type bound was skipped above for ε-copy fields;
     // these per-parameter bounds let Rust resolve kind-uniform wrapper
     // impls (Box, Rc, Arc, Option, Range, tuples). For wrappers whose
-    // resolution depends on T's kind (Vec, Box<[…]>, [T; N], String),
+    // resolution depends on T's kind (Vec, Box<[…]>, [T; N]),
     // the user must additionally bound T: ZeroCopy or T: DeepCopy.
     if !ctx.is_zero_copy {
         for ident in &params {
@@ -1261,8 +1262,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     // force-full field, plus the force_full(...)-listed ones. Used for the
     // ε/full conflict diagnostic; its union with eps_params is the SerType set.
     let mut all_full_params = HashSet::new();
-    // Parameters occurring in an ε-copy field, for which T: DeserInner
-    // must be emitted (force-full parameters sharing an ε field included).
+    // Parameters in an ε-copy field, whose suppressed field-type bound must be
+    // replaced by an explicit T: DeserInner (force-full ones included).
     let mut deser_inner_params = HashSet::new();
     // For each ε-copy parameter, the span of the first unmarked field that uses
     // it, so that a parameter that is also full-copy can have its conflict
@@ -1438,8 +1439,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
         }
     }
 
-    // SerType substitutes every variable-position parameter (σ normalizes
-    // uniformly): the union of the ε-copy and full-copy parameters.
+    // SerType substitutes every variable-position parameter
     let params: HashSet<&syn::Ident> = eps_params.union(&all_full_params).copied().collect();
     let generics_for_deser_type = gen_generics_for_deser_type(ctx, &eps_params);
     let generics_for_ser_type = gen_generics_for_ser_type(ctx, &params);
@@ -1478,7 +1478,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     // The field-type bound was skipped above for ε-copy fields;
     // these per-parameter bounds let Rust resolve kind-uniform wrapper
     // impls (Box, Rc, Arc, Option, Range, tuples). For wrappers whose
-    // resolution depends on T's kind (Vec, Box<[…]>, [T; N], String),
+    // resolution depends on T's kind (Vec, Box<[…]>, [T; N]),
     // the user must additionally bound T: ZeroCopy or T: DeepCopy.
     if !ctx.is_zero_copy {
         for ident in &params {
@@ -1698,10 +1698,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 ///   `_deser_eps_inner`;
 /// - its type is preserved verbatim in `Self::DeserType<'a>` (no
 ///   substitution inside it);
-/// - its occurrences do not contribute to the ε-copy (`DeserType`)
-///   substitution set. (`SerType` still substitutes them — σ normalizes every
-///   variable-position parameter uniformly — consistent with the marker
-///   affecting only deserialization.)
+/// - its occurrences do not contribute to the ε-copy parameters.
 ///
 /// Typical use: a field whose type is `Vec<T>` but the surrounding struct is to
 /// be full-copy, or a wrapper whose `DeserType<'_>` cannot follow
@@ -1729,28 +1726,22 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 ///
 /// # `force_full(...)` type-level attribute
 ///
-/// A **type-level** attribute that pins one or more type parameters to
+/// A type-level attribute that pins one or more type parameters to
 /// full-copy deserialization. It takes a comma-separated list of type
-/// parameters of the item: `#[epserde(force_full(T, U))]`. (The
-/// per-parameter form `struct Outer<#[epserde(force_full)] T>` is not
-/// available, since rustc rejects derive helper attributes on
-/// generic-parameter declarations.)
+/// parameters of the item: `#[epserde(force_full(T, U))]`.
 ///
 /// The derive classifies a parameter as ε-copy whenever it occurs at a
 /// variable position in an unmarked field. That syntactic test can only
 /// err in one direction: it assumes the enclosing field type substitutes
 /// the parameter transitively in its own `DeserType<'_>`, which a nested
 /// type need not do (it may hold the parameter in its own full-copy
-/// group). When that assumption is wrong the generated `_deser_eps_inner`
+/// field). When that assumption is wrong the generated `_deser_eps_inner`
 /// body fails to type-check.
 ///
-/// `force_full(T)` is the escape hatch for that case. It removes `T` from
-/// the `DeserType` substitution set: `T` is kept verbatim in
-/// `Self::DeserType<'a>` and any field whose only variable-position
-/// parameters are forced is full-copy. It affects **only**
-/// deserialization (`DeserType`); `SerType` keeps normalizing `T` to
-/// `SerType<T>`, since type erasure is independent of the full-copy
-/// choice.
+/// `force_full(T)` is the escape hatch for that case. It removes `T` from the
+/// `DeserType` substitution set: `T` is kept verbatim in `Self::DeserType<'a>`
+/// and any field whose only variable-position parameters are forced is
+/// full-copy. It affects only deserialization (`DeserType`).
 ///
 /// It is rejected on a `#[epserde(zero_copy)]` type (whose `DeserType<'a>`
 /// is `&'a Self`, substituting nothing), on a const parameter, and on an
@@ -2333,7 +2324,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 /// Generates a [partial ε-serde](TypeInfo) implementation for custom types.
 ///
 /// It generates implementations just for the traits `TypeHash` and `AlignHash`
-/// (plus `AlignTo` for zero-copy types) — not `CopyType`, `SerInner`, or
+/// (plus `AlignTo` for zero-copy types)—not for `CopyType`, `SerInner`, or
 /// `DeserInner`. See the documentation of [`Epserde`] for more information.
 #[proc_macro_derive(TypeInfo, attributes(epserde_zero_copy, epserde_deep_copy, epserde))]
 pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
