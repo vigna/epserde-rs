@@ -810,7 +810,7 @@ file.push("serialized_phantom");
 unsafe { s.store(&file)? };
 let b = std::fs::read(&file)?;
 
-// The data field is substituted to &[isize] in the ε-deserialized form,
+// The data field is substituted to &[isize] in the ε-copy deserialized form,
 // and so is the phantom slot.
 let t = unsafe { <Data<Vec<isize>>>::deserialize_eps(b.as_ref())? };
 assert_eq!(s.data.as_slice(), t.data);
@@ -820,7 +820,7 @@ let _phantom_check: PhantomData<&[isize]> = t.phantom;
 ```
 
 Note how the phantom field originally of type `PhantomData<Vec<isize>>` becomes
-`PhantomData<&[isize]>` in the ε-deserialized form, consistently with the
+`PhantomData<&[isize]>` in the ε-copy deserialized form, consistently with the
 substitution applied to `data`.
 
 ## MemDbg / MemSize
@@ -1140,7 +1140,7 @@ For standard types, we have:
   and `PhantomData<T>` are zero-copy and their (de)serialization type is
   themselves; note however that when `T` is an ε-copy type parameter,
   the `Epserde` derive substitutes `T` inside `PhantomData<T>` natively,
-  so the ε-deserialized form carries `PhantomData<T::DeserType<'_>>`;
+  so the ε-copy deserialized form carries `PhantomData<T::DeserType<'_>>`;
 
 - `Option<T>` is deep-copy and its (de)serialization type is itself, with `T`
   replaced by its (de)serialization type;

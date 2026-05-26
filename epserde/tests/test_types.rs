@@ -371,3 +371,7 @@ fn test_box_box_generic_compiles() -> anyhow::Result<()> {
     assert_eq!(a, full);
     Ok(())
 }
+
+#[derive(Epserde)]
+#[epserde(force_full(A))]
+struct S<A: ZeroCopy>(Vec<A>);

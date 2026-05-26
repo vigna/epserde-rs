@@ -6,7 +6,8 @@ error[E0277]: type parameter `T` is both full-copy and ε-copy (it appears both 
    |
    = help: the trait `DeserFixedPoint<T>` is not implemented for `<T as DeserInner>::DeserType<'_>`
    = note: consider restricting type parameter `T` with `T: for<'a> DeserInner<DeserType<'a> = T>`
-   = note: alternatively, mark the ε-copy field with `#[epserde(force_full)]`, or pin the parameter to full-copy with `#[epserde(force_full(T))]` on the type
+   = note: alternatively, mark the ε-copy field with `#[epserde(force_full)]`
+   = note: alternatively, pin the parameter to full-copy with `#[epserde(force_full(T))]` on the type
 note: required by a bound in `__epserde_fixed_point_check`
   --> tests/fail/eps_copy_and_full_copy.rs:19:10
    |

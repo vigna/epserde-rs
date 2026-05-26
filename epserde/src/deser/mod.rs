@@ -177,9 +177,10 @@ pub trait Deserialize: DeserInner {
         unsafe { Self::deserialize_full(&mut buf_reader).map_err(|e| e.into()) }
     }
 
-    /// Reads data from a reader into heap-allocated memory and ε-deserialize a
-    /// data structure from it, returning a [`MemCase`] containing the data
-    /// structure and the memory. Excess bytes are zeroed out.
+    /// Reads data from a reader into heap-allocated memory and ε-copy
+    /// deserializes a data structure from it, returning a [`MemCase`]
+    /// containing the data structure and the memory. Excess bytes are zeroed
+    /// out.
     ///
     /// The allocated memory will have [`MemoryAlignment`] as alignment: types
     /// with a higher alignment requirement will cause an [alignment
@@ -259,7 +260,7 @@ pub trait Deserialize: DeserInner {
         Ok(unsafe { uninit.assume_init() })
     }
 
-    /// Loads a file into heap-allocated memory and ε-deserialize a data
+    /// Loads a file into heap-allocated memory and ε-copy deserializes a data
     /// structure from it, returning a [`MemCase`] containing the data structure
     /// and the memory. Excess bytes are zeroed out.
     ///
@@ -285,9 +286,10 @@ pub trait Deserialize: DeserInner {
         unsafe { Self::read_mem(file, file_len) }
     }
 
-    /// Reads data from a reader into `mmap()`-allocated memory and ε-deserialize
-    /// a data structure from it, returning a [`MemCase`] containing the data
-    /// structure and the memory. Excess bytes are zeroed out.
+    /// Reads data from a reader into `mmap()`-allocated memory and ε-copy
+    /// deserializes a data structure from it, returning a [`MemCase`]
+    /// containing the data structure and the memory. Excess bytes are zeroed
+    /// out.
     ///
     /// The behavior of `mmap()` can be modified by passing some [`Flags`];
     /// otherwise, just pass `Flags::empty()`.
@@ -353,9 +355,9 @@ pub trait Deserialize: DeserInner {
         Ok(unsafe { uninit.assume_init() })
     }
 
-    /// Loads a file into `mmap()`-allocated memory and ε-deserialize a data
-    /// structure from it, returning a [`MemCase`] containing the data structure
-    /// and the memory. Excess bytes are zeroed out.
+    /// Loads a file into `mmap()`-allocated memory and ε-copy deserializes a
+    /// data structure from it, returning a [`MemCase`] containing the data
+    /// structure and the memory. Excess bytes are zeroed out.
     ///
     /// The behavior of `mmap()` can be modified by passing some [`Flags`];
     /// otherwise, just pass `Flags::empty()`.
@@ -381,7 +383,7 @@ pub trait Deserialize: DeserInner {
         unsafe { Self::read_mmap(file, file_len, flags) }
     }
 
-    /// Memory maps a file and ε-deserializes a data structure from it,
+    /// Memory maps a file and ε-copy deserializes a data structure from it,
     /// returning a [`MemCase`] containing the data structure and the
     /// memory mapping.
     ///
@@ -522,7 +524,8 @@ pub trait DeserInner: Sized {
     message = "type parameter `{T}` is both full-copy and ε-copy (it appears both in a field marked `#[epserde(force_full)]` and in an unmarked field)",
     label = "this occurrence of `{T}` in an ε-copy field conflicts with its use in a full-copy field",
     note = "consider restricting type parameter `{T}` with `{T}: for<'a> DeserInner<DeserType<'a> = {T}>`",
-    note = "alternatively, mark the ε-copy field with `#[epserde(force_full)]`"
+    note = "alternatively, mark the ε-copy field with `#[epserde(force_full)]`",
+    note = "alternatively, pin the parameter to full-copy with `#[epserde(force_full({T}))]` on the type"
 )]
 pub trait DeserFixedPoint<T: ?Sized> {}
 
@@ -540,14 +543,20 @@ impl<T: ?Sized> DeserFixedPoint<T> for T {}
 /// is therefore forced to be deep-copy.
 ///
 /// The blanket impl applies to every [`DeepCopy`] type, so the assertion holds
-/// as soon as the user supplies the required bound. The
+/// as soon as the user supplies the required bound. Alternatively, the
+/// requirement is lifted by full-copy deserializing the offending field, either
+/// with the field-level `#[epserde(force_full)]` marker or, when the parameter
+/// is that field's only ε-copy occurrence, by pinning the parameter with the
+/// type-level `#[epserde(force_full(...))]` attribute. The
 /// `#[diagnostic::do_not_recommend]` attribute keeps the compiler from
 /// reporting the missing `DeepCopy` bound as the root cause, so the
 /// `#[diagnostic::on_unimplemented]` message below is what surfaces.
 #[diagnostic::on_unimplemented(
     message = "type parameter `{Self}` must be deep-copy: it occurs as an element of a vector, boxed slice, or array in an ε-copy field",
     label = "if `{Self}` were zero-copy, this field would ε-copy deserialize to a slice reference, a type not expressible in the source",
-    note = "consider restricting type parameter `{Self}` with trait `DeepCopy` (more targeted), or mark the field with `#[epserde(force_full)]`"
+    note = "consider restricting type parameter `{Self}` with trait `DeepCopy` (more targeted)",
+    note = "alternatively, mark the field with `#[epserde(force_full)]`",
+    note = "alternatively, pin `{Self}` to full-copy with `#[epserde(force_full({Self}))]` on the type, which makes `{Self}` full-copy in every field"
 )]
 pub trait DeepCopyInSeq {}
 

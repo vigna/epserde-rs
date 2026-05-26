@@ -8,7 +8,7 @@
 //!
 //! The marker pins a field to full-copy deserialization and keeps its
 //! type verbatim in the deserialization type. Unmarked fields are
-//! ε-deserialized and their type parameters at variable positions are
+//! ε-copy deserialized and their type parameters at variable positions are
 //! substituted by the corresponding `DeserType<'_>`.
 
 use epserde::prelude::*;
@@ -47,9 +47,9 @@ fn test_force_full_pins_wrapper() -> anyhow::Result<()> {
     Ok(())
 }
 
-// force_full on a Vec<T> field at T zero-copy: Vec is not delta-stable
-// at the zero-copy kind, so without force_full the derive would emit
-// code that fails to type-check (Vec<T> ε-deserialises to &[T], not to
+// force_full on a Vec<T> field at T zero-copy: Vec is not delta-stable at the
+// zero-copy kind, so without force_full the derive would emit code that fails
+// to type-check (Vec<T> ε-copy deserialises to &[T], not to
 // Vec<T::DeserType<'_>>). The marker pins the field full-copy.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct InternalZeroCopy<T: ZeroCopy> {
