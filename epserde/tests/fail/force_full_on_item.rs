@@ -3,9 +3,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  *
- * Compile-fail fixture: force_full is a field-level marker. Placing
- * it on the item itself is rejected by parse_epserde_attrs (force_full
- * is not one of the recognised item-level keywords).
+ * Compile-fail fixture: at the type level, force_full requires a
+ * parenthesized list of type parameters, e.g. #[epserde(force_full(T))].
+ * Writing it bare is rejected by parse_epserde_attrs.
  */
 
 use epserde::prelude::*;

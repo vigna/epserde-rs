@@ -1,0 +1,5 @@
+error: `Q` is not a type parameter of `Unknown`
+  --> tests/fail/force_full_param_unknown.rs:13:22
+   |
+13 | #[epserde(force_full(Q))]
+   |                      ^
