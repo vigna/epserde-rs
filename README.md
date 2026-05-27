@@ -1328,7 +1328,3 @@ European Union nor the Italian MUR can be held responsible for them.
 [`sux-rs`]: https://crates.io/crates/sux-rs
 [`CopyType::Copy`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html#associatedtype.Copy
 [`String`]: https://doc.rust-lang.org/std/string/struct.String.html
-
-```
-
-```
