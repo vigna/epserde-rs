@@ -15,6 +15,10 @@ S<A>([A; 3])` can have `Vec<usize>` as a parameter, getting the
 - A type parameter can be pinned to full-copy deserialization across the whole
   type with the type-level `#[epserde(full_copy(T, …))]` attribute.
 
+- Unrecognized field-level `#[epserde(...)]` keys are now rejected at derive
+  time (previously they were silently ignored); the only valid field-level key
+  is `force_full_copy`.
+
 - A new constant `SerInner::MIGHT_BE_ZERO_COPY` tracks more accurately
   when a structure might be zero-copy (as `SerInner::IS_ZERO_COPY` is not
   aware of pointer erasure).

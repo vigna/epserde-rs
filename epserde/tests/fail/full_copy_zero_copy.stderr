@@ -1,4 +1,4 @@
-error: full_copy(...) cannot be used on a zero-copy type: its deserialization type is a reference and substitutes no parameter
+error: full_copy(...) cannot be used on a zero-copy type, as its deserialization type is a reference
   --> tests/fail/full_copy_zero_copy.rs:15:32
    |
 15 | #[epserde(zero_copy, full_copy(T))]

@@ -1805,7 +1805,8 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 
     emit_deprecation_warnings(&attrs, &derive_input.ident);
 
-    // Validate the per-field force_full_copy marker.
+    // Validate per-field epserde attributes: the only valid field-level key is
+    // force_full_copy.
     let validate_field = |field: &syn::Field| -> Result<(), syn::Error> {
         let is_phantom_deser_data = matches!(
             &field.ty,
@@ -1820,12 +1821,6 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
                 continue;
             }
             attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("full_copy") {
-                    return Err(meta.error(
-                        "\"full_copy(...)\" is a type-level attribute; to pin a single field \
-                         to full-copy deserialization use #[epserde(force_full_copy)] on the field",
-                    ));
-                }
                 if meta.path.is_ident("force_full_copy") {
                     if meta.input.peek(syn::token::Paren) {
                         return Err(meta.error(
@@ -1844,8 +1839,9 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
                              remove the marker, or migrate to PhantomData<T>",
                         ));
                     }
+                    return Ok(());
                 }
-                Ok(())
+                Err(meta.error("expected \"force_full_copy\""))
             })?;
         }
         Ok(())
@@ -1876,8 +1872,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         if attrs.is_zero_copy {
             return syn::Error::new_spanned(
                 ident,
-                "full_copy(...) cannot be used on a zero-copy type: its deserialization \
-                 type is a reference and substitutes no parameter",
+                "full_copy(...) cannot be used on a zero-copy type, as its deserialization type is a reference",
             )
             .to_compile_error()
             .into();
