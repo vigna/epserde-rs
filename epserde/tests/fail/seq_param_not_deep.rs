@@ -9,7 +9,7 @@
  * slice reference, a type not expressible as the original sequence, so the
  * type would not be eps-copy stable. The derive surfaces this through the
  * DeepCopyInSeq assertion; the fix is to bound the parameter with DeepCopy or
- * to mark the field with #[epserde(force_full)].
+ * to mark the field with #[epserde(force_full_copy)].
  */
 
 use epserde::prelude::*;

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Tests for the `#[epserde(force_full)]` field marker.
+//! Tests for the `#[epserde(force_full_copy)]` field marker.
 //!
 //! The marker pins a field to full-copy deserialization and keeps its
 //! type verbatim in the deserialization type. Unmarked fields are
@@ -17,18 +17,18 @@ use epserde::prelude::*;
 #[epserde(deep_copy)]
 struct A<T>(T);
 
-// A user-defined wrapper whose only occurrence of T is inside force_full.
+// A user-defined wrapper whose only occurrence of T is inside force_full_copy.
 // T does not appear at any variable position outside the marked field,
 // so T is not in the ε-copy set, and `inner` keeps its verbatim
 // slot in DeserType<'_>.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct PinnedWrapper<T> {
-    #[epserde(force_full)]
+    #[epserde(force_full_copy)]
     inner: A<T>,
 }
 
 #[test]
-fn test_force_full_pins_wrapper() -> anyhow::Result<()> {
+fn test_force_full_copy_pins_wrapper() -> anyhow::Result<()> {
     let original: PinnedWrapper<Vec<u32>> = PinnedWrapper {
         inner: A(vec![1, 2, 3, 4]),
     };
@@ -47,18 +47,18 @@ fn test_force_full_pins_wrapper() -> anyhow::Result<()> {
     Ok(())
 }
 
-// force_full on a Vec<T> field at T zero-copy: Vec is not delta-stable at the
-// zero-copy kind, so without force_full the derive would emit code that fails
+// force_full_copy on a Vec<T> field at T zero-copy: Vec is not delta-stable at the
+// zero-copy kind, so without force_full_copy the derive would emit code that fails
 // to type-check (Vec<T> ε-copy deserialises to &[T], not to
 // Vec<T::DeserType<'_>>). The marker pins the field full-copy.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct InternalZeroCopy<T: ZeroCopy> {
-    #[epserde(force_full)]
+    #[epserde(force_full_copy)]
     data: Vec<T>,
 }
 
 #[test]
-fn test_force_full_internal_zero_copy() -> anyhow::Result<()> {
+fn test_force_full_copy_internal_zero_copy() -> anyhow::Result<()> {
     let original: InternalZeroCopy<i32> = InternalZeroCopy {
         data: vec![10, 20, 30],
     };
@@ -77,20 +77,20 @@ fn test_force_full_internal_zero_copy() -> anyhow::Result<()> {
     Ok(())
 }
 
-// force_full on an enum variant field. The marker lives on the field,
+// force_full_copy on an enum variant field. The marker lives on the field,
 // not on the variant.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 enum E<T> {
     Empty,
-    Wrapped(#[epserde(force_full)] A<T>),
+    Wrapped(#[epserde(force_full_copy)] A<T>),
     Named {
-        #[epserde(force_full)]
+        #[epserde(force_full_copy)]
         value: A<T>,
     },
 }
 
 #[test]
-fn test_force_full_enum() -> anyhow::Result<()> {
+fn test_force_full_copy_enum() -> anyhow::Result<()> {
     let original: E<Vec<u32>> = E::Wrapped(A(vec![5, 6, 7]));
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { original.serialize(&mut cursor)? };
@@ -137,19 +137,19 @@ fn test_default_substitution_through_wrapper() -> anyhow::Result<()> {
 }
 
 // Two parameters: one (P) ε-copy via a variable position in an
-// unmarked field, the other (Q) pinned through force_full. DeserType<'_>
+// unmarked field, the other (Q) pinned through force_full_copy. DeserType<'_>
 // substitutes P but keeps Q verbatim; the marked field's slot is
 // A<Q>, not A<Q::DeserType<'_>>, and the test would not compile if
 // Q ended up in the ε-copy set.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Split<P, Q> {
     a: P,
-    #[epserde(force_full)]
+    #[epserde(force_full_copy)]
     b: A<Q>,
 }
 
 #[test]
-fn test_force_full_mixed_eps_copy_and_pinned() -> anyhow::Result<()> {
+fn test_force_full_copy_mixed_eps_copy_and_pinned() -> anyhow::Result<()> {
     let original: Split<Vec<u32>, Vec<u32>> = Split {
         a: vec![1, 2, 3],
         b: A(vec![4, 5, 6]),

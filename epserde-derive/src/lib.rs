@@ -69,8 +69,8 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
     None
 }
 
-/// Returns true if the given field carries `#[epserde(force_full)]`.
-fn is_force_full(field: &syn::Field) -> bool {
+/// Returns true if the given field carries `#[epserde(force_full_copy)]`.
+fn is_force_full_copy(field: &syn::Field) -> bool {
     let mut found = false;
     for attr in &field.attrs {
         if !attr.meta.path().is_ident("epserde") {
@@ -79,7 +79,7 @@ fn is_force_full(field: &syn::Field) -> bool {
         // Parse errors are intentionally swallowed; the per-field validator
         // runs the same walk with proper error propagation.
         let _ = attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("force_full") {
+            if meta.path.is_ident("force_full_copy") {
                 found = true;
             }
             Ok(())
@@ -172,28 +172,28 @@ fn has_repl_param(ty: &syn::Type, type_params: &[&syn::Ident]) -> bool {
 /// sets the caller uses to build the (de)serialization substitution sets and
 /// bounds, and returns whether the field is full-copy.
 ///
-/// A field is full-copy when it carries `#[epserde(force_full)]`, or when all
-/// its replaceable parameters are listed in `#[epserde(force_full(...))]`
+/// A field is full-copy when it carries `#[epserde(force_full_copy)]`, or when
+/// all its replaceable parameters are listed in `#[epserde(full_copy(...))]`
 /// (in particular, when it has none).
 ///
 /// # Arguments
 ///
 /// * `field_type` - The type of the field.
 ///
-/// * `force_full_field` - Whether the field carries the field-level
-///   `#[epserde(force_full)]` marker, which makes it a full-copy field.
+/// * `force_full_copy_field` - Whether the field carries the field-level
+///   `#[epserde(force_full_copy)]` marker, which makes it a full-copy field.
 ///
 /// * `type_const_params` - The type and const parameters of the item.
 ///
 /// * `forced_params` - The type parameters pinned to full-copy deserialization
-///   by the type-level `#[epserde(force_full(...))]` attribute.
+///   by the type-level `#[epserde(full_copy(...))]` attribute.
 ///
 /// * `eps_params` - The ε-copy parameters: the non-force-full replaceable
 ///   parameters of an ε-copy field. This is the `DeserType` substitution set,
 ///   used directly.
 ///
 /// * `full_params` - The full-copy parameters: the replaceable parameters of a
-///   force-full field, plus the `force_full(...)`-listed ones. Used for the
+///   force-full field, plus the `full_copy(...)`-listed ones. Used for the
 ///   ε/full conflict diagnostic; its union with `eps_params` is the `SerType`
 ///   substitution set (all replaceable parameters).
 ///
@@ -214,7 +214,7 @@ fn has_repl_param(ty: &syn::Type, type_params: &[&syn::Ident]) -> bool {
 #[allow(clippy::too_many_arguments)]
 fn classify_field<'a>(
     field_type: &'a syn::Type,
-    force_full_field: bool,
+    force_full_copy_field: bool,
     type_const_params: &[&'a syn::Ident],
     forced_params: &HashSet<&'a syn::Ident>,
     eps_params: &mut HashSet<&'a syn::Ident>,
@@ -226,7 +226,7 @@ fn classify_field<'a>(
     let mut field_occ = HashSet::new();
     collect_repl_param_occs(field_type, type_const_params, &mut field_occ, false);
 
-    if force_full_field {
+    if force_full_copy_field {
         // Every parameter of a force-full field is a full-copy parameter.
         full_params.extend(&field_occ);
         return true;
@@ -384,7 +384,7 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, field_types: &[&syn::Type]) -> proc_ma
 
 /// Generates the fixed-point assertion injected at the top of
 /// `_deser_eps_inner` when one or more type parameters are ε-copy yet are also
-/// replaceable parameters of a field marked `#[epserde(force_full)]`.
+/// replaceable parameters of a field marked `#[epserde(force_full_copy)]`.
 ///
 /// For each conflicting parameter the assertion requires the bound `for<'a> <T
 /// as DeserInner>::DeserType<'a>: DeserFixedPoint<T>`. The blanket impl
@@ -397,9 +397,9 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, field_types: &[&syn::Type]) -> proc_ma
 /// Each ident in `conflict_params` is expected to be re-spanned to the ε-copy
 /// field that forces the constraint (see [`push_conflict_idents`]), so that the
 /// diagnostic points at that field rather than at the derive invocation. The
-/// ε-copy field is chosen over the `#[epserde(force_full)]` one because the
-/// hint recommends adding `force_full`, so underlining a field that already has
-/// it would be contradictory.
+/// ε-copy field is chosen over the `#[epserde(force_full_copy)]` one because the
+/// hint recommends adding `force_full_copy`, so underlining a field that already
+/// has it would be contradictory.
 ///
 /// Returns an empty token stream when there are no conflicts.
 fn gen_fixed_point_check(conflict_params: &[syn::Ident]) -> proc_macro2::TokenStream {
@@ -482,7 +482,7 @@ fn push_seq_deep_idents(
 /// field that uses it (recorded in `eps_field_spans`), so the fixed-point
 /// diagnostic points at that field.
 ///
-/// The `force_full(...)`-listed members of `full_params` never cause an output:
+/// The `full_copy(...)`-listed members of `full_params` never cause an output:
 /// being force-full, they are absent from `eps_params`, so the intersection
 /// keeps only ε-copy parameters that also occur in a full-copy field.
 fn push_conflict_idents(
@@ -565,10 +565,10 @@ struct EpserdeAttrs {
     deser_bounds: Vec<WherePredicate>,
     /// Additional where-clause predicates for `SerInner` impl.
     ser_bounds: Vec<WherePredicate>,
-    /// Type-parameter idents listed in `#[epserde(force_full(...))]`. These are
+    /// Type-parameter idents listed in `#[epserde(full_copy(...))]`. These are
     /// pinned to full-copy: removed from the `DeserType` substitution set, and
     /// kept verbatim in `DeserType<'a>`.
-    force_full_params: Vec<syn::Ident>,
+    full_copy_params: Vec<syn::Ident>,
     /// Whether old-style `#[epserde(zero_copy)]` was used.
     deprecated_zero_copy: bool,
     /// Whether old-style `#[epserde_deep_copy]` was used.
@@ -586,7 +586,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
     let mut is_deep_copy = false;
     let mut deser_bounds = Vec::new();
     let mut ser_bounds = Vec::new();
-    let mut force_full_params = Vec::new();
+    let mut full_copy_params = Vec::new();
     let mut deprecated_zero_copy = false;
     let mut deprecated_deep_copy = false;
 
@@ -627,16 +627,16 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
                             Err(inner.error("expected `deser` or `ser`"))
                         }
                     })
-                } else if meta.path.is_ident("force_full") {
+                } else if meta.path.is_ident("full_copy") {
                     if !meta.input.peek(token::Paren) {
                         return Err(meta.error(
-                            "\"force_full\" at the type level requires a parenthesized list of \
-                             type parameters, e.g. #[epserde(force_full(T))]",
+                            "\"full_copy\" is a type-level attribute and requires a parenthesized \
+                             list of type parameters, e.g. #[epserde(full_copy(T))]",
                         ));
                     }
                     meta.parse_nested_meta(|inner| {
                         if let Some(ident) = inner.path.get_ident() {
-                            force_full_params.push(ident.clone());
+                            full_copy_params.push(ident.clone());
                             Ok(())
                         } else {
                             Err(inner.error("expected a type-parameter identifier"))
@@ -644,7 +644,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
                     })
                 } else {
                     Err(meta.error(
-                        "expected \"zero_copy\", \"deep_copy\", \"bound\", or \"force_full\"",
+                        "expected \"zero_copy\", \"deep_copy\", \"bound\", or \"full_copy\"",
                     ))
                 }
             })?;
@@ -676,7 +676,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
         is_deep_copy,
         deser_bounds,
         ser_bounds,
-        force_full_params,
+        full_copy_params,
         deprecated_zero_copy,
         deprecated_deep_copy,
     })
@@ -865,7 +865,7 @@ fn gen_generics_for_ser_type(
 /// thus propagating recursively (de)serializability.
 ///
 /// `full_deser_fields[i]` is `true` when field `i` is full-copy (either because
-/// it carries `#[epserde(force_full)]` or because its type contains no variable
+/// it carries `#[epserde(force_full_copy)]` or because its type contains no variable
 /// position to substitute).
 ///
 /// For ε-copy fields the field-type bound is suppressed: it would shadow the
@@ -971,7 +971,7 @@ struct EpserdeContext<'a> {
     /// Identifiers of type parameters as a set.
     type_params: HashSet<&'a syn::Ident>,
     /// Type parameters pinned to full-copy deserialization by the type-level
-    /// `#[epserde(force_full(...))]` attribute, as a subset of `type_params`.
+    /// `#[epserde(full_copy(...))]` attribute, as a subset of `type_params`.
     forced_params: HashSet<&'a syn::Ident>,
     /// Generics for the `impl` clause as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
@@ -1004,7 +1004,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     // ε-copy field. This is the DeserType substitution set.
     let mut eps_params = HashSet::new();
     // The full-copy parameters: the replaceable parameters of a force-full field,
-    // plus the force_full(...)-listed ones. Used for the ε/full conflict
+    // plus the full_copy(...)-listed ones. Used for the ε/full conflict
     // diagnostic; its union with eps_params is the SerType substitution set.
     let mut full_params = HashSet::new();
     // Parameters in an ε-copy field, whose suppressed field-type bound must be
@@ -1023,18 +1023,20 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     for (field_idx, field) in s.fields.iter().enumerate() {
         let field_name = get_field_name(field, field_idx);
         let field_type = &field.ty;
-        let force_full = is_force_full(field);
+        let force_full_copy = is_force_full_copy(field);
 
-        if force_full && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.type_const_params)) {
+        if force_full_copy
+            && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.type_const_params))
+        {
             let type_name = &ctx.derive_input.ident;
             eprintln!(
-                "warning: #[epserde(force_full)] on field {field_name} of type {type_name} has no effect; consider removing the marker"
+                "warning: #[epserde(force_full_copy)] on field {field_name} of type {type_name} has no effect; consider removing the marker"
             );
         }
 
         let deser_full = classify_field(
             field_type,
-            force_full,
+            force_full_copy,
             &ctx.type_const_params,
             &ctx.forced_params,
             &mut eps_params,
@@ -1268,7 +1270,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     // ε-copy field. This is the DeserType substitution set.
     let mut eps_params = HashSet::new();
     // The full-copy parameters: the replaceable parameters of some force-full
-    // field, plus the force_full(...)-listed ones. Used for the ε/full conflict
+    // field, plus the full_copy(...)-listed ones. Used for the ε/full conflict
     // diagnostic; its union with eps_params is the SerType set.
     let mut all_full_params = HashSet::new();
     // Parameters in an ε-copy field, whose suppressed field-type bound must be
@@ -1310,20 +1312,20 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     // It's a named field
                     let field_name = field.ident.as_ref().unwrap();
                     let field_type = &field.ty;
-                    let force_full = is_force_full(field);
+                    let force_full_copy = is_force_full_copy(field);
 
-                    if force_full
+                    if force_full_copy
                         && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.type_const_params))
                     {
                         let type_name = &ctx.derive_input.ident;
                         eprintln!(
-                            "warning: #[epserde(force_full)] on field {ident}::{field_name} of type {type_name} has no effect; consider removing the marker"
+                            "warning: #[epserde(force_full_copy)] on field {ident}::{field_name} of type {type_name} has no effect; consider removing the marker"
                         );
                     }
 
                     let deser_full = classify_field(
                         field_type,
-                        force_full,
+                        force_full_copy,
                         &ctx.type_const_params,
                         &ctx.forced_params,
                         &mut eps_params,
@@ -1378,22 +1380,22 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 for (field_idx, field) in fields.unnamed.iter().enumerate() {
                     let field_name = syn::Index::from(field_idx);
                     let field_type = &field.ty;
-                    let force_full = is_force_full(field);
+                    let force_full_copy = is_force_full_copy(field);
 
-                    if force_full
+                    if force_full_copy
                         && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.type_const_params))
                     {
                         let type_name = &ctx.derive_input.ident;
                         let idx = syn::Index::from(field_idx);
                         eprintln!(
-                            "warning: #[epserde(force_full)] on field {ident}::{idx_index} of type {type_name} has no effect; consider removing the marker",
+                            "warning: #[epserde(force_full_copy)] on field {ident}::{idx_index} of type {type_name} has no effect; consider removing the marker",
                             idx_index = idx.index,
                         );
                     }
 
                     let deser_full = classify_field(
                         field_type,
-                        force_full,
+                        force_full_copy,
                         &ctx.type_const_params,
                         &ctx.forced_params,
                         &mut eps_params,
@@ -1685,7 +1687,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// }
 /// ```
 ///
-/// # The `force_full` attribute
+/// # The `force_full_copy` field attribute
 ///
 /// A field-level marker (no arguments) that pins a field to full-copy
 /// deserialization and keeps its type verbatim in `DeserType<'_>`.
@@ -1697,11 +1699,14 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// and do not count. Fields whose type mentions no type parameter default to
 /// full-copy: there is nothing to substitute.
 ///
-/// `#[epserde(force_full)]` opts a single field out of the default:
+/// `#[epserde(force_full_copy)]` opts a single field out of the default:
 ///
 /// - the field is deserialized full-copy, rather than ε-copy;
 /// - its type is preserved verbatim in `Self::DeserType<'a>`;
 /// - its occurrences of type paramters do not contribute to the ε-copy parameters.
+///
+/// The name carries intent: the field *could* be ε-copy under the default, and
+/// you are deliberately *forcing* it full-copy instead.
 ///
 /// Typical use: a field whose type is `Vec<T>` but the surrounding struct is to
 /// be full-copy, or a wrapper whose `DeserType<'_>` cannot follow
@@ -1721,16 +1726,16 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// ```ignore
 /// #[derive(Epserde)]
 /// struct Outer<T> {
-///     #[epserde(force_full)]
+///     #[epserde(force_full_copy)]
 ///     data: Vec<T>,  // stays as Vec<T> in DeserType<'_>, full-copy
 /// }
 /// ```
 ///
-/// # `force_full(...)` type-level attribute
+/// # The `full_copy(...)` type-level attribute
 ///
 /// A type-level attribute that pins one or more type parameters to
 /// full-copy deserialization. It takes a comma-separated list of type
-/// parameters of the item: `#[epserde(force_full(T, U))]`.
+/// parameters of the item: `#[epserde(full_copy(T, U))]`.
 ///
 /// The derive classifies a parameter as ε-copy whenever it occurs in an ε-copy
 /// field. That syntactic test can only err in one direction: it assumes the
@@ -1739,29 +1744,32 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// in its own full-copy field). When that assumption is wrong the generated
 /// `_deser_eps_inner` body fails to type-check.
 ///
-/// `force_full(T)` is the escape hatch for that case. It removes `T` from the
+/// `full_copy(T)` is the escape hatch for that case. Unlike the field marker,
+/// it is a *declaration* rather than a *force*: the parameter genuinely is
+/// full-copy (a nested type holds it that way), but the local syntactic walk
+/// could not see it, so no "force" is implied. It removes `T` from the
 /// `DeserType` substitution set: `T` is kept verbatim in `Self::DeserType<'a>`
-/// and any field whose type parameters are all forced is full-copy. It
-/// affects only deserialization (`DeserType`).
+/// and any field whose type parameters are all listed is full-copy. It
+/// affects only deserialization (`DeserType`); `SerType` keeps normalizing `T`.
 ///
 /// It is rejected on a `#[epserde(zero_copy)]` type (whose `DeserType<'a>`
 /// is `&'a Self`, substituting nothing), on a const parameter, and on an
 /// identifier that is not a declared type parameter. Listing a parameter
 /// that is already full-copy emits a "no effect" warning.
 ///
-/// Example: `Inner` holds `T` in a field-level `force_full` slot, so the
-/// walk's transitive-substitution assumption fails for `Outer`; the marker
+/// Example: `Inner` holds `T` in a field-level `force_full_copy` slot, so the
+/// walk's transitive-substitution assumption fails for `Outer`; the attribute
 /// repairs it.
 ///
 /// ```ignore
 /// #[derive(Epserde)]
 /// struct Inner<T> {
-///     #[epserde(force_full)]
+///     #[epserde(force_full_copy)]
 ///     x: T,
 /// }
 ///
 /// #[derive(Epserde)]
-/// #[epserde(force_full(T))]
+/// #[epserde(full_copy(T))]
 /// struct Outer<T> {
 ///     inner: Inner<T>,  // Inner<T>::DeserType<'_> = Inner<T>
 /// }
@@ -1797,7 +1805,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 
     emit_deprecation_warnings(&attrs, &derive_input.ident);
 
-    // Validate the per-field force_full marker.
+    // Validate the per-field force_full_copy marker.
     let validate_field = |field: &syn::Field| -> Result<(), syn::Error> {
         let is_phantom_deser_data = matches!(
             &field.ty,
@@ -1812,21 +1820,27 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
                 continue;
             }
             attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("force_full") {
+                if meta.path.is_ident("full_copy") {
+                    return Err(meta.error(
+                        "\"full_copy(...)\" is a type-level attribute; to pin a single field \
+                         to full-copy deserialization use #[epserde(force_full_copy)] on the field",
+                    ));
+                }
+                if meta.path.is_ident("force_full_copy") {
                     if meta.input.peek(syn::token::Paren) {
                         return Err(meta.error(
-                            "\"force_full\" is a field-level marker and takes no arguments; \
-                             use #[epserde(force_full)]",
+                            "\"force_full_copy\" is a field-level marker and takes no arguments; \
+                             use #[epserde(force_full_copy)]",
                         ));
                     }
                     if attrs.is_zero_copy {
                         return Err(meta.error(
-                            "\"force_full\" cannot appear inside a zero-copy type",
+                            "\"force_full_copy\" cannot appear inside a zero-copy type",
                         ));
                     }
                     if is_phantom_deser_data {
                         return Err(meta.error(
-                            "\"force_full\" has no operational effect on a PhantomDeserData<T> field; \
+                            "\"force_full_copy\" has no operational effect on a PhantomDeserData<T> field; \
                              remove the marker, or migrate to PhantomData<T>",
                         ));
                     }
@@ -1855,14 +1869,14 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         return e.to_compile_error().into();
     }
 
-    // Validate the type-level #[epserde(force_full(...))] attribute and build
+    // Validate the type-level #[epserde(full_copy(...))] attribute and build
     // the set of forced parameters, referencing the declared type parameters.
     let mut forced_params: HashSet<&syn::Ident> = HashSet::new();
-    for ident in &attrs.force_full_params {
+    for ident in &attrs.full_copy_params {
         if attrs.is_zero_copy {
             return syn::Error::new_spanned(
                 ident,
-                "force_full(...) cannot be used on a zero-copy type: its deserialization \
+                "full_copy(...) cannot be used on a zero-copy type: its deserialization \
                  type is a reference and substitutes no parameter",
             )
             .to_compile_error()
@@ -1873,7 +1887,7 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         } else if const_params.iter().any(|p| **p == *ident) {
             return syn::Error::new_spanned(
                 ident,
-                format!("force_full expects a type parameter, but `{ident}` is a const parameter"),
+                format!("full_copy expects a type parameter, but `{ident}` is a const parameter"),
             )
             .to_compile_error()
             .into();

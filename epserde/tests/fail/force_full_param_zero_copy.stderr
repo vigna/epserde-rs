@@ -1,5 +1,0 @@
-error: force_full(...) cannot be used on a zero-copy type: its deserialization type is a reference and substitutes no parameter
-  --> tests/fail/force_full_param_zero_copy.rs:15:33
-   |
-15 | #[epserde(zero_copy, force_full(T))]
-   |                                 ^

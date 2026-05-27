@@ -7,10 +7,13 @@
 - Major design change: ε-copy deserialization is always propagated through
   fields (used to stop at fields whose type is not a parameter). The old
   behavior can be obtained by decorating the field with
-  `#[epserde(force_full)]`. The new design opens the possibility for type
+  `#[epserde(force_full_copy)]`. The new design opens the possibility for type
   replacement inside fields whose type is not a parameter (e.g., `struct
 S<A>([A; 3])` can have `Vec<usize>` as a parameter, getting the
   deserialization type `S<&[usize]>`).
+
+- A type parameter can be pinned to full-copy deserialization across the whole
+  type with the type-level `#[epserde(full_copy(T, …))]` attribute.
 
 - A new constant `SerInner::MIGHT_BE_ZERO_COPY` tracks more accurately
   when a structure might be zero-copy (as `SerInner::IS_ZERO_COPY` is not

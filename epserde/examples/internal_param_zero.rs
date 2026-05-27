@@ -14,7 +14,7 @@ use epserde::{deser::DeserType, prelude::*, ser::SerType};
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A: ZeroCopy> {
-    #[epserde(force_full)]
+    #[epserde(force_full_copy)]
     a: Vec<A>,
 }
 

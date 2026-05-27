@@ -1,5 +1,0 @@
-error: "force_full" at the type level requires a parenthesized list of type parameters, e.g. #[epserde(force_full(T))]
-  --> tests/fail/force_full_on_item.rs:14:11
-   |
-14 | #[epserde(force_full)]
-   |           ^^^^^^^^^^

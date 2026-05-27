@@ -1,5 +1,0 @@
-error: force_full expects a type parameter, but `N` is a const parameter
-  --> tests/fail/force_full_param_const.rs:13:22
-   |
-13 | #[epserde(force_full(N))]
-   |                      ^

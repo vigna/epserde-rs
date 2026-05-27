@@ -74,21 +74,23 @@ These are the main limitations you should be aware of before choosing to use
   recursively in memory instead.
 
 - After deserialization of an instance of type `T`, you will obtain an instance
-  of an associated deserialization type [`DeserType<'_,T>`], which will usually
-  reference the underlying serialized support (e.g., a memory-mapped region);
-  hence the need for a lifetime. If you need to store the deserialized instance
-  in a field of a new structure you will need to couple permanently the instance
-  with its serialization support, which is obtained by putting it in a
-  [`MemCase`] using the convenience methods [`Deserialize::load_mem`],
-  [`Deserialize::read_mem`], [`Deserialize::load_mmap`],
-  [`Deserialize::read_mmap`], and [`Deserialize::mmap`].
+  of an associated deserialization type [`DeserType<'_,T>`], which is just an
+  instance of `T` with different values for the type parameters (e.g.,
+  `&[usize]` instead of `Vec<usize>`), and which will usually reference the
+  underlying serialized support (e.g., a memory-mapped region); hence the need
+  for a lifetime. If you need to store the deserialized instance in a field of a
+  new structure you will need to couple permanently the instance with its
+  serialization support, which is obtained by putting it in a [`MemCase`] using
+  the convenience methods [`Deserialize::load_mem`], [`Deserialize::read_mem`],
+  [`Deserialize::load_mmap`], [`Deserialize::read_mmap`], and
+  [`Deserialize::mmap`].
 
 - You must write `impl` blocks that works both for `T` and for
   `DeserType<'_,T>`. For example, if you have a field of type `Vec<T>`, you will
   get a field of type `&[T]` after deserialization, so you must write your code
   in a way that works for both types (e.g., by using `AsRef<[T]>`).
 
-- No validation or padding cleaning is performed on deserialized instances. If
+- No validation or padding cleaning is performed on (de)serialized instances. If
   you plan to serialize data and distribute it, you must take care of these
   issues.
 
@@ -105,12 +107,13 @@ These are the main limitations you should be aware of before choosing to use
   all methods on a new, different deserialization type.
 
 - The structure you get by deserialization has exactly the same performance as
-  the structure you serialized. This is not the case with [zerovec] or [rkyv].
+  the structure you serialized. This is not the case with [zerovec] or [rkyv],
+  which have to resolve relative addressing.
 
 - You can serialize instances containing references to slices, or even
   exact-size iterators, and they will be deserialized as if you had written a
   vector. It is thus possible to serialize instances larger than the available
-  memory.
+  memory, and later map them into memory.
 
 - You can deserialize from read-only supports, as all dynamic information
   generated at deserialization time is stored in newly allocated memory. This is
@@ -227,9 +230,9 @@ assert_eq!(s.as_slice(), &*t);
 Note how we serialize a vector, but we deserialize a reference to a slice; the
 same would happen when serializing a boxed slice; in fact, vectors and boxed
 slices are interchangeable. The reference points inside `b`, so there is very
-little copy performed (in fact, just a field containing the length of the
-slice). All this is because `usize` is a zero-copy type. Note also that we use
-the convenience method [`Deserialize::load_full`].
+little copy performed (in fact, just a pointer and the length of the slice). All
+this is because `usize` is a zero-copy type. Note also that we use the
+convenience method [`Deserialize::load_full`].
 
 If your code must work both with the original and the deserialized version,
 however, it must be written for a trait that is implemented by both types, such
@@ -427,8 +430,12 @@ struct MyStructParam<A: DeepCopy> {
 
 Alternatively, when you want a specific field's type to stay verbatim in the
 deserialization type (no substitution inside it, full-copy deserialization),
-mark that field with the [`#[epserde(force_full)]`
-attribute](#example-pinning-a-field-with-force_full).
+mark that field with the [`#[epserde(force_full_copy)]`
+attribute](#example-pinning-a-field-with-force_full_copy).
+
+Note that adding the bound `A: ZeroCopy` will not work—the derive should replace
+`Vec<A>` with `&[A]` in the deserialization type, but that is incompatible
+with the syntax of the type (a specific error will be issueD).
 
 ## Example: User-defined deep-copy structures without parameters
 
@@ -459,8 +466,8 @@ let t: MyStruct = unsafe { <MyStruct>::deserialize_eps(b.as_ref())? };
 Note how the field of type `Vec<isize>` remains of the same type. To keep an
 internal parameter untouched in the deserialization type of a _generic_
 structure (e.g., a `Vec<A>` field where you do not want `A` to be substituted
-across the structure), use [`#[epserde(force_full)]`
-attribute](#example-pinning-a-field-with-force_full) on the field.
+across the structure), use [`#[epserde(force_full_copy)]`
+attribute](#example-pinning-a-field-with-force_full_copy) on the field.
 
 ## Example: User-defined zero-copy structures with parameters
 
@@ -578,12 +585,12 @@ let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? 
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-## Example: Pinning a field with `force_full`
+## Example: Pinning a field with `force_full_copy`
 
 By default the derive substitutes every occurrence of a type parameter with its
 associated deserialization type, and deserializes every field by ε-copy
 deserialization if it contains some type parameter. The field-level attribute
-`#[epserde(force_full)]` opts a specific field out of that default: the field is
+`#[epserde(force_full_copy)]` opts a specific field out of that default: the field is
 fully deserialized.
 
 ```rust
@@ -594,15 +601,15 @@ fully deserialized.
 struct Inner<T>(T);
 
 #[derive(Epserde, Debug, PartialEq)]
-struct Outer<T>(#[epserde(force_full)] Inner<T>);
+struct Outer<T>(#[epserde(force_full_copy)] Inner<T>);
 
 let s: Outer<Vec<isize>> = Outer(Inner(vec![0, 1, 2, 3]));
 let mut file = std::env::temp_dir();
-file.push("serialized_force_full");
+file.push("serialized_force_full_copy");
 unsafe { s.store(&file) };
 let b = std::fs::read(&file)?;
 
-// force_full pins the inner field: its type stays Inner<Vec<isize>> in the
+// force_full_copy pins the inner field: its type stays Inner<Vec<isize>> in the
 // deserialization type rather than being substituted to Inner<&[isize]>.
 let t: Outer<Vec<isize>> =
     unsafe { <Outer<Vec<isize>>>::deserialize_eps(b.as_ref())? };
@@ -612,14 +619,24 @@ assert_eq!(s.0.0, t.0.0);
 # }
 ```
 
-`force_full` takes no arguments and affects only deserialization. It is rejected
-if it appears anywhere inside a type marked `#[epserde(zero_copy)]`, as the
-marker has no meaning there. On a field whose type contains no type parameter
-the marker is a silent no-op.
+`force_full_copy` takes no arguments and affects only deserialization. It is
+rejected if it appears anywhere inside a type marked `#[epserde(zero_copy)]`, as
+the marker has no meaning there. On a field whose type contains no type
+parameter the marker is a silent no-op.
 
 Marking a field whose type contains a parameter that also appears in another
 unmarked field is inconsistent: we use a helper trait and the `#[diagnostic]`
 attribute to report to the user a helpful error message in this case.
+
+There is also a type-level companion, `#[epserde(full_copy(T, …))]`, which pins
+the listed type parameters to full-copy deserialization across the whole type.
+Whereas the field-level `force_full_copy` _forces_ a field that could be ε-copy
+to be full-copy instead, `full_copy(T)` _declares_ that `T` is genuinely
+full-copy when the derive's local, syntactic analysis cannot determine it. It is
+rejected on zero-copy types, on const parameters, and on identifiers that are
+not declared type parameters. Note an important interplay between the two
+features: if a field contains only parameters that are declared full-copy, then
+the field will be considered full-copy (even it contain parameters).
 
 ## Example: Pinning associated types with `bound`
 
@@ -769,11 +786,11 @@ let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? 
 The standard `examples` directory contains many worked-out examples. The
 [`sux-rs`] crate contains several data structures that use ε-serde.
 
-## References and Smart Pointers
+## References and Wrappers
 
-You can serialize using just a (mutable) reference. Moreover, smart pointers
-such as [`Box`], [`Rc`], and [`Arc`] are supported by _erasure_—they
-dynamically removed from the type and dynamically reinstated at deserialization.
+You can serialize using just a (mutable) reference. Moreover, wrappers such as
+[`Box`], [`Rc`], and [`Arc`] are supported by _erasure_—they dynamically removed
+from the type and dynamically reinstated at deserialization if you require them.
 Please see the documentation of the [`pointer`] module for more details.
 
 ## Vectors and Boxed slices
@@ -888,8 +905,8 @@ replaced with its deserialization types. Since the deserialization type is
 defined recursively, replacement can happen at any depth level.
 
 Replacement happens everywhere, including occurrences nested inside other field
-types. The field-level [`#[epserde(force_full)]`
-attribute](#example-pinning-a-field-with-force_full) opts a specific field out
+types. The field-level [`#[epserde(force_full_copy)]`
+attribute](#example-pinning-a-field-with-force_full_copy) opts a specific field out
 of substitution: the field is deserialized via the full-copy path and its type
 is preserved verbatim in the deserialization type.
 
@@ -966,7 +983,7 @@ Note that all fields of a type you want to (de)serialize must implement
 ### ε-copy and full-copy parameters
 
 Given a type `S` with generics, a field is _full copy_ if it does not contain
-type parameters, or it is marked with `#[epserde(force_full)]`. A field is
+type parameters, or it is marked with `#[epserde(force_full_copy)]`. A field is
 _ε-copy_ otherwise. A type parameter `T` is _ε-copy_ if it appears in an ε-copy
 field, and _full copy_ if it appears in a full-copy field. Occurences in a
 [`PhantomData`] are not accounted for.
@@ -1002,20 +1019,20 @@ SerInner>::SerType` in the serialization type, and every ε-copy type parameter
 `T` with `<T as DeserInner>::DeserType<'_>` in the deserialization type
 (full-copy parameters are kept unchanged).
 
-For the replacement to work, ε-copy fields must have a type that is _ε-copy
-stable_ with respect to the kind of parameters in `S`, meaning that its
-deserialization type is obtained by replacing the concrete types of its type
-parameters with their associated deserialization types if they are ε-copy in
-`S`.
+For the replacement to work, ε-copy fields must have a type that is s*
+structurally ε-copy stable* with respect to the kind of parameters in `S`,
+meaning that its deserialization type is obtained by replacing the concrete
+types of its type parameters with their associated deserialization types if they
+are ε-copy in `S`.
 
 When the contract is not satisfied, the derive emits code that fails to
 type-check at the call site, and the user can restore well-formedness by
-adding `#[epserde(force_full)]` to the offending field. Adding a kind bound
+adding `#[epserde(force_full_copy)]` to the offending field. Adding a kind bound
 (`T: DeepCopy` or `T: ZeroCopy`) on the parameter can also resolve cases
-where the wrapper's δ-stability depends on `T`'s kind, as in
+where the wrapper's ε-copy stability depends on `T`'s kind, as in
 the example above with `MyStructParam<A: DeepCopy>`.
 
-A field marked `#[epserde(force_full)]` is deserialized via the full-copy
+A field marked `#[epserde(force_full_copy)]` is deserialized via the full-copy
 path and its type is preserved verbatim in the deserialization type; the
 field's type-parameter occurrences do not contribute to the ε-copy set.
 A field whose type contains no variable position (e.g., `Vec<i32>`,

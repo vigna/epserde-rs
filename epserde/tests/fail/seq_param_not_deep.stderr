@@ -5,8 +5,8 @@ error[E0277]: type parameter `A` must be deep-copy: it occurs as an element of a
    |              ^^^ if `A` were zero-copy, this field would ε-copy deserialize to a slice reference, a type not expressible in the source
    |
    = note: consider restricting type parameter `A` with trait `DeepCopy` (more targeted)
-   = note: alternatively, mark the field with `#[epserde(force_full)]`
-   = note: alternatively, pin `A` to full-copy with `#[epserde(force_full(A))]` on the type, which makes `A` full-copy in every field
+   = note: alternatively, mark the field with `#[epserde(force_full_copy)]`
+   = note: alternatively, pin `A` to full-copy with `#[epserde(full_copy(A))]` on the type, which makes `A` full-copy in every field
 note: required by a bound in `__check`
   --> tests/fail/seq_param_not_deep.rs:17:10
    |

@@ -11,10 +11,10 @@
 
 pub mod array;
 pub mod iter;
-pub mod pointer;
 pub mod prim;
 pub mod slice;
 pub mod tuple;
+pub mod wrapper;
 
 pub mod boxed_slice;
 pub mod string;

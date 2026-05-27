@@ -507,7 +507,7 @@ pub trait DeserInner: Sized {
 ///
 /// The derive emits an assertion against this trait when a type parameter is
 /// both ε-copy and full-copy (it appears in a field marked
-/// `#[epserde(force_full)]` and in an unmarked field). The (de)serialization
+/// `#[epserde(force_full_copy)]` and in an unmarked field). The (de)serialization
 /// code compiles only when `T` satisfies this trait, and the
 /// `#[diagnostic::on_unimplemented]` attribute below surfaces an actionable
 /// hint when the user has not supplied the required bound.
@@ -521,11 +521,11 @@ pub trait DeserInner: Sized {
 ///
 /// [`DeserType`]: DeserInner::DeserType
 #[diagnostic::on_unimplemented(
-    message = "type parameter `{T}` is both full-copy and ε-copy (it appears both in a field marked `#[epserde(force_full)]` and in an unmarked field)",
+    message = "type parameter `{T}` is both full-copy and ε-copy (it appears both in a field marked `#[epserde(force_full_copy)]` and in an unmarked field)",
     label = "this occurrence of `{T}` in an ε-copy field conflicts with its use in a full-copy field",
     note = "consider restricting type parameter `{T}` with `{T}: for<'a> DeserInner<DeserType<'a> = {T}>`",
-    note = "alternatively, mark the ε-copy field with `#[epserde(force_full)]`",
-    note = "alternatively, pin the parameter to full-copy with `#[epserde(force_full({T}))]` on the type"
+    note = "alternatively, mark the ε-copy field with `#[epserde(force_full_copy)]`",
+    note = "alternatively, pin the parameter to full-copy with `#[epserde(full_copy({T}))]` on the type"
 )]
 pub trait DeserFixedPoint<T: ?Sized> {}
 
@@ -545,9 +545,9 @@ impl<T: ?Sized> DeserFixedPoint<T> for T {}
 /// The blanket impl applies to every [`DeepCopy`] type, so the assertion holds
 /// as soon as the user supplies the required bound. Alternatively, the
 /// requirement is lifted by full-copy deserializing the offending field, either
-/// with the field-level `#[epserde(force_full)]` marker or, when the parameter
+/// with the field-level `#[epserde(force_full_copy)]` marker or, when the parameter
 /// is that field's only ε-copy occurrence, by pinning the parameter with the
-/// type-level `#[epserde(force_full(...))]` attribute. The
+/// type-level `#[epserde(full_copy(...))]` attribute. The
 /// `#[diagnostic::do_not_recommend]` attribute keeps the compiler from
 /// reporting the missing `DeepCopy` bound as the root cause, so the
 /// `#[diagnostic::on_unimplemented]` message below is what surfaces.
@@ -555,8 +555,8 @@ impl<T: ?Sized> DeserFixedPoint<T> for T {}
     message = "type parameter `{Self}` must be deep-copy: it occurs as an element of a vector, boxed slice, or array in an ε-copy field",
     label = "if `{Self}` were zero-copy, this field would ε-copy deserialize to a slice reference, a type not expressible in the source",
     note = "consider restricting type parameter `{Self}` with trait `DeepCopy` (more targeted)",
-    note = "alternatively, mark the field with `#[epserde(force_full)]`",
-    note = "alternatively, pin `{Self}` to full-copy with `#[epserde(force_full({Self}))]` on the type, which makes `{Self}` full-copy in every field"
+    note = "alternatively, mark the field with `#[epserde(force_full_copy)]`",
+    note = "alternatively, pin `{Self}` to full-copy with `#[epserde(full_copy({Self}))]` on the type, which makes `{Self}` full-copy in every field"
 )]
 pub trait DeepCopyInSeq {}
 
