@@ -26,6 +26,10 @@ S<A>([A; 3])` can have `Vec<usize>` as a parameter, getting the
 - "Replaceable" (variable) and "irreplaceable" is now "ε-copy" and
   "full-copy".
 
+- `TypeHash` now uses a full-qualified name for user-defined types.
+  This will break the serialization format in all practical cases.
+  Hence, the major revision of the file format was bumped.
+
 ### New
 
 - Also mutable references to slices can be now serialized.

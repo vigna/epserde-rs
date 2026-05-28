@@ -1996,7 +1996,10 @@ fn gen_type_hash_body(
             Hash::hash(stringify!(#const_params), hasher);
         )*
 
-        // Hash in the struct name.
+        // Hash in the fully qualified struct name (module path + name),
+        // so that two structs with the same short name in different modules
+        // do not collide.
+        Hash::hash(::core::module_path!(), hasher);
         Hash::hash(stringify!(#name), hasher);
 
         // Hash in first all field names and then all field types

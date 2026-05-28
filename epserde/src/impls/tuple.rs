@@ -82,6 +82,14 @@ macro_rules! impl_tuples {
 
             #[inline(always)]
             unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+                const {
+                    assert!(
+                        ::core::mem::size_of::<($($t,)*)>()
+                            == (0_usize $( + { let _ = ::core::stringify!($t); 1_usize } )*)
+                                * ::core::mem::size_of::<T>(),
+                        "epserde: homogeneous tuple layout assumption violated by this compiler"
+                    );
+                }
                 ser_zero(backend, self)
             }
         }
@@ -90,12 +98,28 @@ macro_rules! impl_tuples {
             check_covariance!();
             type DeserType<'a> = &'a ($($t,)*);
             unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+                const {
+                    assert!(
+                        ::core::mem::size_of::<($($t,)*)>()
+                            == (0_usize $( + { let _ = ::core::stringify!($t); 1_usize } )*)
+                                * ::core::mem::size_of::<T>(),
+                        "epserde: homogeneous tuple layout assumption violated by this compiler"
+                    );
+                }
                 unsafe { deser_full_zero::<($($t,)*)>(backend) }
             }
 
             unsafe fn _deser_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
                 ) -> deser::Result<Self::DeserType<'a>> {
+                const {
+                    assert!(
+                        ::core::mem::size_of::<($($t,)*)>()
+                            == (0_usize $( + { let _ = ::core::stringify!($t); 1_usize } )*)
+                                * ::core::mem::size_of::<T>(),
+                        "epserde: homogeneous tuple layout assumption violated by this compiler"
+                    );
+                }
                 unsafe { deser_eps_zero::<($($t,)*)>(backend) }
             }
         }
