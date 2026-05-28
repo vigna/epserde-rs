@@ -40,7 +40,7 @@ use std::{io::BufReader, path::Path};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-/// A shorthand for the [deserialization type associated with a deserializable
+/// A shorthand for the [deserialization associated
 /// type](DeserInner::DeserType).
 pub type DeserType<'a, T> = <T as DeserInner>::DeserType<'a>;
 
@@ -726,16 +726,12 @@ Actual: 0x{ser_type_hash:016x}; expected: 0x{self_type_hash:016x}.
 
 The serialized type is
     {ser_type_name},
-but the deserializable type on which the deserialization method was invoked is
+but the deserializing type on which the deserialization method was invoked is
     {self_type_name},
 which has serialization type
     {self_ser_type_name}.
 
-You are trying to deserialize a file with the wrong type. You might also be
-trying to deserialize a tuple of mixed zero-copy types, which is no longer
-supported since 0.8.0, an instance containing tuples, whose type hash was fixed
-in 0.9.0, or an instance containing a vector or a string that was serialized
-before 0.10.0."#
+You are trying to deserialize a file with the wrong type."#
     )]
     /// The type hash is wrong. Probably the user is trying to deserialize a
     /// file with the wrong type.
@@ -757,18 +753,13 @@ Actual: 0x{ser_align_hash:016x}; expected: 0x{self_align_hash:016x}.
 
 The serialized type is
     {ser_type_name},
-but the deserializable type on which the deserialization method was invoked is
+but the deserializing type on which the deserialization method was invoked is
     {self_type_name},
 which has serialization type
     {self_ser_type_name}.
 
-You might be trying to deserialize a file that was serialized on an
-architecture with different alignment requirements, or some of the fields of
-the type might have changed their copy type (zero or deep). You might also be
-trying to deserialize an array, whose alignment hash has been fixed in 0.8.0.
-It is also possible that you are trying to deserialize a file serialized before
-version 0.10.0 in which repr attributes were not sorted lexicographically, or
-a range in a file serialized before version 0.12.0."#
+You are trying to deserialize a file that was serialized on an
+architecture with incompatible alignment requirements."#
     )]
     /// The type representation hash is wrong. Probably the user is trying to
     /// deserialize a file with some zero-copy type that has different

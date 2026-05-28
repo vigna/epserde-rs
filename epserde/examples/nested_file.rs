@@ -86,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut file = std::fs::File::open(FILE_NAME)?;
     let full = unsafe { Type::deserialize_full(&mut file)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<Type>(),
     );
     println!("Value: {:x?}", full);
@@ -98,7 +98,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut file = std::fs::File::open(FILE_NAME)?;
     let full = unsafe { TypeOneBoxed::deserialize_full(&mut file)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<TypeOneBoxed>(),
     );
     println!("Value: {:x?}", full);
@@ -109,7 +109,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut file = std::fs::File::open(FILE_NAME)?;
     let full = unsafe { TypeBothBoxed::deserialize_full(&mut file)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<TypeBothBoxed>(),
     );
     println!("Value: {:x?}", full);

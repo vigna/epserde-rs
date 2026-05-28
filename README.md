@@ -791,7 +791,7 @@ The standard `examples` directory contains many worked-out examples. The
 You can serialize using just a (mutable) reference. Moreover, wrappers such as
 [`Box`], [`Rc`], and [`Arc`] are supported by _erasure_—they dynamically removed
 from the type and dynamically reinstated at deserialization if you require them.
-Please see the documentation of the [`pointer`] module for more details.
+Please see the documentation of the [`wrapper`] module for more details.
 
 ## Vectors and Boxed slices
 
@@ -994,7 +994,7 @@ full-copy, and a special diagnostic is emitted if this happens.
 Note the interplay bewteen the two attributes: `#[epserde(full_copy(T, U, …))]`
 helps defining the type of fields by pinning certain parameters inititially to
 be full-copy, but ultimately the copy type of a type parameter depends on
-whether its occurrences appear.
+where its occurrences appear.
 
 The fundamental idea at the basis of ε-serde is that ε-copy parameters make it
 possible to deserialize a value so that it refers to serialized zero-copy data
@@ -1080,7 +1080,7 @@ An ε-serde deserialization process involves instead three types:
 In general `D` is the same as `S`, but the only relevant condition for using a
 deserializing type `D` on a stored value serialized with serializable type `S`
 is that [`D::SerType`] is equal to [`S::SerType`]. This gives some latitude in
-the choice of the deserializable type—for example, a boxed array instead of a
+the choice of the deserializing type—for example, a boxed array instead of a
 vector for an ε-copy parameter, or creating wrapper types such as [`Rc`] on the
 fly.
 
@@ -1308,7 +1308,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [`Box`]: https://doc.rust-lang.org/std/boxed/struct.Box.html
 [`Rc`]: https://doc.rust-lang.org/std/rc/struct.Rc.html
 [`Arc`]: https://doc.rust-lang.org/std/sync/struct.Arc.html
-[`pointer`]: https://docs.rs/epserde/latest/epserde/impls/pointer/index.html
+[`wrapper`]: https://docs.rs/epserde/latest/epserde/impls/wrapper/index.html
 [`BitFieldVec`]: https://docs.rs/sux/latest/sux/bits/bit_field_vec/struct.BitFieldVec.html
 [`BitFieldSlice`]: https://docs.rs/sux/latest/sux/traits/bit_field_slice/trait.BitFieldSlice.html
 [`S::SerType`]: https://docs.rs/epserde/latest/epserde/ser/trait.SerInner.html#associatedtype.SerType

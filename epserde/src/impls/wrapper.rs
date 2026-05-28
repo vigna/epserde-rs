@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Blanket implementations for references and smart pointers.
+//! Implementations for references and wrappers.
 //!
-//! This module provides blanket implementations of serialization traits for
-//! (mutable) references. Moreover, it provides (de)serialization support for
-//! [`Box`], [`Rc`] and [`Arc`] if the `std` or `alloc` feature is enabled.
+//! This module provides implementations of serialization traits for (mutable)
+//! references. Moreover, it provides (de)serialization support for [`Box`],
+//! [`Rc`] and [`Arc`] if the `std` or `alloc` feature is enabled.
 //!
 //! While references have the obvious semantics (we serialize the referred
-//! value), smart pointers are supported by erasure: if a type parameter has
+//! value), wrappers are supported by erasure: if a type parameter has
 //! value `Box<T>`, `Rc<T>`, or `Arc<T>`, we serialize `T` in its place (with
 //! the exception of boxed slices, which [have their own
 //! treatment](crate::impls::boxed_slice)).
@@ -86,7 +86,7 @@ macro_rules! impl_ser {
         impl<T: SerInner> SerInner for $type {
             type SerType = T::SerType;
             const IS_ZERO_COPY: bool = <T as SerInner>::IS_ZERO_COPY;
-            // Smart pointers and references are never layout zero-copy,
+            // Wrappers and references are never zero-copy,
             // regardless of T.
             const MIGHT_BE_ZERO_COPY: bool = false;
 
