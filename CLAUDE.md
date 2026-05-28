@@ -40,8 +40,8 @@ CI tests against Rust 1.85.0, stable, beta, and nightly, with three feature comb
 
 The framework classifies types into two categories via the `CopyType` trait:
 
-- **`ZeroCopy`** (`type Copy = Zero`): Fixed-layout types with no references. Must be `#[repr(C)]`. Serialized/deserialized as raw bytes. Marked with `#[epserde_zero_copy]`.
-- **`DeepCopy`** (`type Copy = Deep`): Types requiring recursive field-by-field processing. Marked with `#[epserde_deep_copy]`.
+- **`ZeroCopy`** (`type Copy = Zero`): Fixed-layout types with no references. Must be `#[repr(C)]`. Serialized/deserialized as raw bytes. Marked with `#[epserde(zero_copy)]`.
+- **`DeepCopy`** (`type Copy = Deep`): Types requiring recursive field-by-field processing. Marked with `#[epserde(deep_copy)]`.
 
 This distinction drives specialization throughout the crate via `SerHelper<Zero>`/`SerHelper<Deep>` and `DeserHelper<Zero>`/`DeserHelper<Deep>` (sealed trait pattern).
 
@@ -71,7 +71,7 @@ This distinction drives specialization throughout the crate via `SerHelper<Zero>
 
 ### Standard Type Implementations (`impls/`)
 
-Each file implements serialization for a category: `prim.rs` (primitives), `vec.rs` (Vec with zero/deep-copy specialization), `boxed_slice.rs`, `string.rs`, `array.rs`, `tuple.rs` (up to 12 elements), `pointer.rs` (Box/Rc/Arc with erasure), `stdlib.rs` (Option, Range, ControlFlow), `slice.rs`, `iter.rs` (SerIter wrapper).
+Each file implements serialization for a category: `prim.rs` (primitives), `vec.rs` (Vec with zero/deep-copy specialization), `boxed_slice.rs`, `string.rs`, `array.rs`, `tuple.rs` (up to 12 elements), `wrapper.rs` (`&T`/`&mut T` plus Box/Rc/Arc with erasure), `stdlib.rs` (Option, Range, ControlFlow), `slice.rs`, `iter.rs` (SerIter wrapper).
 
 ### PhantomData
 

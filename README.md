@@ -435,7 +435,7 @@ attribute](#example-pinning-a-field-with-force_full_copy).
 
 Note that adding the bound `A: ZeroCopy` will not work—the derive should replace
 `Vec<A>` with `&[A]` in the deserialization type, but that is incompatible
-with the syntax of the type (a specific error will be issueD).
+with the syntax of the type (a specific error will be issued).
 
 ## Example: User-defined deep-copy structures without parameters
 
@@ -789,8 +789,9 @@ The standard `examples` directory contains many worked-out examples. The
 ## References and Wrappers
 
 You can serialize using just a (mutable) reference. Moreover, wrappers such as
-[`Box`], [`Rc`], and [`Arc`] are supported by _erasure_—they dynamically removed
-from the type and dynamically reinstated at deserialization if you require them.
+[`Box`], [`Rc`], and [`Arc`] are supported by _erasure_—they are dynamically
+removed from the type and dynamically reinstated at deserialization if you
+require them.
 Please see the documentation of the [`wrapper`] module for more details.
 
 ## Vectors and Boxed slices
@@ -982,17 +983,17 @@ Note that all fields of a type you want to (de)serialize must implement
 
 ### ε-copy / full-copy fields and parameters
 
-Given a type `S` with generics, a field is has copy kind _full copy_ if it does
-not contain type parameters outside those listed in the field-level attribute
+Given a type `S` with generics, a field has is _full copy_ if it does not
+contain type parameters outside those listed in the type-level attribute
 `#[epserde(full_copy(T, U, …))]`, or it is marked with
-`#[epserde(force_full_copy)]`. A field has copy kind _ε-copy_ otherwise. A type
-parameter `T` has copy kind _ε-copy_ if it appears in an ε-copy field, and has
-copy kind _full copy_ if it appears in a full-copy field. Occurences in a
-[`PhantomData`] are not accounted for. No type parameter can be both ε-copy and
-full-copy, and a special diagnostic is emitted if this happens.
+`#[epserde(force_full_copy)]`. A field is _ε-copy_ otherwise. A type parameter
+`T` is _ε-copy_ if it appears in an ε-copy field, and is _full copy_ if it
+appears in a full-copy field. Occurrences in a [`PhantomData`] are not accounted
+for. No type parameter can be both ε-copy and full-copy, and a special
+diagnostic is emitted if this happens.
 
-Note the interplay bewteen the two attributes: `#[epserde(full_copy(T, U, …))]`
-helps defining the type of fields by pinning certain parameters inititially to
+Note the interplay between the two attributes: `#[epserde(full_copy(T, U, …))]`
+helps defining the type of fields by pinning certain parameters initially to
 be full-copy, but ultimately the copy type of a type parameter depends on
 where its occurrences appear.
 
@@ -1032,7 +1033,7 @@ type, obtained by replacing the concrete types of its ε-copy type parameters
 with their associated deserialization types, is correctly ε-copy deserialized by
 the recursive process described in the next section.
 
-When the this does not happen, the derive emits (when possible) code that fails
+When this does not happen, the derive emits (when possible) code that fails
 to type-check at the call site, or the compiler detects type inconsistencies.
 The user can restore stability by adding `#[epserde(force_full_copy)]` to a
 suitable field, a copy-kind bound (`T: DeepCopy` or `T: ZeroCopy`) on a
@@ -1113,7 +1114,7 @@ There are now two types of deserialization, to which two different _deserialized
 types_ correspond:
 
 - [`deserialize_full`] performs _full-copy deserialization_, which recursively
-- full-copy deserializes the serialized data from a [`Read`] and builds an
+  full-copy deserializes the serialized data from a [`Read`] and builds an
   instance of `D`. This is basically a standard deserialization, except that it
   is usually much faster if you have large sequences of zero-copy types, as they
   are deserialized in a single [`read_exact`].

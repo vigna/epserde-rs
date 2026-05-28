@@ -45,8 +45,8 @@ impl CopySelector for Deep {
 
 /// Marker trait for data specifying whether it is zero-copy or deep-copy.
 ///
-/// The trait comes in two flavors: `CopySelector<Type=Zero>` and
-/// `CopySelector<Type=Deep>`. To each of these flavors corresponds two
+/// The trait comes in two flavors: `CopyType<Copy=Zero>` and
+/// `CopyType<Copy=Deep>`. To each of these flavors corresponds two
 /// dependent traits, [`ZeroCopy`] (which requires implementing [`Copy`],
 /// [`AlignTo`], and be `'static`) and [`DeepCopy`], which are automatically
 /// implemented.
@@ -61,7 +61,7 @@ impl CopySelector for Deep {
 /// exclusive](https://github.com/rust-lang/rfcs/pull/1672#issuecomment-1405377983).
 ///
 /// For an array of elements of type `T` to be zero-copy serializable and
-/// deserializable, `T` must implement `CopySelector<Type=Zero>`. The conditions
+/// deserializable, `T` must implement `CopyType<Copy=Zero>`. The conditions
 /// for this marker trait are that `T` is a [copy type](Copy), that it has a
 /// fixed memory layout, and that it does not contain any reference (in
 /// particular, that it has `'static` lifetime). If this happen vectors of `T`
@@ -75,7 +75,7 @@ impl CopySelector for Deep {
 ///
 /// Since we cannot use negative trait bounds, every type that is used as a
 /// parameter of an array, vector or boxed slice must implement either
-/// `CopySelector<Type=Zero>` or `CopySelector<Type=Deep>`. In the latter case,
+/// `CopyType<Copy=Zero>` or `CopyType<Copy=Deep>`. In the latter case,
 /// slices will be deserialized element by element, and the result will be a
 /// fully deserialized vector or boxed slice. If you do not implement either of
 /// these traits, the type will not be serializable inside vectors or boxed
@@ -100,7 +100,7 @@ pub unsafe trait CopyType: Sized {
 ///
 /// Note that we require `SerInner<SerType = Self>` but just `DeserInner` and
 /// not, say, `DeserInner<DeserType<'_> = &Self>`, which would be natural for
-/// user-defined zero-copy types, because most primitive types have have
+/// user-defined zero-copy types, because most primitive types have
 /// deserialization type `Self`.
 pub trait ZeroCopy:
     CopyType<Copy = Zero>
