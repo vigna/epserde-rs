@@ -37,7 +37,7 @@ type TypeOneBoxed = StructParam<Box<[usize]>, Data<Vec<u16>>>;
 type TypeBothBoxed = StructParam<Box<[usize]>, Data<Box<[u16]>>>;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<Type>());
+    println!("Serializing type: {}", core::any::type_name::<Type>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<Type>>()

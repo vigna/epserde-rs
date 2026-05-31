@@ -110,7 +110,7 @@ impl MemBackend {
     }
 }
 
-/// A transparent wrapper that implement the ε-serde (de)serialization traits
+/// A transparent wrapper that implements the ε-serde (de)serialization traits
 /// with (de)serialization type equal to `T`.
 ///
 /// The only purpose of this wrapper is to make [encasing](MemCase::encase) of

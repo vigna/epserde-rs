@@ -136,17 +136,17 @@ macro_rules! unsafe_assume_covariance {
 /// - No validation is performed on zero-copy types. For example, by altering a
 ///   serialized form you can deserialize a vector of
 ///   [`NonZeroUsize`](core::num::NonZeroUsize) containing zeros.
-/// - The code assume that the [`read_exact`](ReadNoStd::read_exact) method of
+/// - The code assumes that the [`read_exact`](ReadNoStd::read_exact) method of
 ///   the backend does not read the buffer. If the method reads the buffer, it
 ///   will cause undefined behavior. This is a general issue with Rust as the
 ///   I/O traits were written before [`MaybeUninit`] was stabilized.
-/// - Malicious [`TypeHash`]/[`AlignHash`] implementations maybe lead to read
+/// - Malicious [`TypeHash`]/[`AlignHash`] implementations may lead to reading
 ///   incompatible structures using the same code, or cause undefined behavior
 ///   by loading data with an incorrect alignment.
 /// - Memory-mapped files might be modified externally.
 ///
 /// The first problem can be solved by traits like
-/// [`FromByte`](https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html).
+/// [`FromBytes`](https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html).
 /// The second issue is a non-problem with the standard library.
 ///
 /// The last two issues are more an issue of security than undefined behavior,
@@ -761,11 +761,10 @@ which has serialization type
 You are trying to deserialize a file that was serialized on an
 architecture with incompatible alignment requirements."#
     )]
-    /// The type representation hash is wrong. Probably the user is trying to
-    /// deserialize a file with some zero-copy type that has different
-    /// in-memory representations on the serialization arch and on the current one,
-    /// usually because of alignment issues. There are also some backward-compatibility
-    /// issues discussed in the error message.
+    /// The alignment hash is wrong. Probably the user is trying to deserialize
+    /// a file with some zero-copy type that has different in-memory
+    /// representations on the serialization architecture and on the current
+    /// one, usually because of alignment issues.
     WrongAlignHash {
         /// The name of the type that was serialized.
         ser_type_name: String,

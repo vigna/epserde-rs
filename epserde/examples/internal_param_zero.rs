@@ -21,7 +21,7 @@ struct Data<A: ZeroCopy> {
 type Type = Data<i32>;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<Type>());
+    println!("Serializing type: {}", core::any::type_name::<Type>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<Type>>()

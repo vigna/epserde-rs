@@ -21,7 +21,7 @@ struct Data<A> {
 type Type = SerIter<i32, std::vec::IntoIter<i32>>;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<Type>());
+    println!("Serializing type: {}", core::any::type_name::<Type>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<Type>>()
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!(
-        "Serializable type: {}",
+        "Serializing type: {}",
         core::any::type_name::<Data<SerIter<i32, core::slice::Iter<i32>>>>()
     );
     println!(

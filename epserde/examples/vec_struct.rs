@@ -20,7 +20,7 @@ struct Data {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<Vec<Data>>());
+    println!("Serializing type: {}", core::any::type_name::<Vec<Data>>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<Vec<Data>>>()

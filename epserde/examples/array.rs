@@ -12,7 +12,7 @@
 use epserde::{prelude::*, ser::SerType};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<[i32; 10]>());
+    println!("Serializing type: {}", core::any::type_name::<[i32; 10]>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<[i32; 10]>>()

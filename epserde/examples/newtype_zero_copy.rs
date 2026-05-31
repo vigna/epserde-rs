@@ -20,7 +20,7 @@ use epserde::{deser::DeserType, prelude::*, ser::SerType};
 struct USize(usize);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<USize>());
+    println!("Serializing type: {}", core::any::type_name::<USize>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<USize>>()

@@ -636,7 +636,7 @@ full-copy when the derive's local, syntactic analysis cannot determine it. It is
 rejected on zero-copy types, on const parameters, and on identifiers that are
 not declared type parameters. Note an important interplay between the two
 features: if a field contains only parameters that are declared full-copy, then
-the field will be considered full-copy (even it contain parameters).
+the field will be considered full-copy (even if it contains parameters).
 
 ## Example: Pinning associated types with `bound`
 
@@ -870,7 +870,7 @@ vectors/boxed slices.
 
 Being zero-copy or deep-copy decides how the type will be treated upon
 deserialization. Instances of zero-copy types are ε-copy deserialized as a
-reference, whereas instances of deep-copy types are are always recursively
+reference, whereas instances of deep-copy types are always recursively
 deserialized in allocated memory.
 
 Sequences of zero-copy types are ε-copy deserialized using a reference to a
@@ -983,11 +983,11 @@ Note that all fields of a type you want to (de)serialize must implement
 
 ### ε-copy / full-copy fields and parameters
 
-Given a type `S` with generics, a field has is _full copy_ if it does not
+Given a type `S` with generics, a field is _full-copy_ if it does not
 contain type parameters outside those listed in the type-level attribute
 `#[epserde(full_copy(T, U, …))]`, or it is marked with
 `#[epserde(force_full_copy)]`. A field is _ε-copy_ otherwise. A type parameter
-`T` is _ε-copy_ if it appears in an ε-copy field, and is _full copy_ if it
+`T` is _ε-copy_ if it appears in an ε-copy field, and is _full-copy_ if it
 appears in a full-copy field. Occurrences in a [`PhantomData`] are not accounted
 for. No type parameter can be both ε-copy and full-copy, and a special
 diagnostic is emitted if this happens.
@@ -1045,7 +1045,7 @@ always obtain stability, but losing the usefulness of ε-copy deserialization.
 
 An ε-serde serialization process involves two types:
 
-- `S`, the _serializable type_, which is the type of the instance you want to
+- `S`, the _serializing type_, which is the type of the instance you want to
   serialize. It must implement [`SerInner`] with associated type
   [`SerInner::SerType`] implementing [`TypeHash`] and [`AlignHash`] (which
   implies [`Serialize`] on `S` by a blanket implementation).
@@ -1079,11 +1079,11 @@ An ε-serde deserialization process involves instead three types:
 - The associated _deserialization type_ [`D::DeserType<'_>`].
 
 In general `D` is the same as `S`, but the only relevant condition for using a
-deserializing type `D` on a stored value serialized with serializable type `S`
-is that [`D::SerType`] is equal to [`S::SerType`]. This gives some latitude in
-the choice of the deserializing type—for example, a boxed array instead of a
-vector for an ε-copy parameter, or creating wrapper types such as [`Rc`] on the
-fly.
+deserializing type `D` on a stored value serialized with serializing type `S` is
+that they have the same serialization type, that is, [`D::SerType`] is equal to
+[`S::SerType`]. This gives some latitude in the choice of the deserializing
+type—for example, a boxed array instead of a vector for an ε-copy parameter, or
+creating wrapper types such as [`Rc`] on the fly.
 
 The deserialization type, instead, is the main technical novelty of ε-serde: it
 is a reference, instead of an instance, for zero-copy types, and a reference to
@@ -1190,7 +1190,7 @@ Given a user-defined type `T`:
   is obtained instead by resolving each ε-copy type parameter `Pᵢ` with the
   deserialization type of `Tᵢ`. (Note that the first rule still applies,
   so if `Tᵢ` is zero-copy its deserialization type is `&Tᵢ`.). See [ε-copy and
-  full-copy parameters](#ε-copy-and-full-copy-parameters) for the definition of
+  full-copy parameters](#ε-copy--full-copy-fields-and-parameters) for the definition of
   ε-copy parameters.
 
 For standard types, we have:

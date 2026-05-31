@@ -50,7 +50,7 @@ type TypeBothBoxed = StructParam<Box<[usize]>, Data<Box<[u16]>>>;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     const FILE_NAME: &str = "test.bin";
 
-    println!("Serializable type: {}", core::any::type_name::<Type>());
+    println!("Serializing type: {}", core::any::type_name::<Type>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<Type>>()

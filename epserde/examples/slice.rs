@@ -17,7 +17,7 @@ struct Data<A> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<&[i32]>());
+    println!("Serializing type: {}", core::any::type_name::<&[i32]>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<&[i32]>>()
@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data = Data { a: data };
 
     println!(
-        "Serializable type: {}",
+        "Serializing type: {}",
         core::any::type_name::<Data<&[i32]>>()
     );
     println!(

@@ -233,7 +233,7 @@ S<A>([A; 3])` can have `Vec<usize>` as a parameter, getting the
 - New `SerType` type alias, analogous to `DeserType`.
 
 - Major internal code restructuring: `TypeHash`/`AlignHash`/`AlignTo` are now
-  computed on the serialization type, not on the serializable type.
+  computed on the serialization type, not on the serializing type.
 
 - New convenience serialization implementation for `&str`, in the same vain as
   that for `&[T]`.
