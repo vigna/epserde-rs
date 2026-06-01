@@ -16,8 +16,10 @@
 use crate::ser::SerInner;
 use crate::traits::*;
 use crate::{MAGIC, MAGIC_REV, VERSION};
+use aliasable::boxed::AliasableBox;
 use core::hash::Hasher;
 use core::{mem::MaybeUninit, ptr::addr_of_mut};
+use maybe_dangling::MaybeDangling;
 
 pub mod helpers;
 pub use helpers::*;
@@ -243,7 +245,7 @@ pub trait Deserialize: DeserInner {
         bytes[size..].fill(0);
 
         // SAFETY: the vector is aligned to 64 bytes.
-        let backend = MemBackend::Memory(aligned_vec.into_boxed_slice());
+        let backend = MemBackend::Memory(AliasableBox::from(aligned_vec.into_boxed_slice()));
 
         // store the backend inside the MemCase
         unsafe {
@@ -254,7 +256,7 @@ pub trait Deserialize: DeserInner {
         let s = unsafe { Self::deserialize_eps(mem) }?;
         // write the deserialized struct in the MemCase
         unsafe {
-            addr_of_mut!((*ptr).0).write(s);
+            addr_of_mut!((*ptr).0).write(MaybeDangling::new(s));
         }
         // finish init
         Ok(unsafe { uninit.assume_init() })
@@ -349,7 +351,7 @@ pub trait Deserialize: DeserInner {
         let s = unsafe { Self::deserialize_eps(mem) }?;
         // write the deserialized struct in the MemCase
         unsafe {
-            addr_of_mut!((*ptr).0).write(s);
+            addr_of_mut!((*ptr).0).write(MaybeDangling::new(s));
         }
         // finish init
         Ok(unsafe { uninit.assume_init() })
@@ -425,7 +427,7 @@ pub trait Deserialize: DeserInner {
         let s = unsafe { Self::deserialize_eps(mmap) }?;
         // write the deserialized struct in the MemCase
         unsafe {
-            addr_of_mut!((*ptr).0).write(s);
+            addr_of_mut!((*ptr).0).write(MaybeDangling::new(s));
         }
         // finish init
         Ok(unsafe { uninit.assume_init() })

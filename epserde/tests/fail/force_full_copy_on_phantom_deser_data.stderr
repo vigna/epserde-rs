@@ -1,5 +1,5 @@
 error: "force_full_copy" has no operational effect on a PhantomDeserData<T> field; remove the marker, or migrate to PhantomData<T>
-  --> tests/fail/force_full_copy_on_phantom_deser_data.rs:21:15
+  --> tests/fail/force_full_copy_on_phantom_deser_data.rs:17:15
    |
-21 |     #[epserde(force_full_copy)]
+17 |     #[epserde(force_full_copy)]
    |               ^^^^^^^^^^^^^^^

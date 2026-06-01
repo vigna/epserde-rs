@@ -11,11 +11,10 @@
 //! Please refer to the documentation of [`MemCase`] for details.
 
 use crate::{DeserInner, deser::DeserType, ser::SerInner};
+use aliasable::boxed::AliasableBox;
 use bitflags::bitflags;
 use core::{fmt, mem::size_of};
-
-#[cfg(not(feature = "std"))]
-use alloc::boxed::Box;
+use maybe_dangling::MaybeDangling;
 
 bitflags! {
     /// Flags for [`mmap`](crate::deser::Deserialize::mmap)
@@ -86,7 +85,13 @@ pub enum MemBackend {
     None,
     /// The backend is heap-allocated in a memory region aligned to 64 bytes.
     /// This variant is returned by [`crate::deser::Deserialize::load_mem`].
-    Memory(Box<[MemoryAlignment]>),
+    ///
+    /// The allocation is held in an [`AliasableBox`] rather than a plain `Box`
+    /// because a [`MemCase`] also stores references pointing inside this region:
+    /// a plain `Box` asserts unique access to its contents, which conflicts with
+    /// those aliasing references under the stricter aliasing models checked by
+    /// Miri.
+    Memory(AliasableBox<[MemoryAlignment]>),
     /// The backend is the result to a call to `mmap()`. This variant is
     /// returned by [`crate::deser::Deserialize::load_mmap`] and
     /// [`crate::deser::Deserialize::mmap`].
@@ -98,12 +103,16 @@ impl MemBackend {
     pub fn as_ref(&self) -> Option<&[u8]> {
         match self {
             MemBackend::None => None,
-            MemBackend::Memory(mem) => Some(unsafe {
-                core::slice::from_raw_parts(
-                    mem.as_ptr() as *const MemoryAlignment as *const u8,
-                    mem.len() * size_of::<MemoryAlignment>(),
-                )
-            }),
+            MemBackend::Memory(mem) => {
+                // Deref-coerce the AliasableBox to the underlying slice.
+                let mem: &[MemoryAlignment] = mem;
+                Some(unsafe {
+                    core::slice::from_raw_parts(
+                        mem.as_ptr() as *const MemoryAlignment as *const u8,
+                        mem.len() * size_of::<MemoryAlignment>(),
+                    )
+                })
+            }
             #[cfg(feature = "mmap")]
             MemBackend::Mmap(mmap) => Some(mmap),
         }
@@ -198,6 +207,40 @@ impl<T> SerInner for Owned<T> {
 /// underlying type, as that will be the type of the reference returned by
 /// [`uncase`](MemCase::uncase).
 ///
+/// # Why not the [`yoke`] crate?
+///
+/// A [`MemCase`] is structurally a [`Yoke`]. We do not wrap a [`Yoke`] for
+/// three reasons:
+///
+/// 1. **Per-type [`Yokeable`] impls.** [`Yoke<Y, _>`][`Yoke`] requires `Y:
+///    for<'a> Yokeable<'a>`, implemented on the `'static` form of a type with
+///    `Output` being that type with `'static` replaced by `'a`. The bound
+///    `for<'a> DeserType<'static, S>: Yokeable<'a, Output = DeserType<'a, S>>` is
+///    in fact expressible, and built-in deserialization types (`&[T]`, `Vec<T>`,
+///    …) are already [`Yokeable`]; but every *derived* deserialization type would
+///    need a [`Yokeable`] impl emitted by our derive macro, since there is no
+///    blanket impl for arbitrary structs.
+/// 2. **Stronger covariance check.** [`Yokeable`] is an unsafe trait whose
+///    lifetime cast is sound only by contract. We instead prove covariance with
+///    the compiler-checked [`CovariantProof`] / [`DeserInner::__check_covariance`]
+///    machinery.
+/// 3. **No support for arbitrary owned instances.** [`encase`](MemCase::encase)
+///    wraps an *arbitrary* owned `T` (see the [`From`] impl for
+///    [`MemOwned<T>`](MemOwned)) with no trait bound on `T`. [`yoke`] cannot hold
+///    an arbitrary owned type: even its owned constructors
+///    ([`Yoke::new_always_owned`], giving [`Yoke<Y, ()>`][`Yoke`]) still require
+///    `Y: for<'a> Yokeable<'a>`, which a plain user struct does not implement.
+///    Wrapping [`Yoke`] would therefore restrict [`encase`](MemCase::encase) to
+///    [`Yokeable`] types, whereas [`MemBackend::None`] supports any `T` directly.
+///
+/// [`yoke`]: https://docs.rs/yoke/latest/yoke/
+/// [`Yoke`]: https://docs.rs/yoke/latest/yoke/struct.Yoke.html
+/// [`Yoke::new_always_owned`]: https://docs.rs/yoke/latest/yoke/struct.Yoke.html#method.new_always_owned
+/// [`Yokeable`]: https://docs.rs/yoke/latest/yoke/trait.Yokeable.html
+/// [`StableDeref`]: https://docs.rs/stable_deref_trait/latest/stable_deref_trait/trait.StableDeref.html
+/// [`MaybeDangling`]: maybe_dangling::MaybeDangling
+/// [`CovariantProof`]: super::CovariantProof
+///
 /// # Examples
 ///
 /// Suppose we want to write a function accepting a [`MemCase`] whose
@@ -214,7 +257,10 @@ impl<T> SerInner for Owned<T> {
 /// }
 ///```
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
-pub struct MemCase<S: DeserInner>(pub(crate) DeserType<'static, S>, pub(crate) MemBackend);
+pub struct MemCase<S: DeserInner>(
+    pub(crate) MaybeDangling<DeserType<'static, S>>,
+    pub(crate) MemBackend,
+);
 
 impl<S: DeserInner> fmt::Debug for MemCase<S>
 where
@@ -222,7 +268,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("MemCase")
-            .field(&self.0)
+            .field(&*self.0)
             .field(&self.1)
             .finish()
     }
@@ -261,7 +307,7 @@ impl<S: DeserInner> MemCase<S> {
     /// [convenient implementation of `From<T>` for
     /// `MemOwned<T>`](#impl-From<T>-for-MemCase<Owned<T>>) is usually easier to use.
     pub const fn encase<T>(s: T) -> MemOwned<T> {
-        MemCase(s, MemBackend::None)
+        MemCase(MaybeDangling::new(s), MemBackend::None)
     }
 
     /// Returns a reference to the instance contained in this [`MemCase`].
@@ -276,7 +322,8 @@ impl<S: DeserInner> MemCase<S> {
         // SAFETY: 'static outlives 'a, and DeserType<'_, S> is covariant in its
         // lifetime parameter, as enforced by the required method
         // DeserInner::__check_covariance.
-        unsafe { core::mem::transmute::<&'a DeserType<'static, S>, &'a DeserType<'a, S>>(&self.0) }
+        // &*self.0 derefs the MaybeDangling wrapper to &DeserType<'static, S>.
+        unsafe { core::mem::transmute::<&'a DeserType<'static, S>, &'a DeserType<'a, S>>(&*self.0) }
     }
 
     /// Returns a reference to the instance contained in this [`MemCase`]
@@ -290,7 +337,7 @@ impl<S: DeserInner> MemCase<S> {
     /// instance; even storing it in a variable can easily lead to undefined behavior
     /// (e.g., if the [`MemCase`] is dropped before the reference is used).
     pub unsafe fn uncase_static(&self) -> &DeserType<'static, S> {
-        &self.0
+        &*self.0
     }
 }
 

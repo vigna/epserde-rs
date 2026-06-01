@@ -1,5 +1,5 @@
 error: "force_full_copy" is a field-level marker and takes no arguments; use #[epserde(force_full_copy)]
-  --> tests/fail/force_full_copy_with_args.rs:15:15
+  --> tests/fail/force_full_copy_with_args.rs:13:15
    |
-15 |     #[epserde(force_full_copy(T))]
+13 |     #[epserde(force_full_copy(T))]
    |               ^^^^^^^^^^^^^^^

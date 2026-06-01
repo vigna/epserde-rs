@@ -1,5 +1,5 @@
 error: "full_copy" is a type-level attribute and requires a parenthesized list of type parameters, e.g. #[epserde(full_copy(T))]
-  --> tests/fail/full_copy_no_parens.rs:14:11
+  --> tests/fail/full_copy_no_parens.rs:11:11
    |
-14 | #[epserde(full_copy)]
+11 | #[epserde(full_copy)]
    |           ^^^^^^^^^
