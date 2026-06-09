@@ -224,9 +224,13 @@ impl<Idx: SerInner> SerInner for RangeInclusive<Idx> {
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        // An exhausted range reports its end bound as excluded, but
+        // deserialization can only reconstruct non-exhausted ranges
+        if matches!(self.end_bound(), Bound::Excluded(_)) {
+            return Err(ser::Error::ExhaustedRange);
+        }
         backend.write("start", self.start())?;
         backend.write("end", self.end())?;
-        backend.write("exhausted", &matches!(self.end_bound(), Bound::Excluded(_)))?;
         Ok(())
     }
 }
@@ -239,8 +243,6 @@ impl<Idx: DeserInner> DeserInner for RangeInclusive<Idx> {
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let start = unsafe { Idx::_deser_full_inner(backend) }?;
         let end = unsafe { Idx::_deser_full_inner(backend) }?;
-        let exhausted = unsafe { bool::_deser_full_inner(backend) }?;
-        assert!(!exhausted, "cannot deserialize an exhausted range");
         Ok(start..=end)
     }
     type DeserType<'a> = RangeInclusive<DeserType<'a, Idx>>;
@@ -250,8 +252,6 @@ impl<Idx: DeserInner> DeserInner for RangeInclusive<Idx> {
     ) -> deser::Result<Self::DeserType<'a>> {
         let start = unsafe { Idx::_deser_eps_inner(backend) }?;
         let end = unsafe { Idx::_deser_eps_inner(backend) }?;
-        let exhausted = unsafe { bool::_deser_full_inner(backend) }?;
-        assert!(!exhausted, "cannot deserialize an exhausted range");
         Ok(start..=end)
     }
 }

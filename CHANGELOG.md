@@ -30,11 +30,26 @@ S<A>([A; 3])` can have `Vec<usize>` as a parameter, getting the
   This will break the serialization format in all practical cases.
   Hence, the major revision of the file format was bumped.
 
+- `SliceWithPos::skip` can now return an error.
+
 ### New
 
 - Also mutable references to slices can be now serialized.
 
 - Much better diagnostic for violations of ε-copy stability.
+
+### Fixed
+
+- Fixed a few possible UB soundness issues and leaks when I/O errors happen
+  during (de)serialization.
+
+- Fixed alignment issues with zero-width types.
+
+- Now we read correctly attributes like `#[repr(C, align(N))]`, and the
+  contribution of such attributes to the alignment hash is normalized.
+
+- Serializing an exhausted `RangeInclusive` now correctly returns an error,
+  as the range cannot be deserialized.
 
 ## [0.12.6] - 2026-04-02
 

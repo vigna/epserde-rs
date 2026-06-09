@@ -13,7 +13,7 @@
 //! vectors of `T`.
 //!
 //! More precisely, we provide a [`SerIter`] type that [wraps](SerIter::new) an
-//! iterator into a serializable type. We provide a [`From`] implementation for
+//! iterator into a type that can be serialized. We provide a [`From`] implementation for
 //! convenience.
 //!
 //! Note, however, that you must deserialize the iterator as a vector—see the

@@ -100,9 +100,14 @@ impl<T: ZeroCopy + DeserInner, const N: usize> DeserHelper<Zero> for [T; N] {
     unsafe fn _deser_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let mut res = MaybeUninit::<[T; N]>::uninit();
         backend.align::<T>()?;
-        // SAFETY: read_exact guarantees that the array will be filled with data.
+        // SAFETY: we read exactly size_of::<[T; N]>() bytes into res, and
+        // read_exact guarantees that the array will be filled with data.
         unsafe {
-            backend.read_exact(res.assume_init_mut().align_to_mut::<u8>().1)?;
+            let slice = core::slice::from_raw_parts_mut(
+                res.as_mut_ptr() as *mut u8,
+                core::mem::size_of::<[T; N]>(),
+            );
+            backend.read_exact(slice)?;
             Ok(res.assume_init())
         }
     }
@@ -110,15 +115,44 @@ impl<T: ZeroCopy + DeserInner, const N: usize> DeserHelper<Zero> for [T; N] {
     unsafe fn _deser_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<DeserType<'a, Self>> {
-        backend.align::<T>()?;
         let bytes = core::mem::size_of::<[T; N]>();
-        let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<[T; N]>() };
+        if bytes == 0 {
+            // SAFETY: [T; N] is zero-sized (see the NonNull::dangling docs)
+            return Ok(unsafe { core::ptr::NonNull::<[T; N]>::dangling().as_ref() });
+        }
+        backend.align::<T>()?;
+        let block = backend.data.get(..bytes).ok_or(deser::Error::ReadError)?;
+        let (pre, data, after) = unsafe { block.align_to::<[T; N]>() };
         debug_assert!(pre.is_empty());
         debug_assert!(after.is_empty());
         let res = &data[0];
-        backend.skip(bytes);
+        backend.skip(bytes)?;
         Ok(res)
     }
+}
+
+/// Initializes an array element by element, dropping the already-initialized
+/// prefix and returning the error if the initialization of an element fails.
+fn try_init_array<T, const N: usize>(
+    mut init: impl FnMut() -> deser::Result<T>,
+) -> deser::Result<[T; N]> {
+    let mut res = MaybeUninit::<[T; N]>::uninit();
+    let first = res.as_mut_ptr() as *mut T;
+    for i in 0..N {
+        match init() {
+            // SAFETY: the i-th slot of the array is in bounds
+            Ok(v) => unsafe { first.add(i).write(v) },
+            Err(e) => {
+                // SAFETY: the first i slots of the array have been initialized
+                for j in 0..i {
+                    unsafe { first.add(j).drop_in_place() };
+                }
+                return Err(e);
+            }
+        }
+    }
+    // SAFETY: all N slots of the array have been initialized
+    Ok(unsafe { res.assume_init() })
 }
 
 impl<T: DeepCopy + DeserInner, const N: usize> DeserHelper<Deep> for [T; N] {
@@ -126,20 +160,12 @@ impl<T: DeepCopy + DeserInner, const N: usize> DeserHelper<Deep> for [T; N] {
     type DeserType<'a> = [DeserType<'a, T>; N];
 
     unsafe fn _deser_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        let mut res = MaybeUninit::<[T; N]>::uninit();
-        for item in &mut unsafe { res.assume_init_mut().iter_mut() } {
-            unsafe { core::ptr::write(item, T::_deser_full_inner(backend)?) };
-        }
-        Ok(unsafe { res.assume_init() })
+        try_init_array(|| unsafe { T::_deser_full_inner(backend) })
     }
 
     unsafe fn _deser_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<DeserType<'a, Self>> {
-        let mut res = MaybeUninit::<DeserType<'a, Self>>::uninit();
-        for item in &mut unsafe { res.assume_init_mut().iter_mut() } {
-            unsafe { core::ptr::write(item, T::_deser_eps_inner(backend)?) };
-        }
-        Ok(unsafe { res.assume_init() })
+        try_init_array(|| unsafe { T::_deser_eps_inner(backend) })
     }
 }

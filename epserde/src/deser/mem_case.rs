@@ -13,7 +13,7 @@
 use crate::{DeserInner, deser::DeserType, ser::SerInner};
 use aliasable::boxed::AliasableBox;
 use bitflags::bitflags;
-use core::{fmt, mem::size_of};
+use core::fmt;
 use maybe_dangling::MaybeDangling;
 
 bitflags! {
@@ -109,7 +109,7 @@ impl MemBackend {
                 Some(unsafe {
                     core::slice::from_raw_parts(
                         mem.as_ptr() as *const MemoryAlignment as *const u8,
-                        mem.len() * size_of::<MemoryAlignment>(),
+                        size_of_val(mem),
                     )
                 })
             }
@@ -337,10 +337,17 @@ impl<S: DeserInner> MemCase<S> {
     /// instance; even storing it in a variable can easily lead to undefined behavior
     /// (e.g., if the [`MemCase`] is dropped before the reference is used).
     pub unsafe fn uncase_static(&self) -> &DeserType<'static, S> {
-        &*self.0
+        &self.0
     }
 }
 
+// SAFETY: a MemCase is the deserialized value plus its MemBackend, so it is
+// Send/Sync whenever both are. The bound on the value is explicit; for the
+// backend, all variants are safe to move and share across threads: None
+// trivially, Memory because AliasableBox<[MemoryAlignment]> is an owned heap
+// allocation, and Mmap because mmap_rs::Mmap is an owned, immutable,
+// process-wide memory mapping (it lacks Send/Sync impls only because it stores
+// a NonNull, which makes the auto traits conservatively opt out).
 unsafe impl<S: DeserInner> Send for MemCase<S> where DeserType<'static, S>: Send {}
 unsafe impl<S: DeserInner> Sync for MemCase<S> where DeserType<'static, S>: Sync {}
 

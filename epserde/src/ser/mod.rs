@@ -238,6 +238,11 @@ pub enum Error {
     /// The declared length of an iterator did not match
     /// the actual length.
     IteratorLengthMismatch { actual: usize, expected: usize },
+    /// An exhausted [`RangeInclusive`] cannot be serialized, as
+    /// deserialization cannot reconstruct it.
+    ///
+    /// [`RangeInclusive`]: core::ops::RangeInclusive
+    ExhaustedRange,
 }
 
 impl core::error::Error for Error {}
@@ -258,6 +263,10 @@ impl core::fmt::Display for Error {
                 f,
                 "Iterator length mismatch during ε-serde serialization: expected {} items, got {}",
                 expected, actual
+            ),
+            Self::ExhaustedRange => write!(
+                f,
+                "Cannot serialize an exhausted RangeInclusive, as deserialization cannot reconstruct it"
             ),
         }
     }

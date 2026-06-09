@@ -6,6 +6,7 @@
 
 use anyhow::Result;
 use epserde::prelude::*;
+use std::io;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data<A: PartialEq = usize, const Q: usize = 3> {
@@ -102,5 +103,45 @@ fn test_mut_slices() -> Result<()> {
     let e = unsafe { Data::<Vec<i32>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(e.a, d.a);
     assert_eq!(e.b, d.b);
+    Ok(())
+}
+
+/// A writer that accepts exactly `budget` bytes and then errors.
+struct BudgetWriter {
+    budget: usize,
+}
+
+impl io::Write for BudgetWriter {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if self.budget == 0 && !buf.is_empty() {
+            return Err(io::ErrorKind::WriteZero.into());
+        }
+        let n = buf.len().min(self.budget);
+        self.budget -= n;
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn test_slice_ser_error_no_free() -> Result<()> {
+    // Serializing a borrowed slice must not free the borrowed memory when the
+    // writer errors, at whatever point the error happens; sweeping the budget
+    // makes the write fail at every possible position (checked under Miri).
+    let a = vec![1, 2, 3, 4];
+    let s = &a[1..];
+    let mut succeeded = false;
+    for budget in 0..10_000 {
+        let mut w = BudgetWriter { budget };
+        if unsafe { s.serialize(&mut w) }.is_ok() {
+            succeeded = true;
+            break;
+        }
+    }
+    assert!(succeeded);
+    assert_eq!(a, vec![1, 2, 3, 4]);
     Ok(())
 }

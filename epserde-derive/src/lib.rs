@@ -575,12 +575,40 @@ struct EpserdeAttrs {
     deprecated_deep_copy: bool,
 }
 
+/// Collects the representation hints of all `repr` attributes of a type,
+/// individually normalized (e.g., `align(16)`) and sorted.
+///
+/// The normalization guarantees that equivalent spellings such as
+/// `#[repr(C, align(16))]` and `#[repr(align(16))] #[repr(C)]` yield the same
+/// hints, and thus the same alignment hash.
+fn repr_hints(attrs: &[syn::Attribute]) -> syn::Result<Vec<String>> {
+    let mut hints = Vec::new();
+    for attr in attrs {
+        if attr.path().is_ident("repr") {
+            // A repr attribute may combine several hints, as in
+            // #[repr(C, align(16))]
+            attr.parse_nested_meta(|meta| {
+                let mut hint = meta.path.to_token_stream().to_string();
+                // Append the argument of hints such as align(16) or packed(2)
+                if meta.input.peek(syn::token::Paren) {
+                    let content;
+                    syn::parenthesized!(content in meta.input);
+                    let args: proc_macro2::TokenStream = content.parse()?;
+                    hint = format!("{hint}({args})");
+                }
+                hints.push(hint);
+                Ok(())
+            })?;
+        }
+    }
+    hints.sort();
+    Ok(hints)
+}
+
 /// Parses epserde attributes from `#[epserde(...)]`, `#[epserde(zero_copy)]`,
 /// and `#[epserde_(deep_copy)]`.
 fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
-    let is_repr_c = input.attrs.iter().any(|x| {
-        x.meta.path().is_ident("repr") && x.meta.require_list().unwrap().tokens.to_string() == "C"
-    });
+    let is_repr_c = repr_hints(&input.attrs)?.iter().any(|hint| hint == "C");
 
     let mut is_zero_copy = false;
     let mut is_deep_copy = false;
@@ -2392,16 +2420,11 @@ fn _type_info_derive(
     where_clause: &WhereClause,
     is_zero_copy: bool,
 ) -> proc_macro::TokenStream {
-    // Add reprs
-    let mut repr_attrs = derive_input
-        .attrs
-        .iter()
-        .filter(|x| x.meta.path().is_ident("repr"))
-        .map(|x| x.meta.require_list().unwrap().tokens.to_string())
-        .collect::<Vec<_>>();
-
-    // Order of repr attributes does not matter
-    repr_attrs.sort();
+    // Add reprs, normalized and sorted (order does not matter)
+    let repr_attrs = match repr_hints(&derive_input.attrs) {
+        Ok(repr_attrs) => repr_attrs,
+        Err(e) => return e.to_compile_error().into(),
+    };
 
     let ctx = TypeInfoContext {
         name: &derive_input.ident,

@@ -180,3 +180,16 @@ fn test_builder_hasher_default() {
         unsafe { BuildHasherDefault::<DefaultHasher>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(&eps, &bhd);
 }
+
+#[cfg(feature = "std")]
+#[test]
+fn test_range_inclusive_exhausted() {
+    // An exhausted RangeInclusive cannot be reconstructed by deserialization,
+    // so serializing it must fail
+    let mut r = 1_i32..=2;
+    r.next();
+    r.next();
+    assert!(matches!(r.end_bound(), Bound::Excluded(_)));
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    assert!(unsafe { r.serialize(&mut cursor) }.is_err());
+}

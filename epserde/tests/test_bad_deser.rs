@@ -162,3 +162,42 @@ fn test_error_at_eof() {
     let err = unsafe { <usize>::deserialize_eps(cursor.as_bytes()) };
     assert!(err.is_err());
 }
+
+#[test]
+fn test_array_deep_deser_error_no_leak() {
+    // Deserialization of a deep-copy array must not leak the elements already
+    // deserialized when a later element fails; sweeping the truncation point
+    // makes the failure happen at every possible position (leaks are checked
+    // under Miri).
+    let data = [vec![1_i32, 2], vec![3, 4]];
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    unsafe { data.serialize(&mut cursor).unwrap() };
+    let full = cursor.as_bytes().to_vec();
+    for len in 0..full.len() {
+        let mut cursor = <AlignedCursor>::from_slice(&full[..len]);
+        assert!(unsafe { <[Vec<i32>; 2]>::deserialize_full(&mut cursor) }.is_err());
+        let err = unsafe { <[Vec<i32>; 2]>::deserialize_eps(cursor.as_bytes()) };
+        assert!(err.is_err());
+    }
+}
+
+#[test]
+fn test_read_mem_error_no_leak() {
+    // A deserialization failure inside read_mem must drop the memory backend
+    // (leaks are checked under Miri).
+    let data = 1337_usize;
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    unsafe { data.serialize(&mut cursor).unwrap() };
+    cursor.as_bytes_mut()[0..8].copy_from_slice(&0x8989898989898989_u64.to_ne_bytes());
+    let bytes = cursor.as_bytes();
+    let res = unsafe { <usize>::read_mem(bytes, bytes.len()) };
+    assert!(res.is_err());
+}
+
+#[test]
+fn test_read_mem_empty() {
+    // read_mem with no data must report an error without allocating a
+    // zero-size layout.
+    let res = unsafe { <usize>::read_mem(&b""[..], 0) };
+    assert!(res.is_err());
+}

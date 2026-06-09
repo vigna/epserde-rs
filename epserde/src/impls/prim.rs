@@ -80,7 +80,7 @@ macro_rules! impl_prim_ser_des {
                             .try_into().unwrap(),
                     );
 
-                backend.skip(size_of::<$ty>());
+                backend.skip(size_of::<$ty>())?;
                 Ok(res)
             }
         }
@@ -127,7 +127,7 @@ macro_rules! impl_nonzero_ser_des {
                             .try_into()
                             .unwrap()).try_into().unwrap();
 
-                backend.skip(size_of::<$ty>());
+                backend.skip(size_of::<$ty>())?;
                 Ok(res)
             }
         }
@@ -192,7 +192,7 @@ impl DeserInner for bool {
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let res = *backend.data.first().ok_or(deser::Error::ReadError)? != 0;
-        backend.skip(1);
+        backend.skip(1)?;
         Ok(res)
     }
 }

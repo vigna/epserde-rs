@@ -91,11 +91,12 @@ pub unsafe fn deser_eps_zero<'a, T: for<'b> ZeroCopy<DeserType<'b> = &'b T>>(
         return Ok(unsafe { NonNull::<T>::dangling().as_ref() });
     }
     backend.align::<T>()?;
-    let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<T>() };
+    let block = backend.data.get(..bytes).ok_or(deser::Error::ReadError)?;
+    let (pre, data, after) = unsafe { block.align_to::<T>() };
     debug_assert!(pre.is_empty());
     debug_assert!(after.is_empty());
     let res = &data[0];
-    backend.skip(bytes);
+    backend.skip(bytes)?;
     Ok(res)
 }
 
@@ -109,18 +110,21 @@ pub unsafe fn deser_eps_slice_zero<'a, T: ZeroCopy>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<&'a [T]> {
     let len = unsafe { usize::_deser_full_inner(backend) }?;
-    let bytes = len * core::mem::size_of::<T>();
     if core::mem::size_of::<T>() == 0 {
         // SAFETY: T is zero-sized (see the from_raw_parts docs)
         #[allow(invalid_value)]
         #[allow(clippy::uninit_assumed_init)]
         return Ok(unsafe { core::slice::from_raw_parts(NonNull::dangling().as_ref(), len) });
     }
+    let bytes = len
+        .checked_mul(core::mem::size_of::<T>())
+        .ok_or(deser::Error::ReadError)?;
     backend.align::<T>()?;
-    let (pre, data, after) = unsafe { backend.data[..bytes].align_to::<T>() };
+    let block = backend.data.get(..bytes).ok_or(deser::Error::ReadError)?;
+    let (pre, data, after) = unsafe { block.align_to::<T>() };
     debug_assert!(pre.is_empty());
     debug_assert!(after.is_empty());
-    backend.skip(bytes);
+    backend.skip(bytes)?;
     Ok(data)
 }
 

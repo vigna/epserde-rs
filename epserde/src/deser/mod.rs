@@ -212,8 +212,10 @@ pub trait Deserialize: DeserInner {
         if align_of::<Self>() > align_to {
             return Err(Error::AlignmentError.into());
         }
-        // Round up to u128 size
-        let capacity = size + crate::pad_align_to(size, align_to);
+        // Round up to MemoryAlignment size; the maximum with align_to
+        // guarantees a nonzero allocation size even when size is zero.
+        let capacity = (size + crate::pad_align_to(size, align_to)).max(align_to);
+        let layout = core::alloc::Layout::from_size_align(capacity, align_to)?;
 
         let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
@@ -226,10 +228,18 @@ pub trait Deserialize: DeserInner {
             let alloc_func = alloc::alloc::alloc;
             #[cfg(feature = "std")]
             let alloc_func = std::alloc::alloc;
+            #[cfg(not(feature = "std"))]
+            let handle_alloc_error_func = alloc::alloc::handle_alloc_error;
+            #[cfg(feature = "std")]
+            let handle_alloc_error_func = std::alloc::handle_alloc_error;
+
+            let raw = alloc_func(layout);
+            if raw.is_null() {
+                handle_alloc_error_func(layout);
+            }
 
             <Vec<MemoryAlignment>>::from_raw_parts(
-                alloc_func(core::alloc::Layout::from_size_align(capacity, align_to)?)
-                    as *mut MemoryAlignment,
+                raw as *mut MemoryAlignment,
                 capacity / align_to,
                 capacity / align_to,
             )
@@ -253,7 +263,15 @@ pub trait Deserialize: DeserInner {
         }
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_ref().unwrap() };
-        let s = unsafe { Self::deserialize_eps(mem) }?;
+        let s = match unsafe { Self::deserialize_eps(mem) } {
+            Ok(s) => s,
+            Err(e) => {
+                // Drop the backend we just wrote into the MemCase, which
+                // would otherwise leak
+                unsafe { addr_of_mut!((*ptr).1).drop_in_place() };
+                return Err(e.into());
+            }
+        };
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(MaybeDangling::new(s));
@@ -348,7 +366,15 @@ pub trait Deserialize: DeserInner {
         }
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_ref().unwrap() };
-        let s = unsafe { Self::deserialize_eps(mem) }?;
+        let s = match unsafe { Self::deserialize_eps(mem) } {
+            Ok(s) => s,
+            Err(e) => {
+                // Drop the backend we just wrote into the MemCase, which
+                // would otherwise leak
+                unsafe { addr_of_mut!((*ptr).1).drop_in_place() };
+                return Err(e.into());
+            }
+        };
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(MaybeDangling::new(s));
@@ -424,7 +450,15 @@ pub trait Deserialize: DeserInner {
 
         let mmap = unsafe { (*ptr).1.as_ref().unwrap() };
         // deserialize the data structure
-        let s = unsafe { Self::deserialize_eps(mmap) }?;
+        let s = match unsafe { Self::deserialize_eps(mmap) } {
+            Ok(s) => s,
+            Err(e) => {
+                // Drop the backend we just wrote into the MemCase, which
+                // would otherwise leak
+                unsafe { addr_of_mut!((*ptr).1).drop_in_place() };
+                return Err(e.into());
+            }
+        };
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(MaybeDangling::new(s));

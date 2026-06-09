@@ -1,0 +1,5 @@
+error: expected "force_full_copy"
+  --> tests/fail/unknown_field_attr.rs:12:15
+   |
+12 |     #[epserde(force_full)]
+   |               ^^^^^^^^^^
