@@ -101,7 +101,7 @@ fn is_force_full_copy(field: &syn::Field) -> bool {
 /// `SerType`/`DeserType`.
 fn collect_repl_param_occs<'a>(
     ty: &syn::Type,
-    type_params: &[&'a syn::Ident],
+    type_params: &HashSet<&'a syn::Ident>,
     out: &mut HashSet<&'a syn::Ident>,
     inside_phantom: bool,
 ) {
@@ -113,7 +113,7 @@ fn collect_repl_param_occs<'a>(
                 && path.segments[0].arguments.is_empty()
             {
                 let id = &path.segments[0].ident;
-                if let Some(p) = type_params.iter().find(|p| **p == id) {
+                if let Some(p) = type_params.get(id) {
                     out.insert(*p);
                     return;
                 }
@@ -162,7 +162,7 @@ fn collect_repl_param_occs<'a>(
 /// Returns true if `ty` contains a replaceable parameter from `type_params`.
 /// Used to decide whether an unmarked field is ε-copy (a replaceable parameter
 /// present) or full-copy (none: nothing to substitute).
-fn has_repl_param(ty: &syn::Type, type_params: &[&syn::Ident]) -> bool {
+fn has_repl_param(ty: &syn::Type, type_params: &HashSet<&syn::Ident>) -> bool {
     let mut out: HashSet<&syn::Ident> = HashSet::new();
     collect_repl_param_occs(ty, type_params, &mut out, false);
     !out.is_empty()
@@ -183,7 +183,11 @@ fn has_repl_param(ty: &syn::Type, type_params: &[&syn::Ident]) -> bool {
 /// * `force_full_copy_field` - Whether the field carries the field-level
 ///   `#[epserde(force_full_copy)]` marker, which makes it a full-copy field.
 ///
-/// * `type_const_params` - The type and const parameters of the item.
+/// * `type_params` - The type parameters of the item. Const parameters are
+///   never replaceable, so they must not be included: a bare occurrence of a
+///   const parameter in a field type (e.g., as a forwarded generic argument)
+///   is indistinguishable from a type at the syntactic level, but must be
+///   left untouched by the substitution.
 ///
 /// * `forced_params` - The type parameters pinned to full-copy deserialization
 ///   by the type-level `#[epserde(full_copy(...))]` attribute.
@@ -215,7 +219,7 @@ fn has_repl_param(ty: &syn::Type, type_params: &[&syn::Ident]) -> bool {
 fn classify_field<'a>(
     field_type: &'a syn::Type,
     force_full_copy_field: bool,
-    type_const_params: &[&'a syn::Ident],
+    type_params: &HashSet<&'a syn::Ident>,
     forced_params: &HashSet<&'a syn::Ident>,
     eps_params: &mut HashSet<&'a syn::Ident>,
     full_params: &mut HashSet<&'a syn::Ident>,
@@ -224,7 +228,7 @@ fn classify_field<'a>(
     seq_deep_idents: &mut Vec<syn::Ident>,
 ) -> bool {
     let mut field_occ = HashSet::new();
-    collect_repl_param_occs(field_type, type_const_params, &mut field_occ, false);
+    collect_repl_param_occs(field_type, type_params, &mut field_occ, false);
 
     if force_full_copy_field {
         // Every parameter of a force-full field is a full-copy parameter.
@@ -253,7 +257,7 @@ fn classify_field<'a>(
         // explicit DeserInner bound emitted by the caller.
         deser_inner_params.extend(&field_occ);
         let mut field_seq_deep = HashSet::new();
-        collect_seq_forced_deep_params(field_type, type_const_params, &mut field_seq_deep);
+        collect_seq_forced_deep_params(field_type, type_params, &mut field_seq_deep);
         push_seq_deep_idents(&field_seq_deep, field_type.span(), seq_deep_idents);
     }
 
@@ -267,12 +271,12 @@ fn classify_field<'a>(
 /// reference, a type not expressible as the original sequence.
 fn collect_seq_forced_deep_params<'a>(
     ty: &syn::Type,
-    type_params: &[&'a syn::Ident],
+    type_params: &HashSet<&'a syn::Ident>,
     out: &mut HashSet<&'a syn::Ident>,
 ) {
     fn record_if_bare<'a>(
         ty: &syn::Type,
-        type_params: &[&'a syn::Ident],
+        type_params: &HashSet<&'a syn::Ident>,
         out: &mut HashSet<&'a syn::Ident>,
     ) {
         if let syn::Type::Path(syn::TypePath { qself: None, path }) = ty {
@@ -281,7 +285,7 @@ fn collect_seq_forced_deep_params<'a>(
                 && path.segments[0].arguments.is_empty()
             {
                 let id = &path.segments[0].ident;
-                if let Some(p) = type_params.iter().find(|p| **p == id) {
+                if let Some(p) = type_params.get(id) {
                     out.insert(*p);
                 }
             }
@@ -765,7 +769,22 @@ fn bound_ser_deser_types(
         if let syn::GenericParam::Type(t) = param {
             let ident = &t.ident;
 
-            if t.bounds.is_empty() {
+            // Relaxed bounds (?Sized) cannot be transplanted: Rust permits
+            // them only on the type parameters of the item itself, not on
+            // arbitrary bounded types in a where clause. Dropping them is
+            // sound, as the substituted forms are used as arguments of the
+            // very type that declares the parameter ?Sized.
+            let bounds: Punctuated<TypeParamBound, Plus> = t
+                .bounds
+                .iter()
+                .filter(|b| {
+                    !matches!(b, TypeParamBound::Trait(tb)
+                        if matches!(tb.modifier, syn::TraitBoundModifier::Maybe(_)))
+                })
+                .cloned()
+                .collect();
+
+            if bounds.is_empty() {
                 continue;
             }
 
@@ -797,7 +816,7 @@ fn bound_ser_deser_types(
                             ::epserde::deser::DeserType<'__epserde_desertype, #ident>
                         ),
                         colon_token: token::Colon::default(),
-                        bounds: t.bounds.clone(),
+                        bounds: bounds.clone(),
                     }));
             }
 
@@ -811,7 +830,7 @@ fn bound_ser_deser_types(
                             ::epserde::ser::SerType<#ident>
                         ),
                         colon_token: token::Colon::default(),
-                        bounds: t.bounds.clone(),
+                        bounds,
                     }));
             }
         }
@@ -1053,9 +1072,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         let field_type = &field.ty;
         let force_full_copy = is_force_full_copy(field);
 
-        if force_full_copy
-            && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.type_const_params))
-        {
+        if force_full_copy && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.type_params)) {
             let type_name = &ctx.derive_input.ident;
             eprintln!(
                 "warning: #[epserde(force_full_copy)] on field {field_name} of type {type_name} has no effect; consider removing the marker"
@@ -1065,7 +1082,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         let deser_full = classify_field(
             field_type,
             force_full_copy,
-            &ctx.type_const_params,
+            &ctx.type_params,
             &ctx.forced_params,
             &mut eps_params,
             &mut full_params,
@@ -1343,7 +1360,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let force_full_copy = is_force_full_copy(field);
 
                     if force_full_copy
-                        && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.type_const_params))
+                        && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.type_params))
                     {
                         let type_name = &ctx.derive_input.ident;
                         eprintln!(
@@ -1354,7 +1371,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let deser_full = classify_field(
                         field_type,
                         force_full_copy,
-                        &ctx.type_const_params,
+                        &ctx.type_params,
                         &ctx.forced_params,
                         &mut eps_params,
                         &mut all_full_params,
@@ -1411,7 +1428,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let force_full_copy = is_force_full_copy(field);
 
                     if force_full_copy
-                        && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.type_const_params))
+                        && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.type_params))
                     {
                         let type_name = &ctx.derive_input.ident;
                         let idx = syn::Index::from(field_idx);
@@ -1424,7 +1441,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let deser_full = classify_field(
                         field_type,
                         force_full_copy,
-                        &ctx.type_const_params,
+                        &ctx.type_params,
                         &ctx.forced_params,
                         &mut eps_params,
                         &mut all_full_params,
