@@ -183,11 +183,14 @@ fn has_repl_param(ty: &syn::Type, type_params: &HashSet<&syn::Ident>) -> bool {
 /// * `force_full_copy_field` - Whether the field carries the field-level
 ///   `#[epserde(force_full_copy)]` marker, which makes it a full-copy field.
 ///
-/// * `type_params` - The type parameters of the item. Const parameters are
-///   never replaceable, so they must not be included: a bare occurrence of a
-///   const parameter in a field type (e.g., as a forwarded generic argument)
-///   is indistinguishable from a type at the syntactic level, but must be
-///   left untouched by the substitution.
+/// * `type_params` - The type parameters of the item that are eligible for
+///   substitution. Const parameters are never replaceable, so they must not
+///   be included: a bare occurrence of a const parameter in a field type
+///   (e.g., as a forwarded generic argument) is indistinguishable from a type
+///   at the syntactic level, but must be left untouched by the substitution.
+///   Parameters declared with the type-level `#[epserde(phantom(...))]`
+///   attribute must be excluded as well, as they are left completely
+///   untouched (no substitution, no bounds).
 ///
 /// * `forced_params` - The type parameters pinned to full-copy deserialization
 ///   by the type-level `#[epserde(full_copy(...))]` attribute.
@@ -573,6 +576,11 @@ struct EpserdeAttrs {
     /// pinned to full-copy: removed from the `DeserType` substitution set, and
     /// kept verbatim in `DeserType<'a>`.
     full_copy_params: Vec<syn::Ident>,
+    /// Type-parameter idents listed in `#[epserde(phantom(...))]`. These are
+    /// declared phantom throughout the type and left completely untouched: no
+    /// `SerType`/`DeserType` substitution and no `SerInner`/`DeserInner`
+    /// bounds.
+    phantom_params: Vec<syn::Ident>,
     /// Whether old-style `#[epserde(zero_copy)]` was used.
     deprecated_zero_copy: bool,
     /// Whether old-style `#[epserde_deep_copy]` was used.
@@ -619,6 +627,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
     let mut deser_bounds = Vec::new();
     let mut ser_bounds = Vec::new();
     let mut full_copy_params = Vec::new();
+    let mut phantom_params = Vec::new();
     let mut deprecated_zero_copy = false;
     let mut deprecated_deep_copy = false;
 
@@ -674,9 +683,24 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
                             Err(inner.error("expected a type-parameter identifier"))
                         }
                     })
+                } else if meta.path.is_ident("phantom") {
+                    if !meta.input.peek(token::Paren) {
+                        return Err(meta.error(
+                            "\"phantom\" is a type-level attribute and requires a parenthesized \
+                             list of type parameters, e.g. #[epserde(phantom(T))]",
+                        ));
+                    }
+                    meta.parse_nested_meta(|inner| {
+                        if let Some(ident) = inner.path.get_ident() {
+                            phantom_params.push(ident.clone());
+                            Ok(())
+                        } else {
+                            Err(inner.error("expected a type-parameter identifier"))
+                        }
+                    })
                 } else {
                     Err(meta.error(
-                        "expected \"zero_copy\", \"deep_copy\", \"bound\", or \"full_copy\"",
+                        "expected \"zero_copy\", \"deep_copy\", \"bound\", \"full_copy\", or \"phantom\"",
                     ))
                 }
             })?;
@@ -709,6 +733,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
         deser_bounds,
         ser_bounds,
         full_copy_params,
+        phantom_params,
         deprecated_zero_copy,
         deprecated_deep_copy,
     })
@@ -1017,6 +1042,12 @@ struct EpserdeContext<'a> {
     type_const_params: Vec<&'a syn::Ident>,
     /// Identifiers of type parameters as a set.
     type_params: HashSet<&'a syn::Ident>,
+    /// Type parameters eligible for substitution: the declared type
+    /// parameters minus those declared phantom by the type-level
+    /// `#[epserde(phantom(...))]` attribute. The replaceable-parameter walk
+    /// matches against this set only, so phantom parameters are left
+    /// completely untouched (no substitution, no bounds).
+    repl_params: HashSet<&'a syn::Ident>,
     /// Type parameters pinned to full-copy deserialization by the type-level
     /// `#[epserde(full_copy(...))]` attribute, as a subset of `type_params`.
     forced_params: HashSet<&'a syn::Ident>,
@@ -1072,7 +1103,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         let field_type = &field.ty;
         let force_full_copy = is_force_full_copy(field);
 
-        if force_full_copy && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.type_params)) {
+        if force_full_copy && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.repl_params)) {
             let type_name = &ctx.derive_input.ident;
             eprintln!(
                 "warning: #[epserde(force_full_copy)] on field {field_name} of type {type_name} has no effect; consider removing the marker"
@@ -1082,7 +1113,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         let deser_full = classify_field(
             field_type,
             force_full_copy,
-            &ctx.type_params,
+            &ctx.repl_params,
             &ctx.forced_params,
             &mut eps_params,
             &mut full_params,
@@ -1360,7 +1391,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let force_full_copy = is_force_full_copy(field);
 
                     if force_full_copy
-                        && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.type_params))
+                        && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.repl_params))
                     {
                         let type_name = &ctx.derive_input.ident;
                         eprintln!(
@@ -1371,7 +1402,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let deser_full = classify_field(
                         field_type,
                         force_full_copy,
-                        &ctx.type_params,
+                        &ctx.repl_params,
                         &ctx.forced_params,
                         &mut eps_params,
                         &mut all_full_params,
@@ -1428,7 +1459,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let force_full_copy = is_force_full_copy(field);
 
                     if force_full_copy
-                        && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.type_params))
+                        && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.repl_params))
                     {
                         let type_name = &ctx.derive_input.ident;
                         let idx = syn::Index::from(field_idx);
@@ -1441,7 +1472,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let deser_full = classify_field(
                         field_type,
                         force_full_copy,
-                        &ctx.type_params,
+                        &ctx.repl_params,
                         &ctx.forced_params,
                         &mut eps_params,
                         &mut all_full_params,
@@ -1944,10 +1975,54 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         }
     }
 
+    // Validate the type-level #[epserde(phantom(...))] attribute and build the
+    // set of substitutable parameters: the declared type parameters minus the
+    // phantom ones, which must be left completely untouched.
+    let mut repl_params = type_params.clone();
+    for ident in &attrs.phantom_params {
+        if attrs.is_zero_copy {
+            return syn::Error::new_spanned(
+                ident,
+                "phantom(...) cannot be used on a zero-copy type, as it performs no substitution",
+            )
+            .to_compile_error()
+            .into();
+        }
+        if let Some(decl) = type_params.iter().copied().find(|p| **p == *ident) {
+            if forced_params.contains(decl) {
+                return syn::Error::new_spanned(
+                    ident,
+                    format!("`{ident}` cannot be listed both in phantom(...) and full_copy(...)"),
+                )
+                .to_compile_error()
+                .into();
+            }
+            repl_params.remove(decl);
+        } else if const_params.iter().any(|p| **p == *ident) {
+            return syn::Error::new_spanned(
+                ident,
+                format!("phantom expects a type parameter, but `{ident}` is a const parameter"),
+            )
+            .to_compile_error()
+            .into();
+        } else {
+            return syn::Error::new_spanned(
+                ident,
+                format!(
+                    "`{ident}` is not a type parameter of `{}`",
+                    derive_input.ident
+                ),
+            )
+            .to_compile_error()
+            .into();
+        }
+    }
+
     let ctx = EpserdeContext {
         derive_input: &derive_input,
         type_const_params,
         type_params,
+        repl_params,
         forced_params,
         generics_for_impl,
         generics_for_type,

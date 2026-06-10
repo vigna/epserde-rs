@@ -207,6 +207,42 @@ fn test_relaxed_bound_param() {
     assert_eq!(eps.h.a, val.h.a);
 }
 
+// A parameter declared phantom must be left completely untouched: no
+// SerType/DeserType substitution and no SerInner/DeserInner bounds. This
+// makes it possible to instantiate the parameter with a type that is not
+// serializable at all, such as str, when nested field types hold the
+// parameter only in PhantomData slots the derive cannot see.
+#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+#[epserde(phantom(K))]
+struct PhantomParamOuter<K: ?Sized, A> {
+    h: MaybeUnsizedHolder<K, A>,
+}
+
+#[test]
+fn test_phantom_param() {
+    let val = PhantomParamOuter::<str, Vec<usize>> {
+        h: MaybeUnsizedHolder {
+            a: vec![1, 2, 3],
+            _marker: PhantomData,
+        },
+    };
+
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    let _bytes_written = unsafe { val.serialize(&mut cursor).unwrap() };
+
+    // Full-copy deserialization
+    cursor.set_position(0);
+    let full =
+        unsafe { <PhantomParamOuter<str, Vec<usize>>>::deserialize_full(&mut cursor).unwrap() };
+    assert_eq!(full, val);
+
+    // ε-copy deserialization
+    let eps = unsafe {
+        <PhantomParamOuter<str, Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap()
+    };
+    assert_eq!(eps.h.a, val.h.a);
+}
+
 // A const parameter forwarded as a generic argument of a field type must be
 // left untouched by the substitution machinery.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]

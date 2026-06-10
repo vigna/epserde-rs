@@ -66,11 +66,7 @@ struct ReprCAlign {
 
 // repr(C) must be recognized also when combined with other
 // representation hints in the same attribute
-test_zero!(
-    test_repr_c_align,
-    ReprCAlign,
-    ReprCAlign { a: -1, b: 1 }
-);
+test_zero!(test_repr_c_align, ReprCAlign, ReprCAlign { a: -1, b: 1 });
 
 #[derive(Epserde, Debug, PartialEq, Clone, Copy)]
 #[repr(align(16))]

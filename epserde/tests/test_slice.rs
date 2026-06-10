@@ -6,7 +6,7 @@
 
 use anyhow::Result;
 use epserde::prelude::*;
-use std::io;
+use epserde::ser;
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data<A: PartialEq = usize, const Q: usize = 3> {
@@ -111,17 +111,20 @@ struct BudgetWriter {
     budget: usize,
 }
 
-impl io::Write for BudgetWriter {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if self.budget == 0 && !buf.is_empty() {
-            return Err(io::ErrorKind::WriteZero.into());
-        }
+// WriteNoStd is implemented directly, rather than through std::io::Write and
+// the std-only blanket implementation, so that this test also compiles
+// without the std feature.
+impl ser::WriteNoStd for BudgetWriter {
+    fn write_all(&mut self, buf: &[u8]) -> ser::Result<()> {
         let n = buf.len().min(self.budget);
         self.budget -= n;
-        Ok(n)
+        if n < buf.len() {
+            return Err(ser::Error::WriteError);
+        }
+        Ok(())
     }
 
-    fn flush(&mut self) -> io::Result<()> {
+    fn flush(&mut self) -> ser::Result<()> {
         Ok(())
     }
 }

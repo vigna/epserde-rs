@@ -1,4 +1,4 @@
-error: expected "zero_copy", "deep_copy", "bound", or "full_copy"
+error: expected "zero_copy", "deep_copy", "bound", "full_copy", or "phantom"
   --> tests/fail/unknown_type_attr.rs:11:11
    |
 11 | #[epserde(foo)]

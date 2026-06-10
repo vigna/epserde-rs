@@ -605,7 +605,7 @@ struct Outer<T>(#[epserde(force_full_copy)] Inner<T>);
 
 let s: Outer<Vec<isize>> = Outer(Inner(vec![0, 1, 2, 3]));
 let mut file = std::env::temp_dir();
-file.push("serialized_force_full_copy");
+file.push("serialized9");
 unsafe { s.store(&file) };
 let b = std::fs::read(&file)?;
 
@@ -628,7 +628,7 @@ Marking a field whose type contains a parameter that also appears in another
 unmarked field is inconsistent: we use a helper trait and the `#[diagnostic]`
 attribute to report to the user a helpful error message in this case.
 
-There is also a type-level companion, `#[epserde(full_copy(T, …))]`, which pins
+There is also a type-level companion, `#[epserde(full_copy(T, U, …))]`, which pins
 the listed type parameters to full-copy deserialization across the whole type.
 Whereas the field-level `force_full_copy` _forces_ a field that could be ε-copy
 to be full-copy instead, `full_copy(T)` _declares_ that `T` is genuinely
@@ -637,6 +637,10 @@ rejected on zero-copy types, on const parameters, and on identifiers that are
 not declared type parameters. Note an important interplay between the two
 features: if a field contains only parameters that are declared full-copy, then
 the field will be considered full-copy (even if it contains parameters).
+
+If the parameter is not merely full-copy but phantom throughout the type, use
+the stronger type-level attribute `#[epserde(phantom(T, U, …))]` instead (see the
+[`PhantomData`](#phantomdata) section).
 
 ## Example: Pinning associated types with `bound`
 
@@ -741,7 +745,7 @@ let v = vec![0, 1, 2, 3];
 let i: Iter<'_, i32> = v.iter();
 // Serialize it by wrapping it in a SerIter
 let mut file = std::env::temp_dir();
-file.push("serialized9");
+file.push("serialized10");
 unsafe { SerIter::<i32, _>::from(i).store(&file) };
 // Load the serialized form in a buffer
 let b = std::fs::read(&file)?;
@@ -824,7 +828,7 @@ struct Data<T> {
 
 let s: Data<Vec<isize>> = Data { data: vec![0, 1, 2, 3], phantom: PhantomData };
 let mut file = std::env::temp_dir();
-file.push("serialized_phantom");
+file.push("serialized11");
 unsafe { s.store(&file)? };
 let b = std::fs::read(&file)?;
 
@@ -840,6 +844,53 @@ let _phantom_check: PhantomData<&[isize]> = t.phantom;
 Note how the phantom field originally of type `PhantomData<Vec<isize>>` becomes
 `PhantomData<&[isize]>` in the ε-copy deserialized form, consistently with the
 substitution applied to `data`.
+
+This special treatment, however, works only when the derive can see the
+[`PhantomData`] field. When a parameter is phantom throughout the type, but it
+occurs as a bare generic argument of a field type, the derive's local, syntactic
+analysis cannot know that the field type keeps it in a [`PhantomData`] slot. The
+type-level attribute `#[epserde(phantom(T, U, …))]` declares that the listed type
+parameters are phantom throughout the type: they are left completely untouched,
+so they can be instantiated with types that are not serializable at all, such as
+`str`:
+
+```rust
+# use epserde::prelude::*;
+# use std::marker::PhantomData;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+struct Inner<K: ?Sized, T> {
+    data: T,
+    phantom: PhantomData<K>,
+}
+
+// K appears as a bare generic argument of the field type, but Inner keeps it
+// in a PhantomData slot: we declare it phantom throughout the type.
+#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+#[epserde(phantom(K))]
+struct Data<K: ?Sized, T> {
+    inner: Inner<K, T>,
+}
+
+let s: Data<str, Vec<isize>> = Data {
+    inner: Inner { data: vec![0, 1, 2, 3], phantom: PhantomData },
+};
+let mut file = std::env::temp_dir();
+file.push("serialized12");
+unsafe { s.store(&file)? };
+let b = std::fs::read(&file)?;
+
+// K stays str in the ε-copy deserialized form; only T is substituted.
+let t = unsafe { <Data<str, Vec<isize>>>::deserialize_eps(b.as_ref())? };
+assert_eq!(s.inner.data.as_slice(), t.inner.data);
+#     Ok(())
+# }
+```
+
+Like `full_copy(…)`, the attribute is rejected on zero-copy types, on const
+parameters, and on identifiers that are not declared type parameters;
+moreover, a parameter cannot be listed both in `phantom(…)` and in
+`full_copy(…)`, as the former is a strictly stronger claim.
 
 ## MemDbg / MemSize
 
@@ -983,14 +1034,15 @@ Note that all fields of a type you want to (de)serialize must implement
 
 ### ε-copy / full-copy fields and parameters
 
-Given a type `S` with generics, a field is _full-copy_ if it does not
-contain type parameters outside those listed in the type-level attribute
+Given a type `S` with generics, a field is _full-copy_ if it does not contain
+type parameters outside those listed in the type-level attribute
 `#[epserde(full_copy(T, U, …))]`, or it is marked with
 `#[epserde(force_full_copy)]`. A field is _ε-copy_ otherwise. A type parameter
 `T` is _ε-copy_ if it appears in an ε-copy field, and is _full-copy_ if it
-appears in a full-copy field. Occurrences in a [`PhantomData`] are not accounted
-for. No type parameter can be both ε-copy and full-copy, and a special
-diagnostic is emitted if this happens.
+appears in a full-copy field. Occurrences in a [`PhantomData`] or listed in the
+type-level attribute `#[epserde(phantom(T, U, …))]` are not accounted for. No
+type parameter can be both ε-copy and full-copy, and a special diagnostic is
+emitted if this happens.
 
 Note the interplay between the two attributes: `#[epserde(full_copy(T, U, …))]`
 helps defining the type of fields by pinning certain parameters initially to
