@@ -16,7 +16,7 @@
 //! iterator into a type that can be serialized. We provide a [`From`] implementation for
 //! convenience.
 //!
-//! Note, however, that you must deserialize the iterator as a vector—see the
+//! Note, however, that you must deserialize the iterator as a vector; see the
 //! example in the [crate-level documentation](crate).
 use core::{borrow::Borrow, cell::RefCell, ops::DerefMut};
 

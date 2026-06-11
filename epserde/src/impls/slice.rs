@@ -12,7 +12,7 @@
 //! to slices as boxed slices.
 //!
 //! Note, however, that you must deserialize the slice as a vector, even when it
-//! appears a type parameter—see the example in the [crate-level
+//! appears a type parameter; see the example in the [crate-level
 //! documentation](crate).
 //!
 //! We provide a type hash for `[T]` so that it can be used in

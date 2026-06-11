@@ -4,7 +4,7 @@ error[E0277]: type parameter `T` is both full-copy and ε-copy (it appears both 
 14 |     a: T,
    |        ^ this occurrence of `T` in an ε-copy field conflicts with its use in a full-copy field
    |
-   = help: the trait `DeserFixedPoint<T>` is not implemented for `<T as DeserInner>::DeserType<'_>`
+   = help: the trait `EitherFullOrEpsCopy<T>` is not implemented for `<T as DeserInner>::DeserType<'_>`
    = note: consider restricting type parameter `T` with `T: for<'a> DeserInner<DeserType<'a> = T>`
    = note: alternatively, mark the ε-copy field with `#[epserde(force_full_copy)]`
    = note: alternatively, pin the parameter to full-copy with `#[epserde(full_copy(T))]` on the type

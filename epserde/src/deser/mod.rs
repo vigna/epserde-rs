@@ -549,9 +549,9 @@ pub trait DeserInner: Sized {
 /// hint when the user has not supplied the required bound.
 ///
 /// The derive emits a bound of the form `<T as DeserInner>::DeserType<'_>:
-/// DeserFixedPoint<T>` for each conflicting parameter, so that when the
-/// equality fails the blanket impl `impl<T> DeserFixedPoint<T> for T` does not
-/// apply and rustc reports `DeserFixedPoint<T>` as unimplemented. The
+/// EitherFullOrEpsCopy<T>` for each conflicting parameter, so that when the
+/// equality fails the blanket impl `impl<T> EitherFullOrEpsCopy<T> for T` does not
+/// apply and rustc reports `EitherFullOrEpsCopy<T>` as unimplemented. The
 /// `#[diagnostic::on_unimplemented]` attribute below then suggests the bound
 /// that fixes the issue.
 ///
@@ -563,9 +563,9 @@ pub trait DeserInner: Sized {
     note = "alternatively, mark the ε-copy field with `#[epserde(force_full_copy)]`",
     note = "alternatively, pin the parameter to full-copy with `#[epserde(full_copy({T}))]` on the type"
 )]
-pub trait DeserFixedPoint<T: ?Sized> {}
+pub trait EitherFullOrEpsCopy<T: ?Sized> {}
 
-impl<T: ?Sized> DeserFixedPoint<T> for T {}
+impl<T: ?Sized> EitherFullOrEpsCopy<T> for T {}
 
 /// Marker trait asserting that a type parameter used as a (possibly nested)
 /// element of a literal vector, boxed slice, or array in an ε-copy field is

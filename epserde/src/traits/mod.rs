@@ -8,7 +8,7 @@
 //! Basic traits that must be implemented by all types using ε-serde.
 //!
 //! If you use the procedural macro [`Epserde`](epserde_derive::Epserde), you do
-//! not need to worry about these traits—they will be implemented for you.
+//! not need to worry about these traits, as they will be implemented for you.
 
 pub mod type_info;
 pub use type_info::*;

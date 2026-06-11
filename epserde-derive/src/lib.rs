@@ -394,11 +394,11 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, field_types: &[&syn::Type]) -> proc_ma
 /// replaceable parameters of a field marked `#[epserde(force_full_copy)]`.
 ///
 /// For each conflicting parameter the assertion requires the bound `for<'a> <T
-/// as DeserInner>::DeserType<'a>: DeserFixedPoint<T>`. The blanket impl
-/// `impl<T> DeserFixedPoint<T> for T` makes the bound trivially hold when
+/// as DeserInner>::DeserType<'a>: EitherFullOrEpsCopy<T>`. The blanket impl
+/// `impl<T> EitherFullOrEpsCopy<T> for T` makes the bound trivially hold when
 /// `DeserType<'a> = T` (the fixed-point condition the user can supply through
 /// `bound(deser = ...)`); otherwise the impl does not apply and the
-/// `#[diagnostic::on_unimplemented]` message on `DeserFixedPoint` show a hint
+/// `#[diagnostic::on_unimplemented]` message on `EitherFullOrEpsCopy` show a hint
 /// alongside rustc's slot-mismatch error.
 ///
 /// Each ident in `conflict_params` is expected to be re-spanned to the ε-copy
@@ -429,7 +429,7 @@ fn gen_fixed_point_check(conflict_params: &[syn::Ident]) -> proc_macro2::TokenSt
     quote! {
         fn __epserde_fixed_point_check<__Outer, __Slot: ?Sized>()
         where
-            __Slot: ::epserde::deser::DeserFixedPoint<__Outer>,
+            __Slot: ::epserde::deser::EitherFullOrEpsCopy<__Outer>,
         {}
         #(#checks)*
     }
@@ -483,8 +483,8 @@ fn push_seq_deep_idents(
     }
 }
 
-/// Computes the conflict parameters—the intersection of `eps_params` (the
-/// ε-copy parameters) with `full_params` (the full-copy parameters) and pushes
+/// Computes the conflict parameters, that is, the intersection of `eps_params`
+/// (the ε-copy parameters) with `full_params` (the full-copy parameters), and pushes
 /// each into `out`, re-spanned to the ε-copy
 /// field that uses it (recorded in `eps_field_spans`), so the fixed-point
 /// diagnostic points at that field.
@@ -951,6 +951,27 @@ fn gen_generics_for_ser_type(
 /// `[T; N]`), the user must additionally bound `T: ZeroCopy` or `T:
 /// DeepCopy`; the derive does not emit those bounds because the choice is not
 /// derivable from the field type alone.
+///
+/// Note that only the `DeserInner` bound must be suppressed, as only
+/// `_deser_eps_inner` produces a value of the deserialization type. `SerType`
+/// is never materialized: it appears only at the type level, as a projection
+/// whose required capabilities are asserted in place (e.g., `FieldType:
+/// SerInner<SerType: TypeHash>` in the type-info where clauses), so a
+/// `SerInner` field-type bound would be harmless. The two bounds are dropped
+/// together for simplicity, and to keep the `SerInner`/`DeserInner` requirement
+/// sets symmetric.
+///
+/// Moreover, only a bare field-type bound is impossible. A bound carrying the
+/// GAT equality (`for<'a> FieldType: DeserInner<DeserType<'a> = σ(FieldType)>`,
+/// where σ substitutes the ε-copy parameters) compiles and even subsumes the
+/// user-supplied kind bounds (issue #152409's own workaround: the shadowing
+/// where-clause itself supplies the equality the body needs). We prefer the
+/// current solution because the right-hand side is the same syntactic
+/// substitution the current encoding relies on, so nothing is gained in
+/// expressiveness, while a wrong substitution would surface at use sites
+/// instead of inside the derived impl, and field types (possibly private) would
+/// leak into the impl's public where clause, which downstream generic code
+/// would have to repeat per field.
 fn gen_ser_deser_where_clauses(
     field_types: &[&syn::Type],
     is_zero_copy: bool,
@@ -1143,7 +1164,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     // becomes <T as DeserInner>::DeserType<'_>, the other stays as T. The
     // user can resolve the conflict with a bound that forces DeserType<'_>
     // = T (automatic for ZeroCopy types). The assertion below requests
-    // DeserFixedPoint for each conflicting parameter so that, when the
+    // EitherFullOrEpsCopy for each conflicting parameter so that, when the
     // bound is missing, the on_unimplemented message points at the fix
     // instead of leaving the user with rustc's raw slot mismatch. Each
     // conflicting parameter is re-spanned to the ε-copy field that uses it,
@@ -2457,7 +2478,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 /// Generates a [partial ε-serde](TypeInfo) implementation for custom types.
 ///
 /// It generates implementations just for the traits `TypeHash` and `AlignHash`
-/// (plus `AlignTo` for zero-copy types)—not for `CopyType`, `SerInner`, or
+/// (plus `AlignTo` for zero-copy types), but not for `CopyType`, `SerInner`, or
 /// `DeserInner`. See the documentation of [`Epserde`] for more information.
 #[proc_macro_derive(TypeInfo, attributes(epserde_zero_copy, epserde_deep_copy, epserde))]
 pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
