@@ -14,7 +14,7 @@
 
 Large immutable data structures need time to be deserialized using the [serde]
 approach. A possible solution for this problem is given by frameworks such as
-[Abomonation], [rkiv], and [zerovec], which provide _zero-copy_ deserialization:
+[Abomonation], [rkyv], and [zerovec], which provide _zero-copy_ deserialization:
 the stream of bytes serializing the data structure can be used directly as a
 Rust structure. In particular, this approach makes it possible to map into
 memory an on-disk data structure, making it available instantly. It also makes
@@ -101,11 +101,11 @@ These are the main limitations you should be aware of before choosing to use
 - The instance you get by deserialization has essentially the same type
   as the one you serialized, except that type parameters will be replaced by
   their associated deserialization type (e.g., vectors will become references to
-  slices). This is not the case with [rkiv], which requires you to reimplement
+  slices). This is not the case with [rkyv], which requires you to reimplement
   all methods on a new, different deserialization type.
 
 - The structure you get by deserialization has exactly the same performance as
-  the structure you serialized. This is not the case with [zerovec] or [rkiv].
+  the structure you serialized. This is not the case with [zerovec] or [rkyv].
 
 - You can serialize instances containing references to slices, or even
   exact-size iterators, and they will be deserialized as if you had written a
@@ -1274,7 +1274,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [`sux`]: http://crates.io/sux/
 [serde]: https://serde.rs/
 [Abomonation]: https://crates.io/crates/abomonation
-[rkiv]: https://crates.io/crates/rkyv/
+[rkyv]: https://crates.io/crates/rkyv/
 [zerovec]: https://crates.io/crates/zerovec
 [mmap_rs]: https://crates.io/crates/mmap-rs
 [`MemDbg`]: https://docs.rs/mem_dbg/latest/mem_dbg/trait.MemDbg.html
