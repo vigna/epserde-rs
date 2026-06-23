@@ -25,6 +25,9 @@ cargo test -- --skip fail
 # Run compile-fail tests only
 cargo test fail
 
+# Regenerate compile-fail .stderr (use the current stable toolchain — see note below)
+TRYBUILD=overwrite cargo test --test fail
+
 # Run a single test
 cargo test test_name -- --skip fail
 
@@ -33,6 +36,8 @@ cd epserde && for f in examples/*.rs; do cargo run --example "$(basename "${f%.r
 ```
 
 CI tests against Rust 1.85.0, stable, beta, and nightly, with three feature combinations: default, `--no-default-features --features 'derive'`, and `--all-features`.
+
+**Compile-fail (`trybuild`) tests run on only one CI job — the `build` matrix entry with `rust: stable` and default features** (every other entry, plus `build-i686`, passes `--skip fail`). The committed `tests/fail/*.stderr` snapshots are tied to the compiler's diagnostic rendering, which changes between toolchains (e.g. 1.85.0 abbreviates long type arguments with `...` in some labels where newer rustc prints them in full). They must therefore match the **current stable** compiler — the one a developer runs `cargo test` with — so regenerate them with the default toolchain, never an old pinned one. The MSRV/`i686` job deliberately skips these tests for this reason. The rendering of these particular diagnostics is architecture-independent.
 
 ## Architecture
 

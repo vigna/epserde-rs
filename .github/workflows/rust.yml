@@ -48,6 +48,12 @@ jobs:
         run: cargo build ${{ matrix.features }} --verbose
       - name: Run tests excluding trybuild tests
         run: cargo test ${{ matrix.features }} --verbose -- --skip fail
+      # Compile-fail (trybuild) snapshots are tied to the compiler's diagnostic
+      # rendering, so they are checked only on the current stable toolchain
+      # (and a single feature combination, as the errors are feature-independent).
+      - name: Run trybuild compile-fail tests (current compiler only)
+        if: matrix.rust == 'stable' && matrix.features == ''
+        run: cargo test --test fail --verbose
       - name: Run examples
         working-directory: ./epserde
         run: for example in examples/*.rs ; do cargo run --example "$(basename "${example%.rs}")" ; done
@@ -100,5 +106,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gcc-multilib
       - name: Build (32-bit)
         run: cargo build --target i686-unknown-linux-gnu
+      # Skip the trybuild compile-fail tests: their .stderr snapshots track the
+      # current stable compiler (see the build job), not the pinned 1.85.0
+      # toolchain used here, whose diagnostic rendering differs.
       - name: Test (32-bit)
-        run: cargo test --target i686-unknown-linux-gnu
+        run: cargo test --target i686-unknown-linux-gnu -- --skip fail
