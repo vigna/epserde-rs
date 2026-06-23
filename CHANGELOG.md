@@ -9,7 +9,7 @@
   behavior can be obtained by decorating the field with
   `#[epserde(force_full_copy)]`. The new design opens the possibility for type
   replacement inside fields whose type is not a parameter (e.g., `struct
-S<A>([A; 3])` can have `Vec<usize>` as a parameter, getting the
+  S<A>([A; 3])` can have `Vec<usize>` as a parameter, getting the
   deserialization type `S<&[usize]>`).
 
 - A type parameter can be pinned to full-copy deserialization across the whole
@@ -23,7 +23,7 @@ S<A>([A; 3])` can have `Vec<usize>` as a parameter, getting the
   when a structure might be zero-copy (as `SerInner::IS_ZERO_COPY` is not
   aware of pointer erasure).
 
-- "Replaceable" (variable) and "irreplaceable" is now "ε-copy" and
+- "Replaceable" (type parameter) and "irreplaceable" is now "ε-copy" and
   "full-copy".
 
 - `TypeHash` now uses a full-qualified name for user-defined types.
