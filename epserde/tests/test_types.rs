@@ -374,4 +374,4 @@ fn test_box_box_generic_compiles() -> anyhow::Result<()> {
 
 #[derive(Epserde)]
 #[epserde(full_copy(F))]
-struct S<F, E>(std::ops::ControlFlow<F, E>);
+struct S<F, E>(std::result::Result<F, E>);

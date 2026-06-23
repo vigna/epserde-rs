@@ -69,6 +69,25 @@ fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
     None
 }
 
+/// Returns the most meaningful span to underline for a field type in a
+/// diagnostic.
+///
+/// For a path type such as `std::ops::ControlFlow<F, E>` this is the span of
+/// the final segment (the type constructor `ControlFlow`) rather than the
+/// leading qualifier (`std`). The latter is what [`Spanned::span`] falls back
+/// to on stable Rust, where multi-token spans cannot be joined
+/// ([`proc_macro2::Span::join`] is unstable), so an unelaborated
+/// `field_type.span()` underlines only the first token. Non-path types use
+/// their natural span.
+fn type_diag_span(ty: &syn::Type) -> proc_macro2::Span {
+    if let syn::Type::Path(tp) = ty {
+        if let Some(last) = tp.path.segments.last() {
+            return last.ident.span();
+        }
+    }
+    ty.span()
+}
+
 /// Returns true if the given field carries `#[epserde(force_full_copy)]`.
 fn is_force_full_copy(field: &syn::Field) -> bool {
     let mut found = false;
@@ -217,7 +236,15 @@ fn has_repl_param(ty: &syn::Type, type_params: &HashSet<&syn::Ident>) -> bool {
 /// * `seq_deep_idents` - The ε-copy parameters occurring as a sequence element
 ///   in an ε-copy field, each re-spanned to that field.
 ///
+/// * `full_copy_check_fields` - The types of ε-copy fields that also contain a
+///   `#[epserde(full_copy(...))]`-pinned parameter. Such a field is sound only
+///   when its type holds the pinned parameter full-copy; the caller emits a
+///   [consistency assertion] for each, so a field that instead ε-copy
+///   deserializes the pinned parameter (e.g. `ControlFlow<F, E>`) gets an
+///   readable diagnostic rather than a raw slot mismatch.
+///
 /// [shadow the `DeserType<'_>` projection]: https://github.com/rust-lang/rust/issues/152409
+/// [consistency assertion]: gen_full_copy_consistency_check
 #[allow(clippy::too_many_arguments)]
 fn classify_field<'a>(
     field_type: &'a syn::Type,
@@ -229,6 +256,7 @@ fn classify_field<'a>(
     deser_inner_params: &mut HashSet<&'a syn::Ident>,
     eps_field_spans: &mut HashMap<&'a syn::Ident, proc_macro2::Span>,
     seq_deep_idents: &mut Vec<syn::Ident>,
+    full_copy_check_fields: &mut Vec<&'a syn::Type>,
 ) -> bool {
     let mut field_occ = HashSet::new();
     collect_repl_param_occs(field_type, type_params, &mut field_occ, false);
@@ -242,26 +270,36 @@ fn classify_field<'a>(
     // Unmarked field: a force-full parameter is full-copy, otherwise it is an
     // ε-copy parameter. The field is full-copy iff it has no ε-copy parameter.
     let mut has_eps = false;
+    let mut has_forced = false;
     for p in &field_occ {
         if forced_params.contains(p) {
             full_params.insert(*p);
+            has_forced = true;
         } else {
             eps_params.insert(*p);
             eps_field_spans
                 .entry(*p)
-                .or_insert_with(|| field_type.span());
+                .or_insert_with(|| type_diag_span(field_type));
             has_eps = true;
         }
     }
 
     if has_eps {
         // The field-type DeserInner bound is suppressed for ε-copy fields, so
-        // each of this field's parameters (force-full ones included) needs an
+        // each of this field parameters (force-full ones included) needs an
         // explicit DeserInner bound emitted by the caller.
         deser_inner_params.extend(&field_occ);
         let mut field_seq_deep = HashSet::new();
         collect_seq_forced_deep_params(field_type, type_params, &mut field_seq_deep);
-        push_seq_deep_idents(&field_seq_deep, field_type.span(), seq_deep_idents);
+        push_seq_deep_idents(&field_seq_deep, type_diag_span(field_type), seq_deep_idents);
+
+        // An ε-copy field that also pins a parameter to full-copy keeps that
+        // parameter verbatim in its DeserType slot while the field's own
+        // `_deser_eps_inner` may substitute it: the caller asserts the two
+        // agree.
+        if has_forced {
+            full_copy_check_fields.push(field_type);
+        }
     }
 
     !has_eps
@@ -430,6 +468,111 @@ fn gen_fixed_point_check(conflict_params: &[syn::Ident]) -> proc_macro2::TokenSt
         fn __epserde_fixed_point_check<__Outer, __Slot: ?Sized>()
         where
             __Slot: ::epserde::deser::EitherFullOrEpsCopy<__Outer>,
+        {}
+        #(#checks)*
+    }
+}
+
+/// Substitutes each ε-copy type parameter `P` of `type_params` in a cloned type
+/// with its deserialization type `::epserde::deser::DeserType<'lifetime, P>`,
+/// reproducing the slot the derive forms for a field in
+/// `Self::DeserType<'lifetime>`.
+///
+/// The fold is total: it descends through every type constructor (via the
+/// default [`syn::fold`] recursion), so the result matches exactly what the
+/// compiler produces when instantiating the type's `DeserType`, including
+/// occurrences inside [`PhantomData`] and qualified projections such as
+/// `P::Assoc`. This exactness is what lets the consistency assertion built from
+/// the result avoid false positives on a field that legitimately holds `P`
+/// full-copy. Forced, phantom, and const parameters, and every other type, are
+/// left verbatim.
+///
+/// [`PhantomData`]: https://doc.rust-lang.org/core/marker/struct.PhantomData.html
+struct EpsParamSubst<'a> {
+    eps_params: &'a HashSet<&'a syn::Ident>,
+    lifetime: &'a syn::Lifetime,
+}
+
+impl syn::fold::Fold for EpsParamSubst<'_> {
+    fn fold_type(&mut self, ty: syn::Type) -> syn::Type {
+        if let syn::Type::Path(tp) = &ty {
+            if tp.qself.is_none() && tp.path.leading_colon.is_none() {
+                let first = &tp.path.segments[0];
+                if first.arguments.is_empty() && self.eps_params.contains(&first.ident) {
+                    let lt = self.lifetime;
+                    let p = &first.ident;
+                    let deser: syn::Type = syn::parse_quote!(::epserde::deser::DeserType<#lt, #p>);
+                    if tp.path.segments.len() == 1 {
+                        // Bare `P` becomes `DeserType<'lifetime, P>`.
+                        return deser;
+                    }
+                    // Projection `P::Assoc[::…]` becomes `<DeserType<'lifetime,
+                    // P>>::Assoc[::…]`, mirroring instantiation of the leading
+                    // parameter.
+                    let mut rest = tp.path.clone();
+                    rest.segments = rest.segments.into_iter().skip(1).collect();
+                    return syn::Type::Path(syn::TypePath {
+                        qself: Some(syn::QSelf {
+                            lt_token: Default::default(),
+                            ty: Box::new(deser),
+                            position: 0,
+                            as_token: None,
+                            gt_token: Default::default(),
+                        }),
+                        path: rest,
+                    });
+                }
+            }
+        }
+        syn::fold::fold_type(self, ty)
+    }
+}
+
+/// Generates the consistency assertion injected into `_deser_eps_inner` for each
+/// ε-copy field that carries a `#[epserde(full_copy(...))]`-pinned parameter
+/// (collected in `check_fields`).
+///
+/// For each such field the assertion requires `<Field as
+/// DeserInner>::DeserType<'_>: FullCopyConsistent<Slot>`, where `Slot` is the
+/// field's slot in `Self::DeserType` (the field type with the ε-copy parameters
+/// in `eps_params` substituted and the pinned ones left verbatim, built by
+/// [`EpsParamSubst`]). The blanket impl `impl<T> FullCopyConsistent<T> for T`
+/// makes the bound hold exactly when the field's real deserialization type
+/// coincides with the slot — so a field that genuinely holds the pinned
+/// parameter full-copy is silent; otherwise, the
+/// `#[diagnostic::on_unimplemented]` message on `FullCopyConsistent` surfaces
+/// alongside rustc's slot mismatch.
+///
+/// Each call is emitted with `quote_spanned!` at the field span so the
+/// diagnostic points at the offending field. `lifetime` is the lifetime of the
+/// enclosing `_deser_eps_inner`, shared by both type arguments.
+///
+/// Returns an empty token stream when there are no such fields.
+fn gen_full_copy_consistency_check(
+    check_fields: &[&syn::Type],
+    eps_params: &HashSet<&syn::Ident>,
+    lifetime: &syn::Lifetime,
+) -> proc_macro2::TokenStream {
+    if check_fields.is_empty() {
+        return quote!();
+    }
+    let checks = check_fields.iter().map(|field_ty| {
+        let mut subst = EpsParamSubst {
+            eps_params,
+            lifetime,
+        };
+        let slot_ty = syn::fold::Fold::fold_type(&mut subst, (*field_ty).clone());
+        quote::quote_spanned! {type_diag_span(field_ty)=>
+            __epserde_full_copy_consistency::<
+                <#field_ty as ::epserde::deser::DeserInner>::DeserType<#lifetime>,
+                #slot_ty,
+            >();
+        }
+    });
+    quote! {
+        fn __epserde_full_copy_consistency<__A: ?Sized, __B: ?Sized>()
+        where
+            __A: ::epserde::deser::FullCopyConsistent<__B>,
         {}
         #(#checks)*
     }
@@ -1118,6 +1261,9 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
     // diagnostic point at that field.
     let mut eps_field_spans: HashMap<&syn::Ident, proc_macro2::Span> = HashMap::new();
     let mut full_deser_fields = vec![];
+    // Types of ε-copy fields that also pin a full_copy(...) parameter, for the
+    // full-copy consistency assertion.
+    let mut full_copy_check_fields: Vec<&syn::Type> = vec![];
 
     for (field_idx, field) in s.fields.iter().enumerate() {
         let field_name = get_field_name(field, field_idx);
@@ -1141,6 +1287,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
             &mut deser_inner_params,
             &mut eps_field_spans,
             &mut seq_deep_idents,
+            &mut full_copy_check_fields,
         );
 
         method_calls.push(gen_eps_deser_method_call(
@@ -1177,6 +1324,9 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         &mut conflict_params,
     );
     let fixed_point_check = gen_fixed_point_check(&conflict_params);
+    let deser_eps_lifetime: syn::Lifetime = syn::parse_quote!('deser_eps_inner_lifetime);
+    let full_copy_consistency_check =
+        gen_full_copy_consistency_check(&full_copy_check_fields, &eps_params, &deser_eps_lifetime);
     let seq_deep_check =
         gen_seq_deep_check(&seq_deep_idents, &ctx.generics_for_impl, ctx.where_clause);
     let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
@@ -1342,6 +1492,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     use ::epserde::deser::DeserInner;
 
                     #fixed_point_check
+                    #full_copy_consistency_check
 
                     Ok(#name{
                         #( #method_calls, )*
@@ -1384,6 +1535,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     let mut all_fields_types = vec![];
     // Whether each entry in all_fields_types is full-copy.
     let mut all_full_deser_fields = vec![];
+    // Types of ε-copy fields that also pin a full_copy(...) parameter, for the
+    // full-copy consistency assertion.
+    let mut full_copy_check_fields: Vec<&syn::Type> = vec![];
 
     for (variant_id, variant) in e.variants.iter().enumerate() {
         let ident = &variant.ident;
@@ -1430,6 +1584,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                         &mut deser_inner_params,
                         &mut eps_field_spans,
                         &mut seq_deep_idents,
+                        &mut full_copy_check_fields,
                     );
 
                     method_calls.push(gen_eps_deser_method_call(
@@ -1500,6 +1655,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                         &mut deser_inner_params,
                         &mut eps_field_spans,
                         &mut seq_deep_idents,
+                        &mut full_copy_check_fields,
                     );
 
                     field_indices.push(
@@ -1561,6 +1717,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
         &mut conflict_params,
     );
     let fixed_point_check = gen_fixed_point_check(&conflict_params);
+    let deser_eps_lifetime: syn::Lifetime = syn::parse_quote!('deser_eps_inner_lifetime);
+    let full_copy_consistency_check =
+        gen_full_copy_consistency_check(&full_copy_check_fields, &eps_params, &deser_eps_lifetime);
     let seq_deep_check =
         gen_seq_deep_check(&seq_deep_idents, &ctx.generics_for_impl, ctx.where_clause);
     let tag = (0..variant_arm.len()).collect::<Vec<_>>();
@@ -1735,6 +1894,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     use ::epserde::deser::Error;
 
                     #fixed_point_check
+                    #full_copy_consistency_check
 
                     match unsafe { <usize as DeserInner>::_deser_full_inner(backend)? } {
                         #(
@@ -1770,7 +1930,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 ///
 /// You can specify additional where-clause bounds for the generated
 /// (de)serialization implementations using `#[epserde(bound(deser = "...", ser
-/// = "..."))]`. This is useful when a field's type involves an associated type
+/// = "..."))]`. This is useful when a field type involves an associated type
 /// of an ε-copy type parameter, as the associated type needs to be pinned
 /// to remain the same after replacement. For example:
 /// ```ignore
@@ -1789,7 +1949,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// A field-level marker (no arguments) that pins a field to full-copy
 /// deserialization and keeps its type verbatim in `DeserType<'_>`.
 ///
-/// By default, when a field's type mentions a type parameter, that field is
+/// By default, when a field type mentions a type parameter, that field is
 /// deserialized via the ε-copy path and the parameter is ε-copy: in
 /// `Self::DeserType<'a>` it is substituted with `<T as DeserInner>::
 /// DeserType<'a>`. Occurrences nested inside `PhantomData<…>` are transparent

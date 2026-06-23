@@ -599,6 +599,38 @@ pub trait DeepCopyInSeq {}
 #[diagnostic::do_not_recommend]
 impl<T: crate::traits::DeepCopy> DeepCopyInSeq for T {}
 
+/// Marker trait witnessing that a field actual deserialization type matches
+/// the slot the derive places for it in [`DeserType`]. Used to diagnose a
+/// `#[epserde(full_copy(...))]` parameter that a field ε-copy deserializes.
+///
+/// The type-level `#[epserde(full_copy(T))]` attribute removes `T` from the
+/// [`DeserType`] substitution set, leaving it verbatim. This is sound only when
+/// the field type that carries `T` actually deserializes it full-copy (so its
+/// own `DeserType` keeps `T` verbatim). When instead the field type
+/// deserializes `T` ε-copy the slot the derive emits disagrees with the field's
+/// real deserialization type, producing a raw slot mismatch.
+///
+/// For every ε-copy field that contains a `full_copy(...)`-pinned parameter the
+/// derive emits an assertion `<Field as DeserInner>::DeserType<'_>:
+/// FullCopyConsistent<Slot>`, where `Slot` is the field's slot in
+/// [`DeserType`]. The blanket impl `impl<T> FullCopyConsistent<T> for T` makes
+/// the bound hold exactly when the two coincide (so a legitimately full-copy
+/// field is silent); otherwise it does not apply and the
+/// `#[diagnostic::on_unimplemented]` message below points at the fix instead of
+/// leaving the user with rustc's raw slot mismatch.
+///
+/// [`DeserType`]: DeserInner::DeserType
+#[diagnostic::on_unimplemented(
+    message = "a field deserialization type is inconsistent with `#[epserde(full_copy(...))]`",
+    label = "a parameter pinned by `#[epserde(full_copy(...))]` is ε-copy deserialized by this field",
+    note = "the field ε-copy deserializes to `{Self}`, but `#[epserde(full_copy(...))]` requires `{Expected}`",
+    note = "consider removing that parameter from `#[epserde(full_copy(...))]`",
+    note = "alternatively, mark this field with `#[epserde(force_full_copy)]`"
+)]
+pub trait FullCopyConsistent<Expected: ?Sized> {}
+
+impl<T: ?Sized> FullCopyConsistent<T> for T {}
+
 /// Blanket implementation that prevents the user from overwriting the
 /// methods in [`Deserialize`].
 ///
