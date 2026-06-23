@@ -160,6 +160,12 @@ fn test_control_flow() {
 }
 
 #[test]
+fn test_result() {
+    test_generic::<Result<i32, f64>>(Ok(42));
+    test_generic::<Result<i32, f64>>(Err(1.618));
+}
+
+#[test]
 fn test_bound() {
     test_generic::<core::ops::Bound<i32>>(core::ops::Bound::Unbounded);
     test_generic::<core::ops::Bound<i32>>(core::ops::Bound::Included(42));

@@ -371,3 +371,7 @@ fn test_box_box_generic_compiles() -> anyhow::Result<()> {
     assert_eq!(a, full);
     Ok(())
 }
+
+#[derive(Epserde)]
+#[epserde(full_copy(F))]
+struct S<F, E>(std::ops::ControlFlow<F, E>);

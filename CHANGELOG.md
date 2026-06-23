@@ -38,6 +38,8 @@ S<A>([A; 3])` can have `Vec<usize>` as a parameter, getting the
 
 - Much better diagnostic for violations of ε-copy stability.
 
+- Support for `Result`.
+
 ### Fixed
 
 - Fixed a few possible UB soundness issues and leaks when I/O errors happen

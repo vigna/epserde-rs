@@ -475,3 +475,65 @@ impl<B: DeserInner, C: DeserInner> DeserInner for ControlFlow<B, C> {
         }
     }
 }
+
+unsafe impl<T, E> CopyType for Result<T, E> {
+    type Copy = Deep;
+}
+
+impl<T: TypeHash, E: TypeHash> TypeHash for Result<T, E> {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "core::result::Result".hash(hasher);
+        T::type_hash(hasher);
+        E::type_hash(hasher);
+    }
+}
+
+impl<T, E> AlignHash for Result<T, E> {
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+}
+
+impl<T: SerInner, E: SerInner> SerInner for Result<T, E> {
+    type SerType = Result<T::SerType, E::SerType>;
+    const IS_ZERO_COPY: bool = false;
+    const MIGHT_BE_ZERO_COPY: bool = false;
+
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        match self {
+            Ok(val) => {
+                backend.write("Tag", &0_u8)?;
+                backend.write("Ok", val)
+            }
+            Err(err) => {
+                backend.write("Tag", &1_u8)?;
+                backend.write("Err", err)
+            }
+        }
+    }
+}
+
+impl<T: DeserInner, E: DeserInner> DeserInner for Result<T, E> {
+    // SAFETY: Result is covariant in T and E, and both T::DeserType and
+    // E::DeserType are covariant (enforced by their own __check_covariance).
+    crate::unsafe_assume_covariance!(T, E);
+    unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        let tag = unsafe { u8::_deser_full_inner(backend) }?;
+        match tag {
+            0 => Ok(Ok(unsafe { T::_deser_full_inner(backend) }?)),
+            1 => Ok(Err(unsafe { E::_deser_full_inner(backend) }?)),
+            _ => Err(deser::Error::InvalidTag(tag as usize)),
+        }
+    }
+
+    type DeserType<'a> = Result<DeserType<'a, T>, DeserType<'a, E>>;
+
+    unsafe fn _deser_eps_inner<'a>(
+        backend: &mut SliceWithPos<'a>,
+    ) -> deser::Result<Self::DeserType<'a>> {
+        let tag = unsafe { u8::_deser_full_inner(backend) }?;
+        match tag {
+            0 => Ok(Ok(unsafe { T::_deser_eps_inner(backend) }?)),
+            1 => Ok(Err(unsafe { E::_deser_eps_inner(backend) }?)),
+            _ => Err(deser::Error::InvalidTag(tag as usize)),
+        }
+    }
+}
