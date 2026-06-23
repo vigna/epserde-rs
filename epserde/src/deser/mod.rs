@@ -16,8 +16,10 @@
 use crate::ser::SerInner;
 use crate::traits::*;
 use crate::{MAGIC, MAGIC_REV, VERSION};
+use aliasable::boxed::AliasableBox;
 use core::hash::Hasher;
 use core::{mem::MaybeUninit, ptr::addr_of_mut};
+use maybe_dangling::MaybeDangling;
 
 pub mod helpers;
 pub use helpers::*;
@@ -40,7 +42,7 @@ use std::{io::BufReader, path::Path};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-/// A shorthand for the [deserialization type associated with a deserializable
+/// A shorthand for the [deserialization associated
 /// type](DeserInner::DeserType).
 pub type DeserType<'a, T> = <T as DeserInner>::DeserType<'a>;
 
@@ -136,17 +138,17 @@ macro_rules! unsafe_assume_covariance {
 /// - No validation is performed on zero-copy types. For example, by altering a
 ///   serialized form you can deserialize a vector of
 ///   [`NonZeroUsize`](core::num::NonZeroUsize) containing zeros.
-/// - The code assume that the [`read_exact`](ReadNoStd::read_exact) method of
+/// - The code assumes that the [`read_exact`](ReadNoStd::read_exact) method of
 ///   the backend does not read the buffer. If the method reads the buffer, it
 ///   will cause undefined behavior. This is a general issue with Rust as the
 ///   I/O traits were written before [`MaybeUninit`] was stabilized.
-/// - Malicious [`TypeHash`]/[`AlignHash`] implementations maybe lead to read
+/// - Malicious [`TypeHash`]/[`AlignHash`] implementations may lead to reading
 ///   incompatible structures using the same code, or cause undefined behavior
 ///   by loading data with an incorrect alignment.
 /// - Memory-mapped files might be modified externally.
 ///
 /// The first problem can be solved by traits like
-/// [`FromByte`](https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html).
+/// [`FromBytes`](https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html).
 /// The second issue is a non-problem with the standard library.
 ///
 /// The last two issues are more an issue of security than undefined behavior,
@@ -177,9 +179,10 @@ pub trait Deserialize: DeserInner {
         unsafe { Self::deserialize_full(&mut buf_reader).map_err(|e| e.into()) }
     }
 
-    /// Reads data from a reader into heap-allocated memory and ε-deserialize a
-    /// data structure from it, returning a [`MemCase`] containing the data
-    /// structure and the memory. Excess bytes are zeroed out.
+    /// Reads data from a reader into heap-allocated memory and ε-copy
+    /// deserializes a data structure from it, returning a [`MemCase`]
+    /// containing the data structure and the memory. Excess bytes are zeroed
+    /// out.
     ///
     /// The allocated memory will have [`MemoryAlignment`] as alignment: types
     /// with a higher alignment requirement will cause an [alignment
@@ -209,8 +212,10 @@ pub trait Deserialize: DeserInner {
         if align_of::<Self>() > align_to {
             return Err(Error::AlignmentError.into());
         }
-        // Round up to u128 size
-        let capacity = size + crate::pad_align_to(size, align_to);
+        // Round up to MemoryAlignment size; the maximum with align_to
+        // guarantees a nonzero allocation size even when size is zero.
+        let capacity = (size + crate::pad_align_to(size, align_to)).max(align_to);
+        let layout = core::alloc::Layout::from_size_align(capacity, align_to)?;
 
         let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
@@ -223,10 +228,18 @@ pub trait Deserialize: DeserInner {
             let alloc_func = alloc::alloc::alloc;
             #[cfg(feature = "std")]
             let alloc_func = std::alloc::alloc;
+            #[cfg(not(feature = "std"))]
+            let handle_alloc_error_func = alloc::alloc::handle_alloc_error;
+            #[cfg(feature = "std")]
+            let handle_alloc_error_func = std::alloc::handle_alloc_error;
+
+            let raw = alloc_func(layout);
+            if raw.is_null() {
+                handle_alloc_error_func(layout);
+            }
 
             <Vec<MemoryAlignment>>::from_raw_parts(
-                alloc_func(core::alloc::Layout::from_size_align(capacity, align_to)?)
-                    as *mut MemoryAlignment,
+                raw as *mut MemoryAlignment,
                 capacity / align_to,
                 capacity / align_to,
             )
@@ -242,7 +255,7 @@ pub trait Deserialize: DeserInner {
         bytes[size..].fill(0);
 
         // SAFETY: the vector is aligned to 64 bytes.
-        let backend = MemBackend::Memory(aligned_vec.into_boxed_slice());
+        let backend = MemBackend::Memory(AliasableBox::from(aligned_vec.into_boxed_slice()));
 
         // store the backend inside the MemCase
         unsafe {
@@ -250,16 +263,24 @@ pub trait Deserialize: DeserInner {
         }
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_ref().unwrap() };
-        let s = unsafe { Self::deserialize_eps(mem) }?;
+        let s = match unsafe { Self::deserialize_eps(mem) } {
+            Ok(s) => s,
+            Err(e) => {
+                // Drop the backend we just wrote into the MemCase, which
+                // would otherwise leak
+                unsafe { addr_of_mut!((*ptr).1).drop_in_place() };
+                return Err(e.into());
+            }
+        };
         // write the deserialized struct in the MemCase
         unsafe {
-            addr_of_mut!((*ptr).0).write(s);
+            addr_of_mut!((*ptr).0).write(MaybeDangling::new(s));
         }
         // finish init
         Ok(unsafe { uninit.assume_init() })
     }
 
-    /// Loads a file into heap-allocated memory and ε-deserialize a data
+    /// Loads a file into heap-allocated memory and ε-copy deserializes a data
     /// structure from it, returning a [`MemCase`] containing the data structure
     /// and the memory. Excess bytes are zeroed out.
     ///
@@ -285,9 +306,10 @@ pub trait Deserialize: DeserInner {
         unsafe { Self::read_mem(file, file_len) }
     }
 
-    /// Reads data from a reader into `mmap()`-allocated memory and ε-deserialize
-    /// a data structure from it, returning a [`MemCase`] containing the data
-    /// structure and the memory. Excess bytes are zeroed out.
+    /// Reads data from a reader into `mmap()`-allocated memory and ε-copy
+    /// deserializes a data structure from it, returning a [`MemCase`]
+    /// containing the data structure and the memory. Excess bytes are zeroed
+    /// out.
     ///
     /// The behavior of `mmap()` can be modified by passing some [`Flags`];
     /// otherwise, just pass `Flags::empty()`.
@@ -344,18 +366,26 @@ pub trait Deserialize: DeserInner {
         }
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_ref().unwrap() };
-        let s = unsafe { Self::deserialize_eps(mem) }?;
+        let s = match unsafe { Self::deserialize_eps(mem) } {
+            Ok(s) => s,
+            Err(e) => {
+                // Drop the backend we just wrote into the MemCase, which
+                // would otherwise leak
+                unsafe { addr_of_mut!((*ptr).1).drop_in_place() };
+                return Err(e.into());
+            }
+        };
         // write the deserialized struct in the MemCase
         unsafe {
-            addr_of_mut!((*ptr).0).write(s);
+            addr_of_mut!((*ptr).0).write(MaybeDangling::new(s));
         }
         // finish init
         Ok(unsafe { uninit.assume_init() })
     }
 
-    /// Loads a file into `mmap()`-allocated memory and ε-deserialize a data
-    /// structure from it, returning a [`MemCase`] containing the data structure
-    /// and the memory. Excess bytes are zeroed out.
+    /// Loads a file into `mmap()`-allocated memory and ε-copy deserializes a
+    /// data structure from it, returning a [`MemCase`] containing the data
+    /// structure and the memory. Excess bytes are zeroed out.
     ///
     /// The behavior of `mmap()` can be modified by passing some [`Flags`];
     /// otherwise, just pass `Flags::empty()`.
@@ -381,7 +411,7 @@ pub trait Deserialize: DeserInner {
         unsafe { Self::read_mmap(file, file_len, flags) }
     }
 
-    /// Memory maps a file and ε-deserializes a data structure from it,
+    /// Memory maps a file and ε-copy deserializes a data structure from it,
     /// returning a [`MemCase`] containing the data structure and the
     /// memory mapping.
     ///
@@ -420,10 +450,18 @@ pub trait Deserialize: DeserInner {
 
         let mmap = unsafe { (*ptr).1.as_ref().unwrap() };
         // deserialize the data structure
-        let s = unsafe { Self::deserialize_eps(mmap) }?;
+        let s = match unsafe { Self::deserialize_eps(mmap) } {
+            Ok(s) => s,
+            Err(e) => {
+                // Drop the backend we just wrote into the MemCase, which
+                // would otherwise leak
+                unsafe { addr_of_mut!((*ptr).1).drop_in_place() };
+                return Err(e.into());
+            }
+        };
         // write the deserialized struct in the MemCase
         unsafe {
-            addr_of_mut!((*ptr).0).write(s);
+            addr_of_mut!((*ptr).0).write(MaybeDangling::new(s));
         }
         // finish init
         Ok(unsafe { uninit.assume_init() })
@@ -499,6 +537,99 @@ pub trait DeserInner: Sized {
     /// See the documentation of [`Deserialize`].
     unsafe fn _deser_eps_inner<'a>(backend: &mut SliceWithPos<'a>) -> Result<Self::DeserType<'a>>;
 }
+
+/// Marker trait identifying types that are a fixed point of deserialization
+/// (types `T` whose [`DeserType`] is `T` itself for every lifetime).
+///
+/// The derive emits an assertion against this trait when a type parameter is
+/// both ε-copy and full-copy (it appears in a field marked
+/// `#[epserde(force_full_copy)]` and in an unmarked field). The (de)serialization
+/// code compiles only when `T` satisfies this trait, and the
+/// `#[diagnostic::on_unimplemented]` attribute below surfaces an actionable
+/// hint when the user has not supplied the required bound.
+///
+/// The derive emits a bound of the form `<T as DeserInner>::DeserType<'_>:
+/// EitherFullOrEpsCopy<T>` for each conflicting parameter, so that when the
+/// equality fails the blanket impl `impl<T> EitherFullOrEpsCopy<T> for T` does not
+/// apply and rustc reports `EitherFullOrEpsCopy<T>` as unimplemented. The
+/// `#[diagnostic::on_unimplemented]` attribute below then suggests the bound
+/// that fixes the issue.
+///
+/// [`DeserType`]: DeserInner::DeserType
+#[diagnostic::on_unimplemented(
+    message = "type parameter `{T}` is both full-copy and ε-copy (it appears both in a field marked `#[epserde(force_full_copy)]` and in an unmarked field)",
+    label = "this occurrence of `{T}` in an ε-copy field conflicts with its use in a full-copy field",
+    note = "consider restricting type parameter `{T}` with `{T}: for<'a> DeserInner<DeserType<'a> = {T}>`",
+    note = "alternatively, mark the ε-copy field with `#[epserde(force_full_copy)]`",
+    note = "alternatively, pin the parameter to full-copy with `#[epserde(full_copy({T}))]` on the type"
+)]
+pub trait EitherFullOrEpsCopy<T: ?Sized> {}
+
+impl<T: ?Sized> EitherFullOrEpsCopy<T> for T {}
+
+/// Marker trait asserting that a type parameter used as a (possibly nested)
+/// element of a literal vector, boxed slice, or array in an ε-copy field is
+/// deep-copy, as required for ε-copy stability.
+///
+/// The derive emits an assertion against this trait for every type parameter
+/// that occurs as the direct element of a literal `Vec<…>`, `Box<[…]>`, or
+/// `[…; N]` inside an unmarked field. Were such a parameter zero-copy, the
+/// containing sequence would ε-copy deserialize to a slice reference
+/// (`&[…]`), a type not expressible as the original sequence; the parameter
+/// is therefore forced to be deep-copy.
+///
+/// The blanket impl applies to every [`DeepCopy`] type, so the assertion holds
+/// as soon as the user supplies the required bound. Alternatively, the
+/// requirement is lifted by full-copy deserializing the offending field, either
+/// with the field-level `#[epserde(force_full_copy)]` marker or, when the parameter
+/// is that field's only ε-copy occurrence, by pinning the parameter with the
+/// type-level `#[epserde(full_copy(...))]` attribute. The
+/// `#[diagnostic::do_not_recommend]` attribute keeps the compiler from
+/// reporting the missing `DeepCopy` bound as the root cause, so the
+/// `#[diagnostic::on_unimplemented]` message below is what surfaces.
+#[diagnostic::on_unimplemented(
+    message = "type parameter `{Self}` must be deep-copy: it occurs as an element of a vector, boxed slice, or array in an ε-copy field",
+    label = "if `{Self}` were zero-copy, this field would ε-copy deserialize to a slice reference, a type not expressible in the source",
+    note = "consider restricting type parameter `{Self}` with trait `DeepCopy` (more targeted)",
+    note = "alternatively, mark the field with `#[epserde(force_full_copy)]`",
+    note = "alternatively, pin `{Self}` to full-copy with `#[epserde(full_copy({Self}))]` on the type, which makes `{Self}` full-copy in every field"
+)]
+pub trait DeepCopyInSeq {}
+
+#[diagnostic::do_not_recommend]
+impl<T: crate::traits::DeepCopy> DeepCopyInSeq for T {}
+
+/// Marker trait witnessing that a field actual deserialization type matches
+/// the slot the derive places for it in [`DeserType`]. Used to diagnose a
+/// `#[epserde(full_copy(...))]` parameter that a field ε-copy deserializes.
+///
+/// The type-level `#[epserde(full_copy(T))]` attribute removes `T` from the
+/// [`DeserType`] substitution set, leaving it verbatim. This is sound only when
+/// the field type that carries `T` actually deserializes it full-copy (so its
+/// own `DeserType` keeps `T` verbatim). When instead the field type
+/// deserializes `T` ε-copy the slot the derive emits disagrees with the field's
+/// real deserialization type, producing a raw slot mismatch.
+///
+/// For every ε-copy field that contains a `full_copy(...)`-pinned parameter the
+/// derive emits an assertion `<Field as DeserInner>::DeserType<'_>:
+/// FullCopyConsistent<Slot>`, where `Slot` is the field's slot in
+/// [`DeserType`]. The blanket impl `impl<T> FullCopyConsistent<T> for T` makes
+/// the bound hold exactly when the two coincide (so a legitimately full-copy
+/// field is silent); otherwise it does not apply and the
+/// `#[diagnostic::on_unimplemented]` message below points at the fix instead of
+/// leaving the user with rustc's raw slot mismatch.
+///
+/// [`DeserType`]: DeserInner::DeserType
+#[diagnostic::on_unimplemented(
+    message = "a field deserialization type is inconsistent with `#[epserde(full_copy(...))]`",
+    label = "a parameter pinned by `#[epserde(full_copy(...))]` is ε-copy deserialized by this field",
+    note = "the field ε-copy deserializes to `{Self}`, but `#[epserde(full_copy(...))]` requires `{Expected}`",
+    note = "consider removing that parameter from `#[epserde(full_copy(...))]`",
+    note = "alternatively, mark this field with `#[epserde(force_full_copy)]`"
+)]
+pub trait FullCopyConsistent<Expected: ?Sized> {}
+
+impl<T: ?Sized> FullCopyConsistent<T> for T {}
 
 /// Blanket implementation that prevents the user from overwriting the
 /// methods in [`Deserialize`].
@@ -663,29 +794,25 @@ Actual: 0x{ser_type_hash:016x}; expected: 0x{self_type_hash:016x}.
 
 The serialized type is
     {ser_type_name},
-but the deserializable type on which the deserialization method was invoked is
+but the deserializing type on which the deserialization method was invoked is
     {self_type_name},
 which has serialization type
     {self_ser_type_name}.
 
-You are trying to deserialize a file with the wrong type. You might also be
-trying to deserialize a tuple of mixed zero-copy types, which is no longer
-supported since 0.8.0, an instance containing tuples, whose type hash was fixed
-in 0.9.0, or an instance containing a vector or a string that was serialized
-before 0.10.0."#
+You are trying to deserialize a file with the wrong type."#
     )]
     /// The type hash is wrong. Probably the user is trying to deserialize a
     /// file with the wrong type.
     WrongTypeHash {
-        // The name of the type that was serialized.
+        /// The name of the type that was serialized.
         ser_type_name: String,
-        // The [`TypeHash`] of the type that was serialized.
+        /// The [`TypeHash`] of the type that was serialized.
         ser_type_hash: u64,
-        // The name of the type on which the deserialization method was called.
+        /// The name of the type on which the deserialization method was called.
         self_type_name: String,
-        // The name of the serialization type of `self_type_name`.
+        /// The name of the serialization type of `self_type_name`.
         self_ser_type_name: String,
-        // The [`TypeHash`] of the type on which the deserialization method was called.
+        /// The [`TypeHash`] of the type on which the deserialization method was called.
         self_type_hash: u64,
     },
     #[error(
@@ -694,34 +821,28 @@ Actual: 0x{ser_align_hash:016x}; expected: 0x{self_align_hash:016x}.
 
 The serialized type is
     {ser_type_name},
-but the deserializable type on which the deserialization method was invoked is
+but the deserializing type on which the deserialization method was invoked is
     {self_type_name},
 which has serialization type
     {self_ser_type_name}.
 
-You might be trying to deserialize a file that was serialized on an
-architecture with different alignment requirements, or some of the fields of
-the type might have changed their copy type (zero or deep). You might also be
-trying to deserialize an array, whose alignment hash has been fixed in 0.8.0.
-It is also possible that you are trying to deserialize a file serialized before
-version 0.10.0 in which repr attributes were not sorted lexicographically, or
-a range in a file serialized before version 0.12.0."#
+You are trying to deserialize a file that was serialized on an
+architecture with incompatible alignment requirements."#
     )]
-    /// The type representation hash is wrong. Probably the user is trying to
-    /// deserialize a file with some zero-copy type that has different
-    /// in-memory representations on the serialization arch and on the current one,
-    /// usually because of alignment issues. There are also some backward-compatibility
-    /// issues discussed in the error message.
+    /// The alignment hash is wrong. Probably the user is trying to deserialize
+    /// a file with some zero-copy type that has different in-memory
+    /// representations on the serialization architecture and on the current
+    /// one, usually because of alignment issues.
     WrongAlignHash {
-        // The name of the type that was serialized.
+        /// The name of the type that was serialized.
         ser_type_name: String,
-        // The [`AlignHash`] of the type that was serialized.
+        /// The [`AlignHash`] of the type that was serialized.
         ser_align_hash: u64,
-        // The name of the type on which the deserialization method was called.
+        /// The name of the type on which the deserialization method was called.
         self_type_name: String,
-        // The name of the serialization type of `self_type_name`.
+        /// The name of the serialization type of `self_type_name`.
         self_ser_type_name: String,
-        // The [`AlignHash`] of the type on which the deserialization method was called.
+        /// The [`AlignHash`] of the type on which the deserialization method was called.
         self_align_hash: u64,
     },
 }

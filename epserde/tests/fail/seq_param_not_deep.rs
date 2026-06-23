@@ -6,10 +6,10 @@
 
 use epserde::prelude::*;
 
+// Not ε-copy stable (provides error message)
 #[derive(Epserde)]
-#[epserde(force_repl(X))]
-struct G<T>(T);
-
-fn main() {
-    let _ = G::<u32>(0);
+struct SeqParam<A> {
+    payload: Vec<A>,
 }
+
+fn main() {}

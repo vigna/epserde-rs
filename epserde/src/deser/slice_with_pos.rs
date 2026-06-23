@@ -25,9 +25,10 @@ impl<'a> SliceWithPos<'a> {
         }
     }
 
-    pub fn skip(&mut self, bytes: usize) {
-        self.data = &self.data[bytes..];
+    pub fn skip(&mut self, bytes: usize) -> deser::Result<()> {
+        self.data = self.data.get(bytes..).ok_or(Error::ReadError)?;
         self.pos += bytes;
+        Ok(())
     }
 }
 
@@ -54,11 +55,16 @@ impl ReadWithPos for SliceWithPos<'_> {
     /// Note that this method also checks that the absolute memory position is
     /// properly aligned.
     fn align<T: AlignTo>(&mut self) -> deser::Result<()> {
+        let align_to = T::align_to();
+        // Zero-sized types impose no alignment
+        if align_to == 0 {
+            return Ok(());
+        }
         // Skip bytes as needed
-        let padding = crate::pad_align_to(self.pos, T::align_to());
-        self.skip(padding);
+        let padding = crate::pad_align_to(self.pos, align_to);
+        self.skip(padding)?;
         // Check that the ptr is indeed aligned
-        if self.data.as_ptr() as usize % T::align_to() != 0 {
+        if self.data.as_ptr() as usize % align_to != 0 {
             Err(Error::AlignmentError)
         } else {
             Ok(())

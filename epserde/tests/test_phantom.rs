@@ -270,32 +270,36 @@ fn test_phantom_data_substitution() -> anyhow::Result<()> {
     Ok(())
 }
 
+// PhantomDeserData<T> is not a barrier in the classifier (only
+// PhantomData is), so an occurrence of T inside PhantomDeserData<T>
+// is a variable position and T becomes ε-copy by default, even
+// when no other field of the struct mentions T.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Default)]
-#[epserde(deep_copy, force_repl(T))]
-struct OnlyPhantomForceRepl<T> {
+#[epserde(deep_copy)]
+struct OnlyPhantomDeserData<T> {
     other: u32,
-    phantom: PhantomData<T>,
+    phantom: PhantomDeserData<T>,
 }
 
 #[test]
-fn test_phantom_data_force_repl() -> anyhow::Result<()> {
-    let obj: OnlyPhantomForceRepl<Vec<i32>> = OnlyPhantomForceRepl {
+fn test_only_phantom_deser_data() -> anyhow::Result<()> {
+    let obj: OnlyPhantomDeserData<Vec<i32>> = OnlyPhantomDeserData {
         other: 42,
-        phantom: PhantomData,
+        phantom: PhantomDeserData(PhantomData),
     };
 
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     unsafe { obj.serialize(&mut cursor)? };
 
     cursor.set_position(0);
-    let full = unsafe { <OnlyPhantomForceRepl<Vec<i32>>>::deserialize_full(&mut cursor)? };
+    let full = unsafe { <OnlyPhantomDeserData<Vec<i32>>>::deserialize_full(&mut cursor)? };
     assert_eq!(obj, full);
 
-    let eps = unsafe { <OnlyPhantomForceRepl<Vec<i32>>>::deserialize_eps(cursor.as_bytes())? };
+    let eps = unsafe { <OnlyPhantomDeserData<Vec<i32>>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(obj.other, eps.other);
-    // The phantom slot must be PhantomData<&[i32]> after force_repl
-    // substitutes T into <Vec<i32> as DeserInner>::DeserType<'_>.
-    let _phantom_check: PhantomData<&[i32]> = eps.phantom;
+    // The phantom slot must be PhantomDeserData<&[i32]> after T is
+    // substituted into <Vec<i32> as DeserInner>::DeserType<'_>.
+    let _phantom_check: PhantomDeserData<&[i32]> = eps.phantom;
 
     Ok(())
 }

@@ -188,35 +188,35 @@ fn test_stdlib_types() {
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_derive_struct() {
-    assert_eq!(get_type_hash::<MyStruct>(), 0x65125c7b120befff);
+    assert_eq!(get_type_hash::<MyStruct>(), 0x129b1d45c6b6ae6c);
     assert_eq!(get_align_hash::<MyStruct>(), 0xc3caaeef7aa4605a);
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_derive_struct_generic() {
-    assert_eq!(get_type_hash::<MyStructGeneric<i32>>(), 0x6dced006dd1acb8f);
+    assert_eq!(get_type_hash::<MyStructGeneric<i32>>(), 0x1833f5eac633cd47);
     assert_eq!(get_align_hash::<MyStructGeneric<i32>>(), 0x6881f435bc0ca85f);
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_derive_enum() {
-    assert_eq!(get_type_hash::<MyEnum>(), 0xf5e19aa69f2d9fac);
+    assert_eq!(get_type_hash::<MyEnum>(), 0x019604e4828c4317);
     assert_eq!(get_align_hash::<MyEnum>(), 0x7c4ea1189a62724c);
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_derive_struct_const() {
-    assert_eq!(get_type_hash::<MyStructConst<5>>(), 0x87c97042d431cbf7);
+    assert_eq!(get_type_hash::<MyStructConst<5>>(), 0x97ce1c92e2729d50);
     assert_eq!(get_align_hash::<MyStructConst<5>>(), 0x6881f435bc0ca85f);
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_derive_struct_mixed() {
-    assert_eq!(get_type_hash::<MyStructMixed<i32, 5>>(), 0xa8a943379dbe6ea7);
+    assert_eq!(get_type_hash::<MyStructMixed<i32, 5>>(), 0x3f0db7304bed06cf);
     assert_eq!(
         get_align_hash::<MyStructMixed<i32, 5>>(),
         0xde0fd80637b3a4da
@@ -228,7 +228,7 @@ fn test_derive_struct_mixed() {
 fn test_derive_struct_const_then_type() {
     assert_eq!(
         get_type_hash::<MyStructConstThenType<5, i32>>(),
-        0xba025cd70e024ad5
+        0x27b6bddd3324eef3
     );
     assert_eq!(
         get_align_hash::<MyStructConstThenType<5, i32>>(),
@@ -367,21 +367,21 @@ fn test_stdlib_types() {
 #[cfg(target_arch = "x86")]
 #[test]
 fn test_derive_struct() {
-    assert_eq!(get_type_hash::<MyStruct>(), 0x65125c7b120befff);
+    assert_eq!(get_type_hash::<MyStruct>(), 0x129b1d45c6b6ae6c);
     assert_eq!(get_align_hash::<MyStruct>(), 0x7bc9c77917deb867);
 }
 
 #[cfg(target_arch = "x86")]
 #[test]
 fn test_derive_struct_generic() {
-    assert_eq!(get_type_hash::<MyStructGeneric<i32>>(), 0x6dced006dd1acb8f);
+    assert_eq!(get_type_hash::<MyStructGeneric<i32>>(), 0x1833f5eac633cd47);
     assert_eq!(get_align_hash::<MyStructGeneric<i32>>(), 0x832178dce3dc2030);
 }
 
 #[cfg(target_arch = "x86")]
 #[test]
 fn test_derive_enum() {
-    assert_eq!(get_type_hash::<MyEnum>(), 0xf5e19aa69f2d9fac);
+    assert_eq!(get_type_hash::<MyEnum>(), 0x019604e4828c4317);
     assert_eq!(get_align_hash::<MyEnum>(), 0x8aa3c35a7ab6a4c);
 }
 

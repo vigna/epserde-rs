@@ -14,13 +14,14 @@ use epserde::{deser::DeserType, prelude::*, ser::SerType};
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
 struct Data<A: ZeroCopy> {
+    #[epserde(force_full_copy)]
     a: Vec<A>,
 }
 
 type Type = Data<i32>;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<Type>());
+    println!("Serializing type: {}", core::any::type_name::<Type>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<Type>>()
@@ -47,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cursor.set_position(0);
     let full = unsafe { <Type>::deserialize_full(&mut cursor)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<Type>(),
     );
     println!("Value: {:x?}", full);

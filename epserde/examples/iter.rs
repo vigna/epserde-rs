@@ -21,7 +21,7 @@ struct Data<A> {
 type Type = SerIter<i32, std::vec::IntoIter<i32>>;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<Type>());
+    println!("Serializing type: {}", core::any::type_name::<Type>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<Type>>()
@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cursor.set_position(0);
     let full = unsafe { <Vec<i32>>::deserialize_full(&mut cursor)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<Vec<i32>>(),
     );
     println!("Value: {:x?}", full);
@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cursor.set_position(0);
     let full = unsafe { <Box<[i32]>>::deserialize_full(&mut cursor)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<Box<[i32]>>()
     );
     println!("Value: {:x?}", full);
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!(
-        "Serializable type: {}",
+        "Serializing type: {}",
         core::any::type_name::<Data<SerIter<i32, core::slice::Iter<i32>>>>()
     );
     println!(
@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cursor.set_position(0);
     let full = unsafe { <Data<Vec<i32>>>::deserialize_full(&mut cursor)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<Data<Vec<i32>>>(),
     );
     println!("Value: {:x?}", full);
@@ -114,7 +114,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cursor.set_position(0);
     let full = unsafe { <Data<Box<[i32]>>>::deserialize_full(&mut cursor)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<Data<Box<[i32]>>>(),
     );
     println!("Value: {:x?}", full);

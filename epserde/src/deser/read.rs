@@ -31,6 +31,24 @@ impl<W: Read> ReadNoStd for W {
     }
 }
 
+#[cfg(not(feature = "std"))]
+/// Byte slices are readers consuming themselves from the front, mirroring the
+/// [`std::io::Read`] implementation for `&[u8]`. This impl is gated like the
+/// [`ReadNoStd`] impl for [`AlignedCursor`]: when `std` is available, byte
+/// slices are covered by the blanket implementation, and a second
+/// implementation would conflict with it.
+impl ReadNoStd for &[u8] {
+    fn read_exact(&mut self, buf: &mut [u8]) -> deser::Result<()> {
+        if self.len() < buf.len() {
+            return Err(deser::Error::ReadError);
+        }
+        let (head, tail) = self.split_at(buf.len());
+        buf.copy_from_slice(head);
+        *self = tail;
+        Ok(())
+    }
+}
+
 /// A trait for [`ReadNoStd`] that also keeps track of the current position.
 ///
 /// This is needed because the [`Read`] trait doesn't have a `seek` method and

@@ -61,8 +61,10 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: miri
-      - name: Run Miri tests
+      - name: Run Miri tests (Tree Borrows)
         run: MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-tree-borrows" cargo +nightly miri test --no-default-features --features std,derive
+      - name: Run Miri tests (Stacked Borrows)
+        run: MIRIFLAGS="-Zmiri-disable-isolation" cargo +nightly miri test --no-default-features --features std,derive
 
   coverage:
     needs: build

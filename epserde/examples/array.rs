@@ -12,7 +12,7 @@
 use epserde::{prelude::*, ser::SerType};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<[i32; 10]>());
+    println!("Serializing type: {}", core::any::type_name::<[i32; 10]>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<[i32; 10]>>()
@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cursor.set_position(0);
     let full = unsafe { <[i32; 10]>::deserialize_full(&mut cursor)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<[i32; 10]>(),
     );
     println!("Value: {:x?}", full);

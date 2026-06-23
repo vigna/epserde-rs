@@ -1,0 +1,5 @@
+error: `Q` is not a type parameter of `Unknown`
+  --> tests/fail/full_copy_unknown.rs:11:21
+   |
+11 | #[epserde(full_copy(Q))]
+   |                     ^

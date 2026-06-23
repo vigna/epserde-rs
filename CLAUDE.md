@@ -40,8 +40,8 @@ CI tests against Rust 1.85.0, stable, beta, and nightly, with three feature comb
 
 The framework classifies types into two categories via the `CopyType` trait:
 
-- **`ZeroCopy`** (`type Copy = Zero`): Fixed-layout types with no references. Must be `#[repr(C)]`. Serialized/deserialized as raw bytes. Marked with `#[epserde_zero_copy]`.
-- **`DeepCopy`** (`type Copy = Deep`): Types requiring recursive field-by-field processing. Marked with `#[epserde_deep_copy]`.
+- **`ZeroCopy`** (`type Copy = Zero`): Fixed-layout types with no references. Must be `#[repr(C)]`. Serialized/deserialized as raw bytes. Marked with `#[epserde(zero_copy)]`.
+- **`DeepCopy`** (`type Copy = Deep`): Types requiring recursive field-by-field processing. Marked with `#[epserde(deep_copy)]`.
 
 This distinction drives specialization throughout the crate via `SerHelper<Zero>`/`SerHelper<Deep>` and `DeserHelper<Zero>`/`DeserHelper<Deep>` (sealed trait pattern).
 
@@ -65,17 +65,17 @@ This distinction drives specialization throughout the crate via `SerHelper<Zero>
 ### Derive Macros (`epserde-derive/src/lib.rs`)
 
 `#[derive(Epserde)]` generates `CopyType`, `SerInner`, `DeserInner`, `TypeHash`, `AlignHash`, and `AlignTo`. Key behavior:
-- **Type parameter replacement**: Replaceable type params (those appearing as field types) are substituted with `T::DeserType<'a>` in the deserialized form
+- **Type parameter replacement**: A *replaceable parameter* is a type parameter that occurs in *bare* form (as `T` itself — not inside `PhantomData`, not as a projection like `T::Assoc`) in a field's type. A replaceable parameter of an unmarked field is ε-copy: the derive substitutes it with `T::DeserType<'a>` in the deserialized form. Marking a field with `#[epserde(force_full_copy)]` opts it out (full-copy deserialization, type verbatim); a field with no replaceable parameter is full-copy as well. The type-level `#[epserde(full_copy(T, ...))]` pins listed parameters to full-copy in `DeserType` only (`SerType` still substitutes them): use it when a nested field type holds the parameter full-copy, so the syntactic walk would wrongly ε-substitute it. The naming is intentional: the field marker *forces* a field that could be ε-copy to full-copy, while the type-level form *declares* parameters the local walk cannot see are full-copy. The type-level `#[epserde(phantom(T, ...))]` is the stronger claim: the listed parameters are phantom throughout the type (nested field types hold them only in `PhantomData` slots), so they are excluded from the replaceable-parameter walk entirely — no `SerType`/`DeserType` substitution and no `SerInner`/`DeserInner` bounds — and can be instantiated with non-serializable types such as `str`. Const parameters are never replaceable (a forwarded const argument is syntactically indistinguishable from a type and must stay verbatim).
 - **Static zero-copy assertion**: Uses const blocks to verify zero-copy candidates at compile time
 - Supports structs and enums (unit, named, unnamed variants)
 
 ### Standard Type Implementations (`impls/`)
 
-Each file implements serialization for a category: `prim.rs` (primitives), `vec.rs` (Vec with zero/deep-copy specialization), `boxed_slice.rs`, `string.rs`, `array.rs`, `tuple.rs` (up to 12 elements), `pointer.rs` (Box/Rc/Arc with erasure), `stdlib.rs` (Option, Range, ControlFlow), `slice.rs`, `iter.rs` (SerIter wrapper).
+Each file implements serialization for a category: `prim.rs` (primitives), `vec.rs` (Vec with zero/deep-copy specialization), `boxed_slice.rs`, `string.rs`, `array.rs`, `tuple.rs` (up to 12 elements), `wrapper.rs` (`&T`/`&mut T` plus Box/Rc/Arc with erasure), `stdlib.rs` (Option, Range, ControlFlow), `slice.rs`, `iter.rs` (SerIter wrapper).
 
-### PhantomDeserData
+### PhantomData
 
-When a deep-copy type has a type parameter `T` appearing both in a field and in a `PhantomData`, use `PhantomDeserData<T>` instead of `PhantomData<T>` to avoid type mismatch after parameter replacement.
+`PhantomData<T>` is handled natively by the derive: `T` is substituted inside the phantom slot of the deserialization type, so a parameter that appears both in a `PhantomData` field and elsewhere stays consistent. The legacy `PhantomDeserData<T>` workaround is `#[deprecated]` (see the doc on `epserde::PhantomDeserData`); new code should use plain `PhantomData<T>`.
 
 ## Development Guidelines
 
@@ -100,4 +100,4 @@ This project follows https://github.com/vigna/rust-dev-guidelines. Key conventio
 - Zero-copy types must be `#[repr(C)]` and contain no references
 - Type hashes include alignment/padding info — mismatches cause deserialization errors
 - Serialization writes uninitialized padding bytes (unsafe)
-- A replaceable type parameter must not appear both as a field type and as a parameter of another field type, unless the type is annotated with `#[epserde(force_repl(T))]`
+- A *replaceable parameter* is a type parameter occurring in bare form (as `T` itself, not inside `PhantomData` and not as a projection like `T::Assoc`) in a field's type. Every replaceable parameter of an unmarked field is ε-copy; the derive substitutes it with `<T as DeserInner>::DeserType<'_>` in the deserialization type. Marking a field with `#[epserde(force_full_copy)]` pins it to full-copy deserialization, keeps its type verbatim in the deserialization type, and excludes its replaceable parameters from the ε-copy set. Fields with no replaceable parameter default to full-copy as well, since they have nothing to substitute. The type-level `#[epserde(full_copy(T, ...))]` instead removes listed parameters from the *deserialization* substitution set only (`SerType` keeps substituting them, since σ-normalization is orthogonal to the ε/full witness): a field whose only replaceable parameters are forced is then full-copy deserialized. It is the declarative alternative to the `DeserFixedPoint` bound for resolving an ε-copy/full-copy mismatch, and is rejected on zero-copy types, const parameters, and unknown idents. Pinning is sound only when the field type actually holds the parameter full-copy (so its own `DeserType` keeps it verbatim); when a pinned parameter shares a field with an ε-copy parameter *and* the field type deserializes the pinned one ε-copy (e.g. `ControlFlow<F, E>`), the derive emits a `FullCopyConsistent` assertion that surfaces an actionable diagnostic instead of a raw slot mismatch. Because the broken case is syntactically indistinguishable from the legitimate one (`Inner<F>` holding `F` in a `force_full_copy` slot alongside an ε-copy `G` in the same field), the check is type-level: it stays silent when the field's real `DeserType` matches the emitted slot. The type-level `#[epserde(phantom(T, ...))]` makes the stronger claim that the listed parameters are phantom throughout the type: they are removed from the replaceable-parameter walk altogether, so *both* substitution sets leave them verbatim and no `SerInner`/`DeserInner` bounds are emitted for them, allowing instantiation with non-serializable types (e.g., `str`). It shares the `full_copy` rejections and is additionally mutually exclusive with `full_copy` on the same parameter. When transplanting a parameter's bounds onto its substituted forms, relaxed bounds (`?Sized`) are filtered out, as Rust permits them only on the item's own type parameters.

@@ -20,7 +20,7 @@ use epserde::{deser::DeserType, prelude::*, ser::SerType};
 struct USize(usize);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<USize>());
+    println!("Serializing type: {}", core::any::type_name::<USize>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<USize>>()
@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cursor.set_position(0);
     let full = unsafe { <USize>::deserialize_full(&mut cursor)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<USize>(),
     );
     println!("Value: {:x?}", full);

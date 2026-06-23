@@ -1,0 +1,5 @@
+error: `Q` is not a type parameter of `Unknown`
+  --> tests/fail/phantom_unknown.rs:11:19
+   |
+11 | #[epserde(phantom(Q))]
+   |                   ^

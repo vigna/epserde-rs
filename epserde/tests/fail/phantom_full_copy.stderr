@@ -1,0 +1,5 @@
+error: `T` cannot be listed both in phantom(...) and full_copy(...)
+  --> tests/fail/phantom_full_copy.rs:11:33
+   |
+11 | #[epserde(full_copy(T), phantom(T))]
+   |                                 ^

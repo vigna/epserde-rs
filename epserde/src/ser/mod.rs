@@ -50,7 +50,7 @@ pub type SerType<T> = <T as SerInner>::SerType;
 /// If you are concerned about this issue, you must organize your structures so
 /// that they do not contain any padding (e.g., by creating explicit padding
 /// bytes). Traits like
-/// [`FromByte`](https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html)
+/// [`FromBytes`](https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html)
 /// can provide this guarantee.
 ///
 /// For example, this code reads a portion of the stack:
@@ -143,6 +143,19 @@ pub trait SerInner {
     /// serialization will panic.
     const IS_ZERO_COPY: bool;
 
+    /// Whether the type, considered as a Rust value, has a layout
+    /// compatible with zero-copy serialization.
+    ///
+    /// Unlike [`IS_ZERO_COPY`](Self::IS_ZERO_COPY), this constant is not
+    /// forwarded through smart-pointer erasure: [`Box<T>`], [`Rc<T>`],
+    /// [`Arc<T>`], `&T`, and `&mut T` set it to `false` regardless of `T`.
+    /// It is used by the derive macros to decide whether to suggest
+    /// declaring a struct as zero-copy.
+    ///
+    /// [`Rc<T>`]: std::rc::Rc
+    /// [`Arc<T>`]: std::sync::Arc
+    const MIGHT_BE_ZERO_COPY: bool;
+
     /// Serializes this structure using the given backend.
     ///
     /// # Safety
@@ -178,9 +191,14 @@ impl<T: SerInner<SerType: TypeHash + AlignHash>> Serialize for T {
 
 /// Writes the header.
 ///
-/// Note that `S` is the serializable type, not the serialization type.
+/// Note that `S` must be the [serialization type] associated with the
+/// serializing type, not the serializing type itself: callers pass
+/// [`SerType<Self>`](SerType) (see [`Serialize::ser_on_field_write`]), so the
+/// header hashes are computed on the serialization type.
 ///
 /// Must be kept in sync with [`crate::deser::check_header`].
+///
+/// [serialization type]: `SerType`
 pub fn write_header<S: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) -> Result<()> {
     backend.write("MAGIC", &MAGIC)?;
     backend.write("VERSION_MAJOR", &VERSION.0)?;
@@ -195,7 +213,7 @@ pub fn write_header<S: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) 
     S::align_hash(&mut align_hasher, &mut offset_of);
 
     backend.write("TYPE_HASH", &type_hasher.finish())?;
-    backend.write("REPR_HASH", &align_hasher.finish())?;
+    backend.write("ALIGN_HASH", &align_hasher.finish())?;
     backend.write("TYPE_NAME", &core::any::type_name::<S>())
 }
 
@@ -220,6 +238,11 @@ pub enum Error {
     /// The declared length of an iterator did not match
     /// the actual length.
     IteratorLengthMismatch { actual: usize, expected: usize },
+    /// An exhausted [`RangeInclusive`] cannot be serialized, as
+    /// deserialization cannot reconstruct it.
+    ///
+    /// [`RangeInclusive`]: core::ops::RangeInclusive
+    ExhaustedRange,
 }
 
 impl core::error::Error for Error {}
@@ -240,6 +263,10 @@ impl core::fmt::Display for Error {
                 f,
                 "Iterator length mismatch during ε-serde serialization: expected {} items, got {}",
                 expected, actual
+            ),
+            Self::ExhaustedRange => write!(
+                f,
+                "Cannot serialize an exhausted RangeInclusive, as deserialization cannot reconstruct it"
             ),
         }
     }

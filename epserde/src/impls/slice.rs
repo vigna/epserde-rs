@@ -12,7 +12,7 @@
 //! to slices as boxed slices.
 //!
 //! Note, however, that you must deserialize the slice as a vector, even when it
-//! appears a type parameter—see the example in the [crate-level
+//! appears a type parameter; see the example in the [crate-level
 //! documentation](crate).
 //!
 //! We provide a type hash for `[T]` so that it can be used in
@@ -24,7 +24,7 @@ use crate::prelude::*;
 use ser::*;
 
 #[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, vec::Vec};
+use alloc::boxed::Box;
 
 // For use with PhantomData
 impl<T: TypeHash> TypeHash for [T] {
@@ -42,24 +42,58 @@ impl<T: TypeHash> TypeHash for &[T] {
     }
 }
 
+// For use with PhantomData
+impl<T: TypeHash> TypeHash for &mut [T] {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "&mut[]".hash(hasher);
+        T::type_hash(hasher);
+    }
+}
+
 unsafe impl<T> CopyType for &[T] {
     type Copy = Deep;
 }
 
-impl<T: SerInner> SerInner for &[T]
+impl<T: ZeroCopy> SerHelper<Zero> for [T] {
+    #[inline(always)]
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        ser_slice_zero(backend, self)
+    }
+}
+
+impl<T: DeepCopy + SerInner> SerHelper<Deep> for [T] {
+    #[inline(always)]
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        ser_slice_deep(backend, self)
+    }
+}
+
+impl<T: CopyType + SerInner> SerInner for &[T]
 where
-    Box<[T]>: SerInner,
+    [T]: SerHelper<<T as CopyType>::Copy>,
 {
     type SerType = Box<[T::SerType]>;
     const IS_ZERO_COPY: bool = false;
+    const MIGHT_BE_ZERO_COPY: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        // SAFETY: the fake boxed slice we create is never used, and we forget
-        // it immediately after writing it to the backend.
-        let fake = unsafe { Vec::from_raw_parts(self.as_ptr() as *mut T, self.len(), self.len()) }
-            .into_boxed_slice();
-        unsafe { ser::SerInner::_ser_inner(&fake, backend) }?;
-        core::mem::forget(fake);
-        Ok(())
+        unsafe { SerHelper::_ser_inner(*self, backend) }
+    }
+}
+
+unsafe impl<T> CopyType for &mut [T] {
+    type Copy = Deep;
+}
+
+impl<T: CopyType + SerInner> SerInner for &mut [T]
+where
+    [T]: SerHelper<<T as CopyType>::Copy>,
+{
+    type SerType = Box<[T::SerType]>;
+    const IS_ZERO_COPY: bool = false;
+    const MIGHT_BE_ZERO_COPY: bool = false;
+
+    unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
+        unsafe { SerHelper::_ser_inner(&**self, backend) }
     }
 }

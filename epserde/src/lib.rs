@@ -54,14 +54,14 @@ pub mod prelude {
 }
 
 /// (Major, Minor) version of the file format, this follows semantic versioning
-pub const VERSION: (u16, u16) = (1, 1);
+pub const VERSION: (u16, u16) = (2, 0);
 
 /// Magic cookie, also used as endianness marker.
 pub const MAGIC: u64 = u64::from_ne_bytes(*b"epserde ");
 /// What we will read if the endianness is mismatched.
 pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
 
-/// A 128-bit aligned type.
+/// A 16-byte (128-bit) aligned type.
 ///
 /// This is useful for creating [`AlignedCursor`](crate::utils::AlignedCursor)
 /// and [`MemBackend::Memory`](crate::deser::MemBackend::Memory)
@@ -73,11 +73,11 @@ pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
 #[derive(Default)]
 pub struct Aligned16(pub [u8; 16]);
 
-/// A 64-bit aligned type.
+/// A 64-byte (512-bit) aligned type.
 ///
 /// This is useful for creating [`AlignedCursor`](crate::utils::AlignedCursor)
 /// and [`MemBackend::Memory`](crate::deser::MemBackend::Memory)
-/// instances with 64-bit alignment.
+/// instances with 512-bit alignment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[cfg_attr(feature = "mem_dbg", mem_size(flat))]
@@ -92,8 +92,11 @@ impl Default for Aligned64 {
 
 /// Computes the padding needed for alignment, that is, the smallest
 /// number such that `(value + pad_align_to(value, align_to)) & (align_to - 1) == 0`.
+///
+/// An `align_to` equal to zero (the [`AlignTo`] value of
+/// zero-sized types) requests no alignment and returns zero.
 pub const fn pad_align_to(value: usize, align_to: usize) -> usize {
-    value.wrapping_neg() & (align_to - 1)
+    value.wrapping_neg() & align_to.saturating_sub(1)
 }
 
 /// **Deprecated.** Use plain [`PhantomData`] instead.
@@ -176,6 +179,7 @@ impl<T> SerInner for PhantomDeserData<T> {
     // This type is nominal only; nothing will be serialized or deserialized.
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
+    const MIGHT_BE_ZERO_COPY: bool = true;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {

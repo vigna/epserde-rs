@@ -160,6 +160,12 @@ fn test_control_flow() {
 }
 
 #[test]
+fn test_result() {
+    test_generic::<Result<i32, f64>>(Ok(42));
+    test_generic::<Result<i32, f64>>(Err(1.618));
+}
+
+#[test]
 fn test_bound() {
     test_generic::<core::ops::Bound<i32>>(core::ops::Bound::Unbounded);
     test_generic::<core::ops::Bound<i32>>(core::ops::Bound::Included(42));
@@ -179,4 +185,17 @@ fn test_builder_hasher_default() {
     let eps =
         unsafe { BuildHasherDefault::<DefaultHasher>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(&eps, &bhd);
+}
+
+#[cfg(feature = "std")]
+#[test]
+fn test_range_inclusive_exhausted() {
+    // An exhausted RangeInclusive cannot be reconstructed by deserialization,
+    // so serializing it must fail
+    let mut r = 1_i32..=2;
+    r.next();
+    r.next();
+    assert!(matches!(r.end_bound(), Bound::Excluded(_)));
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    assert!(unsafe { r.serialize(&mut cursor) }.is_err());
 }

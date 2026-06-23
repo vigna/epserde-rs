@@ -19,7 +19,7 @@ struct Data {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<Data>());
+    println!("Serializing type: {}", core::any::type_name::<Data>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<Data>>()
@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cursor.set_position(0);
     let full = unsafe { Data::deserialize_full(&mut cursor)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<Data>(),
     );
     println!("Value: {:x?}", full);

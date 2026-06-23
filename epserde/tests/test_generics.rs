@@ -39,7 +39,7 @@ fn test_inner_param_full() {
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct Data2<P: TypeHash, B> {
     a: B,
-    // this should be ignored, but contains `P` in the type name so it might
+    // this should be ignored, but contains P in the type name so it might
     // be erroneously matched
     _marker2: PhantomData<()>,
     _marker: std::marker::PhantomData<P>,
@@ -162,6 +162,116 @@ impl HasWord for &[usize] {
 struct WithAssocType<B: HasWord> {
     data: B,
     word: B::Word,
+}
+
+// A relaxed bound on a type parameter must not be transplanted onto the
+// substituted forms in the generated where clauses: relaxed bounds are legal
+// only on the parameters of the item itself.
+#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+struct MaybeUnsizedHolder<K: ?Sized, A> {
+    a: A,
+    _marker: PhantomData<K>,
+}
+
+// The holder keeps K full-copy (it occurs only in its PhantomData slot), so
+// the parameter must be pinned to full-copy here.
+#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+#[epserde(full_copy(K))]
+struct UsesMaybeUnsizedHolder<K: ?Sized, A> {
+    h: MaybeUnsizedHolder<K, A>,
+}
+
+#[test]
+fn test_relaxed_bound_param() {
+    let val = UsesMaybeUnsizedHolder::<usize, Vec<usize>> {
+        h: MaybeUnsizedHolder {
+            a: vec![1, 2, 3],
+            _marker: PhantomData,
+        },
+    };
+
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    let _bytes_written = unsafe { val.serialize(&mut cursor).unwrap() };
+
+    // Full-copy deserialization
+    cursor.set_position(0);
+    let full = unsafe {
+        <UsesMaybeUnsizedHolder<usize, Vec<usize>>>::deserialize_full(&mut cursor).unwrap()
+    };
+    assert_eq!(full, val);
+
+    // ε-copy deserialization
+    let eps = unsafe {
+        <UsesMaybeUnsizedHolder<usize, Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap()
+    };
+    assert_eq!(eps.h.a, val.h.a);
+}
+
+// A parameter declared phantom must be left completely untouched: no
+// SerType/DeserType substitution and no SerInner/DeserInner bounds. This
+// makes it possible to instantiate the parameter with a type that is not
+// serializable at all, such as str, when nested field types hold the
+// parameter only in PhantomData slots the derive cannot see.
+#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+#[epserde(phantom(K))]
+struct PhantomParamOuter<K: ?Sized, A> {
+    h: MaybeUnsizedHolder<K, A>,
+}
+
+#[test]
+fn test_phantom_param() {
+    let val = PhantomParamOuter::<str, Vec<usize>> {
+        h: MaybeUnsizedHolder {
+            a: vec![1, 2, 3],
+            _marker: PhantomData,
+        },
+    };
+
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    let _bytes_written = unsafe { val.serialize(&mut cursor).unwrap() };
+
+    // Full-copy deserialization
+    cursor.set_position(0);
+    let full =
+        unsafe { <PhantomParamOuter<str, Vec<usize>>>::deserialize_full(&mut cursor).unwrap() };
+    assert_eq!(full, val);
+
+    // ε-copy deserialization
+    let eps = unsafe {
+        <PhantomParamOuter<str, Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap()
+    };
+    assert_eq!(eps.h.a, val.h.a);
+}
+
+// A const parameter forwarded as a generic argument of a field type must be
+// left untouched by the substitution machinery.
+#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+struct ConstParamInner<A, const S: bool> {
+    a: A,
+}
+
+#[derive(Epserde, Debug, PartialEq, Eq, Clone)]
+struct ConstParamOuter<A, const S: bool = true> {
+    inner: ConstParamInner<A, S>,
+}
+
+#[test]
+fn test_forwarded_const_param() {
+    let val = ConstParamOuter::<Vec<usize>> {
+        inner: ConstParamInner { a: vec![1, 2, 3] },
+    };
+
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    let _bytes_written = unsafe { val.serialize(&mut cursor).unwrap() };
+
+    // Full-copy deserialization
+    cursor.set_position(0);
+    let full = unsafe { <ConstParamOuter<Vec<usize>>>::deserialize_full(&mut cursor).unwrap() };
+    assert_eq!(full, val);
+
+    // ε-copy deserialization
+    let eps = unsafe { <ConstParamOuter<Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    assert_eq!(eps.inner.a, val.inner.a);
 }
 
 #[test]

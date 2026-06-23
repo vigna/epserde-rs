@@ -1,0 +1,31 @@
+error[E0277]: a field deserialization type is inconsistent with `#[epserde(full_copy(...))]`
+  --> tests/fail/full_copy_eps_in_field.rs:19:26
+   |
+19 | struct S<F, E>(std::ops::ControlFlow<F, E>);
+   |                          ^^^^^^^^^^^ a parameter pinned by `#[epserde(full_copy(...))]` is ε-copy deserialized by this field
+   |
+   = help: the trait `FullCopyConsistent<ControlFlow<F, <E as DeserInner>::DeserType<'deser_eps_inner_lifetime>>>` is not implemented for `ControlFlow<<F as DeserInner>::DeserType<'deser_eps_inner_lifetime>, <E as DeserInner>::DeserType<'deser_eps_inner_lifetime>>`
+   = note: the field ε-copy deserializes to `ControlFlow<<F as DeserInner>::DeserType<'deser_eps_inner_lifetime>, <E as DeserInner>::DeserType<'deser_eps_inner_lifetime>>`, but `#[epserde(full_copy(...))]` requires `ControlFlow<F, <E as DeserInner>::DeserType<'deser_eps_inner_lifetime>>`
+   = note: consider removing that parameter from `#[epserde(full_copy(...))]`
+   = note: alternatively, mark this field with `#[epserde(force_full_copy)]`
+note: required by a bound in `__epserde_full_copy_consistency`
+  --> tests/fail/full_copy_eps_in_field.rs:17:10
+   |
+17 | #[derive(Epserde)]
+   |          ^^^^^^^ required by this bound in `__epserde_full_copy_consistency`
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: `?` operator has incompatible types
+  --> tests/fail/full_copy_eps_in_field.rs:17:10
+   |
+17 | #[derive(Epserde)]
+   |          ^^^^^^^ expected `ControlFlow<F, ...>`, found `ControlFlow<..., ...>`
+18 | #[epserde(full_copy(F))]
+19 | struct S<F, E>(std::ops::ControlFlow<F, E>);
+   |          - expected this type parameter
+   |
+   = note: `?` operator cannot convert from `ControlFlow<<F as DeserInner>::DeserType<'_>, <E as DeserInner>::DeserType<'_>>` to `ControlFlow<F, <E as DeserInner>::DeserType<'deser_eps_inner_lifetime>>`
+   = note: expected enum `ControlFlow<F, <E as DeserInner>::DeserType<'deser_eps_inner_lifetime>>`
+              found enum `ControlFlow<<F as DeserInner>::DeserType<'_>, <E as DeserInner>::DeserType<'_>>`
+   = note: you might be missing a type parameter or trait bound
+   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)

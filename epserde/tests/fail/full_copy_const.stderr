@@ -1,0 +1,5 @@
+error: full_copy expects a type parameter, but `N` is a const parameter
+  --> tests/fail/full_copy_const.rs:11:21
+   |
+11 | #[epserde(full_copy(N))]
+   |                     ^

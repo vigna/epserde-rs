@@ -20,7 +20,7 @@ enum Data<T = Vec<i32>> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<Data>());
+    println!("Serializing type: {}", core::any::type_name::<Data>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<Data>>()
@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Note that we need an explicitly type annotation here, as the type of the
     // enum is not fully determined by the value--we need to know the type of
-    // the parameter, which is assumed to be `Vec<i32>` by default.
+    // the parameter, which is assumed to be Vec<i32> by default.
     let data: Data = Data::A;
     let mut cursor = <AlignedCursor<Aligned16>>::new();
 
@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cursor.set_position(0);
     let full = unsafe { <Data>::deserialize_full(&mut cursor)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<Data>(),
     );
     println!("Value: {:x?}", full);

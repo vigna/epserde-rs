@@ -1,0 +1,5 @@
+error: phantom(...) cannot be used on a zero-copy type, as it performs no substitution
+  --> tests/fail/phantom_zero_copy.rs:12:30
+   |
+12 | #[epserde(zero_copy, phantom(T))]
+   |                              ^

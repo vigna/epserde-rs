@@ -348,3 +348,26 @@ fn test_enum_zero() {
     let eps = unsafe { <Vec<Data>>::deserialize_eps(cursor.as_bytes()).unwrap() };
     assert_eq!(a, *eps);
 }
+
+// A generic struct whose only field is a smart-pointer wrapping a primitive
+// must not trip the "could be zero-copy" lint. The fields' serialized form is
+// zero-copy-shaped via erasure, but the Rust layout is not, so
+// MIGHT_BE_ZERO_COPY is false on Box/Rc/Arc and the lint stays silent.
+#[derive(Epserde, Debug, PartialEq, Eq)]
+struct BoxBox<T> {
+    #[allow(clippy::redundant_allocation)]
+    data: Box<Box<T>>,
+}
+
+#[test]
+fn test_box_box_generic_compiles() -> anyhow::Result<()> {
+    let a = BoxBox {
+        data: Box::new(Box::new(42_i32)),
+    };
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    unsafe { a.serialize(&mut cursor)? };
+    cursor.set_position(0);
+    let full = unsafe { <BoxBox<i32>>::deserialize_full(&mut cursor)? };
+    assert_eq!(a, full);
+    Ok(())
+}

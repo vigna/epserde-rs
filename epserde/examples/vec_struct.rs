@@ -20,7 +20,7 @@ struct Data {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Serializable type: {}", core::any::type_name::<Vec<Data>>());
+    println!("Serializing type: {}", core::any::type_name::<Vec<Data>>());
     println!(
         "Associated serialization type: {}",
         core::any::type_name::<SerType<Vec<Data>>>()
@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cursor.set_position(0);
     let full = unsafe { <Vec<Data>>::deserialize_full(&mut cursor)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<Vec<Data>>(),
     );
     println!("Value: {:x?}", full);
@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     cursor.set_position(0);
     let full = unsafe { <Box<[Data]>>::deserialize_full(&mut cursor)? };
     println!(
-        "Full-copy deserialization: returns the deserializable type {}",
+        "Full-copy deserialization: returns the deserializing type {}",
         core::any::type_name::<Box<[Data]>>(),
     );
     println!("Value: {:x?}", full);

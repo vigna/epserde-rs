@@ -6,12 +6,15 @@
 
 use epserde::prelude::*;
 
+// No force_full_copy inside a zero-copy type
 #[derive(Epserde, Clone, Copy)]
 #[epserde(zero_copy)]
-#[epserde(force_repl(T))]
 #[repr(C)]
-struct H<T: Copy>(T);
+struct InZeroCopy<T: Copy> {
+    #[epserde(force_full_copy)]
+    inner: T,
+}
 
 fn main() {
-    let _ = H::<u32>(0);
+    let _ = InZeroCopy::<u32> { inner: 0 };
 }

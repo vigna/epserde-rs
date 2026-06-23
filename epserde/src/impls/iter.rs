@@ -13,10 +13,10 @@
 //! vectors of `T`.
 //!
 //! More precisely, we provide a [`SerIter`] type that [wraps](SerIter::new) an
-//! iterator into a serializable type. We provide a [`From`] implementation for
+//! iterator into a type that can be serialized. We provide a [`From`] implementation for
 //! convenience.
 //!
-//! Note, however, that you must deserialize the iterator as a vector—see the
+//! Note, however, that you must deserialize the iterator as a vector; see the
 //! example in the [crate-level documentation](crate).
 use core::{borrow::Borrow, cell::RefCell, ops::DerefMut};
 
@@ -54,6 +54,7 @@ where
 {
     type SerType = Box<[T::SerType]>;
     const IS_ZERO_COPY: bool = false;
+    const MIGHT_BE_ZERO_COPY: bool = false;
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         unsafe { <Self as SerHelper<<T as CopyType>::Copy>>::_ser_inner(self, backend) }
     }

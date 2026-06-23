@@ -1,12 +1,57 @@
 # Change Log
 
-## [0.12.7] - unreleased
+## [0.13.0] - unreleased
+
+### Changed
+
+- Major design change: ε-copy deserialization is always propagated through
+  fields (used to stop at fields whose type is not a parameter). The old
+  behavior can be obtained by decorating the field with
+  `#[epserde(force_full_copy)]`. The new design opens the possibility for type
+  replacement inside fields whose type is not a parameter (e.g., `struct
+S<A>([A; 3])` can have `Vec<usize>` as a parameter, getting the
+  deserialization type `S<&[usize]>`).
+
+- A type parameter can be pinned to full-copy deserialization across the whole
+  type with the type-level `#[epserde(full_copy(T, …))]` attribute.
+
+- Unrecognized field-level `#[epserde(...)]` keys are now rejected at derive
+  time (previously they were silently ignored); the only valid field-level key
+  is `force_full_copy`.
+
+- A new constant `SerInner::MIGHT_BE_ZERO_COPY` tracks more accurately
+  when a structure might be zero-copy (as `SerInner::IS_ZERO_COPY` is not
+  aware of pointer erasure).
+
+- "Replaceable" (variable) and "irreplaceable" is now "ε-copy" and
+  "full-copy".
+
+- `TypeHash` now uses a full-qualified name for user-defined types.
+  This will break the serialization format in all practical cases.
+  Hence, the major revision of the file format was bumped.
+
+- `SliceWithPos::skip` can now return an error.
 
 ### New
 
-- The `force_repl` attribute can be use to force a type parameter to be
-  replaceable, making it possible to replace type parameters of field
-  types.
+- Also mutable references to slices can be now serialized.
+
+- Much better diagnostic for violations of ε-copy stability.
+
+- Support for `Result`.
+
+### Fixed
+
+- Fixed a few possible UB soundness issues and leaks when I/O errors happen
+  during (de)serialization.
+
+- Fixed alignment issues with zero-width types.
+
+- Now we read correctly attributes like `#[repr(C, align(N))]`, and the
+  contribution of such attributes to the alignment hash is normalized.
+
+- Serializing an exhausted `RangeInclusive` now correctly returns an error,
+  as the range cannot be deserialized.
 
 ## [0.12.6] - 2026-04-02
 
@@ -205,7 +250,7 @@
 - New `SerType` type alias, analogous to `DeserType`.
 
 - Major internal code restructuring: `TypeHash`/`AlignHash`/`AlignTo` are now
-  computed on the serialization type, not on the serializable type.
+  computed on the serialization type, not on the serializing type.
 
 - New convenience serialization implementation for `&str`, in the same vain as
   that for `&[T]`.
@@ -215,7 +260,7 @@
 - Major disruptive change: vectors and boxed slices have now the same
   serialization type. This makes them interchangeable at will in
   (de)serialization, which is an extremely useful feature. Unfortunately, old
-  instances with replaceable type parameters whose concrete type is a vector
+  instances with ε-copy type parameters whose concrete type is a vector
   will no longer be deserializable. The same happens for `String` and
   `Box<str>`.
 

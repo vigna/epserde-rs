@@ -1,0 +1,5 @@
+error: phantom expects a type parameter, but `N` is a const parameter
+  --> tests/fail/phantom_const.rs:11:19
+   |
+11 | #[epserde(phantom(N))]
+   |                   ^
