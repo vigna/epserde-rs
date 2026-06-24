@@ -388,14 +388,14 @@ fn test_derive_enum() {
 #[cfg(target_arch = "x86")]
 #[test]
 fn test_derive_struct_const() {
-    assert_eq!(get_type_hash::<MyStructConst<5>>(), 0x33e7076b1820eeb2);
+    assert_eq!(get_type_hash::<MyStructConst<5>>(), 0xe408cc80da05d9ad);
     assert_eq!(get_align_hash::<MyStructConst<5>>(), 0x832178dce3dc2030);
 }
 
 #[cfg(target_arch = "x86")]
 #[test]
 fn test_derive_struct_mixed() {
-    assert_eq!(get_type_hash::<MyStructMixed<i32, 5>>(), 0xb46248f37fa83bd0);
+    assert_eq!(get_type_hash::<MyStructMixed<i32, 5>>(), 0xba2753d300eb99b);
     assert_eq!(get_align_hash::<MyStructMixed<i32, 5>>(), 0x896839ed01ec9b9);
 }
 
@@ -404,7 +404,7 @@ fn test_derive_struct_mixed() {
 fn test_derive_struct_const_then_type() {
     assert_eq!(
         get_type_hash::<MyStructConstThenType<5, i32>>(),
-        0x1001f80a4db7423a
+        0x40d18efeac8cc96e
     );
     assert_eq!(
         get_align_hash::<MyStructConstThenType<5, i32>>(),
