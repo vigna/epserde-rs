@@ -1351,11 +1351,11 @@ Given a user-defined type `T`:
 For standard types, we have:
 
 - all primitive types, such as `u8`, `i32`, `f64`, `char`, `bool`, etc., and
-  zero-sized non-aggregate types such as `()`, `RangeFull`, `PhantomData<T>`,
-  etc., are zero-copy and their (de)serialization type is themselves; note
-  however that when `T` is an ε-copy type parameter, the `Epserde` derive
-  substitutes `T` inside `PhantomData<T>` natively, so the ε-copy deserialized
-  form carries `PhantomData<T::DeserType<'_>>`;
+  zero-sized types such as `()`, `RangeFull`, `PhantomData<T>`, etc., are
+  zero-copy and their (de)serialization type is themselves; note however that
+  when `T` is an ε-copy type parameter, the `Epserde` derive substitutes `T`
+  inside `PhantomData<T>`, so the ε-copy deserialized form carries
+  `PhantomData<T::DeserType<'_>>`;
 
 - `Option<T>` is deep-copy and its (de)serialization type is itself, with `T`
   replaced by its (de)serialization type;

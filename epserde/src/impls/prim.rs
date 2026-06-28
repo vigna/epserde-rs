@@ -244,7 +244,7 @@ impl DeserInner for () {
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(())
     }
-    // Zero-copy zero-sized non-aggregate types have deserialization type Self
+    // Zero-copy zero-sized types from the standard library are ε-copy deserialized by value
     type DeserType<'a> = Self;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
@@ -299,7 +299,7 @@ impl<T: ?Sized> DeserInner for PhantomData<T> {
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(PhantomData)
     }
-    // Zero-copy zero-sized non-aggregate types have deserialization type Self
+    // Zero-copy zero-sized types from the standard library are ε-copy deserialized by value
     type DeserType<'a> = Self;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(

@@ -100,8 +100,9 @@ pub unsafe trait CopyType: Sized {
 ///
 /// Note that we require `SerInner<SerType = Self>` but just `DeserInner` and
 /// not, say, `DeserInner<DeserType<'_> = &Self>`, which would be natural for
-/// user-defined zero-copy types, because most primitive types have
-/// deserialization type `Self`.
+/// user-defined zero-copy types, because primitive types and standard zero-copy
+/// zero-sized types such as `()` and `PhantomData` have deserialization type
+/// `Self`.
 pub trait ZeroCopy:
     CopyType<Copy = Zero>
     + Copy
