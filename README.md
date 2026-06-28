@@ -61,7 +61,8 @@ These are the main limitations you should be aware of before choosing to use
 ε-serde:
 
 - Your types cannot contain references. For example, you cannot use ε-serde on a
-  tree.
+  tree. (You can actually have some references to zero-copy data though—see
+  [this example].)
 
 - While we provide procedural macros that implement serialization and
   deserialization, they require that your type is written and used in a specific
@@ -1169,7 +1170,7 @@ are kept unchanged). Note that the projection on [`SerType`] normalizes all
 sequence types (vectors and slices) to boxed slices and erases wrappers such as
 smart pointers.
 
-For the replacement to work, the type `S` must be _structurally ε-copy stable_
+For the replacement to work, the type `S` must be _locally ε-copy stable_
 with respect to the kind of parameters in `S`, meaning that its deserialization
 type, obtained by replacing the concrete types of its ε-copy type parameters
 with their deserialization associated types, is correctly ε-copy deserialized by
@@ -1349,11 +1350,12 @@ Given a user-defined type `T`:
 
 For standard types, we have:
 
-- all primitive types, such as `u8`, `i32`, `f64`, `char`, `bool`, etc., `()`,
-  and `PhantomData<T>` are zero-copy and their (de)serialization type is
-  themselves; note however that when `T` is an ε-copy type parameter,
-  the `Epserde` derive substitutes `T` inside `PhantomData<T>` natively,
-  so the ε-copy deserialized form carries `PhantomData<T::DeserType<'_>>`;
+- all primitive types, such as `u8`, `i32`, `f64`, `char`, `bool`, etc., and
+  zero-sized non-aggregate types such as `()`, `RangeFull`, `PhantomData<T>`,
+  etc., are zero-copy and their (de)serialization type is themselves; note
+  however that when `T` is an ε-copy type parameter, the `Epserde` derive
+  substitutes `T` inside `PhantomData<T>` natively, so the ε-copy deserialized
+  form carries `PhantomData<T::DeserType<'_>>`;
 
 - `Option<T>` is deep-copy and its (de)serialization type is itself, with `T`
   replaced by its (de)serialization type;
@@ -1377,7 +1379,8 @@ For standard types, we have:
   is `Box<str>`; the deserialization type of [`String`] and `Box<str>` is `&str`,
   whereas `&str` is not deserializable;
 
-- ranges and `ControlFlow<B, C>` behave like user-defined deep-copy types;
+- ranges other than `RangeFull` and `ControlFlow<B, C>` behave like user-defined
+  deep-copy types;
 
 - `Box<T>`, `Rc<T>`, and `Arc<T>`, for sized `T`, are deep-copy, and their
   serialization/deserialization type are the same of `T` (e.g., they are
@@ -1482,3 +1485,4 @@ European Union nor the Italian MUR can be held responsible for them.
 [`sux-rs`]: https://crates.io/crates/sux-rs
 [`CopyType::Copy`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html#associatedtype.Copy
 [`String`]: https://doc.rust-lang.org/std/string/struct.String.html
+[this example]: #example-advanced-structures-containing-references
