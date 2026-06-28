@@ -31,8 +31,7 @@ use std::{io::BufWriter, path::Path};
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-/// A shorthand for the [serialization type associated with a serializable
-/// type](SerInner::SerType).
+/// A shorthand for [`<T as SerInner>::SerType`](SerInner::SerType).
 pub type SerType<T> = <T as SerInner>::SerType;
 
 /// Main serialization trait. It is separated from [`SerInner`] to avoid
@@ -130,10 +129,9 @@ pub trait Serialize {
 ///
 /// The user should not implement this trait directly, but rather derive it.
 pub trait SerInner {
-    /// This is the type that will be written in the header of the file, and
-    /// thus the type that will be deserialized. In most cases it is `Self`, but
-    /// in some cases, as for [references to slices](crate::impls::slice),
-    /// it is customized.
+    /// This is the type whose [`TypeHash`] will be written in the header of the
+    /// file. It is defined so that this type hash only depends on the
+    /// serialization type.
     type SerType;
     /// Inner constant used by the derive macros to keep
     /// track recursively of whether the type
@@ -173,16 +171,13 @@ pub trait SerInner {
 ///
 /// # Implementation Notes
 ///
-/// Note the bound on the serialization type or `T`: we need to be able to
-/// compute type and alignment hashes for it. We could bound the serialization
-/// type itself in the definition of [`SerInner`], but having the bound here
-/// instead gives us more flexibility and makes the implementation of
-/// [`Owned`](crate::deser::Owned) easier.
+/// Note the bound on the [`SerType`](SerInner::SerType) of `T`: we need to be
+/// able to compute type and alignment hashes for it. We could bound it in the
+/// definition of [`SerInner`], but having the bound here instead gives us more
+/// flexibility and makes the implementation of [`Owned`](crate::deser::Owned)
+/// easier.
 impl<T: SerInner<SerType: TypeHash + AlignHash>> Serialize for T {
     unsafe fn ser_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
-        // write the header using the serialization type, not the type itself
-        // this is done so that you can serialize types with reference to slices
-        // that can then be deserialized as vectors.
         write_header::<SerType<Self>>(backend)?;
         backend.write("ROOT", self)?;
         backend.flush()
@@ -191,14 +186,12 @@ impl<T: SerInner<SerType: TypeHash + AlignHash>> Serialize for T {
 
 /// Writes the header.
 ///
-/// Note that `S` must be the [serialization type] associated with the
+/// Note that `S` must be the [`SerType`] associated with the
 /// serializing type, not the serializing type itself: callers pass
 /// [`SerType<Self>`](SerType) (see [`Serialize::ser_on_field_write`]), so the
 /// header hashes are computed on the serialization type.
 ///
 /// Must be kept in sync with [`crate::deser::check_header`].
-///
-/// [serialization type]: `SerType`
 pub fn write_header<S: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) -> Result<()> {
     backend.write("MAGIC", &MAGIC)?;
     backend.write("VERSION_MAJOR", &VERSION.0)?;
