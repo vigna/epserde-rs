@@ -15,9 +15,9 @@ use super::ZeroCopy;
 /// Recursively compute a type hash for a type.
 ///
 /// [`type_hash`](TypeHash::type_hash) is a recursive function that computes
-/// information about a type. It is used to check that the type of the data
-/// being deserialized matches syntactically the type of the data that was
-/// written.
+/// information about a type. It is used to check that the serialization type of
+/// the data being deserialized matches the serialization type of the data that
+/// was written.
 ///
 /// The type hasher should store information about the name and the type of the
 /// fields of a type, and the name of the type itself.
@@ -27,8 +27,12 @@ use super::ZeroCopy;
 ///
 /// Additionally, it is recommended that commonly used types implement this
 /// trait, even if their serialization type is different, because it makes it
-/// possible to use [`PhantomData`](core::marker::PhantomData) and
-/// [`PhantomDeserData`](crate::PhantomDeserData).
+/// possible use correctly [`PhantomData`](core::marker::PhantomData), which
+/// implement its type hash using its argument type hash, and not the type hash
+/// of the serialization type of its argument, so the type hash of
+/// `PhantomData<Vec<usize>>` is different from that of
+/// `PhantomData<Box<[usize]>>` even if the type hash of the serialization type
+/// of `Vec<usize>` and `Box<[usize]>` is the same.
 pub trait TypeHash {
     /// Accumulates type information in `hasher`.
     fn type_hash(hasher: &mut impl core::hash::Hasher);

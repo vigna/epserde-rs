@@ -788,12 +788,12 @@ let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? 
 ## Example (advanced): Structures containing references
 
 It is technically possible to serialize and ε-copy deserialize structures
-containing references, whereas such structures are obviously not fully
-deserializable. The trait implementations, however, must be handled manually, as
-the derive code does not at this time handles lifetimes.
+containing references to (sequences of) zero-copy types, whereas such structures
+are obviously not fully deserializable. The trait implementations, however, must
+be handled manually, as the derive code does not at this time handles lifetimes.
 
 ```rust
-# use epserde::{deser::deser_eps_slice_zero, prelude::*, ser::ser_slice_zero};
+# use epserde::{deser::deser_eps_slice_zero, prelude::*, ser::ser_slice_zero, ser::WriteWithNames, ser::SerType};
 # use core::hash::Hash;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
 struct S<'a>(&'a [u8]);
@@ -804,14 +804,18 @@ unsafe impl<'a> CopyType for S<'a> {
 
 impl<'a> TypeHash for S<'a> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "DeepCopy".hash(hasher);
         "S".hash(hasher);
-        <[u8]>::type_hash(hasher);
+        "0".hash(hasher);
+        <SerType<&[u8]>>::type_hash(hasher);
     }
 }
 
 
 impl<'a> AlignHash for S<'a> {
-    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        <SerType<&[u8]> as AlignHash>::align_hash(hasher, &mut 0);
+    }
 }
 
 impl<'a> SerInner for S<'a> {
@@ -819,7 +823,10 @@ impl<'a> SerInner for S<'a> {
     const IS_ZERO_COPY: bool = false;
     const MIGHT_BE_ZERO_COPY: bool = false;
     unsafe fn _ser_inner(&self, backend: &mut impl ser::WriteWithNames) -> ser::Result<()> {
-        ser_slice_zero(backend, self.0)
+        unsafe {
+            WriteWithNames::write(backend, "0", &self.0)?;
+        }
+        Ok(())
     }
 }
 
@@ -855,8 +862,10 @@ assert_eq!(v.0, w.0);
 # }
 ```
 
-The code is somewhat simplified (e.g., we should account for alignment of the
-inner type, but it's just bytes) but it is correct.
+The code above follow closely the derive-generated implementation you could
+obtain if the inner type was `Vec<u8>`, just replacing the inner type where
+necessary, and keeping full deserialization unimplemented, as there is no type
+with an owned inner field to return.
 
 ## More Examples
 
