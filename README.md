@@ -785,6 +785,79 @@ let t: Data<&[i32]> = unsafe { <Data<Box<[i32]>>>::deserialize_eps(b.as_ref())? 
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
+## Example (advanced): Structures containing references
+
+It is technically possible to serialize and ε-copy deserialize structures
+containing references, whereas such structures are obviously not fully
+deserializable. The trait implementations, however, must be handled manually, as
+the derive code does not at this time handles lifetimes.
+
+```rust
+# use epserde::{deser::deser_eps_slice_zero, prelude::*, ser::ser_slice_zero};
+# use core::hash::Hash;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+struct S<'a>(&'a [u8]);
+
+unsafe impl<'a> CopyType for S<'a> {
+    type Copy = Deep;
+}
+
+impl<'a> TypeHash for S<'a> {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "S".hash(hasher);
+        <[u8]>::type_hash(hasher);
+    }
+}
+
+
+impl<'a> AlignHash for S<'a> {
+    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+}
+
+impl<'a> SerInner for S<'a> {
+    type SerType = S<'a>;
+    const IS_ZERO_COPY: bool = false;
+    const MIGHT_BE_ZERO_COPY: bool = false;
+    unsafe fn _ser_inner(&self, backend: &mut impl ser::WriteWithNames) -> ser::Result<()> {
+        ser_slice_zero(backend, self.0)
+    }
+}
+
+impl<'a> DeserInner for S<'a> {
+    type DeserType<'b> = S<'b>;
+
+    fn __check_covariance<'__long: '__short, '__short>(
+        proof: epserde::deser::CovariantProof<Self::DeserType<'__long>>,
+    ) -> epserde::deser::CovariantProof<Self::DeserType<'__short>> {
+        proof
+    }
+
+    unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
+        unimplemented!();
+    }
+
+    unsafe fn _deser_eps_inner<'c>(
+        backend: &mut SliceWithPos<'c>,
+    ) -> deser::Result<Self::DeserType<'c>> {
+        unsafe { Ok(S(deser_eps_slice_zero(backend)?)) }
+    }
+}
+
+let s = [0_u8, 1, 2, 3];
+let v = S(&s);
+let mut file = std::env::temp_dir();
+file.push("serialized11");
+unsafe { v.store(&file)? };
+let b = std::fs::read(&file)?;
+let w = unsafe { <S>::deserialize_eps(&b)? };
+assert_eq!(v.0, w.0);
+#     Ok(())
+# }
+```
+
+The code is somewhat simplified (e.g., we should account for alignment of the
+inner type, but it's just bytes) but it is correct.
+
 ## More Examples
 
 The standard `examples` directory contains many worked-out examples. The
@@ -828,7 +901,7 @@ struct Data<T> {
 
 let s: Data<Vec<isize>> = Data { data: vec![0, 1, 2, 3], phantom: PhantomData };
 let mut file = std::env::temp_dir();
-file.push("serialized11");
+file.push("serialized12");
 unsafe { s.store(&file)? };
 let b = std::fs::read(&file)?;
 
@@ -876,7 +949,7 @@ let s: Data<str, Vec<isize>> = Data {
     inner: Inner { data: vec![0, 1, 2, 3], phantom: PhantomData },
 };
 let mut file = std::env::temp_dir();
-file.push("serialized12");
+file.push("serialized13");
 unsafe { s.store(&file)? };
 let b = std::fs::read(&file)?;
 
