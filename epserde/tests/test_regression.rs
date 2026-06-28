@@ -147,7 +147,7 @@ fn test_tuple_types() {
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[test]
 fn test_vec_types() {
-    assert_eq!(get_type_hash::<Vec<i32>>(), 0x400f9211e94c1834);
+    assert_eq!(get_type_hash::<Vec<i32>>(), 0x117f4821c6983671);
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
@@ -326,7 +326,7 @@ fn test_tuple_types() {
 #[cfg(target_arch = "x86")]
 #[test]
 fn test_vec_types() {
-    assert_eq!(get_type_hash::<Vec<i32>>(), 0x400f9211e94c1834);
+    assert_eq!(get_type_hash::<Vec<i32>>(), 0x117f4821c6983671);
 }
 
 #[cfg(target_arch = "x86")]

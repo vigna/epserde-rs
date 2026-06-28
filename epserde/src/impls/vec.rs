@@ -14,6 +14,7 @@ use crate::ser;
 use crate::ser::helpers::*;
 use crate::ser::*;
 use crate::traits::*;
+use core::hash::Hash;
 
 #[cfg(not(feature = "std"))]
 use alloc::{boxed::Box, vec::Vec};
@@ -25,7 +26,8 @@ unsafe impl<T> CopyType for Vec<T> {
 // For use with PhantomData
 impl<T: TypeHash> TypeHash for Vec<T> {
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
-        <Box<[T]>>::type_hash(hasher);
+        "Vec".hash(hasher);
+        T::type_hash(hasher);
     }
 }
 
