@@ -67,6 +67,7 @@ impl<H> DeserInner for BuildHasherDefault<H> {
         Ok(BuildHasherDefault::default())
     }
 
+    // Zero-copy zero-sized non-aggregate types have deserialization type Self
     type DeserType<'a> = BuildHasherDefault<H>;
 
     unsafe fn _deser_eps_inner<'a>(
@@ -335,6 +336,7 @@ impl DeserInner for RangeFull {
     unsafe fn _deser_full_inner(_backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         Ok(RangeFull)
     }
+    // Zero-copy zero-sized non-aggregate types have deserialization type Self
     type DeserType<'a> = RangeFull;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
