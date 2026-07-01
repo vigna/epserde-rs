@@ -134,26 +134,13 @@ pub trait SerInner {
     /// file. It is defined so that this type hash only depends on the
     /// serialization type.
     type SerType;
-    /// Inner constant used by the derive macros to keep
-    /// track recursively of whether the type
-    /// satisfies the conditions for being zero-copy. It is checked
-    /// at runtime against the trait implemented by the type, and
-    /// if a [`ZeroCopy`] type has this constant set to `false`
-    /// serialization will panic.
-    const IS_ZERO_COPY: bool;
-
-    /// Whether the type, considered as a Rust value, has a layout
-    /// compatible with zero-copy serialization.
-    ///
-    /// Unlike [`IS_ZERO_COPY`](Self::IS_ZERO_COPY), this constant is not
-    /// forwarded through smart-pointer erasure: [`Box<T>`], [`Rc<T>`],
-    /// [`Arc<T>`], `&T`, and `&mut T` set it to `false` regardless of `T`.
-    /// It is used by the derive macros to decide whether to suggest
+    /// Inner constant used by the derive macros to keep track recursively of
+    /// whether the type satisfies the conditions for being zero-copy. It is
+    /// checked at runtime against the trait implemented by the type, and if a
+    /// [`ZeroCopy`] type has this constant set to `false` serialization will
+    /// panic. It is also used by the derive macros to decide whether to suggest
     /// declaring a struct as zero-copy.
-    ///
-    /// [`Rc<T>`]: std::rc::Rc
-    /// [`Arc<T>`]: std::sync::Arc
-    const MIGHT_BE_ZERO_COPY: bool;
+    const IS_ZERO_COPY: bool;
 
     /// Serializes this structure using the given backend.
     ///

@@ -55,7 +55,6 @@ impl<H> AlignHash for BuildHasherDefault<H> {
 impl<H> SerInner for BuildHasherDefault<H> {
     type SerType = BuildHasherDefault<H>;
     const IS_ZERO_COPY: bool = true;
-    const MIGHT_BE_ZERO_COPY: bool = true;
 
     unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
         Ok(())
@@ -157,7 +156,6 @@ impl AlignTo for RangeFull {
 impl<Idx: SerInner> SerInner for Range<Idx> {
     type SerType = Range<Idx::SerType>;
     const IS_ZERO_COPY: bool = false;
-    const MIGHT_BE_ZERO_COPY: bool = false;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -191,7 +189,6 @@ impl<Idx: DeserInner> DeserInner for Range<Idx> {
 impl<Idx: SerInner> SerInner for RangeFrom<Idx> {
     type SerType = RangeFrom<Idx::SerType>;
     const IS_ZERO_COPY: bool = false;
-    const MIGHT_BE_ZERO_COPY: bool = false;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -222,7 +219,6 @@ impl<Idx: DeserInner> DeserInner for RangeFrom<Idx> {
 impl<Idx: SerInner> SerInner for RangeInclusive<Idx> {
     type SerType = RangeInclusive<Idx::SerType>;
     const IS_ZERO_COPY: bool = false;
-    const MIGHT_BE_ZERO_COPY: bool = false;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -261,7 +257,6 @@ impl<Idx: DeserInner> DeserInner for RangeInclusive<Idx> {
 impl<Idx: SerInner> SerInner for RangeTo<Idx> {
     type SerType = RangeTo<Idx::SerType>;
     const IS_ZERO_COPY: bool = false;
-    const MIGHT_BE_ZERO_COPY: bool = false;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -292,7 +287,6 @@ impl<Idx: DeserInner> DeserInner for RangeTo<Idx> {
 impl<Idx: SerInner> SerInner for RangeToInclusive<Idx> {
     type SerType = RangeToInclusive<Idx::SerType>;
     const IS_ZERO_COPY: bool = false;
-    const MIGHT_BE_ZERO_COPY: bool = false;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -323,7 +317,6 @@ impl<Idx: DeserInner> DeserInner for RangeToInclusive<Idx> {
 impl SerInner for RangeFull {
     type SerType = RangeFull;
     const IS_ZERO_COPY: bool = true;
-    const MIGHT_BE_ZERO_COPY: bool = true;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -365,7 +358,6 @@ impl<T> AlignHash for Bound<T> {
 impl<T: SerInner> SerInner for Bound<T> {
     type SerType = Bound<T::SerType>;
     const IS_ZERO_COPY: bool = false;
-    const MIGHT_BE_ZERO_COPY: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
@@ -430,7 +422,6 @@ impl<B, C> AlignHash for ControlFlow<B, C> {
 impl<B: SerInner, C: SerInner> SerInner for ControlFlow<B, C> {
     type SerType = ControlFlow<B::SerType, C::SerType>;
     const IS_ZERO_COPY: bool = false;
-    const MIGHT_BE_ZERO_COPY: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
@@ -498,7 +489,6 @@ impl<T, E> AlignHash for Result<T, E> {
 impl<T: SerInner, E: SerInner> SerInner for Result<T, E> {
     type SerType = Result<T::SerType, E::SerType>;
     const IS_ZERO_COPY: bool = false;
-    const MIGHT_BE_ZERO_COPY: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {

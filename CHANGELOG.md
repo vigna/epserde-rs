@@ -19,10 +19,6 @@
   time (previously they were silently ignored); the only valid field-level key
   is `force_full_copy`.
 
-- A new constant `SerInner::MIGHT_BE_ZERO_COPY` tracks more accurately
-  when a structure might be zero-copy (as `SerInner::IS_ZERO_COPY` is not
-  aware of pointer erasure).
-
 - "Replaceable" (type parameter) and "irreplaceable" is now "ε-copy" and
   "full-copy".
 

@@ -54,7 +54,6 @@ macro_rules! impl_prim_ser_des {
             // be part of zero-copy types, but we actually deserialize
             // them in isolation as values.
             const IS_ZERO_COPY: bool = true;
-            const MIGHT_BE_ZERO_COPY: bool = true;
 
             #[inline(always)]
             unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -101,7 +100,6 @@ macro_rules! impl_nonzero_ser_des {
             // be part of zero-copy types, but we actually deserialize
             // them in isolation as values.
             const IS_ZERO_COPY: bool = true;
-            const MIGHT_BE_ZERO_COPY: bool = true;
 
             #[inline(always)]
             unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -177,7 +175,6 @@ impl_prim_type_hash!(bool, char, ());
 impl SerInner for bool {
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
-    const MIGHT_BE_ZERO_COPY: bool = true;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -208,7 +205,6 @@ impl DeserInner for bool {
 impl SerInner for char {
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
-    const MIGHT_BE_ZERO_COPY: bool = true;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -236,7 +232,6 @@ impl DeserInner for char {
 impl SerInner for () {
     type SerType = ();
     const IS_ZERO_COPY: bool = true;
-    const MIGHT_BE_ZERO_COPY: bool = true;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -291,7 +286,6 @@ impl<T: ?Sized> AlignHash for PhantomData<T> {
 impl<T: ?Sized> SerInner for PhantomData<T> {
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
-    const MIGHT_BE_ZERO_COPY: bool = true;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -336,7 +330,6 @@ impl<T> AlignHash for Option<T> {
 impl<T: SerInner> SerInner for Option<T> {
     type SerType = Option<T::SerType>;
     const IS_ZERO_COPY: bool = false;
-    const MIGHT_BE_ZERO_COPY: bool = false;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {

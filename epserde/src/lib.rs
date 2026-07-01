@@ -183,7 +183,6 @@ impl<T> SerInner for PhantomDeserData<T> {
     // This type is nominal only; nothing will be serialized or deserialized.
     type SerType = Self;
     const IS_ZERO_COPY: bool = true;
-    const MIGHT_BE_ZERO_COPY: bool = true;
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {

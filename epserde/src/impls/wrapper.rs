@@ -85,10 +85,9 @@ macro_rules! impl_ser {
     ($type:ty) => {
         impl<T: SerInner> SerInner for $type {
             type SerType = T::SerType;
-            const IS_ZERO_COPY: bool = <T as SerInner>::IS_ZERO_COPY;
-            // Wrappers and references are never zero-copy,
-            // regardless of T.
-            const MIGHT_BE_ZERO_COPY: bool = false;
+            // Wrappers and references are never zero-copy, regardless of T:
+            // they carry a pointer and do not implement CopyType.
+            const IS_ZERO_COPY: bool = false;
 
             #[inline(always)]
             unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
