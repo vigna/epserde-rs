@@ -26,7 +26,7 @@ use alloc::vec::Vec;
 /// `std::io::Cursor`, which uses a `u64`.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
-pub struct AlignedCursor<T: Default + Clone = Aligned16> {
+pub struct AlignedCursor<T = Aligned16> {
     vec: Vec<T>,
     pos: usize,
     len: usize,
@@ -185,7 +185,7 @@ impl<T: Default + Clone> crate::ser::WriteNoStd for AlignedCursor<T> {
                 self.vec.len() * core::mem::size_of::<T>(),
             )
         };
-        bytes[pos..pos + len].copy_from_slice(buf);
+        bytes[pos..pos + len].copy_from_slice(&buf[..len]);
         self.pos += len;
         self.len = self.len.max(self.pos);
         Ok(())

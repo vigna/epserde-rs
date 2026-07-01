@@ -8,16 +8,30 @@
 use super::*;
 use crate::prelude::*;
 
-/// `std::io::Cursor`-like trait for deserialization that does not
+/// `std::io::Cursor`-like structure for deserialization that does not
 /// depend on [`std`].
+///
+/// The fields are public so that hand-written [`DeserInner`] implementations
+/// can read the remaining backing bytes ([`data`]) starting at the current
+/// [`pos`] to build ε-copy references into them.
+///
+/// [`DeserInner`]: super::DeserInner
+/// [`data`]: Self::data
+/// [`pos`]: Self::pos
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub struct SliceWithPos<'a> {
+    /// The still-unread suffix of the backing slice; its first byte is at
+    /// position `pos`.
     pub data: &'a [u8],
+    /// The number of bytes already consumed from the start of the backing
+    /// slice.
     pub pos: usize,
 }
 
 impl<'a> SliceWithPos<'a> {
+    /// Returns a new [`SliceWithPos`] reading from `backend`, positioned at its
+    /// start.
     pub const fn new(backend: &'a [u8]) -> Self {
         Self {
             data: backend,
@@ -25,6 +39,11 @@ impl<'a> SliceWithPos<'a> {
         }
     }
 
+    /// Advances the position by `bytes`, discarding them.
+    ///
+    /// Returns [`Error::ReadError`] if fewer than `bytes` bytes remain.
+    ///
+    /// [`Error::ReadError`]: super::Error::ReadError
     pub fn skip(&mut self, bytes: usize) -> deser::Result<()> {
         self.data = self.data.get(bytes..).ok_or(Error::ReadError)?;
         self.pos += bytes;

@@ -116,17 +116,23 @@ macro_rules! impl_nonzero_ser_des {
             unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
                 let mut buf = [0; size_of::<$ty>()];
                 backend.read_exact(&mut buf)?;
-                Ok(<$base>::from_ne_bytes(buf).try_into().unwrap())
+                <$base>::from_ne_bytes(buf)
+                    .try_into()
+                    .map_err(|_| deser::Error::InvalidData)
             }
             #[inline(always)]
             unsafe fn _deser_eps_inner<'a>(
                 backend: &mut SliceWithPos<'a>,
             ) -> deser::Result<Self::DeserType<'a>> {
-                let res = <$base>::from_ne_bytes(
-                        backend.data.get(..size_of::<$ty>()).ok_or(deser::Error::ReadError)?
-                            .try_into()
-                            .unwrap()).try_into().unwrap();
-
+                let bytes: [u8; size_of::<$ty>()] = backend
+                    .data
+                    .get(..size_of::<$ty>())
+                    .ok_or(deser::Error::ReadError)?
+                    .try_into()
+                    .map_err(|_| deser::Error::ReadError)?;
+                let res = <$base>::from_ne_bytes(bytes)
+                    .try_into()
+                    .map_err(|_| deser::Error::InvalidData)?;
                 backend.skip(size_of::<$ty>())?;
                 Ok(res)
             }
@@ -214,14 +220,14 @@ impl DeserInner for char {
     check_covariance!();
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        Ok(char::from_u32(unsafe { u32::_deser_full_inner(backend) }?).unwrap())
+        char::from_u32(unsafe { u32::_deser_full_inner(backend) }?).ok_or(deser::Error::InvalidData)
     }
     type DeserType<'a> = Self;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        Ok(char::from_u32(unsafe { u32::_deser_eps_inner(backend) }?).unwrap())
+        char::from_u32(unsafe { u32::_deser_eps_inner(backend) }?).ok_or(deser::Error::InvalidData)
     }
 }
 

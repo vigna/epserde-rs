@@ -13,7 +13,7 @@ use super::ReadNoStd;
 /// by keeping track of the current position.
 #[derive(Debug)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
-pub struct ReaderWithPos<'a, F: ReadNoStd> {
+pub struct ReaderWithPos<'a, F> {
     /// What we actually read from
     backend: &'a mut F,
     /// How many bytes we have read from the start

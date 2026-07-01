@@ -29,6 +29,7 @@ pub use write::*;
 #[cfg(feature = "std")]
 use std::{io::BufWriter, path::Path};
 
+/// The result type for serialization, using the serialization [`Error`].
 pub type Result<T> = core::result::Result<T, Error>;
 
 /// A shorthand for [`<T as SerInner>::SerType`](SerInner::SerType).
@@ -238,7 +239,15 @@ pub enum Error {
     ExhaustedRange,
 }
 
-impl core::error::Error for Error {}
+impl core::error::Error for Error {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            #[cfg(feature = "std")]
+            Self::FileOpenError(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {

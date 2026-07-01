@@ -48,27 +48,6 @@ fn get_field_name(field: &syn::Field, field_idx: usize) -> proc_macro2::TokenStr
         .unwrap_or_else(|| syn::Index::from(field_idx).to_token_stream())
 }
 
-/// Returns the identifier of a type if it is a simple path type (i.e., not
-/// qualified, no leading colon, no multiple segments), and `None` otherwise.
-///
-/// Used to identify field types that are type parameters.
-fn get_ident(ty: &syn::Type) -> Option<&syn::Ident> {
-    if let syn::Type::Path(syn::TypePath {
-        qself: None,
-        path: syn::Path {
-            leading_colon: None,
-            segments,
-        },
-    }) = ty
-    {
-        if segments.len() == 1 {
-            return Some(&segments[0].ident);
-        }
-    }
-
-    None
-}
-
 /// Returns the most meaningful span to underline for a field type in a
 /// diagnostic.
 ///
@@ -114,10 +93,9 @@ fn is_force_full_copy(field: &syn::Field) -> bool {
 /// (as a single-segment path with no arguments, i.e. `T` itself) found by
 /// descending through the supported type constructors (generic arguments,
 /// tuples, arrays, slices). It is not made replaceable by an occurrence nested
-/// inside `PhantomData<…>` (a transparent slot) nor by one that is only a
-/// qualified projection such as `T::Assoc` (opaque, not a bare `T`). The name
-/// reflects that such a parameter is a candidate for replacement by
-/// `SerType`/`DeserType`.
+/// inside `PhantomData` nor by one that is only a qualified projection such as
+/// `T::Assoc` (opaque, not a bare `T`). The name reflects that such a parameter
+/// is a candidate for replacement by `SerType`/`DeserType`.
 fn collect_repl_param_occs<'a>(
     ty: &syn::Type,
     type_params: &HashSet<&'a syn::Ident>,
@@ -290,7 +268,7 @@ fn classify_field<'a>(
         // explicit DeserInner bound emitted by the caller.
         deser_inner_params.extend(&field_occ);
         let mut field_seq_deep = HashSet::new();
-        collect_seq_forced_deep_params(field_type, type_params, &mut field_seq_deep);
+        collect_seq_forced_deep_params(field_type, type_params, &mut field_seq_deep, false);
         push_seq_deep_idents(&field_seq_deep, type_diag_span(field_type), seq_deep_idents);
 
         // An ε-copy field that also pins a parameter to full-copy keeps that
@@ -310,10 +288,16 @@ fn classify_field<'a>(
 /// `ty`. Such a parameter is forced to be deep-copy for ε-copy stability: were
 /// it zero-copy, the containing sequence would ε-copy deserialize to a slice
 /// reference, a type not expressible as the original sequence.
+///
+/// An occurrence nested inside `PhantomData<…>` is ignored: a phantom slot is
+/// zero-sized and never serialized, so it imposes no ε-copy-stability
+/// requirement (mirroring [`collect_repl_param_occs`], which excludes phantom
+/// occurrences from the replaceable set).
 fn collect_seq_forced_deep_params<'a>(
     ty: &syn::Type,
     type_params: &HashSet<&'a syn::Ident>,
     out: &mut HashSet<&'a syn::Ident>,
+    inside_phantom: bool,
 ) {
     fn record_if_bare<'a>(
         ty: &syn::Type,
@@ -336,35 +320,52 @@ fn collect_seq_forced_deep_params<'a>(
     match ty {
         syn::Type::Path(syn::TypePath { path, .. }) => {
             for segment in &path.segments {
+                let segment_is_phantom = segment.ident == "PhantomData";
                 if let syn::PathArguments::AngleBracketed(ab) = &segment.arguments {
                     let is_vec = segment.ident == "Vec";
+                    let descend_inside_phantom = inside_phantom || segment_is_phantom;
                     for arg in &ab.args {
                         if let syn::GenericArgument::Type(t) = arg {
-                            if is_vec {
+                            if is_vec && !descend_inside_phantom {
                                 record_if_bare(t, type_params, out);
                             }
-                            collect_seq_forced_deep_params(t, type_params, out);
+                            collect_seq_forced_deep_params(
+                                t,
+                                type_params,
+                                out,
+                                descend_inside_phantom,
+                            );
                         }
                     }
                 }
             }
         }
         syn::Type::Slice(s) => {
-            record_if_bare(&s.elem, type_params, out);
-            collect_seq_forced_deep_params(&s.elem, type_params, out);
+            if !inside_phantom {
+                record_if_bare(&s.elem, type_params, out);
+            }
+            collect_seq_forced_deep_params(&s.elem, type_params, out, inside_phantom);
         }
         syn::Type::Array(a) => {
-            record_if_bare(&a.elem, type_params, out);
-            collect_seq_forced_deep_params(&a.elem, type_params, out);
+            if !inside_phantom {
+                record_if_bare(&a.elem, type_params, out);
+            }
+            collect_seq_forced_deep_params(&a.elem, type_params, out, inside_phantom);
         }
         syn::Type::Tuple(t) => {
             for e in &t.elems {
-                collect_seq_forced_deep_params(e, type_params, out);
+                collect_seq_forced_deep_params(e, type_params, out, inside_phantom);
             }
         }
-        syn::Type::Reference(r) => collect_seq_forced_deep_params(&r.elem, type_params, out),
-        syn::Type::Paren(p) => collect_seq_forced_deep_params(&p.elem, type_params, out),
-        syn::Type::Group(g) => collect_seq_forced_deep_params(&g.elem, type_params, out),
+        syn::Type::Reference(r) => {
+            collect_seq_forced_deep_params(&r.elem, type_params, out, inside_phantom)
+        }
+        syn::Type::Paren(p) => {
+            collect_seq_forced_deep_params(&p.elem, type_params, out, inside_phantom)
+        }
+        syn::Type::Group(g) => {
+            collect_seq_forced_deep_params(&g.elem, type_params, out, inside_phantom)
+        }
         _ => {}
     }
 }
@@ -1204,8 +1205,6 @@ struct EpserdeContext<'a> {
     derive_input: &'a DeriveInput,
     /// Identifiers of type and const parameters, in order of appearance.
     type_const_params: Vec<&'a syn::Ident>,
-    /// Identifiers of type parameters as a set.
-    type_params: HashSet<&'a syn::Ident>,
     /// Type parameters eligible for substitution: the declared type
     /// parameters minus those declared phantom by the type-level
     /// `#[epserde(phantom(...))]` attribute. The replaceable-parameter walk
@@ -1213,7 +1212,8 @@ struct EpserdeContext<'a> {
     /// completely untouched (no substitution, no bounds).
     repl_params: HashSet<&'a syn::Ident>,
     /// Type parameters pinned to full-copy deserialization by the type-level
-    /// `#[epserde(full_copy(...))]` attribute, as a subset of `type_params`.
+    /// `#[epserde(full_copy(...))]` attribute, as a subset of the declared type
+    /// parameters.
     forced_params: HashSet<&'a syn::Ident>,
     /// Generics for the `impl` clause as returned by
     /// [`split_for_impl`](syn::Generics::split_for_impl).
@@ -2009,10 +2009,10 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// and any field whose type parameters are all listed is full-copy. It
 /// affects only deserialization (`DeserType`); `SerType` keeps normalizing `T`.
 ///
-/// It is rejected on a `#[epserde(zero_copy)]` type (whose `DeserType<'a>`
-/// is `&'a Self`, substituting nothing), on a const parameter, and on an
-/// identifier that is not a declared type parameter. Listing a parameter
-/// that is already full-copy emits a "no effect" warning.
+/// It is rejected on a `#[epserde(zero_copy)]` type (whose `DeserType<'a>` is
+/// `&'a Self`, substituting nothing), on a const parameter, and on an
+/// identifier that is not a declared type parameter. Listing a parameter that
+/// is already full-copy (or that does not occur in any field) has no effect.
 ///
 /// Example: `Inner` holds `T` in a field-level `force_full_copy` slot, so the
 /// walk's transitive-substitution assumption fails for `Outer`; the attribute
@@ -2202,7 +2202,6 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     let ctx = EpserdeContext {
         derive_input: &derive_input,
         type_const_params,
-        type_params,
         repl_params,
         forced_params,
         generics_for_impl,
@@ -2227,9 +2226,8 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     .into();
 
     // Automatically derive type info
-    out.extend(_type_info_derive(
+    out.extend(type_info_derive_impl(
         &derive_input,
-        ctx.type_params,
         const_params,
         ctx.generics_for_impl,
         ctx.generics_for_type,
@@ -2248,8 +2246,6 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 struct TypeInfoContext<'a> {
     /// The name of the type
     name: &'a syn::Ident,
-    /// Identifiers of type parameters as a set.
-    type_params: HashSet<&'a syn::Ident>,
     /// Identifiers of const parameters, in order of appearance.
     const_params: Vec<&'a syn::Ident>,
     /// Generics for the `impl` clause as returned by
@@ -2517,12 +2513,31 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
     let mut all_align_hashes = vec![];
     let mut all_align_tos = vec![];
     let mut all_field_types = vec![];
-    let mut all_eps_params = HashSet::new();
 
     // Process each variant
     for variant in &e.variants {
         let ident = &variant.ident;
         let mut type_hash = quote! { Hash::hash(stringify!(#ident), hasher); };
+        // For zero-copy enums the discriminant is stored verbatim in the
+        // serialized bytes (they are (de)serialized as raw memory), so
+        // re-numbering variants changes the encoding. We hash any explicit
+        // discriminant so such a change is detected as a type-hash mismatch
+        // rather than silently mis-decoding. Deep-copy enums instead write a
+        // positional tag, so their discriminant values are irrelevant and are
+        // deliberately not hashed (hashing them would break compatibility with
+        // data serialized before an unrelated discriminant edit). Hashing only
+        // explicit discriminants keeps enums with purely implicit discriminants
+        // backward-compatible; two distinct value mappings cannot collide, as
+        // identical explicit tokens at identical positions imply identical
+        // resolved values.
+        if ctx.is_zero_copy {
+            if let Some((_, discriminant)) = &variant.discriminant {
+                type_hash.extend([quote! {
+                    Hash::hash("=", hasher);
+                    Hash::hash(stringify!(#discriminant), hasher);
+                }]);
+            }
+        }
         let mut field_types = vec![];
         let mut align_hash = quote! {};
         let mut align_to = quote! {};
@@ -2552,15 +2567,6 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                             align_to = <#field_type as AlignTo>::align_to();
                         }
                     }]);
-
-                    if !ctx.is_zero_copy {
-                        // We look for type parameters that are types of fields
-                        if let Some(field_type_id) = get_ident(field_type) {
-                            if ctx.type_params.contains(field_type_id) {
-                                all_eps_params.insert(field_type_id);
-                            }
-                        }
-                    }
                 }
             }
 
@@ -2586,15 +2592,6 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                             align_to = <#field_type as AlignTo>::align_to();
                         }
                     }]);
-
-                    if !ctx.is_zero_copy {
-                        // We look for type parameters that are types of fields
-                        if let Some(field_type_id) = get_ident(field_type) {
-                            if ctx.type_params.contains(field_type_id) {
-                                all_eps_params.insert(field_type_id);
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -2611,7 +2608,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
     let type_hash_body = gen_type_hash_body(&ctx, &all_type_hashes);
     let align_hash_body = gen_enum_align_hash_body(&ctx, &all_align_hashes);
     let align_to_body = quote! {
-        let mut align_to = core::mem::align_of::<Self>();
+        let mut align_to = ::core::mem::align_of::<Self>();
         #(
             #all_align_tos
         )*
@@ -2662,16 +2659,15 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         Ok(v) => v,
         Err(e) => return e.to_compile_error().into(),
     };
-    let (_, type_params, const_params) = match get_type_const_params(&derive_input) {
+    let (_, _type_params, const_params) = match get_type_const_params(&derive_input) {
         Ok(v) => v,
         Err(e) => return e.to_compile_error().into(),
     };
 
     emit_deprecation_warnings(&attrs, &derive_input.ident);
 
-    _type_info_derive(
+    type_info_derive_impl(
         &derive_input,
-        type_params,
         const_params,
         generics_for_impl,
         generics_for_type,
@@ -2682,11 +2678,10 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
 /// Completes the [`TypeInfo`] derive macro using precomputed data.
 ///
-/// This method is used by the [`Epserde`] derive macro to
+/// This function is used by the [`Epserde`] derive macro to
 /// avoid recomputing the same data twice.
-fn _type_info_derive(
+fn type_info_derive_impl(
     derive_input: &DeriveInput,
-    type_params: HashSet<&syn::Ident>,
     const_params: Vec<&syn::Ident>,
     generics_for_impl: ImplGenerics<'_>,
     generics_for_type: TypeGenerics<'_>,
@@ -2701,7 +2696,6 @@ fn _type_info_derive(
 
     let ctx = TypeInfoContext {
         name: &derive_input.ident,
-        type_params,
         const_params,
         generics_for_type,
         generics_for_impl,

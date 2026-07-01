@@ -109,5 +109,8 @@ pub(crate) fn std_align_hash<T: ZeroCopy>(
 ///
 /// Deep-copy types do not need to implement [`AlignTo`].
 pub trait AlignTo: Sized {
+    /// Returns the alignment (in bytes) to which this type must be padded in
+    /// serialized data, or `0` for zero-sized types (which impose no
+    /// alignment).
     fn align_to() -> usize;
 }

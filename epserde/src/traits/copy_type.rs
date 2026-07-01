@@ -25,6 +25,8 @@ use sealed::sealed;
 /// (de)serialize the type field by field.
 #[sealed]
 pub trait CopySelector {
+    /// Whether the selected flavor is zero-copy: `true` for [`Zero`], `false`
+    /// for [`Deep`].
     const IS_ZERO_COPY: bool;
 }
 /// An implementation of a [`CopySelector`] specifying that a type is zero-copy.
@@ -91,6 +93,8 @@ impl CopySelector for Deep {
 /// The trait is unsafe because the user must guarantee that zero-copy types do
 /// not contain references, and this cannot be checked by the compiler.
 pub unsafe trait CopyType: Sized {
+    /// The copy flavor of this type: [`Zero`] for zero-copy types, [`Deep`] for
+    /// deep-copy types.
     type Copy: CopySelector;
 }
 

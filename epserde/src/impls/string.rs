@@ -53,7 +53,7 @@ impl DeserInner for String {
     check_covariance!();
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let slice = unsafe { deser_full_vec_zero(backend) }?;
-        Ok(String::from_utf8(slice).unwrap())
+        String::from_utf8(slice).map_err(|_| deser::Error::InvalidData)
     }
 
     type DeserType<'a> = &'a str;

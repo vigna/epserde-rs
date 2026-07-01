@@ -40,6 +40,7 @@ use alloc::{
 #[cfg(feature = "std")]
 use std::{io::BufReader, path::Path};
 
+/// The result type for deserialization, using the deserialization [`Error`].
 pub type Result<T> = core::result::Result<T, Error>;
 
 /// A shorthand for the [deserialization associated
@@ -135,16 +136,24 @@ macro_rules! unsafe_assume_covariance {
 ///
 /// All deserialization methods are unsafe.
 ///
-/// - No validation is performed on zero-copy types. For example, by altering a
-///   serialized form you can deserialize a vector of
-///   [`NonZeroUsize`](core::num::NonZeroUsize) containing zeros.
+/// - No validation is performed on zero-copy values during ε-copy
+///   deserialization. Types with a validity invariant are therefore reinterpreted
+///   without checking it, and an altered serialized form can produce a value the
+///   invariant forbids, which is undefined behavior. For example, this can yield
+///   an invalid `bool` (not `0`/`1`), an invalid `char` (a surrogate or a value
+///   above `0x10FFFF`), a zero [`NonZeroUsize`], or an ill-formed `str`. Full-copy
+///   deserialization of these types instead validates the value and returns
+///   [`Error::InvalidData`] on failure.
+///
 /// - The code assumes that the [`read_exact`](ReadNoStd::read_exact) method of
 ///   the backend does not read the buffer. If the method reads the buffer, it
 ///   will cause undefined behavior. This is a general issue with Rust as the
 ///   I/O traits were written before [`MaybeUninit`] was stabilized.
+///
 /// - Malicious [`TypeHash`]/[`AlignHash`] implementations may lead to reading
 ///   incompatible structures using the same code, or cause undefined behavior
 ///   by loading data with an incorrect alignment.
+///
 /// - Memory-mapped files might be modified externally.
 ///
 /// The first problem can be solved by traits like
@@ -153,6 +162,8 @@ macro_rules! unsafe_assume_covariance {
 ///
 /// The last two issues are more an issue of security than undefined behavior,
 /// but that is in the eye of the beholder.
+///
+/// [`NonZeroUsize`]: core::num::NonZeroUsize
 pub trait Deserialize: DeserInner {
     /// Fully deserializes a structure of this type from the given backend.
     ///
@@ -700,9 +711,9 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
 
     let ser_type_hash = unsafe { u64::_deser_full_inner(backend)? };
     let ser_align_hash = unsafe { u64::_deser_full_inner(backend)? };
-    let ser_type_name = unsafe { String::_deser_full_inner(backend)? }.to_string();
 
     if ser_type_hash != self_type_hash {
+        let ser_type_name = unsafe { String::_deser_full_inner(backend)? };
         return Err(Error::WrongTypeHash {
             ser_type_name,
             ser_type_hash,
@@ -712,6 +723,7 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
         });
     }
     if ser_align_hash != self_align_hash {
+        let ser_type_name = unsafe { String::_deser_full_inner(backend)? };
         return Err(Error::WrongAlignHash {
             ser_type_name,
             ser_align_hash,
@@ -721,6 +733,9 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
         });
     }
 
+    // Consume the type name to position the stream at the body.
+    let _ = unsafe { String::_deser_full_inner(backend)? };
+
     Ok(())
 }
 
@@ -728,7 +743,9 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
 /// deserialization for [`crate::traits::ZeroCopy`] and [`crate::traits::DeepCopy`] types.
 /// See [`crate::traits::CopyType`] for more information.
 pub trait DeserHelper<T: CopySelector> {
+    /// The type returned by full-copy deserialization (an owned instance).
     type FullType;
+    /// The type returned by ε-copy deserialization for lifetime `'a`.
     type DeserType<'a>;
 
     /// # Safety
@@ -788,6 +805,18 @@ pub enum Error {
     #[error("Invalid tag: 0x{0:02x}")]
     /// A tag is wrong (e.g., for [`Option`]).
     InvalidTag(usize),
+    #[error("Invalid data during ε-serde deserialization")]
+    /// The serialized bytes do not encode a valid value of the deserializing
+    /// type on a value-validating path (e.g., a zero for a `NonZero*` type, an
+    /// out-of-range scalar for a [`char`], or invalid UTF-8 for a [`String`]).
+    ///
+    /// Note that this error can only be returned by full-copy deserialization
+    /// of the affected types, which validates values; ε-copy deserialization of
+    /// zero-copy types performs no such validation (see the
+    /// [trait documentation]).
+    ///
+    /// [trait documentation]: Deserialize
+    InvalidData,
     #[error(
         r#"Wrong type hash
 Actual: 0x{ser_type_hash:016x}; expected: 0x{self_type_hash:016x}.

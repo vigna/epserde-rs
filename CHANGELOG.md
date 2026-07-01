@@ -32,7 +32,17 @@
 
 - `SliceWithPos::skip` can now return an error.
 
+- The `TypeHash` of a zero-copy enum now includes any explicit discriminant
+  values. Since such an enum is (de)serialized as raw bytes, re-numbering its
+  variants changes the encoding; hashing the discriminants makes such a change
+  a detectable type-hash mismatch rather than a silent mis-decode.
+
 ### New
+
+- New deserialization error variant `deser::Error::InvalidData`, returned by
+  full-copy deserialization of a `NonZero*`, `char`, or `String` whose
+  serialized bytes do not encode a valid value (previously these paths
+  panicked).
 
 - Also mutable references to slices can be now serialized.
 
@@ -55,6 +65,20 @@
 
 - The `TypeHash` of `Vec<T>` was the same as that of `Box<[T]>`, which would
   have made them equivalent as parameters in `PhantomData`.
+
+- Full-copy deserialization of a `NonZero*`, `char`, or `String` now returns
+  `deser::Error::InvalidData` on invalid serialized bytes instead of panicking.
+
+- The `no_std` `WriteNoStd` implementation for `AlignedCursor` no longer panics
+  when a write is truncated at the `usize::MAX` length limit (it now matches the
+  `std` `Write` implementation).
+
+- The derive macro no longer requires a spurious `DeepCopy` bound on a type
+  parameter that occurs only inside a `PhantomData` sequence (e.g.
+  `PhantomData<Vec<U>>`) sharing a field with an ε-copy sequence.
+
+- `ser::Error` now exposes the underlying I/O error as the `source()` of its
+  `FileOpenError` variant.
 
 ## [0.12.6] - 2026-04-02
 

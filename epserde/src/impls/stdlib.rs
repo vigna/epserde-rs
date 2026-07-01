@@ -7,8 +7,9 @@
 
 //! Implementation for structures from the standard library.
 //!
-//! Note that none of this types can be zero-copy (unless they are empty, as in
-//! the case of [`RangeFull`], because they are not `repr(C)`.
+//! Note that none of these types can be zero-copy (unless they are empty, as in
+//! the case of [`RangeFull`]), because they are not `repr(C)`.
+
 use ser::WriteWithNames;
 
 use crate::{check_covariance, prelude::*};

@@ -54,6 +54,59 @@ fn test_type_hash_collision() {
 }
 
 #[test]
+/// A zero-copy enum is (de)serialized as raw bytes, so its discriminant values
+/// are part of the encoding: re-numbering variants must change the type hash,
+/// or old data would silently mis-decode. The enums below are local to sibling
+/// functions, so they share the same name and `module_path!()`; only the
+/// discriminant differs, isolating its contribution to the hash.
+fn test_zero_copy_enum_discriminant_hash() {
+    fn a1() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        #[repr(C)]
+        #[epserde(zero_copy)]
+        enum E {
+            A = 0,
+            B = 1,
+        }
+        let mut h = Xxh3::with_seed(0);
+        E::type_hash(&mut h);
+        h.finish()
+    }
+    fn a2() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        #[repr(C)]
+        #[epserde(zero_copy)]
+        enum E {
+            A = 0,
+            B = 1,
+        }
+        let mut h = Xxh3::with_seed(0);
+        E::type_hash(&mut h);
+        h.finish()
+    }
+    fn b() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        #[repr(C)]
+        #[epserde(zero_copy)]
+        enum E {
+            A = 0,
+            B = 5,
+        }
+        let mut h = Xxh3::with_seed(0);
+        E::type_hash(&mut h);
+        h.finish()
+    }
+
+    // Control: identical enums hash identically (name + module path match).
+    assert_eq!(a1(), a2());
+    // The fix: differing explicit discriminants change the hash.
+    assert_ne!(a1(), b());
+}
+
+#[test]
 fn test_type_hash_const_type_parameters() {
     #[derive(epserde::Epserde)]
     struct S<const N: usize>(std::marker::PhantomData<[u8; N]>);

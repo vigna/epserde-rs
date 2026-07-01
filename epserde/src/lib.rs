@@ -28,6 +28,10 @@ pub mod ser;
 pub mod traits;
 pub mod utils;
 
+/// Re-exports of the traits, types, and macros commonly needed to use ε-serde.
+///
+/// Glob-import it (`use epserde::prelude::*;`) to bring the (de)serialization
+/// traits and helpers into scope.
 pub mod prelude {
     #[allow(deprecated)]
     pub use crate::PhantomDeserData;
@@ -205,10 +209,14 @@ impl<T: DeserInner> DeserInner for PhantomDeserData<T> {
 }
 
 #[cfg(test)]
-#[test]
-fn test_pad_align_to() {
-    assert_eq!(7 + pad_align_to(7, 8), 8);
-    assert_eq!(8 + pad_align_to(8, 8), 8);
-    assert_eq!(9 + pad_align_to(9, 8), 16);
-    assert_eq!(36 + pad_align_to(36, 16), 48);
+mod tests {
+    use super::pad_align_to;
+
+    #[test]
+    fn test_pad_align_to() {
+        assert_eq!(7 + pad_align_to(7, 8), 8);
+        assert_eq!(8 + pad_align_to(8, 8), 8);
+        assert_eq!(9 + pad_align_to(9, 8), 16);
+        assert_eq!(36 + pad_align_to(36, 16), 48);
+    }
 }

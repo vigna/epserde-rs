@@ -8,7 +8,7 @@
 //! Implementations for tuples.
 //!
 //! We only support tuples of up to 12 elements of the same [`ZeroCopy`] type.
-//! The is no `repr(C)` for tuples, so we [cannot guarantee that the storage
+//! There is no `repr(C)` for tuples, so we [cannot guarantee that the storage
 //! order of the fields is
 //! well-defined](https://doc.rust-lang.org/reference/type-layout.html#the-rust-representation).
 //!
