@@ -9,8 +9,7 @@
 //!
 //! We only support tuples of up to 12 elements of the same [`ZeroCopy`] type.
 //! There is no `repr(C)` for tuples, so we [cannot guarantee that the storage
-//! order of the fields is
-//! well-defined](https://doc.rust-lang.org/reference/type-layout.html#the-rust-representation).
+//! order of the fields is well-defined].
 //!
 //! To circumvent this problem, you can define a tuple newtype with a `repr(C)`
 //! attribute.
@@ -21,6 +20,8 @@
 //! Note that up to ε-serde 0.7.0 we provided an erroneous implementation for
 //! mixed zero-copy types. If you serialized a structure using such a tuple,
 //! it will be no longer deserializable.
+//!
+//! [cannot guarantee that the storage order of the fields is well-defined]: https://doc.rust-lang.org/reference/type-layout.html#the-rust-representation
 
 use crate::check_covariance;
 use crate::prelude::*;

@@ -7,7 +7,9 @@
 
 #![allow(clippy::collapsible_if)]
 
-//! Derive procedural macros for the [`epserde`](https://crates.io/crates/epserde) crate.
+//! Derive procedural macros for the [`epserde`] crate.
+//!
+//! [`epserde`]: https://crates.io/crates/epserde
 
 use quote::{ToTokens, quote};
 use std::{
@@ -1216,11 +1218,13 @@ struct EpserdeContext<'a> {
     /// `#[epserde(full_copy(...))]` attribute, as a subset of the declared type
     /// parameters.
     forced_params: HashSet<&'a syn::Ident>,
-    /// Generics for the `impl` clause as returned by
-    /// [`split_for_impl`](syn::Generics::split_for_impl).
+    /// Generics for the `impl` clause as returned by [`split_for_impl`].
+    ///
+    /// [`split_for_impl`]: syn::Generics::split_for_impl
     generics_for_impl: ImplGenerics<'a>,
-    /// Generics for the type as returned by
-    /// [`split_for_impl`](syn::Generics::split_for_impl).
+    /// Generics for the type as returned by [`split_for_impl`].
+    ///
+    /// [`split_for_impl`]: syn::Generics::split_for_impl
     generics_for_type: TypeGenerics<'a>,
     /// The where clause for the type being derived.
     where_clause: &'a WhereClause,
@@ -1903,7 +1907,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
     }
 }
 
-/// Generates an [ε-serde](Epserde) implementation for custom types.
+/// Generates an [ε-serde] implementation for custom types.
 ///
 /// It generates implementations for the traits `CopyType`, `TypeHash`,
 /// `AlignHash`, `SerInner`, and `DeserInner` (and `AlignTo` for zero-copy
@@ -2026,6 +2030,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 ///     inner: Inner<T>,  // Inner<T>::DeserType<'_> = Inner<T>
 /// }
 /// ```
+///
+/// [ε-serde]: Epserde
 #[proc_macro_derive(Epserde, attributes(epserde_zero_copy, epserde_deep_copy, epserde))]
 pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // This part is in common with type_info_derive
@@ -2243,11 +2249,13 @@ struct TypeInfoContext<'a> {
     name: &'a syn::Ident,
     /// Identifiers of const parameters, in order of appearance.
     const_params: Vec<&'a syn::Ident>,
-    /// Generics for the `impl` clause as returned by
-    /// [`split_for_impl`](syn::Generics::split_for_impl).
+    /// Generics for the `impl` clause as returned by [`split_for_impl`].
+    ///
+    /// [`split_for_impl`]: syn::Generics::split_for_impl
     generics_for_impl: ImplGenerics<'a>,
-    /// Generics for the type as returned by
-    /// [`split_for_impl`](syn::Generics::split_for_impl).
+    /// Generics for the type as returned by [`split_for_impl`].
+    ///
+    /// [`split_for_impl`]: syn::Generics::split_for_impl
     generics_for_type: TypeGenerics<'a>,
     /// The where clause for the type being derived.
     where_clause: &'a WhereClause,
@@ -2633,11 +2641,13 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
     )
 }
 
-/// Generates a [partial ε-serde](TypeInfo) implementation for custom types.
+/// Generates a [partial ε-serde] implementation for custom types.
 ///
 /// It generates implementations just for the traits `TypeHash` and `AlignHash`
 /// (plus `AlignTo` for zero-copy types), but not for `CopyType`, `SerInner`, or
 /// `DeserInner`. See the documentation of [`Epserde`] for more information.
+///
+/// [partial ε-serde]: TypeInfo
 #[proc_macro_derive(TypeInfo, attributes(epserde_zero_copy, epserde_deep_copy, epserde))]
 pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut derive_input = parse_macro_input!(input as DeriveInput);

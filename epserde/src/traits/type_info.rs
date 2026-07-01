@@ -14,25 +14,27 @@ use super::ZeroCopy;
 
 /// Recursively compute a type hash for a type.
 ///
-/// [`type_hash`](TypeHash::type_hash) is a recursive function that computes
-/// information about a type. It is used to check that the serialization type of
-/// the data being deserialized matches the serialization type of the data that
-/// was written.
+/// [`type_hash`] is a recursive function that computes information about a
+/// type. It is used to check that the serialization type of the data being
+/// deserialized matches the serialization type of the data that was written.
 ///
 /// The type hasher should store information about the name and the type of the
 /// fields of a type, and the name of the type itself.
 ///
-/// When serializing an instance of type `T`,
-/// [`SerType<T>`](crate::ser::SerInner::SerType) must implement this trait.
+/// When serializing an instance of type `T`, [`SerType<T>`] must implement this
+/// trait.
 ///
 /// Additionally, it is recommended that commonly used types implement this
 /// trait, even if their serialization type is different, because it makes it
-/// possible use correctly [`PhantomData`](core::marker::PhantomData), which
-/// implement its type hash using its argument type hash, and not the type hash
-/// of the serialization type of its argument, so the type hash of
-/// `PhantomData<Vec<usize>>` is different from that of
-/// `PhantomData<Box<[usize]>>` even if the type hash of the serialization type
-/// of `Vec<usize>` and `Box<[usize]>` is the same.
+/// possible use correctly [`PhantomData`], which implement its type hash using
+/// its argument type hash, and not the type hash of the serialization type of
+/// its argument, so the type hash of `PhantomData<Vec<usize>>` is different
+/// from that of `PhantomData<Box<[usize]>>` even if the type hash of the
+/// serialization type of `Vec<usize>` and `Box<[usize]>` is the same.
+///
+/// [`type_hash`]: TypeHash::type_hash
+/// [`SerType<T>`]: crate::ser::SerInner::SerType
+/// [`PhantomData`]: core::marker::PhantomData
 pub trait TypeHash {
     /// Accumulates type information in `hasher`.
     fn type_hash(hasher: &mut impl core::hash::Hasher);
@@ -45,10 +47,10 @@ pub trait TypeHash {
 
 /// Recursively compute an alignment hash for a zero-copy type.
 ///
-/// [`align_hash`](AlignHash::align_hash) is a recursive function that computes
-/// alignment information about zero-copy types. It is used to check that the
-/// alignment (and thus padding) of data that is zero-copied matches the
-/// alignment at serialization time.
+/// [`align_hash`] is a recursive function that computes alignment information
+/// about zero-copy types. It is used to check that the alignment (and thus
+/// padding) of data that is zero-copied matches the alignment at serialization
+/// time.
 ///
 /// More precisely, at each call a zero-copy type looks at `offset_of`, assuming
 /// that the type is stored at that offset in the structure, hashes in the
@@ -58,12 +60,14 @@ pub trait TypeHash {
 ///
 /// All deep-copy types must implement [`AlignHash`] as a no-op.
 ///
-/// When serializing an instance of type `T`,
-/// [`SerType<T>`](crate::ser::SerInner::SerType) must implement this trait.
-/// Thus, if `T` different from its serialization type it is not necessary to
-/// implement this trait for `T`. For example, [`String`] does not need to
-/// implement this trait, because its serialization type is `Box<str>`,
+/// When serializing an instance of type `T`, [`SerType<T>`] must implement this
+/// trait. Thus, if `T` different from its serialization type it is not
+/// necessary to implement this trait for `T`. For example, [`String`] does not
+/// need to implement this trait, because its serialization type is `Box<str>`,
 /// which indeed implements this trait.
+///
+/// [`align_hash`]: AlignHash::align_hash
+/// [`SerType<T>`]: crate::ser::SerInner::SerType
 pub trait AlignHash {
     /// Accumulates alignment information in `hasher` assuming to be positioned
     /// at `offset_of`.

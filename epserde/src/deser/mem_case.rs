@@ -4,11 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Mechanisms for keeping together [ε-copy
-//! deserialized](crate::deser::Deserialize::deserialize_eps) instances and the
+//! Mechanisms for keeping together [ε-copy deserialized] instances and the
 //! memory regions they point to.
 //!
 //! Please refer to the documentation of [`MemCase`] for details.
+//!
+//! [ε-copy deserialized]: crate::deser::Deserialize::deserialize_eps
 
 use crate::{DeserInner, deser::DeserType, ser::SerInner};
 use aliasable::boxed::AliasableBox;
@@ -17,8 +18,10 @@ use core::fmt;
 use maybe_dangling::MaybeDangling;
 
 bitflags! {
-    /// Flags for [`mmap`](crate::deser::Deserialize::mmap)
-    /// and [`load_mmap`](crate::deser::Deserialize::load_mmap).
+    /// Flags for [`mmap`] and [`load_mmap`].
+    ///
+    /// [`mmap`]: crate::deser::Deserialize::mmap
+    /// [`load_mmap`]: crate::deser::Deserialize::load_mmap
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Flags: u32 {
         /// Suggest to map a region using transparent huge pages. This flag
@@ -67,16 +70,20 @@ impl Flags {
     }
 }
 
-/// The alignment by the [`Memory`](MemBackend::Memory) variant of
-/// [`MemBackend`].
+/// The alignment by the [`Memory`] variant of [`MemBackend`].
+///
+/// [`Memory`]: MemBackend::Memory
 pub type MemoryAlignment = crate::Aligned64;
 
-/// Possible backends of a [`MemCase`]. The [`None`](MemBackend::None) variant
-/// is used when the instance is owned; the [`Memory`](MemBackend::Memory)
-/// variant is used when the instance has been deserialized from a
-/// heap-allocated memory region; the [`Mmap`](MemBackend::Mmap) variant is used
-/// when the instance has been deserialized from a `mmap()`-based region, either
-/// coming from an allocation or a from mapping a file.
+/// Possible backends of a [`MemCase`]. The [`None`] variant is used when the
+/// instance is owned; the [`Memory`] variant is used when the instance has
+/// been deserialized from a heap-allocated memory region; the [`Mmap`] variant
+/// is used when the instance has been deserialized from a `mmap()`-based
+/// region, either coming from an allocation or a from mapping a file.
+///
+/// [`None`]: MemBackend::None
+/// [`Memory`]: MemBackend::Memory
+/// [`Mmap`]: MemBackend::Mmap
 #[derive(Debug)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub enum MemBackend {
@@ -101,7 +108,9 @@ pub enum MemBackend {
 
 impl MemBackend {
     /// Returns the bytes of the backing memory region, or [`None`] for the
-    /// [`None`](MemBackend::None) (owned) variant.
+    /// [`None`][owned] (owned) variant.
+    ///
+    /// [owned]: MemBackend::None
     pub fn as_bytes(&self) -> Option<&[u8]> {
         match self {
             MemBackend::None => None,
@@ -124,24 +133,28 @@ impl MemBackend {
 /// A transparent wrapper that implements the ε-serde (de)serialization traits
 /// with (de)serialization type equal to `T`.
 ///
-/// The only purpose of this wrapper is to make [encasing](MemCase::encase) of
-/// arbitrary owned types possible, since the parameter of a [`MemCase`] must
-/// implement [`DeserInner`].
+/// The only purpose of this wrapper is to make [encasing] of arbitrary owned
+/// types possible, since the parameter of a [`MemCase`] must implement
+/// [`DeserInner`].
 ///
 /// No instance of this structure will ever be accessible to the user. All
-/// methods are unimplemented. If the convenience type alias
-/// [`MemOwned<T>`](MemOwned) is used, the user does not even have to ever
-/// mention this type.
+/// methods are unimplemented. If the convenience type alias [`MemOwned<T>`] is
+/// used, the user does not even have to ever mention this type.
+///
+/// [encasing]: MemCase::encase
+/// [`MemOwned<T>`]: MemOwned
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[repr(transparent)]
 pub struct Owned<T>(T);
 
-/// A convenience type alias for the type of [`MemCase`] instances
-/// containing owned instances.
+/// A convenience type alias for the type of [`MemCase`] instances containing
+/// owned instances.
 ///
 /// This alias is particular useful in conjunction with the [implementation of
-/// `From<T>` for `MemOwned<T>`](#impl-From<T>-for-MemCase<Owned<T>>).
+/// `From<T>` for `MemOwned<T>`].
+///
+/// [implementation of `From<T>` for `MemOwned<T>`]: #impl-From<T>-for-MemCase<Owned<T>>
 pub type MemOwned<T> = MemCase<Owned<T>>;
 
 impl<T> DeserInner for Owned<T> {
@@ -183,20 +196,18 @@ impl<T> SerInner for Owned<T> {
 ///
 /// [`MemCase`] instances can not be cloned, but references to such instances
 /// can be shared freely. For convenience we provide delegations for [`AsRef`]
-/// and [`Deref`](core::ops::Deref), and an implementation of [`PartialEq`] and
-/// [`Eq`] whenever the inner type supports them.
+/// and [`Deref`], and an implementation of [`PartialEq`] and [`Eq`] whenever
+/// the inner type supports them.
 ///
 /// A [`MemCase`] is parameterized by a type `S` implementing [`DeserInner`],
-/// but it stores an inner instance of type [`DeserType<'static,
-/// S>`](DeserType). The references contained in the latter point inside the
-/// [`MemBackend`] (i.e., a [`MemCase`] is in general self-referential). You
-/// must use [`uncase`](MemCase::uncase) to get a reference to the inner
-/// instance.
+/// but it stores an inner instance of type [`DeserType<'static, S>`]. The
+/// references contained in the latter point inside the [`MemBackend`] (i.e., a
+/// [`MemCase`] is in general self-referential). You must use [`uncase`] to get
+/// a reference to the inner instance.
 ///
 /// [`MemCase`] instances can also be built from owned instances using the
-/// [`MemCase::encase`] method or the [convenient
-/// implementation](#impl-From<T>-for-MemCase<Owned<T>>) of [`From`] for
-/// [`MemOwned<T>`](MemOwned).
+/// [`MemCase::encase`] method or the [convenient implementation] of [`From`]
+/// for [`MemOwned<T>`].
 ///
 /// It is thus possible to treat ε-copy deserialized instances and owned
 /// instances uniformly using [`MemCase`]. The only drawback is that
@@ -206,7 +217,7 @@ impl<T> SerInner for Owned<T> {
 /// Note that if you plan to bound with traits the behavior of [`MemCase`]
 /// instances, you should do so on the deserialization type associated with the
 /// underlying type, as that will be the type of the reference returned by
-/// [`uncase`](MemCase::uncase).
+/// [`uncase`].
 ///
 /// # Why not the [`yoke`] crate?
 ///
@@ -225,14 +236,14 @@ impl<T> SerInner for Owned<T> {
 ///    lifetime cast is sound only by contract. We instead prove covariance with
 ///    the compiler-checked [`CovariantProof`] / [`DeserInner::__check_covariance`]
 ///    machinery.
-/// 3. **No support for arbitrary owned instances.** [`encase`](MemCase::encase)
-///    wraps an *arbitrary* owned `T` (see the [`From`] impl for
-///    [`MemOwned<T>`](MemOwned)) with no trait bound on `T`. [`yoke`] cannot hold
-///    an arbitrary owned type: even its owned constructors
-///    ([`Yoke::new_always_owned`], giving [`Yoke<Y, ()>`][`Yoke`]) still require
-///    `Y: for<'a> Yokeable<'a>`, which a plain user struct does not implement.
-///    Wrapping [`Yoke`] would therefore restrict [`encase`](MemCase::encase) to
-///    [`Yokeable`] types, whereas [`MemBackend::None`] supports any `T` directly.
+/// 3. **No support for arbitrary owned instances.** [`encase`] wraps an
+///    *arbitrary* owned `T` (see the [`From`] impl for [`MemOwned<T>`]) with no
+///    trait bound on `T`. [`yoke`] cannot hold an arbitrary owned type: even
+///    its owned constructors ([`Yoke::new_always_owned`], giving [`Yoke<Y,
+///    ()>`][`Yoke`]) still require `Y: for<'a> Yokeable<'a>`, which a plain
+///    user struct does not implement. Wrapping [`Yoke`] would therefore
+///    restrict [`encase`] to [`Yokeable`] types, whereas [`MemBackend::None`]
+///    supports any `T` directly.
 ///
 /// [`yoke`]: https://docs.rs/yoke/latest/yoke/
 /// [`Yoke`]: https://docs.rs/yoke/latest/yoke/struct.Yoke.html
@@ -241,11 +252,18 @@ impl<T> SerInner for Owned<T> {
 /// [`StableDeref`]: https://docs.rs/stable_deref_trait/latest/stable_deref_trait/trait.StableDeref.html
 /// [`MaybeDangling`]: maybe_dangling::MaybeDangling
 /// [`CovariantProof`]: super::CovariantProof
+/// [`Deref`]: core::ops::Deref
+/// [`DeserType<'static, S>`]: DeserType
+/// [`uncase`]: MemCase::uncase
+/// [convenient implementation]: #impl-From<T>-for-MemCase<Owned<T>>
+/// [`MemOwned<T>`]: MemOwned
+/// [`encase`]: MemCase::encase
+/// [`Index<usize>`]: core::ops::Index
 ///
 /// # Examples
 ///
-/// Suppose we want to write a function accepting a [`MemCase`] whose
-/// inner instance implements [`Index<usize>`](core::ops::Index):
+/// Suppose we want to write a function accepting a [`MemCase`] whose inner
+/// instance implements [`Index<usize>`]:
 ///
 /// ```
 /// use epserde::deser::{MemCase, DeserInner};
@@ -277,9 +295,9 @@ where
 
 /// Convenience implementation to create a [`MemCase`] from an owned instance.
 ///
-/// If you are assigning to a field of type [`MemOwned<T>`](MemOwned)
-/// (a type alias for `MemCase<Owned<T>>`, you can
-/// just write `field: t.into()`, where `t` is of type `T`.
+/// If you are assigning to a field of type [`MemOwned<T>`] (a type alias for
+/// `MemCase<Owned<T>>`, you can just write `field: t.into()`, where `t` is of
+/// type `T`.
 ///
 /// # Examples
 ///
@@ -288,6 +306,8 @@ where
 /// let owned: MemOwned<Vec<usize>> = vec![1, 2, 3].into();
 /// assert_eq!(owned.uncase(), &[1, 2, 3]);
 /// ```
+///
+/// [`MemOwned<T>`]: MemOwned
 impl<T> From<T> for MemCase<Owned<T>> {
     fn from(t: T) -> Self {
         <MemOwned<T>>::encase(t)
@@ -299,14 +319,16 @@ impl<S: DeserInner> MemCase<S> {
     ///
     /// A [`MemCase`] must store a deserialization associated type, so this
     /// methods wraps its argument in a [`Owned`] wrapper, returning the type
-    /// alias [`MemOwned<T>`](MemOwned), which is [`MemCase<Owned<T>>`]. Since
-    /// the deserialization type of [`Owned<T>`] is `T`, [`MemCase::uncase`]
-    /// will return a reference to the instance of `T`.
+    /// alias [`MemOwned<T>`], which is [`MemCase<Owned<T>>`]. Since the
+    /// deserialization type of [`Owned<T>`] is `T`, [`MemCase::uncase`] will
+    /// return a reference to the instance of `T`.
     ///
     /// Type inference will not work with this method as the compiler should be
-    /// able to work back `T` from `MemOwned<T>::DeserType<'a>`. The
-    /// [convenient implementation of `From<T>` for
-    /// `MemOwned<T>`](#impl-From<T>-for-MemCase<Owned<T>>) is usually easier to use.
+    /// able to work back `T` from `MemOwned<T>::DeserType<'a>`. The [convenient
+    /// implementation of `From<T>` for `MemOwned<T>`] is usually easier to use.
+    ///
+    /// [`MemOwned<T>`]: MemOwned
+    /// [convenient implementation of `From<T>` for `MemOwned<T>`]: #impl-From<T>-for-MemCase<Owned<T>>
     pub const fn encase<T>(s: T) -> MemOwned<T> {
         MemCase(MaybeDangling::new(s), MemBackend::None)
     }

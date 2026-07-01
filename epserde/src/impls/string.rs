@@ -11,12 +11,14 @@
 //! deserialization type, `&str`. Thus, you can serialize a `String` and fully
 //! deserialize it as `Box<str>`.
 //!
-//! Similarly to the case of [slices](crate::impls::slice), there is
-//! a convenience [`SerInner`] implementation for `&str` that
-//! serializes it as `Box<str>`.
+//! Similarly to the case of [slices], there is a convenience [`SerInner`]
+//! implementation for `&str` that serializes it as `Box<str>`.
 //!
 //! We implement [`TypeHash`] for `str` so that it can be used in
-//! [`PhantomData`](core::marker::PhantomData).
+//! [`PhantomData`].
+//!
+//! [slices]: crate::impls::slice
+//! [`PhantomData`]: core::marker::PhantomData
 
 use crate::{check_covariance, prelude::*};
 use core::hash::Hash;

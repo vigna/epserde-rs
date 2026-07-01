@@ -19,11 +19,13 @@ use alloc::vec::Vec;
 /// used to create examples or unit tests involving ε-copy deserialization. This
 /// version has a settable alignment that is guaranteed to be respected by the
 /// underlying storage; for example, ε-serde provides built-in alignments
-/// [`Aligned16`], and [`Aligned64`](crate::Aligned64).
+/// [`Aligned16`], and [`Aligned64`].
 ///
 /// Note that length and position are stored as `usize` values, so the maximum
 /// length and position are `usize::MAX`. This is different from
 /// `std::io::Cursor`, which uses a `u64`.
+///
+/// [`Aligned64`]: crate::Aligned64
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub struct AlignedCursor<T = Aligned16> {
@@ -74,10 +76,13 @@ impl<T: Default + Clone> AlignedCursor<T> {
 
     /// Returns a reference to the underlying storage as bytes.
     ///
-    /// Only the first [len](AlignedCursor::len) bytes are valid.
+    /// Only the first [len] bytes are valid.
     ///
     /// Note that the reference is always to the whole storage, independently of
-    /// the current [position](AlignedCursor::position).
+    /// the current [position].
+    ///
+    /// [len]: AlignedCursor::len
+    /// [position]: AlignedCursor::position
     pub fn as_bytes(&self) -> &[u8] {
         let ptr = self.vec.as_ptr() as *const u8;
         unsafe { slice::from_raw_parts(ptr, self.len) }
@@ -85,10 +90,13 @@ impl<T: Default + Clone> AlignedCursor<T> {
 
     /// Returns a mutable reference to the underlying storage as bytes.
     ///
-    /// Only the first [len](AlignedCursor::len) bytes are valid.
+    /// Only the first [len] bytes are valid.
     ///
-    /// Note that the reference is always to the whole storage,
-    /// independently of the current [position](AlignedCursor::position).
+    /// Note that the reference is always to the whole storage, independently of
+    /// the current [position].
+    ///
+    /// [len]: AlignedCursor::len
+    /// [position]: AlignedCursor::position
     pub fn as_bytes_mut(&mut self) -> &mut [u8] {
         let ptr = self.vec.as_mut_ptr() as *mut u8;
         unsafe { slice::from_raw_parts_mut(ptr, self.len) }
@@ -135,17 +143,18 @@ impl<T: Default + Clone> Default for AlignedCursor<T> {
 }
 
 #[cfg(not(feature = "std"))]
-/// This impl and the [`ReadNoStd`](crate::deser::ReadNoStd) impls for
-/// [`AlignedCursor`] are gated because we want [`AlignedCursor`] to implement
-/// `std::io::Read` and `std::io::Write` when `std` is available, and we
-/// have a blanket implementation that implements
-/// [`ReadNoStd`](crate::deser::ReadNoStd) and
-/// [`WriteNoStd`](crate::ser::WriteNoStd) for all `std::io::Read` and
-/// `std::io::Write`. This is needed so the user can transparently use our
-/// traits with `std::io::Read` and `std::io::Write`. But this means that if
-/// we implemented [`ReadNoStd`](crate::deser::ReadNoStd) and
-/// [`WriteNoStd`](crate::deser::ReadNoStd) for [`AlignedCursor`] when `std` is
-/// available, we would have two conflicting implementations.
+/// This impl and the [`ReadNoStd`] impls for [`AlignedCursor`] are gated
+/// because we want [`AlignedCursor`] to implement `std::io::Read` and
+/// `std::io::Write` when `std` is available, and we have a blanket
+/// implementation that implements [`ReadNoStd`] and [`WriteNoStd`] for all
+/// `std::io::Read` and `std::io::Write`. This is needed so the user can
+/// transparently use our traits with `std::io::Read` and `std::io::Write`. But
+/// this means that if we implemented [`ReadNoStd`] and [`WriteNoStd`] for
+/// [`AlignedCursor`] when `std` is available, we would have two conflicting
+/// implementations.
+///
+/// [`ReadNoStd`]: crate::deser::ReadNoStd
+/// [`WriteNoStd`]: crate::ser::WriteNoStd
 impl<T: Default + Clone> crate::deser::ReadNoStd for AlignedCursor<T> {
     fn read_exact(&mut self, buf: &mut [u8]) -> crate::deser::Result<()> {
         if self.pos + buf.len() > self.len {
@@ -159,7 +168,9 @@ impl<T: Default + Clone> crate::deser::ReadNoStd for AlignedCursor<T> {
 }
 
 #[cfg(not(feature = "std"))]
-/// See the comment for the [ReadNoStd](crate::deser::ReadNoStd) impl.
+/// See the comment for the [ReadNoStd] impl.
+///
+/// [ReadNoStd]: crate::deser::ReadNoStd
 impl<T: Default + Clone> crate::ser::WriteNoStd for AlignedCursor<T> {
     fn write_all(&mut self, buf: &[u8]) -> crate::ser::Result<()> {
         let len = buf.len().min(usize::MAX - self.pos);

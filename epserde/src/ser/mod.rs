@@ -32,7 +32,9 @@ use std::{io::BufWriter, path::Path};
 /// The result type for serialization, using the serialization [`Error`].
 pub type Result<T> = core::result::Result<T, Error>;
 
-/// A shorthand for [`<T as SerInner>::SerType`](SerInner::SerType).
+/// A shorthand for [`<T as SerInner>::SerType`].
+///
+/// [`<T as SerInner>::SerType`]: SerInner::SerType
 pub type SerType<T> = <T as SerInner>::SerType;
 
 /// Main serialization trait. It is separated from [`SerInner`] to avoid
@@ -49,9 +51,7 @@ pub type SerType<T> = <T as SerInner>::SerType;
 ///
 /// If you are concerned about this issue, you must organize your structures so
 /// that they do not contain any padding (e.g., by creating explicit padding
-/// bytes). Traits like
-/// [`FromBytes`](https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html)
-/// can provide this guarantee.
+/// bytes). Traits like [`FromBytes`] can provide this guarantee.
 ///
 /// For example, this code reads a portion of the stack:
 ///
@@ -73,19 +73,23 @@ pub type SerType<T> = <T as SerInner>::SerType;
 ///     println!("{:016x}", u64::from_ne_bytes(chunk.try_into().unwrap()));
 /// }
 /// ```
+///
+/// [`FromBytes`]: https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html
 pub trait Serialize {
     /// Serializes the type using the given backend.
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Serialize).
+    /// See the [trait documentation].
+    ///
+    /// [trait documentation]: Serialize
     unsafe fn serialize(&self, backend: &mut impl WriteNoStd) -> Result<usize> {
         let mut write_with_pos = WriterWithPos::new(backend);
         unsafe { self.ser_on_field_write(&mut write_with_pos) }?;
         Ok(write_with_pos.pos())
     }
 
-    /// Serializes the type using the given backend and return a [schema](Schema)
+    /// Serializes the type using the given backend and return a [schema]
     /// describing the data that has been written.
     ///
     /// This method is mainly useful for debugging and to check cross-language
@@ -93,7 +97,10 @@ pub trait Serialize {
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Serialize).
+    /// See the [trait documentation].
+    ///
+    /// [schema]: Schema
+    /// [trait documentation]: Serialize
     unsafe fn serialize_with_schema(&self, backend: &mut impl WriteNoStd) -> Result<Schema> {
         let mut writer_with_pos = WriterWithPos::new(backend);
         let mut schema_writer = SchemaWriter::new(&mut writer_with_pos);
@@ -105,14 +112,18 @@ pub trait Serialize {
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Serialize).
+    /// See the [trait documentation].
+    ///
+    /// [trait documentation]: Serialize
     unsafe fn ser_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()>;
 
     /// Convenience method to serialize to a file.
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Serialize).
+    /// See the [trait documentation].
+    ///
+    /// [trait documentation]: Serialize
     #[cfg(feature = "std")]
     unsafe fn store(&self, path: impl AsRef<Path>) -> Result<()> {
         let file = std::fs::File::create(path).map_err(Error::FileOpenError)?;
@@ -153,17 +164,19 @@ pub trait SerInner {
 /// Blanket implementation that prevents the user from overwriting the
 /// methods in [`Serialize`].
 ///
-/// This implementation [writes a header](`write_header`) containing a magic
-/// cookie, some hashes and debug information and then delegates to
-/// [WriteWithNames::write].
+/// This implementation [writes a header] containing a magic cookie, some hashes
+/// and debug information and then delegates to [WriteWithNames::write].
 ///
 /// # Implementation Notes
 ///
-/// Note the bound on the [`SerType`](SerInner::SerType) of `T`: we need to be
-/// able to compute type and alignment hashes for it. We could bound it in the
-/// definition of [`SerInner`], but having the bound here instead gives us more
-/// flexibility and makes the implementation of [`Owned`](crate::deser::Owned)
-/// easier.
+/// Note the bound on the [`SerType`] of `T`: we need to be able to compute type
+/// and alignment hashes for it. We could bound it in the definition of
+/// [`SerInner`], but having the bound here instead gives us more flexibility
+/// and makes the implementation of [`Owned`] easier.
+///
+/// [writes a header]: write_header
+/// [`SerType`]: SerInner::SerType
+/// [`Owned`]: crate::deser::Owned
 impl<T: SerInner<SerType: TypeHash + AlignHash>> Serialize for T {
     unsafe fn ser_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         write_header::<SerType<Self>>(backend)?;
@@ -174,12 +187,14 @@ impl<T: SerInner<SerType: TypeHash + AlignHash>> Serialize for T {
 
 /// Writes the header.
 ///
-/// Note that `S` must be the [`SerType`] associated with the
-/// serializing type, not the serializing type itself: callers pass
-/// [`SerType<Self>`](SerType) (see [`Serialize::ser_on_field_write`]), so the
-/// header hashes are computed on the serialization type.
+/// Note that `S` must be the [`SerType`] associated with the serializing type,
+/// not the serializing type itself: callers pass [`SerType<Self>`] (see
+/// [`Serialize::ser_on_field_write`]), so the header hashes are computed on the
+/// serialization type.
 ///
 /// Must be kept in sync with [`crate::deser::check_header`].
+///
+/// [`SerType<Self>`]: SerType
 pub fn write_header<S: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) -> Result<()> {
     backend.write("MAGIC", &MAGIC)?;
     backend.write("VERSION_MAJOR", &VERSION.0)?;

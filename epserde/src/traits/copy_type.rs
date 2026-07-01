@@ -50,22 +50,21 @@ impl CopySelector for Deep {
 /// `CopyType<Copy=Deep>`. To each of these flavors corresponds two dependent
 /// traits, [`ZeroCopy`] and [`DeepCopy`], which are automatically implemented.
 ///
-/// You should not implement this trait manually, but rather use
-/// the provided [derive macro](epserde_derive::Epserde).
+/// You should not implement this trait manually, but rather use the provided
+/// [derive macro].
 ///
 /// We use this trait to implement a different behavior for [`ZeroCopy`] and
 /// [`DeepCopy`] types, in particular on arrays, vectors, and boxed slices,
 /// [working around the bug that prevents the compiler from understanding that
 /// implementations for the two flavors of `CopySelector` are mutually
-/// exclusive](https://github.com/rust-lang/rfcs/pull/1672#issuecomment-1405377983).
+/// exclusive].
 ///
 /// For an array of elements of type `T` to be zero-copy serializable and
-/// deserializable, `T` must implement `CopyType<Copy=Zero>`. The conditions
-/// for this marker trait are that `T` is a [copy type](Copy), that it has a
-/// fixed memory layout, and that it does not contain any reference (in
-/// particular, that it has `'static` lifetime). If this happen vectors of `T`
-/// or boxed slices of `T` can be ε-copy deserialized using a reference to a
-/// slice of `T`.
+/// deserializable, `T` must implement `CopyType<Copy=Zero>`. The conditions for
+/// this marker trait are that `T` is a [copy type], that it has a fixed memory
+/// layout, and that it does not contain any reference (in particular, that it
+/// has `'static` lifetime). If this happen vectors of `T` or boxed slices of
+/// `T` can be ε-copy deserialized using a reference to a slice of `T`.
 ///
 /// You can make zero-copy your own types, but you must ensure that they do not
 /// contain references and that they have a fixed memory layout; for structures,
@@ -89,6 +88,10 @@ impl CopySelector for Deep {
 ///
 /// The trait is unsafe because the user must guarantee that zero-copy types do
 /// not contain references, and this cannot be checked by the compiler.
+///
+/// [derive macro]: epserde_derive::Epserde
+/// [working around the bug that prevents the compiler from understanding that implementations for the two flavors of `CopySelector` are mutually exclusive]: https://github.com/rust-lang/rfcs/pull/1672#issuecomment-1405377983
+/// [copy type]: Copy
 pub unsafe trait CopyType: Sized {
     /// [`Zero`] for zero-copy types, [`Deep`] for deep-copy types.
     type Copy: CopySelector;

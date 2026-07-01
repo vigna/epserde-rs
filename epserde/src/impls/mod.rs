@@ -5,9 +5,10 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Implementations of [`SerInner`](crate::ser::SerInner) and
-//! [`DeserInner`](crate::deser::DeserInner) for standard Rust
-//! types.
+//! Implementations of [`SerInner`] and [`DeserInner`] for standard Rust types.
+//!
+//! [`SerInner`]: crate::ser::SerInner
+//! [`DeserInner`]: crate::deser::DeserInner
 
 pub mod array;
 pub mod iter;

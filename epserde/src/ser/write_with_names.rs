@@ -29,12 +29,14 @@ use alloc::{
 /// must use the methods of this trait if they want to record the schema of the
 /// serialized data; this is true (maybe counterintuitively) even of ancillary
 /// data such as tags and slice lengths: see [`helpers`] or the [implementation
-/// of `Option`](impls::prim) for examples. All methods have a default
-/// implementation that must be replicated in other implementations.
+/// of `Option`] for examples. All methods have a default implementation that
+/// must be replicated in other implementations.
 ///
 /// There are two implementations of [`WriteWithNames`]: [`WriterWithPos`],
 /// which uses the default implementation, and [`SchemaWriter`], which
 /// additionally records a [`Schema`] of the serialized data.
+///
+/// [implementation of `Option`]: impls::prim
 pub trait WriteWithNames: WriteWithPos + Sized {
     /// Add some zero padding so that `self.pos() % V:align_to() == 0.`
     ///
@@ -94,11 +96,13 @@ pub struct Schema(pub Vec<SchemaRow>);
 
 impl Schema {
     /// Returns a CSV representation of the schema, including the serialized
-    /// data bytes (see also [`to_csv`](Self::to_csv), which excludes them).
+    /// data bytes (see also [`to_csv`], which excludes them).
     ///
     /// WARNING: the size of the CSV will be larger than the size of the
     /// serialized file, so it is not a good idea to call this method
     /// on big structures.
+    ///
+    /// [`to_csv`]: Self::to_csv
     pub fn to_csv_with_data(&self, data: &[u8]) -> String {
         let mut result = "field,offset,align,size,ty,bytes\n".to_string();
         for i in 0..self.0.len().saturating_sub(1) {

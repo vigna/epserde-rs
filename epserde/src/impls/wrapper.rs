@@ -11,10 +11,9 @@
 //! [`Rc`] and [`Arc`] if the `std` or `alloc` feature is enabled.
 //!
 //! While references have the obvious semantics (we serialize the referred
-//! value), wrappers are supported by erasure: if a type parameter has
-//! value `Box<T>`, `Rc<T>`, or `Arc<T>`, we serialize `T` in its place (with
-//! the exception of boxed slices, which [have their own
-//! treatment](crate::impls::boxed_slice)).
+//! value), wrappers are supported by erasure: if a type parameter has value
+//! `Box<T>`, `Rc<T>`, or `Arc<T>`, we serialize `T` in its place (with the
+//! exception of boxed slices, which [have their own treatment]).
 //!
 //! Upon deserialization, if the type parameter is `T` we deserialize `T`, but
 //! if it is `Box<T>`, `Rc<T>`, or `Arc<T>` we deserialize `T` and then wrap
@@ -25,9 +24,8 @@
 //! smart pointer.
 //!
 //! We also provide an implementation of [`TypeHash`] for `*const T`, which is
-//! useful to write tuples in [`PhantomData`](core::marker::PhantomData) with
-//! unsized type parameters, such as `PhantomData<(*const T, U)>` when `T` is
-//! unsized.
+//! useful to write tuples in [`PhantomData`] with unsized type parameters, such
+//! as `PhantomData<(*const T, U)>` when `T` is unsized.
 //!
 //! # Examples
 //!
@@ -76,6 +74,9 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! [have their own treatment]: crate::impls::boxed_slice
+//! [`PhantomData`]: core::marker::PhantomData
 
 use crate::prelude::*;
 use core::hash::Hash;

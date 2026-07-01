@@ -13,10 +13,12 @@
 //!
 //! Note, however, that you must deserialize the slice as a vector, even when it
 //! appears a type parameter; see the example in the [crate-level
-//! documentation](crate).
+//! documentation].
 //!
-//! We provide a type hash for `[T]` so that it can be used in
-//! [`PhantomData`](`core::marker::PhantomData`).
+//! We provide a type hash for `[T]` so that it can be used in [`PhantomData`].
+//!
+//! [crate-level documentation]: crate
+//! [`PhantomData`]: core::marker::PhantomData
 
 use core::hash::Hash;
 

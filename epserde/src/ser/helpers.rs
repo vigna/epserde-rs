@@ -21,11 +21,13 @@ pub fn check_zero_copy<V: SerInner>() {
 }
 
 /// Serialize a zero-copy structure checking [that the type is actually
-/// zero-copy](SerInner::IS_ZERO_COPY) and [aligning the stream
-/// beforehand](WriteWithNames::align).
+/// zero-copy] and [aligning the stream beforehand].
 ///
 /// This function makes the appropriate checks, write the necessary padding and
 /// then calls [`ser_zero_unchecked`].
+///
+/// [that the type is actually zero-copy]: SerInner::IS_ZERO_COPY
+/// [aligning the stream beforehand]: WriteWithNames::align
 pub fn ser_zero<V: ZeroCopy>(backend: &mut impl WriteWithNames, value: &V) -> ser::Result<()> {
     check_zero_copy::<V>();
     backend.align::<V>()?;
@@ -33,11 +35,14 @@ pub fn ser_zero<V: ZeroCopy>(backend: &mut impl WriteWithNames, value: &V) -> se
 }
 
 /// Serialize a zero-copy structure without checking [that the type is actually
-/// zero-copy](SerInner::IS_ZERO_COPY) and without [aligning the
-/// stream](WriteWithNames::align).
+/// zero-copy] and without [aligning the stream].
 ///
-/// Note that this method uses a single [`write_all`](super::WriteNoStd::write_all)
-/// call to write the entire structure.
+/// Note that this method uses a single [`write_all`] call to write the entire
+/// structure.
+///
+/// [that the type is actually zero-copy]: SerInner::IS_ZERO_COPY
+/// [aligning the stream]: WriteWithNames::align
+/// [`write_all`]: super::WriteNoStd::write_all
 pub fn ser_zero_unchecked<V: ZeroCopy>(
     backend: &mut impl WriteWithNames,
     value: &V,
@@ -48,13 +53,16 @@ pub fn ser_zero_unchecked<V: ZeroCopy>(
     backend.write_bytes::<V>(buffer)
 }
 
-/// Serialize a slice of zero-copy structures by encoding
-/// its length first, and then its bytes properly [aligned](WriteWithNames::align).
+/// Serialize a slice of zero-copy structures by encoding its length first, and
+/// then its bytes properly [aligned].
 ///
 /// Note that this method uses a single `write_all`
 /// call to write the entire slice.
 ///
-/// Here we check [that the type is actually zero-copy](SerInner::IS_ZERO_COPY).
+/// Here we check [that the type is actually zero-copy].
+///
+/// [aligned]: WriteWithNames::align
+/// [that the type is actually zero-copy]: SerInner::IS_ZERO_COPY
 pub fn ser_slice_zero<V: ZeroCopy>(
     backend: &mut impl WriteWithNames,
     data: &[V],

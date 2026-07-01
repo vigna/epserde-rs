@@ -67,9 +67,11 @@ pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
 
 /// A 16-byte (128-bit) aligned type.
 ///
-/// This is useful for creating [`AlignedCursor`](crate::utils::AlignedCursor)
-/// and [`MemBackend::Memory`](crate::deser::MemBackend::Memory)
+/// This is useful for creating [`AlignedCursor`] and [`MemBackend::Memory`]
 /// instances with 128-bit alignment.
+///
+/// [`AlignedCursor`]: crate::utils::AlignedCursor
+/// [`MemBackend::Memory`]: crate::deser::MemBackend::Memory
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[cfg_attr(feature = "mem_dbg", mem_size(flat))]
@@ -79,9 +81,11 @@ pub struct Aligned16(pub [u8; 16]);
 
 /// A 64-byte (512-bit) aligned type.
 ///
-/// This is useful for creating [`AlignedCursor`](crate::utils::AlignedCursor)
-/// and [`MemBackend::Memory`](crate::deser::MemBackend::Memory)
+/// This is useful for creating [`AlignedCursor`] and [`MemBackend::Memory`]
 /// instances with 512-bit alignment.
+///
+/// [`AlignedCursor`]: crate::utils::AlignedCursor
+/// [`MemBackend::Memory`]: crate::deser::MemBackend::Memory
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[cfg_attr(feature = "mem_dbg", mem_size(flat))]

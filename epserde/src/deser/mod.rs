@@ -43,8 +43,9 @@ use std::{io::BufReader, path::Path};
 /// The result type for deserialization, using the deserialization [`Error`].
 pub type Result<T> = core::result::Result<T, Error>;
 
-/// A shorthand for the [deserialization associated
-/// type](DeserInner::DeserType).
+/// A shorthand for the [deserialization associated type].
+///
+/// [deserialization associated type]: DeserInner::DeserType
 pub type DeserType<'a, T> = <T as DeserInner>::DeserType<'a>;
 
 /// A zero-sized type covariant in `T` whose private field prevents construction
@@ -71,14 +72,16 @@ pub fn __check_type_covariance<T: DeserInner>() {
     let _ = T::__check_covariance(CovariantProof::<T::DeserType<'static>>::new());
 }
 
-/// Implements [`DeserInner::__check_covariance`] for types whose
-/// [`DeserType`] is directly covariant in its lifetime parameter (i.e.,
-/// `{ proof }` compiles).
+/// Implements [`DeserInner::__check_covariance`] for types whose [`DeserType`]
+/// is directly covariant in its lifetime parameter (i.e., `{ proof }`
+/// compiles).
 ///
-/// Use this when [`DeserType<'a>`](DeserInner::DeserType) does not involve
-/// any associated-type projection, so the compiler can verify covariance
-/// directly. Typical cases include types where `DeserType<'a>` is `Self`,
-/// `&'a Self`, or any other concrete covariant type.
+/// Use this when [`DeserType<'a>`] does not involve any associated-type
+/// projection, so the compiler can verify covariance directly. Typical cases
+/// include types where `DeserType<'a>` is `Self`, `&'a Self`, or any other
+/// concrete covariant type.
+///
+/// [`DeserType<'a>`]: DeserInner::DeserType
 #[macro_export]
 macro_rules! check_covariance {
     () => {
@@ -94,18 +97,20 @@ macro_rules! check_covariance {
 /// Implements [`DeserInner::__check_covariance`] with an `unsafe` transmute for
 /// types in which the compiler cannot see through associated-type projections.
 ///
-/// The macro accepts a list of types whose covariance is verified by
-/// calling [`__check_type_covariance`] on each, mirroring what the derive
-/// macro does for structs and enums.
+/// The macro accepts a list of types whose covariance is verified by calling
+/// [`__check_type_covariance`] on each, mirroring what the derive macro does
+/// for structs and enums.
 ///
 /// # Safety
 ///
 /// The caller must ensure that the type itself is covariant in its type
-/// parameters. The macro verifies that the [`DeserType`](DeserInner::DeserType)
-/// of each listed type is covariant (via its own
-/// [`__check_covariance`](crate::deser::DeserInner::__check_covariance)), but
-/// the type's own covariance (e.g., `Vec`, `Box` being covariant) must be known
-/// from its definition.
+/// parameters. The macro verifies that the [`DeserType`] of each listed type is
+/// covariant (via its own [`__check_covariance`]), but the type's own
+/// covariance (e.g., `Vec`, `Box` being covariant) must be known from its
+/// definition.
+///
+/// [`DeserType`]: DeserInner::DeserType
+/// [`__check_covariance`]: crate::deser::DeserInner::__check_covariance
 #[macro_export]
 macro_rules! unsafe_assume_covariance {
     ($($type:ty),* $(,)?) => {
@@ -123,9 +128,8 @@ macro_rules! unsafe_assume_covariance {
     };
 }
 
-/// Main deserialization trait. It is separated from [`DeserInner`] to
-/// avoid that the user modify its behavior, and hide internal serialization
-/// methods.
+/// Main deserialization trait. It is separated from [`DeserInner`] to avoid
+/// that the user modify its behavior, and hide internal serialization methods.
 ///
 /// It provides several convenience methods to load or map into memory
 /// structures that have been previously serialized. See, for example,
@@ -145,10 +149,10 @@ macro_rules! unsafe_assume_covariance {
 ///   deserialization of these types instead validates the value and returns
 ///   [`Error::InvalidData`] on failure.
 ///
-/// - The code assumes that the [`read_exact`](ReadNoStd::read_exact) method of
-///   the backend does not read the buffer. If the method reads the buffer, it
-///   will cause undefined behavior. This is a general issue with Rust as the
-///   I/O traits were written before [`MaybeUninit`] was stabilized.
+/// - The code assumes that the [`read_exact`] method of the backend does not
+///   read the buffer. If the method reads the buffer, it will cause undefined
+///   behavior. This is a general issue with Rust as the I/O traits were written
+///   before [`MaybeUninit`] was stabilized.
 ///
 /// - Malicious [`TypeHash`]/[`AlignHash`] implementations may lead to reading
 ///   incompatible structures using the same code, or cause undefined behavior
@@ -156,33 +160,40 @@ macro_rules! unsafe_assume_covariance {
 ///
 /// - Memory-mapped files might be modified externally.
 ///
-/// The first problem can be solved by traits like
-/// [`FromBytes`](https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html).
-/// The second issue is a non-problem with the standard library.
+/// The first problem can be solved by traits like [`FromBytes`]. The second
+/// issue is a non-problem with the standard library.
 ///
 /// The last two issues are more an issue of security than undefined behavior,
 /// but that is in the eye of the beholder.
 ///
 /// [`NonZeroUsize`]: core::num::NonZeroUsize
+/// [`read_exact`]: ReadNoStd::read_exact
+/// [`FromBytes`]: https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html
 pub trait Deserialize: DeserInner {
     /// Fully deserializes a structure of this type from the given backend.
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Deserialize).
+    /// See the [trait documentation].
+    ///
+    /// [trait documentation]: Deserialize
     unsafe fn deserialize_full(backend: &mut impl ReadNoStd) -> Result<Self>;
     /// ε-copy deserializes a structure of this type from the given backend.
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Deserialize).
+    /// See the [trait documentation].
+    ///
+    /// [trait documentation]: Deserialize
     unsafe fn deserialize_eps(backend: &'_ [u8]) -> Result<Self::DeserType<'_>>;
 
     /// Convenience method to fully deserialize from a file.
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Deserialize).
+    /// See the [trait documentation].
+    ///
+    /// [trait documentation]: Deserialize
     #[cfg(feature = "std")]
     unsafe fn load_full(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
@@ -196,10 +207,9 @@ pub trait Deserialize: DeserInner {
     /// out.
     ///
     /// The allocated memory will have [`MemoryAlignment`] as alignment: types
-    /// with a higher alignment requirement will cause an [alignment
-    /// error](`Error::AlignmentError`).
+    /// with a higher alignment requirement will cause an [alignment error].
     ///
-    /// For a version using a file path, see [`load_mem`](Self::load_mem).
+    /// For a version using a file path, see [`load_mem`].
     ///
     /// # Examples
     ///
@@ -217,7 +227,11 @@ pub trait Deserialize: DeserInner {
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Deserialize).
+    /// See the [trait documentation].
+    ///
+    /// [alignment error]: Error::AlignmentError
+    /// [`load_mem`]: Self::load_mem
+    /// [trait documentation]: Deserialize
     unsafe fn read_mem(mut read: impl ReadNoStd, size: usize) -> anyhow::Result<MemCase<Self>> {
         let align_to = align_of::<MemoryAlignment>();
         if align_of::<Self>() > align_to {
@@ -296,15 +310,17 @@ pub trait Deserialize: DeserInner {
     /// and the memory. Excess bytes are zeroed out.
     ///
     /// The allocated memory will have [`MemoryAlignment`] as alignment: types
-    /// with a higher alignment requirement will cause an [alignment
-    /// error](`Error::AlignmentError`).
+    /// with a higher alignment requirement will cause an [alignment error].
     ///
-    /// For a version using a generic [`std::io::Read`], see
-    /// [`read_mem`](Self::read_mem).
+    /// For a version using a generic [`std::io::Read`], see [`read_mem`].
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Deserialize).
+    /// See the [trait documentation].
+    ///
+    /// [alignment error]: Error::AlignmentError
+    /// [`read_mem`]: Self::read_mem
+    /// [trait documentation]: Deserialize
     #[cfg(feature = "std")]
     unsafe fn load_mem(path: impl AsRef<Path>) -> anyhow::Result<MemCase<Self>> {
         let file_len = path.as_ref().metadata()?.len();
@@ -325,7 +341,7 @@ pub trait Deserialize: DeserInner {
     /// The behavior of `mmap()` can be modified by passing some [`Flags`];
     /// otherwise, just pass `Flags::empty()`.
     ///
-    /// For a version using a file path, see [`load_mmap`](Self::load_mmap).
+    /// For a version using a file path, see [`load_mmap`].
     ///
     /// Requires the `mmap` feature.
     ///
@@ -349,7 +365,10 @@ pub trait Deserialize: DeserInner {
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Deserialize).
+    /// See the [trait documentation].
+    ///
+    /// [`load_mmap`]: Self::load_mmap
+    /// [trait documentation]: Deserialize
     #[cfg(feature = "mmap")]
     unsafe fn read_mmap(
         mut read: impl ReadNoStd,
@@ -401,15 +420,17 @@ pub trait Deserialize: DeserInner {
     /// The behavior of `mmap()` can be modified by passing some [`Flags`];
     /// otherwise, just pass `Flags::empty()`.
     ///
-    /// For a version using a generic [`std::io::Read`], see
-    /// [`read_mmap`](Self::read_mmap).
+    /// For a version using a generic [`std::io::Read`], see [`read_mmap`].
     ///
     /// Requires the `mmap` feature.
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s
-    /// documentation](mmap_rs::MmapOptions::with_file).
+    /// See the [trait documentation] and [mmap's `with_file`'s documentation].
+    ///
+    /// [`read_mmap`]: Self::read_mmap
+    /// [trait documentation]: Deserialize
+    /// [mmap's `with_file`'s documentation]: mmap_rs::MmapOptions::with_file
     #[cfg(all(feature = "mmap", feature = "std"))]
     unsafe fn load_mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
         let file_len = path.as_ref().metadata()?.len();
@@ -423,8 +444,8 @@ pub trait Deserialize: DeserInner {
     }
 
     /// Memory maps a file and ε-copy deserializes a data structure from it,
-    /// returning a [`MemCase`] containing the data structure and the
-    /// memory mapping.
+    /// returning a [`MemCase`] containing the data structure and the memory
+    /// mapping.
     ///
     /// The behavior of `mmap()` can be modified by passing some [`Flags`]; otherwise,
     /// just pass `Flags::empty()`.
@@ -433,7 +454,10 @@ pub trait Deserialize: DeserInner {
     ///
     /// # Safety
     ///
-    /// See the [trait documentation](Deserialize) and [mmap's `with_file`'s documentation](mmap_rs::MmapOptions::with_file).
+    /// See the [trait documentation] and [mmap's `with_file`'s documentation].
+    ///
+    /// [trait documentation]: Deserialize
+    /// [mmap's `with_file`'s documentation]: mmap_rs::MmapOptions::with_file
     #[cfg(all(feature = "mmap", feature = "std"))]
     unsafe fn mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
         let file_len = path.as_ref().metadata()?.len();
@@ -488,16 +512,17 @@ pub trait Deserialize: DeserInner {
 /// the endianness marker), and to prevent the user from modifying the methods
 /// in [`Deserialize`].
 ///
-/// The [`__check_covariance`](Self::__check_covariance) method guarantees that
-/// the deserialization type associated with this type is covariant in its
-/// lifetime parameter, which is necessary for the safety of the inner workings
-/// of [`MemCase`].
+/// The [`__check_covariance`] method guarantees that the deserialization type
+/// associated with this type is covariant in its lifetime parameter, which is
+/// necessary for the safety of the inner workings of [`MemCase`].
 ///
 /// The user should not implement this trait directly, but rather derive it.
 ///
 /// # Safety
 ///
 /// See [`Deserialize`].
+///
+/// [`__check_covariance`]: Self::__check_covariance
 pub trait DeserInner: Sized {
     /// The deserialization type associated with this type. It can be retrieved
     /// conveniently with the alias [`DeserType`].
@@ -505,15 +530,14 @@ pub trait DeserInner: Sized {
 
     /// Internal method for checking the covariance of [`DeserType`].
     ///
-    /// [`MemCase::uncase`](crate::deser::MemCase::uncase) transmutes
-    /// `DeserType<'static, S>` to `DeserType<'a, S>`, which is only sound if
-    /// [`DeserType`] is covariant in its lifetime parameter.
+    /// [`MemCase::uncase`] transmutes `DeserType<'static, S>` to
+    /// `DeserType<'a, S>`, which is only sound if [`DeserType`] is covariant in
+    /// its lifetime parameter.
     ///
     /// This method enforces that invariant: the only safe, returning
     /// implementation is `{ proof }`, which compiles only when [`DeserType`] is
-    /// covariant. This happens because
-    /// [`CovariantProof<T>`](crate::deser::CovariantProof) is covariant in `T`, so an
-    /// implicit coercion from `CovariantProof<DeserType<'long>>` to
+    /// covariant. This happens because [`CovariantProof<T>`] is covariant in
+    /// `T`, so an implicit coercion from `CovariantProof<DeserType<'long>>` to
     /// `CovariantProof<DeserType<'short>>` is only possible when
     /// `DeserType<'long>` is a subtype of `DeserType<'short>`, which is the
     /// definition of covariance.
@@ -530,10 +554,13 @@ pub trait DeserInner: Sized {
     /// covariance check has no cost.
     ///
     /// Two ready-made implementations are provided as macros:
-    /// - [`check_covariance!()`]: the safe `{ proof }` body, for types
-    ///   whose `DeserType` is a concrete covariant type;
+    /// - [`check_covariance!()`]: the safe `{ proof }` body, for types whose
+    ///   `DeserType` is a concrete covariant type;
     /// - [`unsafe_assume_covariance!()`]: the `unsafe` transmute body, for
     ///   generic containers that are compositionally covariant.
+    ///
+    /// [`MemCase::uncase`]: crate::deser::MemCase::uncase
+    /// [`CovariantProof<T>`]: crate::deser::CovariantProof
     fn __check_covariance<'__long: '__short, '__short>(
         proof: CovariantProof<Self::DeserType<'__long>>,
     ) -> CovariantProof<Self::DeserType<'__short>>;
@@ -583,11 +610,11 @@ impl<T: ?Sized> EitherFullOrEpsCopy<T> for T {}
 /// deep-copy, as required for ε-copy stability.
 ///
 /// The derive emits an assertion against this trait for every type parameter
-/// that occurs as the direct element of a literal `Vec<…>`, `Box<[…]>`, or
-/// `[…; N]` inside an unmarked field. Were such a parameter zero-copy, the
-/// containing sequence would ε-copy deserialize to a slice reference
-/// (`&[…]`), a type not expressible as the original sequence; the parameter
-/// is therefore forced to be deep-copy.
+/// that occurs as the direct element of a literal `Vec<…>`, `Box<[…]>`, or `[…;
+/// N]` inside an unmarked field. Were such a parameter zero-copy, the
+/// containing sequence would ε-copy deserialize to a slice reference (`&[…]`),
+/// a type not expressible as the original sequence; the parameter is therefore
+/// forced to be deep-copy.
 ///
 /// The blanket impl applies to every [`DeepCopy`] type, so the assertion holds
 /// as soon as the user supplies the required bound. Alternatively, the
@@ -610,8 +637,8 @@ pub trait DeepCopyInSeq {}
 #[diagnostic::do_not_recommend]
 impl<T: crate::traits::DeepCopy> DeepCopyInSeq for T {}
 
-/// Marker trait witnessing that a field actual deserialization type matches
-/// the slot the derive places for it in [`DeserType`]. Used to diagnose a
+/// Marker trait witnessing that a field actual deserialization type matches the
+/// slot the derive places for it in [`DeserType`]. Used to diagnose a
 /// `#[epserde(full_copy(...))]` parameter that a field ε-copy deserializes.
 ///
 /// The type-level `#[epserde(full_copy(T))]` attribute removes `T` from the
@@ -642,13 +669,14 @@ pub trait FullCopyConsistent<Expected: ?Sized> {}
 
 impl<T: ?Sized> FullCopyConsistent<T> for T {}
 
-/// Blanket implementation that prevents the user from overwriting the
-/// methods in [`Deserialize`].
+/// Blanket implementation that prevents the user from overwriting the methods
+/// in [`Deserialize`].
 ///
-/// This implementation [checks the header](`check_header`) written
-/// by the blanket implementation of [`crate::ser::Serialize`] and then delegates to
-/// [`DeserInner::_deser_full_inner`] or
-/// [`DeserInner::_deser_eps_inner`].
+/// This implementation [checks the header] written by the blanket
+/// implementation of [`crate::ser::Serialize`] and then delegates to
+/// [`DeserInner::_deser_full_inner`] or [`DeserInner::_deser_eps_inner`].
+///
+/// [checks the header]: check_header
 impl<T: SerInner<SerType: TypeHash + AlignHash> + DeserInner> Deserialize for T {
     /// # Safety
     ///
@@ -812,8 +840,8 @@ pub enum Error {
     ///
     /// Note that this error can only be returned by full-copy deserialization
     /// of the affected types, which validates values; ε-copy deserialization of
-    /// zero-copy types performs no such validation (see the
-    /// [trait documentation]).
+    /// zero-copy types performs no such validation (see the [trait
+    /// documentation]).
     ///
     /// [trait documentation]: Deserialize
     InvalidData,

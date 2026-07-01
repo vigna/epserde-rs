@@ -23,7 +23,9 @@ use alloc::vec::Vec;
 ///
 /// # Safety
 ///
-/// See the documentation of [`Deserialize`](super::Deserialize).
+/// See the documentation of [`Deserialize`].
+///
+/// [`Deserialize`]: super::Deserialize
 pub unsafe fn deser_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> deser::Result<T> {
     backend.align::<T>()?;
     unsafe {
@@ -39,12 +41,14 @@ pub unsafe fn deser_full_zero<T: ZeroCopy>(backend: &mut impl ReadWithPos) -> de
 
 /// Full-copy deserialize a vector of zero-copy structures.
 ///
-/// Note that this method uses a single [`ReadNoStd::read_exact`]
-/// call to read the entire vector.
+/// Note that this method uses a single [`ReadNoStd::read_exact`] call to read
+/// the entire vector.
 ///
 /// # Safety
 ///
-/// See the documentation of [`Deserialize`](super::Deserialize).
+/// See the documentation of [`Deserialize`].
+///
+/// [`Deserialize`]: super::Deserialize
 pub unsafe fn deser_full_vec_zero<T: ZeroCopy>(
     backend: &mut impl ReadWithPos,
 ) -> deser::Result<Vec<T>> {
@@ -74,12 +78,14 @@ pub fn deser_full_vec_deep<T: DeepCopy + DeserInner>(
     Ok(res)
 }
 
-/// ε-copy deserialize a reference to a zero-copy structure
-/// backed by the `data` field of `backend`.
+/// ε-copy deserialize a reference to a zero-copy structure backed by the `data`
+/// field of `backend`.
 ///
 /// # Safety
 ///
-/// See the documentation of [`Deserialize`](super::Deserialize).
+/// See the documentation of [`Deserialize`].
+///
+/// [`Deserialize`]: super::Deserialize
 pub unsafe fn deser_eps_zero<'a, T: for<'b> ZeroCopy<DeserType<'b> = &'b T>>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<&'a T> {
@@ -100,12 +106,14 @@ pub unsafe fn deser_eps_zero<'a, T: for<'b> ZeroCopy<DeserType<'b> = &'b T>>(
     Ok(res)
 }
 
-/// ε-copy deserialize a reference to a slice of zero-copy structures
-/// backed by the `data` field of `backend`.
+/// ε-copy deserialize a reference to a slice of zero-copy structures backed by
+/// the `data` field of `backend`.
 ///
 /// # Safety
 ///
-/// See the documentation of [`Deserialize`](super::Deserialize).
+/// See the documentation of [`Deserialize`].
+///
+/// [`Deserialize`]: super::Deserialize
 pub unsafe fn deser_eps_slice_zero<'a, T: ZeroCopy>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<&'a [T]> {
