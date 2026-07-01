@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "schema")]
     {
         let schema = unsafe { data.serialize_with_schema(&mut cursor)? };
-        println!("{}", schema.debug(cursor.as_bytes()));
+        println!("{}", schema.to_csv_with_data(cursor.as_bytes()));
         println!();
     }
     #[cfg(not(feature = "schema"))]
@@ -73,7 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "schema")]
     {
         let schema = unsafe { data.serialize_with_schema(&mut cursor)? };
-        println!("{}", schema.debug(cursor.as_bytes()));
+        println!("{}", schema.to_csv_with_data(cursor.as_bytes()));
         println!();
     }
     #[cfg(not(feature = "schema"))]

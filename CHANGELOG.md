@@ -37,6 +37,20 @@
   variants changes the encoding; hashing the discriminants makes such a change
   a detectable type-hash mismatch rather than a silent mis-decode.
 
+- `Schema::debug` has been renamed `Schema::to_csv_with_data`, mirroring the
+  sibling `Schema::to_csv`.
+
+- The inherent method `MemBackend::as_ref` has been renamed
+  `MemBackend::as_bytes`, since it returns `Option<&[u8]>` rather than following
+  the `AsRef` convention.
+
+- The `data` and `pos` fields of `SliceWithPos` are now `pub(crate)`; read them
+  through the new `SliceWithPos::data` and `SliceWithPos::pos` accessors
+  instead. This removes the hazard of setting `pos` inconsistently with `data`.
+
+- Variants of `ser::Error` and `deser::Error` have more precise names (e.g.,
+  `AlignHashMismatch` instead of `WrongAlignHash`).
+
 ### New
 
 - New deserialization error variant `deser::Error::InvalidData`, returned by

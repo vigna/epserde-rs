@@ -93,12 +93,13 @@ pub struct SchemaRow {
 pub struct Schema(pub Vec<SchemaRow>);
 
 impl Schema {
-    /// Returns a CSV representation of the schema, including data.
+    /// Returns a CSV representation of the schema, including the serialized
+    /// data bytes (see also [`to_csv`](Self::to_csv), which excludes them).
     ///
     /// WARNING: the size of the CSV will be larger than the size of the
     /// serialized file, so it is not a good idea to call this method
     /// on big structures.
-    pub fn debug(&self, data: &[u8]) -> String {
+    pub fn to_csv_with_data(&self, data: &[u8]) -> String {
         let mut result = "field,offset,align,size,ty,bytes\n".to_string();
         for i in 0..self.0.len().saturating_sub(1) {
             let row = &self.0[i];

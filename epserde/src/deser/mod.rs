@@ -273,7 +273,7 @@ pub trait Deserialize: DeserInner {
             addr_of_mut!((*ptr).1).write(backend);
         }
         // deserialize the data structure
-        let mem = unsafe { (*ptr).1.as_ref().unwrap() };
+        let mem = unsafe { (*ptr).1.as_bytes().unwrap() };
         let s = match unsafe { Self::deserialize_eps(mem) } {
             Ok(s) => s,
             Err(e) => {
@@ -376,7 +376,7 @@ pub trait Deserialize: DeserInner {
             addr_of_mut!((*ptr).1).write(backend);
         }
         // deserialize the data structure
-        let mem = unsafe { (*ptr).1.as_ref().unwrap() };
+        let mem = unsafe { (*ptr).1.as_bytes().unwrap() };
         let s = match unsafe { Self::deserialize_eps(mem) } {
             Ok(s) => s,
             Err(e) => {
@@ -459,7 +459,7 @@ pub trait Deserialize: DeserInner {
             addr_of_mut!((*ptr).1).write(MemBackend::Mmap(mmap));
         }
 
-        let mmap = unsafe { (*ptr).1.as_ref().unwrap() };
+        let mmap = unsafe { (*ptr).1.as_bytes().unwrap() };
         // deserialize the data structure
         let s = match unsafe { Self::deserialize_eps(mmap) } {
             Ok(s) => s,
@@ -689,8 +689,8 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
     let magic = unsafe { u64::_deser_full_inner(backend)? };
     match magic {
         MAGIC => Ok(()),
-        MAGIC_REV => Err(Error::EndiannessError),
-        magic => Err(Error::MagicCookieError(magic)),
+        MAGIC_REV => Err(Error::EndiannessMismatch),
+        magic => Err(Error::InvalidMagicCookie(magic)),
     }?;
 
     let major = unsafe { u16::_deser_full_inner(backend)? };
@@ -714,7 +714,7 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
 
     if ser_type_hash != self_type_hash {
         let ser_type_name = unsafe { String::_deser_full_inner(backend)? };
-        return Err(Error::WrongTypeHash {
+        return Err(Error::TypeHashMismatch {
             ser_type_name,
             ser_type_hash,
             self_type_name,
@@ -724,7 +724,7 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
     }
     if ser_align_hash != self_align_hash {
         let ser_type_name = unsafe { String::_deser_full_inner(backend)? };
-        return Err(Error::WrongAlignHash {
+        return Err(Error::AlignHashMismatch {
             ser_type_name,
             ser_align_hash,
             self_type_name,
@@ -780,7 +780,7 @@ pub enum Error {
         target_endian = "little",
         error("The current arch is little-endian but the data is big-endian.")
     )]
-    EndiannessError,
+    EndiannessMismatch,
     #[error(
         "Alignment error. Most likely you are deserializing from a memory region with insufficient alignment."
     )]
@@ -801,7 +801,7 @@ pub enum Error {
     UsizeSizeMismatch(usize),
     #[error("Wrong magic cookie 0x{0:016x}. The byte stream does not come from ε-serde.")]
     /// The magic cookie is wrong. The byte sequence does not come from ε-serde.
-    MagicCookieError(u64),
+    InvalidMagicCookie(u64),
     #[error("Invalid tag: 0x{0:02x}")]
     /// A tag is wrong (e.g., for [`Option`]).
     InvalidTag(usize),
@@ -832,7 +832,7 @@ You are trying to deserialize a file with the wrong type."#
     )]
     /// The type hash is wrong. Probably the user is trying to deserialize a
     /// file with the wrong type.
-    WrongTypeHash {
+    TypeHashMismatch {
         /// The name of the type that was serialized.
         ser_type_name: String,
         /// The [`TypeHash`] of the type that was serialized.
@@ -862,7 +862,7 @@ architecture with incompatible alignment requirements."#
     /// a file with some zero-copy type that has different in-memory
     /// representations on the serialization architecture and on the current
     /// one, usually because of alignment issues.
-    WrongAlignHash {
+    AlignHashMismatch {
         /// The name of the type that was serialized.
         ser_type_name: String,
         /// The [`AlignHash`] of the type that was serialized.

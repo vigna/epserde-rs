@@ -25,11 +25,10 @@ use sealed::sealed;
 /// (de)serialize the type field by field.
 #[sealed]
 pub trait CopySelector {
-    /// Whether the selected flavor is zero-copy: `true` for [`Zero`], `false`
-    /// for [`Deep`].
+    /// `true` for [`Zero`], `false` for [`Deep`].
     const IS_ZERO_COPY: bool;
 }
-/// An implementation of a [`CopySelector`] specifying that a type is zero-copy.
+/// An implementation of [`CopySelector`] specifying that a type is zero-copy.
 pub struct Zero {}
 
 #[sealed]
@@ -37,7 +36,7 @@ impl CopySelector for Zero {
     const IS_ZERO_COPY: bool = true;
 }
 
-/// An implementation of a [`CopySelector`] specifying that a type is deep-copy.
+/// An implementation of [`CopySelector`] specifying that a type is deep-copy.
 pub struct Deep {}
 
 #[sealed]
@@ -45,13 +44,11 @@ impl CopySelector for Deep {
     const IS_ZERO_COPY: bool = false;
 }
 
-/// Marker trait for data specifying whether it is zero-copy or deep-copy.
+/// Marker trait specifying whether a type it is zero-copy or deep-copy.
 ///
 /// The trait comes in two flavors: `CopyType<Copy=Zero>` and
-/// `CopyType<Copy=Deep>`. To each of these flavors corresponds two
-/// dependent traits, [`ZeroCopy`] (which requires implementing [`Copy`],
-/// [`AlignTo`], and be `'static`) and [`DeepCopy`], which are automatically
-/// implemented.
+/// `CopyType<Copy=Deep>`. To each of these flavors corresponds two dependent
+/// traits, [`ZeroCopy`] and [`DeepCopy`], which are automatically implemented.
 ///
 /// You should not implement this trait manually, but rather use
 /// the provided [derive macro](epserde_derive::Epserde).
@@ -93,8 +90,7 @@ impl CopySelector for Deep {
 /// The trait is unsafe because the user must guarantee that zero-copy types do
 /// not contain references, and this cannot be checked by the compiler.
 pub unsafe trait CopyType: Sized {
-    /// The copy flavor of this type: [`Zero`] for zero-copy types, [`Deep`] for
-    /// deep-copy types.
+    /// [`Zero`] for zero-copy types, [`Deep`] for deep-copy types.
     type Copy: CopySelector;
 }
 

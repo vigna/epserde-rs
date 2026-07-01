@@ -16,7 +16,7 @@ fn test_wrong_endianness() {
     let mut cursor = <AlignedCursor<Aligned16>>::new();
 
     let schema = unsafe { data.serialize_with_schema(&mut cursor).unwrap() };
-    println!("{}", schema.debug(cursor.as_bytes()));
+    println!("{}", schema.to_csv_with_data(cursor.as_bytes()));
     println!("{:02x?}", cursor.as_bytes());
 
     // set the reversed endianness
@@ -25,11 +25,11 @@ fn test_wrong_endianness() {
     let err =
         unsafe { <usize>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
     assert!(err.is_err());
-    assert!(matches!(err.unwrap_err(), deser::Error::EndiannessError));
+    assert!(matches!(err.unwrap_err(), deser::Error::EndiannessMismatch));
 
     let err = unsafe { <usize>::deserialize_eps(cursor.as_bytes()) };
     assert!(err.is_err());
-    assert!(matches!(err.unwrap_err(), deser::Error::EndiannessError));
+    assert!(matches!(err.unwrap_err(), deser::Error::EndiannessMismatch));
 
     // set a wrong magic cookie
     let bad_magic: u64 = 0x8989898989898989;
@@ -37,14 +37,14 @@ fn test_wrong_endianness() {
 
     let err =
         unsafe { <usize>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
-    if let Err(deser::Error::MagicCookieError(bad_magic_read)) = err {
+    if let Err(deser::Error::InvalidMagicCookie(bad_magic_read)) = err {
         assert_eq!(bad_magic_read, bad_magic);
     } else {
         panic!("wrong error type: {:?}", err);
     }
 
     let err = unsafe { <usize>::deserialize_eps(cursor.as_bytes()) };
-    if let Err(deser::Error::MagicCookieError(bad_magic_read)) = err {
+    if let Err(deser::Error::InvalidMagicCookie(bad_magic_read)) = err {
         assert_eq!(bad_magic_read, bad_magic);
     } else {
         panic!("wrong error type: {:?}", err);
@@ -104,7 +104,7 @@ fn test_wrong_endianness() {
         unsafe { <i8>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
     if let Err(err) = result {
         eprintln!("{err}");
-        if let deser::Error::WrongTypeHash {
+        if let deser::Error::TypeHashMismatch {
             ser_type_name,
             ser_type_hash,
             self_type_name,
@@ -127,7 +127,7 @@ fn test_wrong_endianness() {
     let result = unsafe { <i8>::deserialize_eps(cursor.as_bytes()) };
     if let Err(err) = result {
         eprintln!("{err}");
-        if let deser::Error::WrongTypeHash {
+        if let deser::Error::TypeHashMismatch {
             ser_type_name,
             ser_type_hash,
             self_type_name,

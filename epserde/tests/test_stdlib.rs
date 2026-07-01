@@ -93,7 +93,7 @@ where
         assert_eq!(full_copy, s);
 
         let _ = schema.to_csv();
-        let _ = schema.debug(bytes);
+        let _ = schema.to_csv_with_data(bytes);
     }
     {
         let mut cursor = <AlignedCursor<Aligned16>>::new();

@@ -11,22 +11,21 @@ use crate::prelude::*;
 /// `std::io::Cursor`-like structure for deserialization that does not
 /// depend on [`std`].
 ///
-/// The fields are public so that hand-written [`DeserInner`] implementations
-/// can read the remaining backing bytes ([`data`]) starting at the current
-/// [`pos`] to build ε-copy references into them.
+/// Hand-written [`DeserInner`] implementations can read the still-unread
+/// backing bytes with `data()` starting at the current position `pos()`, and
+/// advance the cursor with `skip()`, to build ε-copy references into the
+/// backing slice.
 ///
 /// [`DeserInner`]: super::DeserInner
-/// [`data`]: Self::data
-/// [`pos`]: Self::pos
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub struct SliceWithPos<'a> {
     /// The still-unread suffix of the backing slice; its first byte is at
     /// position `pos`.
-    pub data: &'a [u8],
+    pub(crate) data: &'a [u8],
     /// The number of bytes already consumed from the start of the backing
     /// slice.
-    pub pos: usize,
+    pub(crate) pos: usize,
 }
 
 impl<'a> SliceWithPos<'a> {
@@ -37,6 +36,21 @@ impl<'a> SliceWithPos<'a> {
             data: backend,
             pos: 0,
         }
+    }
+
+    /// Returns the still-unread suffix of the backing slice.
+    ///
+    /// Its first byte is at the current position `pos()`.
+    #[inline(always)]
+    pub const fn data(&self) -> &'a [u8] {
+        self.data
+    }
+
+    /// Returns the number of bytes already consumed from the start of the
+    /// backing slice.
+    #[inline(always)]
+    pub const fn pos(&self) -> usize {
+        self.pos
     }
 
     /// Advances the position by `bytes`, discarding them.

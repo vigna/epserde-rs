@@ -100,7 +100,9 @@ pub enum MemBackend {
 }
 
 impl MemBackend {
-    pub fn as_ref(&self) -> Option<&[u8]> {
+    /// Returns the bytes of the backing memory region, or [`None`] for the
+    /// [`None`](MemBackend::None) (owned) variant.
+    pub fn as_bytes(&self) -> Option<&[u8]> {
         match self {
             MemBackend::None => None,
             MemBackend::Memory(mem) => {

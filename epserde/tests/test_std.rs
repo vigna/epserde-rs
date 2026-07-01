@@ -39,7 +39,7 @@ where
 
         drop(full_copy);
         let _ = schema.to_csv();
-        let _ = schema.debug(cursor.as_bytes());
+        let _ = schema.to_csv_with_data(cursor.as_bytes());
     }
     {
         let mut cursor = <AlignedCursor>::new();
