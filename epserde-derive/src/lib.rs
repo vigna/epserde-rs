@@ -651,7 +651,6 @@ fn push_conflict_idents(
     }
 }
 
-
 /// Returns the identifiers of type and const parameters.
 ///
 /// More in detail, returns a tuple containing:

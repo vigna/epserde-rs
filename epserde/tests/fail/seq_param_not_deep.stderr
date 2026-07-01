@@ -40,28 +40,6 @@ error[E0599]: the associated function or constant `IS_ZERO_COPY` exists for stru
            which is required by `&mut Vec<A>: epserde::ser::SerInner`
    = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0599]: the associated function or constant `MIGHT_BE_ZERO_COPY` exists for struct `Vec<A>`, but its trait bounds were not satisfied
-  --> tests/fail/seq_param_not_deep.rs:10:10
-   |
-10 | #[derive(Epserde)]
-   |          ^^^^^^^ associated function or constant cannot be called on `Vec<A>` due to unsatisfied trait bounds
-   |
-  ::: $RUST/alloc/src/vec/mod.rs
-   |
-   | pub struct Vec<T, #[unstable(feature = "allocator_api", issue = "32838")] A: Allocator = Global> {
-   | ------------------------------------------------------------------------------------------------ doesn't satisfy `Vec<A>: SerHelper<_>` or `Vec<A>: epserde::ser::SerInner`
-   |
-   = note: the following trait bounds were not satisfied:
-           `A: CopyType`
-           which is required by `Vec<A>: epserde::ser::SerInner`
-           `Vec<A>: SerHelper<_>`
-           which is required by `Vec<A>: epserde::ser::SerInner`
-           `Vec<A>: epserde::ser::SerInner`
-           which is required by `&Vec<A>: epserde::ser::SerInner`
-           `Vec<A>: epserde::ser::SerInner`
-           which is required by `&mut Vec<A>: epserde::ser::SerInner`
-   = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
-
 error[E0277]: the trait bound `A: CopyType` is not satisfied
   --> tests/fail/seq_param_not_deep.rs:10:10
    |

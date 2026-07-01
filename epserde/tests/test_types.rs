@@ -350,9 +350,9 @@ fn test_enum_zero() {
 }
 
 // A generic struct whose only field is a smart-pointer wrapping a primitive
-// must not trip the "could be zero-copy" lint. The fields' serialized form is
-// zero-copy-shaped via erasure, but the Rust layout is not, so
-// MIGHT_BE_ZERO_COPY is false on Box/Rc/Arc and the lint stays silent.
+// must not trip the "could be zero-copy" lint. The field's serialized form is
+// zero-copy-shaped via erasure, but the Rust layout is not: wrappers report
+// IS_ZERO_COPY = false, so the lint stays silent.
 #[derive(Epserde, Debug, PartialEq, Eq)]
 struct BoxBox<T> {
     #[allow(clippy::redundant_allocation)]

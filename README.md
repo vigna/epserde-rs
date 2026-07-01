@@ -822,7 +822,6 @@ impl<'a> AlignHash for S<'a> {
 impl<'a> SerInner for S<'a> {
     type SerType = S<'a>;
     const IS_ZERO_COPY: bool = false;
-    const MIGHT_BE_ZERO_COPY: bool = false;
     unsafe fn _ser_inner(&self, backend: &mut impl ser::WriteWithNames) -> ser::Result<()> {
         unsafe {
             WriteWithNames::write(backend, "0", &self.0)?;
