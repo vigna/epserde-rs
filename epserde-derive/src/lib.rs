@@ -156,21 +156,23 @@ fn collect_repl_param_occs<'a>(
     }
 }
 
-/// Returns true if `ty` contains a replaceable parameter from `type_params`.
-/// Used to decide whether an unmarked field is ε-copy (a replaceable parameter
+/// Returns true if `ty` contains a [replaceable] parameter from `type_params`.
+/// Used to decide whether an unmarked field is ε-copy (a [replaceable] parameter
 /// present) or full-copy (none: nothing to substitute).
+///
+/// [replaceable]: crate::collect_repl_param_occs
 fn has_repl_param(ty: &syn::Type, type_params: &HashSet<&syn::Ident>) -> bool {
     let mut out: HashSet<&syn::Ident> = HashSet::new();
     collect_repl_param_occs(ty, type_params, &mut out, false);
     !out.is_empty()
 }
 
-/// Examines one field, recording its replaceable parameters into the running
+/// Examines one field, recording its [replaceable] parameters into the running
 /// sets the caller uses to build the (de)serialization substitution sets and
 /// bounds, and returns whether the field is full-copy.
 ///
 /// A field is full-copy when it carries `#[epserde(force_full_copy)]`, or when
-/// all its replaceable parameters are listed in `#[epserde(full_copy(...))]`
+/// all its [replaceable] parameters are listed in `#[epserde(full_copy(...))]`
 /// (in particular, when it has none).
 ///
 /// # Arguments
@@ -181,7 +183,7 @@ fn has_repl_param(ty: &syn::Type, type_params: &HashSet<&syn::Ident>) -> bool {
 ///   `#[epserde(force_full_copy)]` marker, which makes it a full-copy field.
 ///
 /// * `type_params` - The type parameters of the item that are eligible for
-///   substitution. Const parameters are never replaceable, so they must not
+///   substitution. Const parameters are never [replaceable], so they must not
 ///   be included: a bare occurrence of a const parameter in a field type
 ///   (e.g., as a forwarded generic argument) is indistinguishable from a type
 ///   at the syntactic level, but must be left untouched by the substitution.
@@ -192,16 +194,16 @@ fn has_repl_param(ty: &syn::Type, type_params: &HashSet<&syn::Ident>) -> bool {
 /// * `forced_params` - The type parameters pinned to full-copy deserialization
 ///   by the type-level `#[epserde(full_copy(...))]` attribute.
 ///
-/// * `eps_params` - The ε-copy parameters: the non-force-full replaceable
+/// * `eps_params` - The ε-copy parameters: the non-force-full [replaceable]
 ///   parameters of an ε-copy field. This is the `DeserType` substitution set,
 ///   used directly.
 ///
-/// * `full_params` - The full-copy parameters: the replaceable parameters of a
+/// * `full_params` - The full-copy parameters: the [replaceable] parameters of a
 ///   force-full field, plus the `full_copy(...)`-listed ones. Used for the
 ///   ε/full conflict diagnostic; its union with `eps_params` is the `SerType`
-///   substitution set (all replaceable parameters).
+///   substitution set (all [replaceable] parameters).
 ///
-/// * `deser_inner_params` - The replaceable parameters (force-full or not) of
+/// * `deser_inner_params` - The [replaceable] parameters (force-full or not) of
 ///   an ε-copy field. For ε-copy fields the field-type bound is
 ///   suppressed (it would [shadow the `DeserType<'_>` projection]), so the caller
 ///   emits an explicit `T: DeserInner` bound for each of these. Parameters of
@@ -223,6 +225,7 @@ fn has_repl_param(ty: &syn::Type, type_params: &HashSet<&syn::Ident>) -> bool {
 ///
 /// [shadow the `DeserType<'_>` projection]: https://github.com/rust-lang/rust/issues/152409
 /// [consistency assertion]: gen_full_copy_consistency_check
+/// [replaceable]: crate::collect_repl_param_occs
 #[allow(clippy::too_many_arguments)]
 fn classify_field<'a>(
     field_type: &'a syn::Type,
@@ -292,7 +295,9 @@ fn classify_field<'a>(
 /// An occurrence nested inside `PhantomData<…>` is ignored: a phantom slot is
 /// zero-sized and never serialized, so it imposes no ε-copy-stability
 /// requirement (mirroring [`collect_repl_param_occs`], which excludes phantom
-/// occurrences from the replaceable set).
+/// occurrences from the [replaceable] set).
+///
+/// [replaceable]: crate::collect_repl_param_occs
 fn collect_seq_forced_deep_params<'a>(
     ty: &syn::Type,
     type_params: &HashSet<&'a syn::Ident>,
@@ -430,7 +435,7 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, field_types: &[&syn::Type]) -> proc_ma
 
 /// Generates the fixed-point assertion injected at the top of
 /// `_deser_eps_inner` when one or more type parameters are ε-copy yet are also
-/// replaceable parameters of a field marked `#[epserde(force_full_copy)]`.
+/// [replaceable] parameters of a field marked `#[epserde(force_full_copy)]`.
 ///
 /// For each conflicting parameter the assertion requires the bound `for<'a> <T
 /// as DeserInner>::DeserType<'a>: EitherFullOrEpsCopy<T>`. The blanket impl
@@ -448,6 +453,8 @@ fn gen_is_zero_copy_expr(is_repr_c: bool, field_types: &[&syn::Type]) -> proc_ma
 /// has it would be contradictory.
 ///
 /// Returns an empty token stream when there are no conflicts.
+///
+/// [replaceable]: crate::collect_repl_param_occs
 fn gen_fixed_point_check(conflict_params: &[syn::Ident]) -> proc_macro2::TokenStream {
     if conflict_params.is_empty() {
         return quote!();
@@ -890,7 +897,7 @@ fn emit_deprecation_warnings(attrs: &EpserdeAttrs, type_name: &syn::Ident) {
 /// (de)serialization type, bounds that substituted form with the same trait
 /// bounds as the parameter.
 ///
-/// The two substitution sets differ: `SerType` substitutes every replaceable
+/// The two substitution sets differ: `SerType` substitutes every [replaceable]
 /// parameter, whereas `DeserType` omits the force-full ones
 /// and those occurring only in full-copy fields. A parameter substituted in
 /// `SerType` but not in `DeserType` appears as `SerType<T>` (so its bounds
@@ -903,7 +910,7 @@ fn emit_deprecation_warnings(attrs: &EpserdeAttrs, type_name: &syn::Ident) {
 /// * `derive_input` - The item being derived, whose generic parameters carry
 ///   the trait bounds to propagate.
 ///
-/// * `params` - All replaceable parameters; for each, a `SerType<T>` bound is
+/// * `params` - All [replaceable] parameters; for each, a `SerType<T>` bound is
 ///   added to `ser_where_clause`.
 ///
 /// * `eps_params` - All ε-copy type parameters appearing at a variable
@@ -913,6 +920,8 @@ fn emit_deprecation_warnings(attrs: &EpserdeAttrs, type_name: &syn::Ident) {
 /// * `ser_where_clause` - The `SerInner` where clause, extended in place.
 ///
 /// * `deser_where_clause` - The `DeserInner` where clause, extended in place.
+///
+/// [replaceable]: crate::collect_repl_param_occs
 fn bound_ser_deser_types(
     derive_input: &DeriveInput,
     params: &HashSet<&syn::Ident>,
@@ -1045,7 +1054,9 @@ fn gen_generics_for_deser_type(
 }
 
 /// Generates generics for the serialization type by replacing every
-/// replaceable parameter with its associated serialization type.
+/// [replaceable] parameter with its associated serialization type.
+///
+/// [replaceable]: crate::collect_repl_param_occs
 fn gen_generics_for_ser_type(
     ctx: &EpserdeContext,
     params: &HashSet<&syn::Ident>,
@@ -1195,9 +1206,11 @@ struct EpserdeContext<'a> {
     type_const_params: Vec<&'a syn::Ident>,
     /// Type parameters eligible for substitution: the declared type
     /// parameters minus those declared phantom by the type-level
-    /// `#[epserde(phantom(...))]` attribute. The replaceable-parameter walk
+    /// `#[epserde(phantom(...))]` attribute. The [replaceable]-parameter walk
     /// matches against this set only, so phantom parameters are left
     /// completely untouched (no substitution, no bounds).
+    ///
+    /// [replaceable]: crate::collect_repl_param_occs
     repl_params: HashSet<&'a syn::Ident>,
     /// Type parameters pinned to full-copy deserialization by the type-level
     /// `#[epserde(full_copy(...))]` attribute, as a subset of the declared type
