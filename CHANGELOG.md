@@ -28,10 +28,12 @@
 
 - `SliceWithPos::skip` can now return an error.
 
-- The `TypeHash` of a zero-copy enum now includes any explicit discriminant
-  values. Since such an enum is (de)serialized as raw bytes, re-numbering its
-  variants changes the encoding; hashing the discriminants makes such a change
-  a detectable type-hash mismatch rather than a silent mis-decode.
+- The `TypeHash` of a zero-copy enum now includes its discriminant values,
+  since such an enum is (de)serialized as raw bytes and re-numbering its
+  variants changes the encoding. For a fieldless enum every variant's resolved
+  discriminant is hashed; for a data-carrying enum (which cannot be cast to an
+  integer) any explicit discriminant expression is hashed. This makes such a
+  change a detectable type-hash mismatch rather than a silent mis-decode.
 
 - `Schema::debug` has been renamed `Schema::to_csv_with_data`, mirroring the
   sibling `Schema::to_csv`.

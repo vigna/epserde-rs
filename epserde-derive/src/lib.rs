@@ -2496,24 +2496,30 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
     let mut all_align_tos = vec![];
     let mut all_field_types = vec![];
 
+    // A zero-copy enum is (de)serialized as raw memory, so its discriminant
+    // values are part of the encoding and re-numbering variants must change the
+    // type hash. A fieldless enum can be cast to an integer, so we hash the
+    // resolved discriminant of every variant (this is symmetric across implicit
+    // and explicit discriminants, and makes layout-identical enums such as
+    // `{ A, B }` and `{ A = 0, B = 1 }` hash equal). A data-carrying enum cannot
+    // be cast, so there we hash any explicit discriminant expression instead.
+    // Deep-copy enums write a positional tag rather than the discriminant, so
+    // their discriminant values are irrelevant and are not hashed.
+    let enum_is_fieldless = e
+        .variants
+        .iter()
+        .all(|variant| matches!(variant.fields, syn::Fields::Unit));
+
     // Process each variant
     for variant in &e.variants {
         let ident = &variant.ident;
         let mut type_hash = quote! { Hash::hash(stringify!(#ident), hasher); };
-        // For zero-copy enums the discriminant is stored verbatim in the
-        // serialized bytes (they are (de)serialized as raw memory), so
-        // re-numbering variants changes the encoding. We hash any explicit
-        // discriminant so such a change is detected as a type-hash mismatch
-        // rather than silently mis-decoding. Deep-copy enums instead write a
-        // positional tag, so their discriminant values are irrelevant and are
-        // deliberately not hashed (hashing them would break compatibility with
-        // data serialized before an unrelated discriminant edit). Hashing only
-        // explicit discriminants keeps enums with purely implicit discriminants
-        // backward-compatible; two distinct value mappings cannot collide, as
-        // identical explicit tokens at identical positions imply identical
-        // resolved values.
         if ctx.is_zero_copy {
-            if let Some((_, discriminant)) = &variant.discriminant {
+            if enum_is_fieldless {
+                type_hash.extend([quote! {
+                    Hash::hash(&(Self::#ident as i128), hasher);
+                }]);
+            } else if let Some((_, discriminant)) = &variant.discriminant {
                 type_hash.extend([quote! {
                     Hash::hash("=", hasher);
                     Hash::hash(stringify!(#discriminant), hasher);

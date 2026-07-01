@@ -60,7 +60,8 @@ fn test_type_hash_collision() {
 /// functions, so they share the same name and `module_path!()`; only the
 /// discriminant differs, isolating its contribution to the hash.
 fn test_zero_copy_enum_discriminant_hash() {
-    fn a1() -> u64 {
+    // Explicit discriminants 0, 1.
+    fn explicit_0_1() -> u64 {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C)]
@@ -73,20 +74,22 @@ fn test_zero_copy_enum_discriminant_hash() {
         E::type_hash(&mut h);
         h.finish()
     }
-    fn a2() -> u64 {
+    // Implicit discriminants, which resolve to 0, 1.
+    fn implicit_0_1() -> u64 {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C)]
         #[epserde(zero_copy)]
         enum E {
-            A = 0,
-            B = 1,
+            A,
+            B,
         }
         let mut h = Xxh3::with_seed(0);
         E::type_hash(&mut h);
         h.finish()
     }
-    fn b() -> u64 {
+    // Explicit discriminants 0, 5.
+    fn explicit_0_5() -> u64 {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C)]
@@ -100,10 +103,11 @@ fn test_zero_copy_enum_discriminant_hash() {
         h.finish()
     }
 
-    // Control: identical enums hash identically (name + module path match).
-    assert_eq!(a1(), a2());
-    // The fix: differing explicit discriminants change the hash.
-    assert_ne!(a1(), b());
+    // Re-numbering a variant changes the hash (detects the silent mis-decode).
+    assert_ne!(explicit_0_1(), explicit_0_5());
+    // Resolved discriminants are hashed, so an implicit mapping hashes equal to
+    // the explicit mapping with the same values (symmetric treatment).
+    assert_eq!(explicit_0_1(), implicit_0_1());
 }
 
 #[test]
