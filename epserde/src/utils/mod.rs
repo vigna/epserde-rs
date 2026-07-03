@@ -4,5 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! Utility structures for (de)serialization.
+
 mod aligned_cursor;
 pub use aligned_cursor::AlignedCursor;

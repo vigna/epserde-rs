@@ -13,7 +13,8 @@
 //! While references have the obvious semantics (we serialize the referred
 //! value), wrappers are supported by erasure: if a type parameter has value
 //! `Box<T>`, `Rc<T>`, or `Arc<T>`, we serialize `T` in its place (with the
-//! exception of boxed slices, which [have their own treatment]).
+//! exception of boxed slices and `Box<str>`, which have their own treatment
+//! in [`boxed_slice`] and [`string`]).
 //!
 //! Upon deserialization, if the type parameter is `T` we deserialize `T`, but
 //! if it is `Box<T>`, `Rc<T>`, or `Arc<T>` we deserialize `T` and then wrap
@@ -75,7 +76,8 @@
 //! # }
 //! ```
 //!
-//! [have their own treatment]: crate::impls::boxed_slice
+//! [`boxed_slice`]: crate::impls::boxed_slice
+//! [`string`]: crate::impls::string
 //! [`PhantomData`]: core::marker::PhantomData
 
 use crate::prelude::*;

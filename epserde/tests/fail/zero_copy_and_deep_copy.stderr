@@ -1,0 +1,5 @@
+error: Type Both is declared as both zero-copy and deep-copy
+  --> tests/fail/zero_copy_and_deep_copy.rs:14:8
+   |
+14 | struct Both {
+   |        ^^^^

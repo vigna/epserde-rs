@@ -57,6 +57,31 @@ struct MyStructConstThenType<const N: usize, T: PartialEq> {
     b: T,
 }
 
+#[derive(Epserde, Debug, Copy, Clone, PartialEq)]
+#[repr(C)]
+#[epserde(zero_copy)]
+struct MyStructZero {
+    a: u32,
+    b: u64,
+}
+
+#[derive(Epserde, Debug, Copy, Clone, PartialEq)]
+#[repr(C)]
+#[epserde(zero_copy)]
+enum MyEnumZeroFieldless {
+    A = 4,
+    B = 7,
+}
+
+#[allow(dead_code)]
+#[derive(Epserde, Debug, Copy, Clone, PartialEq)]
+#[repr(C, u8)]
+#[epserde(zero_copy)]
+enum MyEnumZeroData {
+    A(u16) = 1,
+    B(u32),
+}
+
 // x86_64 / aarch64 regression tests
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
@@ -102,7 +127,7 @@ fn test_primitive_types() {
 #[test]
 fn test_option() {
     assert_eq!(get_type_hash::<Option<i32>>(), 0x36d9437e00a00833);
-    assert_eq!(get_align_hash::<Option<i32>>(), 0xd1fba762150c532c);
+    assert_eq!(get_align_hash::<Option<i32>>(), 0x6881f435bc0ca85f);
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
@@ -166,7 +191,7 @@ fn test_stdlib_types() {
     assert_eq!(get_type_hash::<RangeFrom<i32>>(), 0xad8267db843d93b8);
     assert_eq!(get_align_hash::<RangeFrom<i32>>(), 0x6881f435bc0ca85f);
     assert_eq!(get_type_hash::<RangeInclusive<i32>>(), 0xf90fab627ecbd1a6);
-    assert_eq!(get_align_hash::<RangeInclusive<i32>>(), 0xf875a366be1ab169);
+    assert_eq!(get_align_hash::<RangeInclusive<i32>>(), 0xde0fd80637b3a4da);
     assert_eq!(get_type_hash::<RangeTo<i32>>(), 0xd889856367fa2fe3);
     assert_eq!(get_align_hash::<RangeTo<i32>>(), 0x6881f435bc0ca85f);
     assert_eq!(get_type_hash::<RangeToInclusive<i32>>(), 0xc3682b190d94704d);
@@ -177,11 +202,11 @@ fn test_stdlib_types() {
     assert_eq!(get_type_hash::<RangeFull>(), 0x1d5d4cc6e963d594);
     assert_eq!(get_align_hash::<RangeFull>(), 0xd1fba762150c532c);
     assert_eq!(get_type_hash::<Bound<i32>>(), 0x1f77c5db6e0be477);
-    assert_eq!(get_align_hash::<Bound<i32>>(), 0xd1fba762150c532c);
+    assert_eq!(get_align_hash::<Bound<i32>>(), 0x6881f435bc0ca85f);
     assert_eq!(get_type_hash::<ControlFlow<i32, f64>>(), 0x5f4feceae713afe0);
     assert_eq!(
         get_align_hash::<ControlFlow<i32, f64>>(),
-        0xd1fba762150c532c
+        0xc3caaeef7aa4605a
     );
 }
 
@@ -203,7 +228,7 @@ fn test_derive_struct_generic() {
 #[test]
 fn test_derive_enum() {
     assert_eq!(get_type_hash::<MyEnum>(), 0x019604e4828c4317);
-    assert_eq!(get_align_hash::<MyEnum>(), 0x7c4ea1189a62724c);
+    assert_eq!(get_align_hash::<MyEnum>(), 0x7d4ad9f26be56fb9);
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
@@ -234,6 +259,27 @@ fn test_derive_struct_const_then_type() {
         get_align_hash::<MyStructConstThenType<5, i32>>(),
         0xde0fd80637b3a4da
     );
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[test]
+fn test_derive_struct_zero() {
+    assert_eq!(get_type_hash::<MyStructZero>(), 0x28afb99d6bb0d07e);
+    assert_eq!(get_align_hash::<MyStructZero>(), 0x30fc37ff8c51e03d);
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[test]
+fn test_derive_enum_zero_fieldless() {
+    assert_eq!(get_type_hash::<MyEnumZeroFieldless>(), 0x37608eb95b95b64f);
+    assert_eq!(get_align_hash::<MyEnumZeroFieldless>(), 0xec7c07418292efe6);
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+#[test]
+fn test_derive_enum_zero_data() {
+    assert_eq!(get_type_hash::<MyEnumZeroData>(), 0x9e08224d4df3a446);
+    assert_eq!(get_align_hash::<MyEnumZeroData>(), 0x341561197f99ab52);
 }
 
 // i686 regression tests
@@ -281,7 +327,7 @@ fn test_primitive_types() {
 #[test]
 fn test_option() {
     assert_eq!(get_type_hash::<Option<i32>>(), 0x36d9437e00a00833);
-    assert_eq!(get_align_hash::<Option<i32>>(), 0xd1fba762150c532c);
+    assert_eq!(get_align_hash::<Option<i32>>(), 0x832178dce3dc2030);
 }
 
 #[cfg(target_arch = "x86")]
@@ -345,7 +391,7 @@ fn test_stdlib_types() {
     assert_eq!(get_type_hash::<RangeFrom<i32>>(), 0xad8267db843d93b8);
     assert_eq!(get_align_hash::<RangeFrom<i32>>(), 0x832178dce3dc2030);
     assert_eq!(get_type_hash::<RangeInclusive<i32>>(), 0xf90fab627ecbd1a6);
-    assert_eq!(get_align_hash::<RangeInclusive<i32>>(), 0xf6991b1bbbd78c8a);
+    assert_eq!(get_align_hash::<RangeInclusive<i32>>(), 0x896839ed01ec9b9);
     assert_eq!(get_type_hash::<RangeTo<i32>>(), 0xd889856367fa2fe3);
     assert_eq!(get_align_hash::<RangeTo<i32>>(), 0x832178dce3dc2030);
     assert_eq!(get_type_hash::<RangeToInclusive<i32>>(), 0xc3682b190d94704d);
@@ -356,11 +402,11 @@ fn test_stdlib_types() {
     assert_eq!(get_type_hash::<RangeFull>(), 0x1d5d4cc6e963d594);
     assert_eq!(get_align_hash::<RangeFull>(), 0xd1fba762150c532c);
     assert_eq!(get_type_hash::<Bound<i32>>(), 0x1f77c5db6e0be477);
-    assert_eq!(get_align_hash::<Bound<i32>>(), 0xd1fba762150c532c);
+    assert_eq!(get_align_hash::<Bound<i32>>(), 0x832178dce3dc2030);
     assert_eq!(get_type_hash::<ControlFlow<i32, f64>>(), 0x5f4feceae713afe0);
     assert_eq!(
         get_align_hash::<ControlFlow<i32, f64>>(),
-        0xd1fba762150c532c
+        0x7bc9c77917deb867
     );
 }
 
@@ -410,4 +456,25 @@ fn test_derive_struct_const_then_type() {
         get_align_hash::<MyStructConstThenType<5, i32>>(),
         0x896839ed01ec9b9
     );
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_derive_struct_zero() {
+    assert_eq!(get_type_hash::<MyStructZero>(), 0x28afb99d6bb0d07e);
+    assert_eq!(get_align_hash::<MyStructZero>(), 0xa4e436092f13e0dc);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_derive_enum_zero_fieldless() {
+    assert_eq!(get_type_hash::<MyEnumZeroFieldless>(), 0x37608eb95b95b64f);
+    assert_eq!(get_align_hash::<MyEnumZeroFieldless>(), 0x6bebb5a256035706);
+}
+
+#[cfg(target_arch = "x86")]
+#[test]
+fn test_derive_enum_zero_data() {
+    assert_eq!(get_type_hash::<MyEnumZeroData>(), 0x9e08224d4df3a446);
+    assert_eq!(get_align_hash::<MyEnumZeroData>(), 0x196b7051405055aa);
 }

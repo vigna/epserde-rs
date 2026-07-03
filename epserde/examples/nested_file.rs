@@ -48,8 +48,17 @@ type TypeBothBoxed = StructParam<Box<[usize]>, Data<Box<[u16]>>>;
 
 #[cfg(feature = "std")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const FILE_NAME: &str = "test.bin";
+    // A unique path in the temporary directory, so the example does not
+    // litter the working directory.
+    let file_name = std::env::temp_dir().join(format!("epserde_nested_{}.bin", std::process::id()));
+    // Remove the file even if run returns early with an error.
+    let result = run(&file_name);
+    let _ = std::fs::remove_file(&file_name);
+    result
+}
 
+#[cfg(feature = "std")]
+fn run(file_name: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     println!("Serializing type: {}", core::any::type_name::<Type>());
     println!(
         "Associated serialization type: {}",
@@ -66,15 +75,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         test: -0xbadf00d,
     };
-    // Create an aligned vector to serialize into so we can do an ε-copy
-    // deserialization safely
-    let mut file = std::fs::File::create(FILE_NAME)?;
+    let mut file = std::fs::File::create(file_name)?;
 
     // Serialize
     #[cfg(feature = "schema")]
     {
         let schema = unsafe { data.serialize_with_schema(&mut file)? };
-        println!("{}", schema.to_csv_with_data(&std::fs::read(FILE_NAME)?));
+        println!("{}", schema.to_csv_with_data(&std::fs::read(file_name)?));
         println!();
     }
     #[cfg(not(feature = "schema"))]
@@ -83,7 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     drop(file);
 
     // Do a full-copy deserialization with vectors
-    let mut file = std::fs::File::open(FILE_NAME)?;
+    let mut file = std::fs::File::open(file_name)?;
     let full = unsafe { Type::deserialize_full(&mut file)? };
     println!(
         "Full-copy deserialization: returns the deserializing type {}",
@@ -95,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Do a full-copy deserialization with one boxed slice
-    let mut file = std::fs::File::open(FILE_NAME)?;
+    let mut file = std::fs::File::open(file_name)?;
     let full = unsafe { TypeOneBoxed::deserialize_full(&mut file)? };
     println!(
         "Full-copy deserialization: returns the deserializing type {}",
@@ -106,7 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Do a full-copy deserialization with boxed slices
-    let mut file = std::fs::File::open(FILE_NAME)?;
+    let mut file = std::fs::File::open(file_name)?;
     let full = unsafe { TypeBothBoxed::deserialize_full(&mut file)? };
     println!(
         "Full-copy deserialization: returns the deserializing type {}",
@@ -117,7 +124,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Do an ε-copy deserialization
-    let file = std::fs::read(FILE_NAME)?;
+    let file = std::fs::read(file_name)?;
     let eps = unsafe { Type::deserialize_eps(&file)? };
     println!(
         "ε-copy deserialization: returns the associated deserialization type {}",

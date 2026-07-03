@@ -31,7 +31,7 @@ use ser::*;
 
 macro_rules! impl_type_hash {
     ($($t:ident),*) => {
-		impl<$($t: TypeHash,)*> TypeHash for ($($t,)*)
+        impl<$($t: TypeHash,)*> TypeHash for ($($t,)*)
         {
 
             fn type_hash(
@@ -51,9 +51,9 @@ macro_rules! impl_tuples {
     ($($t:ident),*) => {
         unsafe impl<T: ZeroCopy> CopyType for ($($t,)*)  {
             type Copy = Zero;
-		}
+        }
 
-		impl<T: AlignHash> AlignHash for ($($t,)*)
+        impl<T: AlignHash> AlignHash for ($($t,)*)
         {
             fn align_hash(
                 hasher: &mut impl core::hash::Hasher,
@@ -76,9 +76,11 @@ macro_rules! impl_tuples {
             }
         }
 
-		impl<T: ZeroCopy> SerInner for ($($t,)*) {
+        impl<T: ZeroCopy> SerInner for ($($t,)*) {
             type SerType = Self;
-            const IS_ZERO_COPY: bool = true;
+            // Forwarded, not hardcoded, so that a hand-written incoherent
+            // element impl still trips the check_zero_copy runtime net.
+            const IS_ZERO_COPY: bool = T::IS_ZERO_COPY;
 
             #[inline(always)]
             unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
@@ -90,11 +92,11 @@ macro_rules! impl_tuples {
                         "epserde: homogeneous tuple layout assumption violated by this compiler"
                     );
                 }
-                ser_zero(backend, self)
+                unsafe { ser_zero(backend, self) }
             }
         }
 
-		impl<T: ZeroCopy> DeserInner for ($($t,)*) {
+        impl<T: ZeroCopy> DeserInner for ($($t,)*) {
             check_covariance!();
             type DeserType<'a> = &'a ($($t,)*);
             unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {

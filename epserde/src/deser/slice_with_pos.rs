@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! A cursor over a byte slice keeping track of the current position.
+
 use super::*;
 use crate::prelude::*;
 
@@ -17,6 +19,8 @@ use crate::prelude::*;
 /// backing slice.
 ///
 /// [`DeserInner`]: super::DeserInner
+///
+/// [`std`]: https://doc.rust-lang.org/std/
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub struct SliceWithPos<'a> {
@@ -83,7 +87,7 @@ impl ReadWithPos for SliceWithPos<'_> {
         self.pos
     }
 
-    /// Pad the cursor to the correct alignment.
+    /// Pads the cursor to the correct alignment.
     ///
     /// Note that this method also checks that the absolute memory position is
     /// properly aligned.

@@ -8,14 +8,15 @@
 //!
 //! In theory all types serialized by ε-serde must be immutable. However, we
 //! provide a convenience implementation that serializes [exact-size iterators]
-//! returning elements that are [`Borrow<T>`] for some type `T` as vectors of
-//! `T`.
+//! returning elements that are [`Borrow<T>`] for some type `T` as boxed
+//! slices of `T`.
 //!
 //! More precisely, we provide a [`SerIter`] type that [wraps] an iterator into
 //! a type that can be serialized. We provide a [`From`] implementation for
 //! convenience.
 //!
-//! Note, however, that you must deserialize the iterator as a vector; see the
+//! Note, however, that you must deserialize the iterator as a vector or a
+//! boxed slice; see the
 //! example in the [crate-level documentation].
 //!
 //! [exact-size iterators]: core::iter::ExactSizeIterator
@@ -30,16 +31,32 @@ use ser::*;
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
 /// A wrapper serializing an exact-size iterator as a boxed slice.
+///
+/// Note that serialization consumes the wrapped iterator: serializing the
+/// same [`SerIter`] a second time serializes an empty sequence, since the
+/// exhausted iterator reports a length of zero.
 ///
 /// For more information, see the [module-level documentation].
 ///
 /// [module-level documentation]: crate::impls::iter
 pub struct SerIter<T, I: ExactSizeIterator>(RefCell<I>, core::marker::PhantomData<T>);
 
+impl<T, I: ExactSizeIterator + core::fmt::Debug> core::fmt::Debug for SerIter<T, I> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // Print the wrapped iterator, not the internal RefCell.
+        match self.0.try_borrow() {
+            Ok(iter) => f.debug_tuple("SerIter").field(&&*iter).finish(),
+            Err(_) => f
+                .debug_tuple("SerIter")
+                .field(&format_args!("<borrowed>"))
+                .finish(),
+        }
+    }
+}
+
 impl<T, I: ExactSizeIterator> SerIter<T, I> {
-    pub fn new(iter: I) -> Self {
+    pub const fn new(iter: I) -> Self {
         SerIter(RefCell::new(iter), core::marker::PhantomData)
     }
 }
@@ -74,12 +91,20 @@ where
         check_zero_copy::<T>();
         let mut iter = self.0.borrow_mut();
         let len = iter.len();
-        backend.write("len", &len)?;
+        unsafe { backend.write("len", &len) }?;
         backend.align::<T>()?;
 
         let mut c = 0;
         for item in iter.deref_mut() {
-            ser_zero_unchecked(backend, item.borrow())?;
+            // Stop before writing anything beyond the declared length, so
+            // that an iterator whose len underestimates the actual number of
+            // items cannot write unboundedly (the reported actual count is
+            // then a lower bound).
+            if c == len {
+                c += 1;
+                break;
+            }
+            unsafe { ser_zero_unchecked(backend, item.borrow()) }?;
             c += 1;
         }
 
@@ -103,11 +128,21 @@ where
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         let mut iter = self.0.borrow_mut();
         let len = iter.len();
-        backend.write("len", &len)?;
+        unsafe { backend.write("len", &len) }?;
 
         let mut c = 0;
         for item in iter.deref_mut() {
-            unsafe { item.borrow()._ser_inner(backend)? };
+            // Stop before writing anything beyond the declared length, so
+            // that an iterator whose len underestimates the actual number of
+            // items cannot write unboundedly (the reported actual count is
+            // then a lower bound).
+            if c == len {
+                c += 1;
+                break;
+            }
+            // We go through write so that schema-recording backends see the
+            // same per-item structure as the serialization of a vector.
+            unsafe { backend.write("item", item.borrow())? };
             c += 1;
         }
 

@@ -47,14 +47,14 @@ where
 impl<T: ZeroCopy> SerHelper<Zero> for Box<[T]> {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        ser_slice_zero(backend, self)
+        unsafe { ser_slice_zero(backend, self) }
     }
 }
 
 impl<T: DeepCopy> SerHelper<Deep> for Box<[T]> {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        ser_slice_deep(backend, self)
+        unsafe { ser_slice_deep(backend, self) }
     }
 }
 
@@ -102,12 +102,12 @@ impl<T: DeepCopy + DeserInner> DeserHelper<Deep> for Box<[T]> {
     type DeserType<'a> = Box<[DeserType<'a, T>]>;
     #[inline(always)]
     unsafe fn _deser_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        Ok(deser_full_vec_deep(backend)?.into_boxed_slice())
+        Ok(unsafe { deser_full_vec_deep(backend) }?.into_boxed_slice())
     }
     #[inline(always)]
     unsafe fn _deser_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<DeserType<'a, Self>> {
-        Ok(deser_eps_vec_deep::<T>(backend)?.into_boxed_slice())
+        Ok(unsafe { deser_eps_vec_deep::<T>(backend) }?.into_boxed_slice())
     }
 }

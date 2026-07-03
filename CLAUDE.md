@@ -76,7 +76,7 @@ This distinction drives specialization throughout the crate via `SerHelper<Zero>
 
 ### Standard Type Implementations (`impls/`)
 
-Each file implements serialization for a category: `prim.rs` (primitives), `vec.rs` (Vec with zero/deep-copy specialization), `boxed_slice.rs`, `string.rs`, `array.rs`, `tuple.rs` (up to 12 elements), `wrapper.rs` (`&T`/`&mut T` plus Box/Rc/Arc with erasure), `stdlib.rs` (Option, Range, ControlFlow), `slice.rs`, `iter.rs` (SerIter wrapper).
+Each file implements serialization for a category: `prim.rs` (primitives, Option), `vec.rs` (Vec with zero/deep-copy specialization), `boxed_slice.rs`, `string.rs`, `array.rs`, `tuple.rs` (up to 12 elements), `wrapper.rs` (`&T`/`&mut T` plus Box/Rc/Arc with erasure), `stdlib.rs` (Range, Bound, ControlFlow, Result, BuildHasherDefault), `slice.rs`, `iter.rs` (SerIter wrapper).
 
 ### PhantomData
 

@@ -5,8 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Example of a deep-copy internal parameter, which is left untouched, but
-//! needs `DeepCopy` to be implemented.
+//! Example of a deep-copy internal parameter, which is substituted with its
+//! deserialization type upon ε-copy deserialization (the output shows
+//! `Data<&[i32]>`), but needs `DeepCopy` to be implemented.
 //!
 //! Please compile with the "schema" feature to see the schema output.
 

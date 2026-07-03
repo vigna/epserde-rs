@@ -14,36 +14,37 @@ macro_rules! impl_test {
     ($data:expr, $ty:ty) => {{
         let mut cursor = <AlignedCursor>::new();
 
-        let _ = unsafe { $data.serialize_with_schema(&mut cursor).unwrap() };
+        let _ = unsafe { $data.serialize_with_schema(&mut cursor)? };
 
         cursor.set_position(0);
-        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor).unwrap() };
-        assert_eq!($data, full_copy);
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor)? };
+        assert_eq!(full_copy, $data);
 
-        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes()).unwrap() };
-        assert_eq!($data, eps_copy);
+        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes())? };
+        assert_eq!(eps_copy, $data);
     }
     {
         let mut cursor = <AlignedCursor>::new();
-        unsafe { $data.serialize(&mut cursor).unwrap() };
+        unsafe { $data.serialize(&mut cursor)? };
 
         cursor.set_position(0);
-        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor).unwrap() };
-        assert_eq!($data, full_copy);
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor)? };
+        assert_eq!(full_copy, $data);
 
-        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes()).unwrap() };
-        assert_eq!($data, eps_copy);
+        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes())? };
+        assert_eq!(eps_copy, $data);
     }};
 }
 
 macro_rules! test_prim {
     ($ty:ty, $test_name:ident) => {
         #[test]
-        fn $test_name() {
+        fn $test_name() -> anyhow::Result<()> {
             impl_test!(<$ty>::MAX, $ty);
             impl_test!(<$ty>::MIN, $ty);
             impl_test!(0 as $ty, $ty);
             impl_test!(7 as $ty, $ty);
+            Ok(())
         }
     };
 }
@@ -60,15 +61,18 @@ test_prim!(i32, test_i32);
 test_prim!(i64, test_i64);
 test_prim!(i128, test_i128);
 test_prim!(isize, test_isize);
+test_prim!(f32, test_f32);
+test_prim!(f64, test_f64);
 
 macro_rules! test_nonzero {
     ($ty:ty, $test_name:ident) => {
         #[test]
-        fn $test_name() {
+        fn $test_name() -> anyhow::Result<()> {
             impl_test!(<$ty>::MAX, $ty);
             impl_test!(<$ty>::MIN, $ty);
-            impl_test!(<$ty>::try_from(1).unwrap(), $ty);
-            impl_test!(<$ty>::try_from(7).unwrap(), $ty);
+            impl_test!(<$ty>::try_from(1)?, $ty);
+            impl_test!(<$ty>::try_from(7)?, $ty);
+            Ok(())
         }
     };
 }
@@ -87,23 +91,26 @@ test_nonzero!(NonZeroI128, test_nonzero_i128);
 test_nonzero!(NonZeroIsize, test_nonzero_isize);
 
 #[test]
-fn test_unit() {
+fn test_unit() -> anyhow::Result<()> {
     impl_test!((), ());
+    Ok(())
 }
 
 #[test]
-fn test_bool() {
+fn test_bool() -> anyhow::Result<()> {
     impl_test!(true, bool);
     impl_test!(false, bool);
+    Ok(())
 }
 
 const TEST_STRS: &[&str] = &["abc\0\x0a🔥\u{0d2bdf}", ""];
 
 #[test]
-fn test_char() {
+fn test_char() -> anyhow::Result<()> {
     for test_str in TEST_STRS {
         for c in test_str.chars() {
             impl_test!(c, char);
         }
     }
+    Ok(())
 }

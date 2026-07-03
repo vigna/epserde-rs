@@ -30,7 +30,7 @@ struct Data<A> {
 
 #[cfg(feature = "mmap")]
 #[test]
-fn test_mem_case() {
+fn test_mem_case() -> anyhow::Result<()> {
     type Person = PersonVec<Vec<usize>, Data<Vec<u16>>>;
 
     // Create a new value to serialize
@@ -42,66 +42,73 @@ fn test_mem_case() {
         },
         test: -0xbadf00d,
     };
-    // Serialize
-    unsafe { person.store("test.bin").unwrap() };
+    // Serialize to a unique file in the system temporary directory
+    let path = std::env::temp_dir().join(format!("epserde-test-memcase-{}", std::process::id()));
+    let result = (|| -> anyhow::Result<()> {
+        unsafe { person.store(&path)? };
 
-    let res = unsafe { Person::load_mem("test.bin").unwrap() };
-    let res = res.uncase();
-    assert_eq!(person.test, res.test);
-    assert_eq!(person.test, res.get_test());
-    assert_eq!(person.a, res.a);
-    assert_eq!(person.b.a, res.b.a);
-    assert_eq!(person.b.b, res.b.b);
+        let res = unsafe { Person::load_mem(&path)? };
+        let res = res.uncase();
+        assert_eq!(res.test, person.test);
+        assert_eq!(res.get_test(), person.test);
+        assert_eq!(res.a, person.a);
+        assert_eq!(res.b.a, person.b.a);
+        assert_eq!(res.b.b, person.b.b);
 
-    let res = unsafe { Person::load_mmap("test.bin", Flags::empty()).unwrap() };
-    let res = res.uncase();
-    assert_eq!(person.test, res.test);
-    assert_eq!(person.test, res.get_test());
-    assert_eq!(person.a, res.a);
-    assert_eq!(person.b.a, res.b.a);
-    assert_eq!(person.b.b, res.b.b);
+        let res = unsafe { Person::load_mmap(&path, Flags::empty())? };
+        let res = res.uncase();
+        assert_eq!(res.test, person.test);
+        assert_eq!(res.get_test(), person.test);
+        assert_eq!(res.a, person.a);
+        assert_eq!(res.b.a, person.b.a);
+        assert_eq!(res.b.b, person.b.b);
 
-    let res = unsafe { Person::load_mem("test.bin").unwrap() };
-    let res = res.uncase();
-    assert_eq!(person.test, res.test);
-    assert_eq!(person.test, res.get_test());
-    assert_eq!(person.a, res.a);
-    assert_eq!(person.b.a, res.b.a);
-    assert_eq!(person.b.b, res.b.b);
+        let res = unsafe { Person::load_mem(&path)? };
+        let res = res.uncase();
+        assert_eq!(res.test, person.test);
+        assert_eq!(res.get_test(), person.test);
+        assert_eq!(res.a, person.a);
+        assert_eq!(res.b.a, person.b.a);
+        assert_eq!(res.b.b, person.b.b);
 
-    let res = unsafe { Person::load_full("test.bin").unwrap() };
-    assert_eq!(person.test, res.test);
-    assert_eq!(person.test, res.get_test());
-    assert_eq!(person.a, res.a);
-    assert_eq!(person.b.a, res.b.a);
-    assert_eq!(person.b.b, res.b.b);
+        let res = unsafe { Person::load_full(&path)? };
+        assert_eq!(res.test, person.test);
+        assert_eq!(res.get_test(), person.test);
+        assert_eq!(res.a, person.a);
+        assert_eq!(res.b.a, person.b.a);
+        assert_eq!(res.b.b, person.b.b);
 
-    let res = unsafe { Person::mmap("test.bin", Flags::empty()).unwrap() };
-    let res = res.uncase();
-    assert_eq!(person.test, res.test);
-    assert_eq!(person.test, res.get_test());
-    assert_eq!(person.a, res.a);
-    assert_eq!(person.b.a, res.b.a);
-    assert_eq!(person.b.b, res.b.b);
+        let res = unsafe { Person::mmap(&path, Flags::empty())? };
+        let res = res.uncase();
+        assert_eq!(res.test, person.test);
+        assert_eq!(res.get_test(), person.test);
+        assert_eq!(res.a, person.a);
+        assert_eq!(res.b.a, person.b.a);
+        assert_eq!(res.b.b, person.b.b);
 
-    let res = unsafe { Person::mmap("test.bin", Flags::TRANSPARENT_HUGE_PAGES).unwrap() };
-    let res = res.uncase();
-    assert_eq!(person.test, res.test);
-    assert_eq!(person.test, res.get_test());
-    assert_eq!(person.a, res.a);
-    assert_eq!(person.b.a, res.b.a);
-    assert_eq!(person.b.b, res.b.b);
+        let res = unsafe { Person::mmap(&path, Flags::TRANSPARENT_HUGE_PAGES)? };
+        let res = res.uncase();
+        assert_eq!(res.test, person.test);
+        assert_eq!(res.get_test(), person.test);
+        assert_eq!(res.a, person.a);
+        assert_eq!(res.b.a, person.b.a);
+        assert_eq!(res.b.b, person.b.b);
 
-    let res = unsafe { Person::mmap("test.bin", Flags::empty()).unwrap() };
-    let res = res.uncase();
-    assert_eq!(person.test, res.test);
-    assert_eq!(person.test, res.get_test());
-    assert_eq!(person.a, res.a);
-    assert_eq!(person.b.a, res.b.a);
-    assert_eq!(person.b.b, res.b.b);
+        let res = unsafe { Person::mmap(&path, Flags::empty())? };
+        let res = res.uncase();
+        assert_eq!(res.test, person.test);
+        assert_eq!(res.get_test(), person.test);
+        assert_eq!(res.a, person.a);
+        assert_eq!(res.b.a, person.b.a);
+        assert_eq!(res.b.b, person.b.b);
+        Ok(())
+    })();
 
-    // cleanup the file
-    std::fs::remove_file("test.bin").unwrap();
+    // cleanup the file, even if a check failed
+    let removed = std::fs::remove_file(&path);
+    result?;
+    removed?;
+    Ok(())
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Default, Clone)]
@@ -111,25 +118,26 @@ struct TestData {
 }
 
 #[test]
-fn test_read_mem() {
+fn test_read_mem() -> anyhow::Result<()> {
     let data = TestData {
         values: vec![1, 2, 3, 4, 5],
         count: 42,
     };
 
     let mut buffer = Vec::new();
-    unsafe { data.serialize(&mut buffer).unwrap() };
+    unsafe { data.serialize(&mut buffer)? };
     let cursor = <AlignedCursor>::from_slice(&buffer);
-    let mem_case = unsafe { TestData::read_mem(cursor, buffer.len()).unwrap() };
+    let mem_case = unsafe { TestData::read_mem(cursor, buffer.len())? };
     let deserialized = mem_case.uncase();
 
-    assert_eq!(data.values, deserialized.values);
-    assert_eq!(data.count, deserialized.count);
+    assert_eq!(deserialized.values, data.values);
+    assert_eq!(deserialized.count, data.count);
+    Ok(())
 }
 
 #[cfg(feature = "mmap")]
 #[test]
-fn test_read_mmap() {
+fn test_read_mmap() -> anyhow::Result<()> {
     // Create test data
 
     let data = TestData {
@@ -138,51 +146,53 @@ fn test_read_mmap() {
     };
 
     let mut buffer = Vec::new();
-    unsafe { data.serialize(&mut buffer).unwrap() };
+    unsafe { data.serialize(&mut buffer)? };
     let cursor = <AlignedCursor>::from_slice(&buffer);
-    let mmap_case = unsafe { TestData::read_mmap(cursor, buffer.len(), Flags::empty()).unwrap() };
+    let mmap_case = unsafe { TestData::read_mmap(cursor, buffer.len(), Flags::empty())? };
     let deserialized = mmap_case.uncase();
 
-    assert_eq!(data.values, deserialized.values);
-    assert_eq!(data.count, deserialized.count);
+    assert_eq!(deserialized.values, data.values);
+    assert_eq!(deserialized.count, data.count);
+    Ok(())
 }
 
 #[test]
-fn test_into_iter() {
+fn test_into_iter() -> anyhow::Result<()> {
     let data = vec![10, 20, 30, 40, 50];
 
     let mut buffer = Vec::new();
-    unsafe { data.serialize(&mut buffer).unwrap() };
+    unsafe { data.serialize(&mut buffer)? };
     let cursor = <AlignedCursor>::from_slice(&buffer);
-    let mem_case = unsafe { Vec::<i32>::read_mem(cursor, buffer.len()).unwrap() };
+    let mem_case = unsafe { Vec::<i32>::read_mem(cursor, buffer.len())? };
     let deserialized = *mem_case.uncase();
 
     zip(data.iter(), deserialized).for_each(|(v, w)| {
-        assert_eq!(v, w);
+        assert_eq!(w, v);
     });
+    Ok(())
 }
 
 #[test]
-fn test_deref() {
+fn test_deref() -> anyhow::Result<()> {
     let data = vec![100, 200, 300, 400, 500];
 
     let mut buffer = Vec::new();
-    unsafe { data.serialize(&mut buffer).unwrap() };
+    unsafe { data.serialize(&mut buffer)? };
     let cursor = <AlignedCursor>::from_slice(&buffer);
-    let mem_case: MemCase<Vec<i32>> =
-        unsafe { Vec::<i32>::read_mem(cursor, buffer.len()).unwrap() };
+    let mem_case: MemCase<Vec<i32>> = unsafe { Vec::<i32>::read_mem(cursor, buffer.len())? };
 
-    assert_eq!(&data[..], &*mem_case);
+    assert_eq!(&*mem_case, &data[..]);
     for (d, m) in data.iter().zip(mem_case.iter()) {
-        assert_eq!(d, m);
+        assert_eq!(m, d);
     }
 
     let mem_case: MemCase<Owned<Vec<i32>>> = data.clone().into();
 
-    assert_eq!(&data[..], &*mem_case);
+    assert_eq!(&*mem_case, &data[..]);
     for (d, m) in data.iter().zip(mem_case.iter()) {
-        assert_eq!(d, m);
+        assert_eq!(m, d);
     }
 
     let _uncase: &Vec<i32> = mem_case.uncase();
+    Ok(())
 }

@@ -36,7 +36,7 @@ fn make() -> anyhow::Result<MemCase<Vec<i32>>> {
 /// reference. Under Stacked Borrows the move retags the owning Box, which can
 /// pop the borrow-stack entry for the aliasing &[i32].
 #[test]
-fn move_then_read() -> anyhow::Result<()> {
+fn test_move_then_read() -> anyhow::Result<()> {
     let mc = make()?;
     let s: &[i32] = mc.uncase();
     assert_eq!(s, &[1, 2, 3, 4]);
@@ -55,7 +55,7 @@ fn consume_by_value(mc: MemCase<Vec<i32>>) -> i32 {
 }
 
 #[test]
-fn by_value_then_drop() -> anyhow::Result<()> {
+fn test_by_value_then_drop() -> anyhow::Result<()> {
     let mc = make()?;
     assert_eq!(consume_by_value(mc), 10);
     Ok(())
@@ -71,7 +71,7 @@ fn frame_a(mc: MemCase<Vec<i32>>) -> i32 {
 }
 
 #[test]
-fn by_value_nested_frames() -> anyhow::Result<()> {
+fn test_by_value_nested_frames() -> anyhow::Result<()> {
     let mc = make()?;
     assert_eq!(frame_a(mc), 4);
     Ok(())
@@ -84,7 +84,7 @@ fn by_value_nested_frames() -> anyhow::Result<()> {
 /// If this is clean while the MemCase paths are not, the MemCase wrapper / the
 /// move is the cause, not the data or the (de)serialization itself.
 #[test]
-fn control_eps_no_memcase() -> anyhow::Result<()> {
+fn test_control_eps_no_memcase() -> anyhow::Result<()> {
     let v: Vec<i32> = vec![1, 2, 3, 4];
     // Use an AlignedCursor so the bytes meet ε-serde's alignment requirement
     // (a plain Vec<u8> is not guaranteed aligned, which Miri rejects).
@@ -99,7 +99,7 @@ fn control_eps_no_memcase() -> anyhow::Result<()> {
 /// CONTROL B: build a backend-backed MemCase and read it strictly IN PLACE,
 /// never moving it after construction.
 #[test]
-fn control_memcase_in_place() -> anyhow::Result<()> {
+fn test_control_memcase_in_place() -> anyhow::Result<()> {
     let v: Vec<i32> = vec![1, 2, 3, 4];
     let mut buffer = Vec::new();
     unsafe { v.serialize(&mut buffer)? };

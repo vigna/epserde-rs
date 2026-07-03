@@ -10,12 +10,12 @@ use epserde::*;
 use xxhash_rust::xxh3::Xxh3;
 
 #[test]
-fn test_wrong_endianness() {
+fn test_wrong_endianness() -> anyhow::Result<()> {
     let data = 1337_usize;
 
     let mut cursor = <AlignedCursor<Aligned16>>::new();
 
-    let schema = unsafe { data.serialize_with_schema(&mut cursor).unwrap() };
+    let schema = unsafe { data.serialize_with_schema(&mut cursor)? };
     println!("{}", schema.to_csv_with_data(cursor.as_bytes()));
     println!("{:02x?}", cursor.as_bytes());
 
@@ -24,12 +24,10 @@ fn test_wrong_endianness() {
 
     let err =
         unsafe { <usize>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
-    assert!(err.is_err());
-    assert!(matches!(err.unwrap_err(), deser::Error::EndiannessMismatch));
+    assert!(matches!(err, Err(deser::Error::EndiannessMismatch)));
 
     let err = unsafe { <usize>::deserialize_eps(cursor.as_bytes()) };
-    assert!(err.is_err());
-    assert!(matches!(err.unwrap_err(), deser::Error::EndiannessMismatch));
+    assert!(matches!(err, Err(deser::Error::EndiannessMismatch)));
 
     // set a wrong magic cookie
     let bad_magic: u64 = 0x8989898989898989;
@@ -37,17 +35,19 @@ fn test_wrong_endianness() {
 
     let err =
         unsafe { <usize>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
-    if let Err(deser::Error::InvalidMagicCookie(bad_magic_read)) = err {
-        assert_eq!(bad_magic_read, bad_magic);
-    } else {
-        panic!("wrong error type: {:?}", err);
+    match err {
+        Err(deser::Error::InvalidMagicCookie(bad_magic_read)) => {
+            assert_eq!(bad_magic_read, bad_magic);
+        }
+        err => anyhow::bail!("wrong error type: {:?}", err),
     }
 
     let err = unsafe { <usize>::deserialize_eps(cursor.as_bytes()) };
-    if let Err(deser::Error::InvalidMagicCookie(bad_magic_read)) = err {
-        assert_eq!(bad_magic_read, bad_magic);
-    } else {
-        panic!("wrong error type: {:?}", err);
+    match err {
+        Err(deser::Error::InvalidMagicCookie(bad_magic_read)) => {
+            assert_eq!(bad_magic_read, bad_magic);
+        }
+        err => anyhow::bail!("wrong error type: {:?}", err),
     }
     // reset the magic, but set a wrong version
     cursor.as_bytes_mut()[0..8].copy_from_slice(&MAGIC.to_ne_bytes());
@@ -56,17 +56,19 @@ fn test_wrong_endianness() {
 
     let err =
         unsafe { <usize>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
-    if let Err(deser::Error::MajorVersionMismatch(bad_version_read)) = err {
-        assert_eq!(bad_version_read, bad_version);
-    } else {
-        panic!("wrong error type: {:?}", err);
+    match err {
+        Err(deser::Error::MajorVersionMismatch(bad_version_read)) => {
+            assert_eq!(bad_version_read, bad_version);
+        }
+        err => anyhow::bail!("wrong error type: {:?}", err),
     }
 
     let err = unsafe { <usize>::deserialize_eps(cursor.as_bytes()) };
-    if let Err(deser::Error::MajorVersionMismatch(bad_version_read)) = err {
-        assert_eq!(bad_version_read, bad_version);
-    } else {
-        panic!("wrong error type: {:?}", err);
+    match err {
+        Err(deser::Error::MajorVersionMismatch(bad_version_read)) => {
+            assert_eq!(bad_version_read, bad_version);
+        }
+        err => anyhow::bail!("wrong error type: {:?}", err),
     }
 
     // reset the Major version, but set a wrong minor version
@@ -76,17 +78,19 @@ fn test_wrong_endianness() {
 
     let err =
         unsafe { <usize>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
-    if let Err(deser::Error::MinorVersionMismatch(bad_version_read)) = err {
-        assert_eq!(bad_version_read, bad_version);
-    } else {
-        panic!("wrong error type {:?}", err);
+    match err {
+        Err(deser::Error::MinorVersionMismatch(bad_version_read)) => {
+            assert_eq!(bad_version_read, bad_version);
+        }
+        err => anyhow::bail!("wrong error type: {:?}", err),
     }
 
     let err = unsafe { <usize>::deserialize_eps(cursor.as_bytes()) };
-    if let Err(deser::Error::MinorVersionMismatch(bad_version_read)) = err {
-        assert_eq!(bad_version_read, bad_version);
-    } else {
-        panic!("wrong error type {:?}", err);
+    match err {
+        Err(deser::Error::MinorVersionMismatch(bad_version_read)) => {
+            assert_eq!(bad_version_read, bad_version);
+        }
+        err => anyhow::bail!("wrong error type: {:?}", err),
     }
 
     // reset the minor version, but deserialize with the wrong type
@@ -102,76 +106,68 @@ fn test_wrong_endianness() {
 
     let result =
         unsafe { <i8>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
-    if let Err(err) = result {
-        eprintln!("{err}");
-        if let deser::Error::TypeHashMismatch {
+    match result {
+        Err(deser::Error::TypeHashMismatch {
             ser_type_name,
             ser_type_hash,
             self_type_name,
             self_ser_type_name,
             self_type_hash,
-        } = err
-        {
+        }) => {
             assert_eq!(ser_type_name, "usize");
             assert_eq!(ser_type_hash, usize_type_hash);
             assert_eq!(self_type_name, "i8");
             assert_eq!(self_ser_type_name, "i8");
             assert_eq!(self_type_hash, i8_hash);
-        } else {
-            panic!("wrong error type: {:?}", err);
         }
-    } else {
-        panic!("No error: {:?}", err);
+        result => anyhow::bail!("wrong result: {:?}", result),
     }
 
     let result = unsafe { <i8>::deserialize_eps(cursor.as_bytes()) };
-    if let Err(err) = result {
-        eprintln!("{err}");
-        if let deser::Error::TypeHashMismatch {
+    match result {
+        Err(deser::Error::TypeHashMismatch {
             ser_type_name,
             ser_type_hash,
             self_type_name,
             self_ser_type_name,
             self_type_hash,
-        } = err
-        {
+        }) => {
             assert_eq!(ser_type_name, "usize");
             assert_eq!(ser_type_hash, usize_type_hash);
             assert_eq!(self_type_name, "i8");
             assert_eq!(self_ser_type_name, "i8");
             assert_eq!(self_type_hash, i8_hash);
-        } else {
-            panic!("wrong error type: {:?}", err);
         }
-    } else {
-        panic!("No error: {:?}", err);
+        result => anyhow::bail!("wrong result: {:?}", result),
     }
+    Ok(())
 }
 
 #[test]
-fn test_error_at_eof() {
+fn test_error_at_eof() -> anyhow::Result<()> {
     let data = 1337_usize;
 
     let mut cursor = <AlignedCursor<Aligned16>>::new();
 
-    unsafe { data.serialize(&mut cursor).unwrap() };
+    unsafe { data.serialize(&mut cursor)? };
     cursor.set_len(cursor.position() - 1);
     cursor.set_position(0);
     let err = unsafe { <usize>::deserialize_full(&mut cursor) };
     assert!(err.is_err());
     let err = unsafe { <usize>::deserialize_eps(cursor.as_bytes()) };
     assert!(err.is_err());
+    Ok(())
 }
 
 #[test]
-fn test_array_deep_deser_error_no_leak() {
+fn test_array_deep_deser_error_no_leak() -> anyhow::Result<()> {
     // Deserialization of a deep-copy array must not leak the elements already
     // deserialized when a later element fails; sweeping the truncation point
     // makes the failure happen at every possible position (leaks are checked
     // under Miri).
     let data = [vec![1_i32, 2], vec![3, 4]];
     let mut cursor = <AlignedCursor<Aligned16>>::new();
-    unsafe { data.serialize(&mut cursor).unwrap() };
+    unsafe { data.serialize(&mut cursor)? };
     let full = cursor.as_bytes().to_vec();
     for len in 0..full.len() {
         let mut cursor = <AlignedCursor>::from_slice(&full[..len]);
@@ -179,19 +175,21 @@ fn test_array_deep_deser_error_no_leak() {
         let err = unsafe { <[Vec<i32>; 2]>::deserialize_eps(cursor.as_bytes()) };
         assert!(err.is_err());
     }
+    Ok(())
 }
 
 #[test]
-fn test_read_mem_error_no_leak() {
+fn test_read_mem_error_no_leak() -> anyhow::Result<()> {
     // A deserialization failure inside read_mem must drop the memory backend
     // (leaks are checked under Miri).
     let data = 1337_usize;
     let mut cursor = <AlignedCursor<Aligned16>>::new();
-    unsafe { data.serialize(&mut cursor).unwrap() };
+    unsafe { data.serialize(&mut cursor)? };
     cursor.as_bytes_mut()[0..8].copy_from_slice(&0x8989898989898989_u64.to_ne_bytes());
     let bytes = cursor.as_bytes();
     let res = unsafe { <usize>::read_mem(bytes, bytes.len()) };
     assert!(res.is_err());
+    Ok(())
 }
 
 #[test]

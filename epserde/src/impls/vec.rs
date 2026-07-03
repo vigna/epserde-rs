@@ -6,6 +6,9 @@
  */
 
 //! Implementations for vectors.
+//!
+//! `Vec<T>` is serialized as `Box<[T::SerType]>`, so a serialized vector can
+//! be deserialized both as a vector and as a boxed slice.
 
 use crate::deser;
 use crate::deser::helpers::*;
@@ -45,14 +48,14 @@ where
 impl<T: ZeroCopy> SerHelper<Zero> for Vec<T> {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        ser_slice_zero(backend, self.as_slice())
+        unsafe { ser_slice_zero(backend, self.as_slice()) }
     }
 }
 
 impl<T: DeepCopy> SerHelper<Deep> for Vec<T> {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        ser_slice_deep(backend, self.as_slice())
+        unsafe { ser_slice_deep(backend, self.as_slice()) }
     }
 }
 
@@ -100,12 +103,12 @@ impl<T: DeepCopy + DeserInner> DeserHelper<Deep> for Vec<T> {
     type DeserType<'a> = Vec<DeserType<'a, T>>;
     #[inline(always)]
     unsafe fn _deser_full_inner_impl(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        deser_full_vec_deep::<T>(backend)
+        unsafe { deser_full_vec_deep::<T>(backend) }
     }
     #[inline(always)]
     unsafe fn _deser_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<DeserType<'a, Self>> {
-        deser_eps_vec_deep::<T>(backend)
+        unsafe { deser_eps_vec_deep::<T>(backend) }
     }
 }

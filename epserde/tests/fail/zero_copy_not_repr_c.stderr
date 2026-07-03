@@ -1,0 +1,5 @@
+error: Type NotReprC is declared as zero-copy, but it is not repr(C)
+  --> tests/fail/zero_copy_not_repr_c.rs:12:8
+   |
+12 | struct NotReprC {
+   |        ^^^^^^^^

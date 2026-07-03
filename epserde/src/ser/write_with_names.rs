@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Traits and implementations to write named field during serialization.
+//! Traits and implementations to write named fields during serialization.
 //!
 //! [`SerInner::_ser_inner`] writes on a [`WriteWithNames`], rather
 //! than on a [`WriteWithPos`], with the purpose of easily recording write
@@ -29,8 +29,9 @@ use alloc::{
 /// must use the methods of this trait if they want to record the schema of the
 /// serialized data; this is true (maybe counterintuitively) even of ancillary
 /// data such as tags and slice lengths: see [`helpers`] or the [implementation
-/// of `Option`] for examples. All methods have a default implementation that
-/// must be replicated in other implementations.
+/// of `Option`] for examples. All methods have a default implementation; other
+/// implementations must write exactly the same bytes as the default
+/// implementations.
 ///
 /// There are two implementations of [`WriteWithNames`]: [`WriterWithPos`],
 /// which uses the default implementation, and [`SchemaWriter`], which
@@ -38,13 +39,17 @@ use alloc::{
 ///
 /// [implementation of `Option`]: impls::prim
 pub trait WriteWithNames: WriteWithPos + Sized {
-    /// Add some zero padding so that `self.pos() % V:align_to() == 0.`
+    /// Adds zero padding so that `self.pos()` becomes a multiple of
+    /// `V::align_to()` (a value of zero requests no alignment).
     ///
     /// Other implementations must write the same number of zeros.
     fn align<V: AlignTo>(&mut self) -> Result<()> {
-        let padding = pad_align_to(self.pos(), V::align_to());
-        for _ in 0..padding {
-            self.write_all(&[0])?;
+        const ZEROS: [u8; 64] = [0; 64];
+        let mut padding = pad_align_to(self.pos(), V::align_to());
+        while padding > 0 {
+            let chunk = padding.min(ZEROS.len());
+            self.write_all(&ZEROS[..chunk])?;
+            padding -= chunk;
         }
         Ok(())
     }
@@ -54,7 +59,13 @@ pub trait WriteWithNames: WriteWithPos + Sized {
     /// The default implementation simply delegates to [`SerInner::_ser_inner`].
     /// Other implementations might use the name information (e.g., [`SchemaWriter`]),
     /// but they must in the end delegate to [`SerInner::_ser_inner`].
-    fn write<V: SerInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
+    ///
+    /// # Safety
+    ///
+    /// See the documentation of [`Serialize`].
+    ///
+    /// [`Serialize`]: super::Serialize
+    unsafe fn write<V: SerInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
         unsafe { value._ser_inner(self) }
     }
 
@@ -102,6 +113,11 @@ impl Schema {
     /// serialized file, so it is not a good idea to call this method
     /// on big structures.
     ///
+    /// # Panics
+    ///
+    /// Panics if `data` is shorter than the extent of the schema (i.e., if it
+    /// is not the buffer the schema was recorded from).
+    ///
     /// [`to_csv`]: Self::to_csv
     pub fn to_csv_with_data(&self, data: &[u8]) -> String {
         let mut result = "field,offset,align,size,ty,bytes\n".to_string();
@@ -111,17 +127,24 @@ impl Schema {
             if row.offset == self.0[i + 1].offset {
                 result.push_str(&format!(
                     "{},{},{},{},{},\n",
-                    row.field, row.offset, row.align, row.size, row.ty,
-                ));
-            } else {
-                result.push_str(&format!(
-                    "{},{},{},{},{},{:02x?}\n",
                     row.field,
                     row.offset,
                     row.align,
                     row.size,
-                    row.ty,
-                    &data[row.offset..row.offset + row.size],
+                    csv_quote(&row.ty),
+                ));
+            } else {
+                result.push_str(&format!(
+                    "{},{},{},{},{},{}\n",
+                    row.field,
+                    row.offset,
+                    row.align,
+                    row.size,
+                    csv_quote(&row.ty),
+                    csv_quote(&format!(
+                        "{:02x?}",
+                        &data[row.offset..row.offset + row.size]
+                    )),
                 ));
             }
         }
@@ -129,13 +152,16 @@ impl Schema {
         // the last field can't be a composed type by definition
         if let Some(row) = self.0.last() {
             result.push_str(&format!(
-                "{},{},{},{},{},{:02x?}\n",
+                "{},{},{},{},{},{}\n",
                 row.field,
                 row.offset,
                 row.align,
                 row.size,
-                row.ty,
-                &data[row.offset..row.offset + row.size],
+                csv_quote(&row.ty),
+                csv_quote(&format!(
+                    "{:02x?}",
+                    &data[row.offset..row.offset + row.size]
+                )),
             ));
         }
 
@@ -148,10 +174,24 @@ impl Schema {
         for row in &self.0 {
             result.push_str(&format!(
                 "{},{},{},{},{}\n",
-                row.field, row.offset, row.align, row.size, row.ty
+                row.field,
+                row.offset,
+                row.align,
+                row.size,
+                csv_quote(&row.ty)
             ));
         }
         result
+    }
+}
+
+/// Quotes a CSV field if necessary: type names such as Vec<(u32, u16)> contain
+/// commas that would otherwise shift the columns.
+fn csv_quote(field: &str) -> String {
+    if field.contains(',') || field.contains('"') {
+        format!("\"{}\"", field.replace('"', "\"\""))
+    } else {
+        field.to_string()
     }
 }
 
@@ -197,8 +237,9 @@ impl<W: WriteWithPos> WriteWithPos for SchemaWriter<'_, W> {
 /// WARNING: these implementations must be kept in sync with the ones
 /// in the default implementation of [`WriteWithNames`].
 impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
-    fn align<T: AlignTo>(&mut self) -> Result<()> {
-        let padding = pad_align_to(self.pos(), T::align_to());
+    fn align<V: AlignTo>(&mut self) -> Result<()> {
+        const ZEROS: [u8; 64] = [0; 64];
+        let padding = pad_align_to(self.pos(), V::align_to());
         if padding != 0 {
             self.schema.0.push(SchemaRow {
                 field: "PADDING".into(),
@@ -207,15 +248,18 @@ impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
                 size: padding,
                 align: 1,
             });
-            for _ in 0..padding {
-                self.write_all(&[0])?;
+            let mut rem = padding;
+            while rem > 0 {
+                let chunk = rem.min(ZEROS.len());
+                self.write_all(&ZEROS[..chunk])?;
+                rem -= chunk;
             }
         }
 
         Ok(())
     }
 
-    fn write<V: SerInner>(&mut self, field_name: &str, value: &V) -> Result<()> {
+    unsafe fn write<V: SerInner>(&mut self, field_name: &str, value: &V) -> Result<()> {
         // prepare a row with the field name and the type
         self.path.push(field_name.into());
         let pos = self.pos();

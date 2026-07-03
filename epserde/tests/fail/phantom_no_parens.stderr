@@ -1,0 +1,5 @@
+error: "phantom" is a type-level attribute and requires a parenthesized list of type parameters, e.g. #[epserde(phantom(T))]
+  --> tests/fail/phantom_no_parens.rs:11:11
+   |
+11 | #[epserde(phantom)]
+   |           ^^^^^^^

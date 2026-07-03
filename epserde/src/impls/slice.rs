@@ -11,9 +11,9 @@
 //! However, we provide a convenience implementation that serializes references
 //! to slices as boxed slices.
 //!
-//! Note, however, that you must deserialize the slice as a vector, even when it
-//! appears a type parameter; see the example in the [crate-level
-//! documentation].
+//! Note, however, that you must deserialize the slice as a vector or as a
+//! boxed slice, even when it appears as a type parameter; see the example in
+//! the [crate-level documentation].
 //!
 //! We provide a type hash for `[T]` so that it can be used in [`PhantomData`].
 //!
@@ -59,14 +59,14 @@ unsafe impl<T> CopyType for &[T] {
 impl<T: ZeroCopy> SerHelper<Zero> for [T] {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        ser_slice_zero(backend, self)
+        unsafe { ser_slice_zero(backend, self) }
     }
 }
 
 impl<T: DeepCopy + SerInner> SerHelper<Deep> for [T] {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        ser_slice_deep(backend, self)
+        unsafe { ser_slice_deep(backend, self) }
     }
 }
 

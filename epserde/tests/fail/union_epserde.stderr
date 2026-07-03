@@ -1,0 +1,5 @@
+error: Union types are not supported
+  --> tests/fail/union_epserde.rs:11:7
+   |
+11 | union Union {
+   |       ^^^^^

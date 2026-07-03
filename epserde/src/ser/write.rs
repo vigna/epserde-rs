@@ -19,15 +19,19 @@ use alloc::vec::Vec;
 /// implementation that implements [`WriteNoStd`] for all types that implement
 /// [`std::io::Write`]. In particular, in such a context you can use [`std::io::Cursor`]
 /// for in-memory serialization.
+///
+/// [`std::io::Write`]: https://doc.rust-lang.org/std/io/trait.Write.html
+/// [`std`]: https://doc.rust-lang.org/std/
+/// [`std::io::Cursor`]: https://doc.rust-lang.org/std/io/struct.Cursor.html
 pub trait WriteNoStd {
     /// See [`write_all`] for more details.
     ///
-    /// [`write_all`]: http://doc.rust-lang.org/std/io/trait.Write.html#method.write_all
+    /// [`write_all`]: https://doc.rust-lang.org/std/io/trait.Write.html#method.write_all
     fn write_all(&mut self, buf: &[u8]) -> ser::Result<()>;
 
     /// See [`flush`] for more details.
     ///
-    /// [`flush`]: http://doc.rust-lang.org/std/io/trait.Write.html#method.flush
+    /// [`flush`]: https://doc.rust-lang.org/std/io/trait.Write.html#method.flush
     fn flush(&mut self) -> ser::Result<()>;
 }
 
@@ -38,20 +42,22 @@ use std::io::Write;
 impl<W: Write> WriteNoStd for W {
     #[inline(always)]
     fn write_all(&mut self, buf: &[u8]) -> ser::Result<()> {
-        Write::write_all(self, buf).map_err(|_| ser::Error::WriteError)
+        Write::write_all(self, buf).map_err(ser::Error::IoError)
     }
     #[inline(always)]
     fn flush(&mut self) -> ser::Result<()> {
-        Write::flush(self).map_err(|_| ser::Error::WriteError)
+        Write::flush(self).map_err(ser::Error::IoError)
     }
 }
 
 #[cfg(not(feature = "std"))]
 impl WriteNoStd for Vec<u8> {
+    #[inline(always)]
     fn write_all(&mut self, buf: &[u8]) -> ser::Result<()> {
         self.extend_from_slice(buf);
         Ok(())
     }
+    #[inline(always)]
     fn flush(&mut self) -> ser::Result<()> {
         Ok(())
     }
@@ -61,6 +67,9 @@ impl WriteNoStd for Vec<u8> {
 ///
 /// This is needed because the [`Write`] trait doesn't have a `seek` method and
 /// [`std::io::Seek`] would be a requirement much stronger than needed.
+///
+/// [`Write`]: https://doc.rust-lang.org/std/io/trait.Write.html
+/// [`std::io::Seek`]: https://doc.rust-lang.org/std/io/trait.Seek.html
 pub trait WriteWithPos: WriteNoStd {
     fn pos(&self) -> usize;
 }

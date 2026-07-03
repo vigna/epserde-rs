@@ -26,7 +26,7 @@ use super::ZeroCopy;
 ///
 /// Additionally, it is recommended that commonly used types implement this
 /// trait, even if their serialization type is different, because it makes it
-/// possible use correctly [`PhantomData`], which implement its type hash using
+/// possible to use correctly [`PhantomData`], which implements its type hash using
 /// its argument type hash, and not the type hash of the serialization type of
 /// its argument, so the type hash of `PhantomData<Vec<usize>>` is different
 /// from that of `PhantomData<Box<[usize]>>` even if the type hash of the
@@ -58,7 +58,13 @@ pub trait TypeHash {
 /// the type, hashes in the type size, and finally increases `offset_of` by
 /// [`core::mem::size_of`] the type.
 ///
-/// All deep-copy types must implement [`AlignHash`] as a no-op.
+/// Deep-copy containers whose serialized form embeds zero-copy data (e.g.,
+/// boxed slices, options, results) must forward [`align_hash`] to each such
+/// component with a fresh `offset_of` equal to zero, since the component is
+/// realigned in the stream. A no-op implementation is acceptable only when
+/// the embedded zero-copy data is byte-like, that is, when its layout cannot
+/// differ across architectures: for example, `Box<str>` implements
+/// [`AlignHash`] as a no-op because its serialized form contains only bytes.
 ///
 /// When serializing an instance of type `T`, [`SerType<T>`] must implement this
 /// trait. Thus, if `T` different from its serialization type it is not
@@ -68,6 +74,7 @@ pub trait TypeHash {
 ///
 /// [`align_hash`]: AlignHash::align_hash
 /// [`SerType<T>`]: crate::ser::SerInner::SerType
+/// [`String`]: https://doc.rust-lang.org/alloc/string/struct.String.html
 pub trait AlignHash {
     /// Accumulates alignment information in `hasher` assuming to be positioned
     /// at `offset_of`.
@@ -114,7 +121,9 @@ pub(crate) fn std_align_hash<T: ZeroCopy>(
 /// Deep-copy types do not need to implement [`AlignTo`].
 pub trait AlignTo: Sized {
     /// Returns the alignment (in bytes) to which this type must be padded in
-    /// serialized data, or `0` for zero-sized types (which impose no
-    /// alignment).
+    /// serialized data; the value `0` (used by zero-sized types such as
+    /// [`PhantomData`] that store nothing) imposes no alignment.
+    ///
+    /// [`PhantomData`]: core::marker::PhantomData
     fn align_to() -> usize;
 }

@@ -13,7 +13,7 @@ struct Data<A: PartialEq = usize, const Q: usize = 3> {
 }
 
 #[test]
-fn test_inner_param_full() {
+fn test_inner_param_full() -> anyhow::Result<()> {
     // Create a new value to serialize
     let person = Data {
         a: vec![0x89; 6],
@@ -21,19 +21,20 @@ fn test_inner_param_full() {
     };
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
-    let _bytes_written = unsafe { person.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { person.serialize(&mut cursor)? };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <Data<Vec<usize>, 2>>::deserialize_full(&mut cursor).unwrap() };
-    assert_eq!(person, full);
+    let full = unsafe { <Data<Vec<usize>, 2>>::deserialize_full(&mut cursor)? };
+    assert_eq!(full, person);
 
     println!();
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <Data<Vec<usize>, 2>>::deserialize_eps(cursor.as_bytes()).unwrap() };
-    assert_eq!(person.a, eps.a);
-    assert_eq!(person.b, eps.b);
+    let eps = unsafe { <Data<Vec<usize>, 2>>::deserialize_eps(cursor.as_bytes())? };
+    assert_eq!(eps.a, person.a);
+    assert_eq!(eps.b, person.b);
+    Ok(())
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
@@ -46,7 +47,7 @@ struct Data2<P: TypeHash, B> {
 }
 
 #[test]
-fn test_inner_param_eps() {
+fn test_inner_param_eps() -> anyhow::Result<()> {
     // Create a new value to serialize
     let data = Data2::<usize, Vec<usize>> {
         a: vec![0x89; 6],
@@ -56,16 +57,17 @@ fn test_inner_param_eps() {
 
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
-    let _bytes_written = unsafe { data.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { data.serialize(&mut cursor)? };
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <Data2<usize, Vec<usize>>>::deserialize_full(&mut cursor).unwrap() };
-    assert_eq!(data, full);
+    let full = unsafe { <Data2<usize, Vec<usize>>>::deserialize_full(&mut cursor)? };
+    assert_eq!(full, data);
     // Do an ε-copy deserialization
 
-    let eps = unsafe { <Data2<usize, Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
-    assert_eq!(data.a, eps.a);
+    let eps = unsafe { <Data2<usize, Vec<usize>>>::deserialize_eps(cursor.as_bytes())? };
+    assert_eq!(eps.a, data.a);
+    Ok(())
 }
 
 #[derive(Epserde, Debug, PartialEq, Eq, Clone, Copy)]
@@ -74,13 +76,13 @@ fn test_inner_param_eps() {
 struct Data3<const N: usize = 10>;
 
 #[test]
-fn test_consts() {
+fn test_consts() -> anyhow::Result<()> {
     // Create a new value to serialize
     let data = Data3::<11> {};
 
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     // Serialize
-    let _bytes_written = unsafe { data.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { data.serialize(&mut cursor)? };
     cursor.set_position(0);
 
     // with a different const the deserialization should fail
@@ -89,16 +91,17 @@ fn test_consts() {
 
     // Do a full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <Data3<11>>::deserialize_full(&mut cursor).unwrap() };
-    assert_eq!(data, full);
+    let full = unsafe { <Data3<11>>::deserialize_full(&mut cursor)? };
+    assert_eq!(full, data);
 
     // Do an ε-copy deserialization
-    let eps = unsafe { <Data3<11>>::deserialize_eps(cursor.as_bytes()).unwrap() };
-    assert_eq!(&data, eps);
+    let eps = unsafe { <Data3<11>>::deserialize_eps(cursor.as_bytes())? };
+    assert_eq!(eps, &data);
 
     // with a different const the deserialization should fail
     let eps = unsafe { <Data3<12>>::deserialize_eps(cursor.as_bytes()) };
     assert!(eps.is_err());
+    Ok(())
 }
 
 #[derive(Epserde, Copy, Debug, PartialEq, Eq, Clone, Default)]
@@ -182,7 +185,7 @@ struct UsesMaybeUnsizedHolder<K: ?Sized, A> {
 }
 
 #[test]
-fn test_relaxed_bound_param() {
+fn test_relaxed_bound_param() -> anyhow::Result<()> {
     let val = UsesMaybeUnsizedHolder::<usize, Vec<usize>> {
         h: MaybeUnsizedHolder {
             a: vec![1, 2, 3],
@@ -191,20 +194,19 @@ fn test_relaxed_bound_param() {
     };
 
     let mut cursor = <AlignedCursor<Aligned16>>::new();
-    let _bytes_written = unsafe { val.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { val.serialize(&mut cursor)? };
 
     // Full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe {
-        <UsesMaybeUnsizedHolder<usize, Vec<usize>>>::deserialize_full(&mut cursor).unwrap()
-    };
+    let full =
+        unsafe { <UsesMaybeUnsizedHolder<usize, Vec<usize>>>::deserialize_full(&mut cursor)? };
     assert_eq!(full, val);
 
     // ε-copy deserialization
-    let eps = unsafe {
-        <UsesMaybeUnsizedHolder<usize, Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap()
-    };
+    let eps =
+        unsafe { <UsesMaybeUnsizedHolder<usize, Vec<usize>>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(eps.h.a, val.h.a);
+    Ok(())
 }
 
 // A parameter declared phantom must be left completely untouched: no
@@ -219,7 +221,7 @@ struct PhantomParamOuter<K: ?Sized, A> {
 }
 
 #[test]
-fn test_phantom_param() {
+fn test_phantom_param() -> anyhow::Result<()> {
     let val = PhantomParamOuter::<str, Vec<usize>> {
         h: MaybeUnsizedHolder {
             a: vec![1, 2, 3],
@@ -228,19 +230,17 @@ fn test_phantom_param() {
     };
 
     let mut cursor = <AlignedCursor<Aligned16>>::new();
-    let _bytes_written = unsafe { val.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { val.serialize(&mut cursor)? };
 
     // Full-copy deserialization
     cursor.set_position(0);
-    let full =
-        unsafe { <PhantomParamOuter<str, Vec<usize>>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <PhantomParamOuter<str, Vec<usize>>>::deserialize_full(&mut cursor)? };
     assert_eq!(full, val);
 
     // ε-copy deserialization
-    let eps = unsafe {
-        <PhantomParamOuter<str, Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap()
-    };
+    let eps = unsafe { <PhantomParamOuter<str, Vec<usize>>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(eps.h.a, val.h.a);
+    Ok(())
 }
 
 // A const parameter forwarded as a generic argument of a field type must be
@@ -256,41 +256,43 @@ struct ConstParamOuter<A, const S: bool = true> {
 }
 
 #[test]
-fn test_forwarded_const_param() {
+fn test_forwarded_const_param() -> anyhow::Result<()> {
     let val = ConstParamOuter::<Vec<usize>> {
         inner: ConstParamInner { a: vec![1, 2, 3] },
     };
 
     let mut cursor = <AlignedCursor<Aligned16>>::new();
-    let _bytes_written = unsafe { val.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { val.serialize(&mut cursor)? };
 
     // Full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <ConstParamOuter<Vec<usize>>>::deserialize_full(&mut cursor).unwrap() };
+    let full = unsafe { <ConstParamOuter<Vec<usize>>>::deserialize_full(&mut cursor)? };
     assert_eq!(full, val);
 
     // ε-copy deserialization
-    let eps = unsafe { <ConstParamOuter<Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
+    let eps = unsafe { <ConstParamOuter<Vec<usize>>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(eps.inner.a, val.inner.a);
+    Ok(())
 }
 
 #[test]
-fn test_bound_attr() {
+fn test_bound_attr() -> anyhow::Result<()> {
     let val = WithAssocType::<Vec<usize>> {
         data: vec![1, 2, 3],
         word: 42,
     };
 
     let mut cursor = <AlignedCursor<Aligned16>>::new();
-    let _bytes_written = unsafe { val.serialize(&mut cursor).unwrap() };
+    let _bytes_written = unsafe { val.serialize(&mut cursor)? };
 
     // Full-copy deserialization
     cursor.set_position(0);
-    let full = unsafe { <WithAssocType<Vec<usize>>>::deserialize_full(&mut cursor).unwrap() };
-    assert_eq!(val, full);
+    let full = unsafe { <WithAssocType<Vec<usize>>>::deserialize_full(&mut cursor)? };
+    assert_eq!(full, val);
 
     // ε-copy deserialization
-    let eps = unsafe { <WithAssocType<Vec<usize>>>::deserialize_eps(cursor.as_bytes()).unwrap() };
-    assert_eq!(val.data, eps.data);
-    assert_eq!(val.word, eps.word);
+    let eps = unsafe { <WithAssocType<Vec<usize>>>::deserialize_eps(cursor.as_bytes())? };
+    assert_eq!(eps.data, val.data);
+    assert_eq!(eps.word, val.word);
+    Ok(())
 }

@@ -111,6 +111,118 @@ fn test_zero_copy_enum_discriminant_hash() {
 }
 
 #[test]
+/// A data-carrying zero-copy enum hashes the resolved value of each variant
+/// discriminant, not its surface syntax: an implicit discriminant hashes equal
+/// to an explicit one with the same value, and a named constant hashes equal
+/// to the literal it resolves to. The enums below are local to sibling
+/// functions, so they share the same name and module path; only the
+/// discriminants differ, isolating their contribution to the hash.
+fn test_zero_copy_data_enum_discriminant_hash() -> anyhow::Result<()> {
+    // Explicit discriminants 1, 2.
+    fn explicit_1_2() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        #[repr(C, u8)]
+        #[epserde(zero_copy)]
+        enum E {
+            A(u8) = 1,
+            B(u8) = 2,
+        }
+        let mut h = Xxh3::with_seed(0);
+        E::type_hash(&mut h);
+        h.finish()
+    }
+    // Explicit discriminant 1, implicit discriminant that resolves to 2.
+    fn explicit_1_implicit_2() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        #[repr(C, u8)]
+        #[epserde(zero_copy)]
+        enum E {
+            A(u8) = 1,
+            B(u8),
+        }
+        let mut h = Xxh3::with_seed(0);
+        E::type_hash(&mut h);
+        h.finish()
+    }
+    // Explicit discriminant 3, implicit discriminant that resolves to 4.
+    fn explicit_3_implicit_4() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        #[repr(C, u8)]
+        #[epserde(zero_copy)]
+        enum E {
+            A(u8) = 3,
+            B(u8),
+        }
+        let mut h = Xxh3::with_seed(0);
+        E::type_hash(&mut h);
+        h.finish()
+    }
+    // A named constant discriminant that resolves to 1.
+    fn named_const_1() -> u64 {
+        const FOO: u8 = 1;
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        #[repr(C, u8)]
+        #[epserde(zero_copy)]
+        enum E {
+            A(u8) = FOO,
+            B(u8) = 2,
+        }
+        let mut h = Xxh3::with_seed(0);
+        E::type_hash(&mut h);
+        h.finish()
+    }
+
+    // The resolved values are hashed, so implicit and explicit forms of the
+    // same mapping hash equal.
+    assert_eq!(explicit_1_implicit_2(), explicit_1_2());
+    // Re-numbering a variant changes the hash.
+    assert_ne!(explicit_3_implicit_4(), explicit_1_2());
+    // A named constant hashes as the value it resolves to.
+    assert_eq!(named_const_1(), explicit_1_2());
+    Ok(())
+}
+
+#[test]
+/// A deep-copy enum is serialized field by field with its own tag, so the
+/// declared discriminant values are not part of the encoding: re-numbering
+/// the variants of a deep-copy enum must not change the type hash.
+fn test_deep_copy_enum_discriminant_hash() -> anyhow::Result<()> {
+    // Explicit discriminants 0, 1.
+    fn explicit_0_1() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        enum E {
+            A = 0,
+            B = 1,
+        }
+        let mut h = Xxh3::with_seed(0);
+        E::type_hash(&mut h);
+        h.finish()
+    }
+    // Explicit discriminants 3, 5.
+    fn explicit_3_5() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        enum E {
+            A = 3,
+            B = 5,
+        }
+        let mut h = Xxh3::with_seed(0);
+        E::type_hash(&mut h);
+        h.finish()
+    }
+
+    // Deep-copy deserialization ignores the declared discriminants, so the
+    // hash must not depend on them.
+    assert_eq!(explicit_3_5(), explicit_0_1());
+    Ok(())
+}
+
+#[test]
 fn test_type_hash_const_type_parameters() {
     #[derive(epserde::Epserde)]
     struct S<const N: usize>(std::marker::PhantomData<[u8; N]>);
@@ -121,4 +233,45 @@ fn test_type_hash_const_type_parameters() {
     S::<1>::type_hash(&mut hasher1);
     dbg!(hasher0.finish(), hasher1.finish());
     assert_ne!(hasher0.finish(), hasher1.finish());
+}
+
+/// An explicit discriminant expression whose type depends on the enum's
+/// declared repr: the generated hash code must evaluate it at that type
+/// (the sum below overflows the default i32 inference, but fits a u32),
+/// and the resolved value must be hashed, so the sum must hash equal to
+/// the equivalent literal. The enums are local to sibling functions, so
+/// they share the same name and module path.
+#[test]
+fn test_zero_copy_data_enum_wide_discriminant() -> anyhow::Result<()> {
+    // The discriminant as an expression overflowing i32 inference.
+    fn sum() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        #[repr(C, u32)]
+        #[epserde(zero_copy)]
+        enum E {
+            A(u8) = 2_000_000_000 + 2_000_000_000,
+            B(u8),
+        }
+        let mut h = Xxh3::with_seed(0);
+        E::type_hash(&mut h);
+        h.finish()
+    }
+    // The same discriminant as a literal.
+    fn literal() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        #[repr(C, u32)]
+        #[epserde(zero_copy)]
+        enum E {
+            A(u8) = 4_000_000_000,
+            B(u8),
+        }
+        let mut h = Xxh3::with_seed(0);
+        E::type_hash(&mut h);
+        h.finish()
+    }
+
+    assert_eq!(sum(), literal());
+    Ok(())
 }

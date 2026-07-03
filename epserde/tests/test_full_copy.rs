@@ -85,7 +85,7 @@ fn test_full_copy_param_mixed() -> anyhow::Result<()> {
 // A forced parameter F and an ε-copy parameter G coexist in the SAME field,
 // but the field type (Inner2) holds F full-copy internally, so its DeserType
 // keeps F verbatim. The full-copy consistency assertion must stay silent here:
-// this is the legitimate counterpart of the rejected `ControlFlow<F, E>` case
+// this is the legitimate counterpart of the rejected ControlFlow<F, E> case
 // (see tests/fail/full_copy_eps_in_field.rs), which the derive cannot tell
 // apart syntactically.
 #[derive(Epserde, Debug, PartialEq)]

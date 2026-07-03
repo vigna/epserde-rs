@@ -50,8 +50,8 @@ error[E0277]: the trait bound `A: CopyType` is not satisfied
 note: required by a bound in `epserde::ser::WriteWithNames::write`
   --> src/ser/write_with_names.rs
    |
-   |     fn write<V: SerInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
-   |                 ^^^^^^^^ required by this bound in `WriteWithNames::write`
+   |     unsafe fn write<V: SerInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
+   |                        ^^^^^^^^ required by this bound in `WriteWithNames::write`
    = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `Vec<A>: epserde::ser::SerInner` is not satisfied
@@ -72,8 +72,8 @@ help: `Vec<T>` implements trait `SerHelper<T>`
 note: required by a bound in `epserde::ser::WriteWithNames::write`
   --> src/ser/write_with_names.rs
    |
-   |     fn write<V: SerInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
-   |                 ^^^^^^^^ required by this bound in `WriteWithNames::write`
+   |     unsafe fn write<V: SerInner>(&mut self, _field_name: &str, value: &V) -> Result<()> {
+   |                        ^^^^^^^^ required by this bound in `WriteWithNames::write`
    = note: this error originates in the derive macro `Epserde` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `A: CopyType` is not satisfied

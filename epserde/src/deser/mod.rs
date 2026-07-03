@@ -48,6 +48,121 @@ pub type Result<T> = core::result::Result<T, Error>;
 /// [deserialization associated type]: DeserInner::DeserType
 pub type DeserType<'a, T> = <T as DeserInner>::DeserType<'a>;
 
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+/// Errors that can happen during deserialization.
+pub enum Error {
+    /// A convenience method (e.g., [`Deserialize::load_full`]) could not open
+    /// the provided file or read its metadata.
+    #[cfg(feature = "std")]
+    #[error("Error opening or inspecting file during ε-serde deserialization: {0}")]
+    FileOpenError(#[source] std::io::Error),
+    /// The underlying reader returned an error.
+    #[cfg(feature = "std")]
+    #[error("I/O error during ε-serde deserialization: {0}")]
+    IoError(#[source] std::io::Error),
+    /// There is not enough data (e.g., the serialized data is truncated).
+    ///
+    /// When the `std` feature is enabled, standard-library readers report
+    /// end-of-file conditions through this variant and every other failure
+    /// through [`IoError`].
+    ///
+    /// [`IoError`]: https://docs.rs/epserde/latest/epserde/deser/enum.Error.html#variant.IoError
+    #[error("Read error during ε-serde deserialization")]
+    ReadError,
+    /// The file is from ε-serde but the endianness is wrong.
+    #[cfg_attr(
+        target_endian = "big",
+        error("The current arch is big-endian but the data is little-endian.")
+    )]
+    #[cfg_attr(
+        target_endian = "little",
+        error("The current arch is little-endian but the data is big-endian.")
+    )]
+    EndiannessMismatch,
+    /// Some fields are not properly aligned.
+    #[error(
+        "Alignment error. Most likely you are deserializing from a memory region with insufficient alignment."
+    )]
+    AlignmentError,
+    /// The file was serialized with a version of ε-serde that is not compatible.
+    #[error("Major version mismatch. Expected {major} but got {0}.", major = VERSION.0)]
+    MajorVersionMismatch(u16),
+    /// The file was serialized with a compatible, but too new version of ε-serde
+    /// so we might be missing features.
+    #[error("Minor version mismatch. Expected {minor} but got {0}.", minor = VERSION.1)]
+    MinorVersionMismatch(u16),
+    /// The pointer width of the serialized file is different from the pointer
+    /// width of the current architecture. For example, the file was serialized
+    /// on a 64-bit machine and we are trying to deserialize it on a 32-bit
+    /// machine.
+    #[error("The file was serialized on an architecture where a usize has size {0}, but on the current architecture it has size {size}.", size = core::mem::size_of::<usize>())]
+    UsizeSizeMismatch(usize),
+    /// The magic cookie is wrong. The byte sequence does not come from ε-serde.
+    #[error("Wrong magic cookie 0x{0:016x}. The byte stream does not come from ε-serde.")]
+    InvalidMagicCookie(u64),
+    /// A tag is wrong (e.g., for [`Option`]).
+    #[error("Invalid tag: 0x{0:02x}")]
+    InvalidTag(usize),
+    /// The type hash is wrong. Probably the user is trying to deserialize a
+    /// file with the wrong type.
+    #[error(
+        r#"Wrong type hash
+Actual: 0x{ser_type_hash:016x}; expected: 0x{self_type_hash:016x}.
+
+The serialized type is
+    {ser_type_name},
+but the deserializing type on which the deserialization method was invoked is
+    {self_type_name},
+which has serialization type
+    {self_ser_type_name}.
+
+You are trying to deserialize a file with the wrong type."#
+    )]
+    TypeHashMismatch {
+        /// The name of the type that was serialized.
+        ser_type_name: String,
+        /// The [`TypeHash`] of the type that was serialized.
+        ser_type_hash: u64,
+        /// The name of the type on which the deserialization method was called.
+        self_type_name: String,
+        /// The name of the serialization type of `self_type_name`.
+        self_ser_type_name: String,
+        /// The [`TypeHash`] of the type on which the deserialization method was called.
+        self_type_hash: u64,
+    },
+    /// The alignment hash is wrong. Probably the user is trying to deserialize
+    /// a file with some zero-copy type that has different in-memory
+    /// representations on the serialization architecture and on the current
+    /// one, usually because of alignment issues.
+    #[error(
+        r#"Wrong alignment hash
+Actual: 0x{ser_align_hash:016x}; expected: 0x{self_align_hash:016x}.
+
+The serialized type is
+    {ser_type_name},
+but the deserializing type on which the deserialization method was invoked is
+    {self_type_name},
+which has serialization type
+    {self_ser_type_name}.
+
+You are trying to deserialize a file that was serialized on an
+architecture with incompatible alignment requirements."#
+    )]
+    AlignHashMismatch {
+        /// The name of the type that was serialized.
+        ser_type_name: String,
+        /// The [`AlignHash`] of the type that was serialized.
+        ser_align_hash: u64,
+        /// The name of the type on which the deserialization method was called.
+        self_type_name: String,
+        /// The name of the serialization type of `self_type_name`.
+        self_ser_type_name: String,
+        /// The [`AlignHash`] of the type on which the deserialization method was called.
+        self_align_hash: u64,
+    },
+}
+
 /// A zero-sized type covariant in `T` whose private field prevents construction
 /// outside this crate, making it impossible to implement
 /// [`DeserInner::__check_covariance`] with a returning body without `unsafe`.
@@ -128,6 +243,19 @@ macro_rules! unsafe_assume_covariance {
     };
 }
 
+/// Drops the backend field of a partially initialized [`MemCase`] unless
+/// defused, preventing a leak if ε-copy deserialization errors or panics
+/// after the backend has been installed.
+struct BackendGuard<S: DeserInner>(*mut MemCase<S>);
+
+impl<S: DeserInner> Drop for BackendGuard<S> {
+    fn drop(&mut self) {
+        // SAFETY: the backend field has been initialized, and the value field
+        // has not (the guard is defused before the value is written).
+        unsafe { addr_of_mut!((*self.0).1).drop_in_place() };
+    }
+}
+
 /// Main deserialization trait. It is separated from [`DeserInner`] to avoid
 /// that the user modify its behavior, and hide internal serialization methods.
 ///
@@ -140,14 +268,17 @@ macro_rules! unsafe_assume_covariance {
 ///
 /// All deserialization methods are unsafe.
 ///
-/// - No validation is performed on zero-copy values during ε-copy
-///   deserialization. Types with a validity invariant are therefore reinterpreted
-///   without checking it, and an altered serialized form can produce a value the
-///   invariant forbids, which is undefined behavior. For example, this can yield
-///   an invalid `bool` (not `0`/`1`), an invalid `char` (a surrogate or a value
-///   above `0x10FFFF`), a zero [`NonZeroUsize`], or an ill-formed `str`. Full-copy
-///   deserialization of these types instead validates the value and returns
-///   [`Error::InvalidData`] on failure.
+/// - No validation is performed on deserialized values, whether the
+///   deserialization is full-copy or ε-copy. Types with a validity invariant
+///   are reinterpreted or converted without checking it, so an altered
+///   serialized form can produce a value the invariant forbids, which is
+///   undefined behavior. For example, this can yield an invalid `bool` (not
+///   `0`/`1`), an invalid `char` (a surrogate or a value above `0x10FFFF`), a
+///   zero [`NonZeroUsize`], or an ill-formed `str`/[`String`]. The data passed
+///   to a deserialization method must come from a correct serialization.
+///   Structural metadata is still checked: besides the header hashes, tags of
+///   types such as [`Option`] are validated and yield [`Error::InvalidTag`] on
+///   unknown values.
 ///
 /// - The code assumes that the [`read_exact`] method of the backend does not
 ///   read the buffer. If the method reads the buffer, it will cause undefined
@@ -156,7 +287,9 @@ macro_rules! unsafe_assume_covariance {
 ///
 /// - Malicious [`TypeHash`]/[`AlignHash`] implementations may lead to reading
 ///   incompatible structures using the same code, or cause undefined behavior
-///   by loading data with an incorrect alignment.
+///   by loading data with an incorrect alignment. A wrong [`AlignTo`]
+///   implementation similarly desynchronizes the stream with respect to
+///   serialization, causing wrong values or errors.
 ///
 /// - Memory-mapped files might be modified externally.
 ///
@@ -169,6 +302,9 @@ macro_rules! unsafe_assume_covariance {
 /// [`NonZeroUsize`]: core::num::NonZeroUsize
 /// [`read_exact`]: ReadNoStd::read_exact
 /// [`FromBytes`]: https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html
+/// [`Deserialize::load_full`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_full
+/// [`Deserialize::load_mem`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mem
+/// [`Deserialize::mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.mmap
 pub trait Deserialize: DeserInner {
     /// Fully deserializes a structure of this type from the given backend.
     ///
@@ -230,7 +366,7 @@ pub trait Deserialize: DeserInner {
     /// See the [trait documentation].
     ///
     /// [alignment error]: Error::AlignmentError
-    /// [`load_mem`]: Self::load_mem
+    /// [`load_mem`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mem
     /// [trait documentation]: Deserialize
     unsafe fn read_mem(mut read: impl ReadNoStd, size: usize) -> anyhow::Result<MemCase<Self>> {
         let align_to = align_of::<MemoryAlignment>();
@@ -239,14 +375,20 @@ pub trait Deserialize: DeserInner {
         }
         // Round up to MemoryAlignment size; the maximum with align_to
         // guarantees a nonzero allocation size even when size is zero.
-        let capacity = (size + crate::pad_align_to(size, align_to)).max(align_to);
+        let capacity = size
+            .checked_add(crate::pad_align_to(size, align_to))
+            .ok_or_else(|| {
+                anyhow::anyhow!("Size too large: adding alignment padding overflows usize")
+            })?
+            .max(align_to);
         let layout = core::alloc::Layout::from_size_align(capacity, align_to)?;
 
         let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
 
-        // SAFETY: the entire vector will be filled with data read from the reader,
-        // or with zeroes if the reader provides less data than expected.
+        // SAFETY: the first size bytes of the vector will be filled by
+        // read_exact (which errors out on short reads), and the remaining
+        // bytes are zeroed explicitly below.
         #[allow(invalid_value)]
         let mut aligned_vec = unsafe {
             #[cfg(not(feature = "std"))]
@@ -279,24 +421,19 @@ pub trait Deserialize: DeserInner {
         // for bit vectors and full-vector initialization.
         bytes[size..].fill(0);
 
-        // SAFETY: the vector is aligned to 64 bytes.
         let backend = MemBackend::Memory(AliasableBox::from(aligned_vec.into_boxed_slice()));
 
         // store the backend inside the MemCase
         unsafe {
             addr_of_mut!((*ptr).1).write(backend);
         }
+        // From here on the backend is dropped if deserialization errors or
+        // panics, so it cannot leak.
+        let guard = BackendGuard(ptr);
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_bytes().unwrap() };
-        let s = match unsafe { Self::deserialize_eps(mem) } {
-            Ok(s) => s,
-            Err(e) => {
-                // Drop the backend we just wrote into the MemCase, which
-                // would otherwise leak
-                unsafe { addr_of_mut!((*ptr).1).drop_in_place() };
-                return Err(e.into());
-            }
-        };
+        let s = unsafe { Self::deserialize_eps(mem) }?;
+        core::mem::forget(guard);
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(MaybeDangling::new(s));
@@ -323,13 +460,17 @@ pub trait Deserialize: DeserInner {
     /// [trait documentation]: Deserialize
     #[cfg(feature = "std")]
     unsafe fn load_mem(path: impl AsRef<Path>) -> anyhow::Result<MemCase<Self>> {
-        let file_len = path.as_ref().metadata()?.len();
+        let file_len = path
+            .as_ref()
+            .metadata()
+            .map_err(Error::FileOpenError)?
+            .len();
         anyhow::ensure!(
             file_len <= isize::MAX as u64,
             "File too large for the current architecture (longer than isize::MAX)"
         );
         let file_len = file_len as usize;
-        let file = std::fs::File::open(path)?;
+        let file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
         unsafe { Self::read_mem(file, file_len) }
     }
 
@@ -367,7 +508,7 @@ pub trait Deserialize: DeserInner {
     ///
     /// See the [trait documentation].
     ///
-    /// [`load_mmap`]: Self::load_mmap
+    /// [`load_mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mmap
     /// [trait documentation]: Deserialize
     #[cfg(feature = "mmap")]
     unsafe fn read_mmap(
@@ -375,7 +516,14 @@ pub trait Deserialize: DeserInner {
         size: usize,
         flags: Flags,
     ) -> anyhow::Result<MemCase<Self>> {
-        let capacity = size + crate::pad_align_to(size, 16);
+        // The maximum with 16 guarantees a nonzero mapping size even when
+        // size is zero.
+        let capacity = size
+            .checked_add(crate::pad_align_to(size, 16))
+            .ok_or_else(|| {
+                anyhow::anyhow!("Size too large: adding alignment padding overflows usize")
+            })?
+            .max(16);
 
         let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
@@ -394,17 +542,13 @@ pub trait Deserialize: DeserInner {
         unsafe {
             addr_of_mut!((*ptr).1).write(backend);
         }
+        // From here on the backend is dropped if deserialization errors or
+        // panics, so it cannot leak.
+        let guard = BackendGuard(ptr);
         // deserialize the data structure
         let mem = unsafe { (*ptr).1.as_bytes().unwrap() };
-        let s = match unsafe { Self::deserialize_eps(mem) } {
-            Ok(s) => s,
-            Err(e) => {
-                // Drop the backend we just wrote into the MemCase, which
-                // would otherwise leak
-                unsafe { addr_of_mut!((*ptr).1).drop_in_place() };
-                return Err(e.into());
-            }
-        };
+        let s = unsafe { Self::deserialize_eps(mem) }?;
+        core::mem::forget(guard);
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(MaybeDangling::new(s));
@@ -433,13 +577,17 @@ pub trait Deserialize: DeserInner {
     /// [mmap's `with_file`'s documentation]: mmap_rs::MmapOptions::with_file
     #[cfg(all(feature = "mmap", feature = "std"))]
     unsafe fn load_mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
-        let file_len = path.as_ref().metadata()?.len();
+        let file_len = path
+            .as_ref()
+            .metadata()
+            .map_err(Error::FileOpenError)?
+            .len();
         anyhow::ensure!(
             file_len <= isize::MAX as u64,
             "File too large for the current architecture (longer than isize::MAX)"
         );
         let file_len = file_len as usize;
-        let file = std::fs::File::open(path)?;
+        let file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
         unsafe { Self::read_mmap(file, file_len, flags) }
     }
 
@@ -460,13 +608,17 @@ pub trait Deserialize: DeserInner {
     /// [mmap's `with_file`'s documentation]: mmap_rs::MmapOptions::with_file
     #[cfg(all(feature = "mmap", feature = "std"))]
     unsafe fn mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
-        let file_len = path.as_ref().metadata()?.len();
+        let file_len = path
+            .as_ref()
+            .metadata()
+            .map_err(Error::FileOpenError)?
+            .len();
         anyhow::ensure!(
             file_len <= isize::MAX as u64,
             "File too large for the current architecture (longer than isize::MAX)"
         );
         let file_len = file_len as usize;
-        let file = std::fs::File::open(path)?;
+        let file = std::fs::File::open(path).map_err(Error::FileOpenError)?;
 
         let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
@@ -482,18 +634,13 @@ pub trait Deserialize: DeserInner {
         unsafe {
             addr_of_mut!((*ptr).1).write(MemBackend::Mmap(mmap));
         }
-
+        // From here on the backend is dropped if deserialization errors or
+        // panics, so it cannot leak.
+        let guard = BackendGuard(ptr);
         let mmap = unsafe { (*ptr).1.as_bytes().unwrap() };
         // deserialize the data structure
-        let s = match unsafe { Self::deserialize_eps(mmap) } {
-            Ok(s) => s,
-            Err(e) => {
-                // Drop the backend we just wrote into the MemCase, which
-                // would otherwise leak
-                unsafe { addr_of_mut!((*ptr).1).drop_in_place() };
-                return Err(e.into());
-            }
-        };
+        let s = unsafe { Self::deserialize_eps(mmap) }?;
+        core::mem::forget(guard);
         // write the deserialized struct in the MemCase
         unsafe {
             addr_of_mut!((*ptr).0).write(MaybeDangling::new(s));
@@ -703,8 +850,32 @@ impl<T: SerInner<SerType: TypeHash + AlignHash> + DeserInner> Deserialize for T 
 pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
     backend: &mut impl ReadWithPos,
 ) -> Result<()> {
-    let self_type_name = core::any::type_name::<T>().to_string();
-    let self_ser_type_name = core::any::type_name::<T::SerType>().to_string();
+    // SAFETY (for all the unsafe blocks in this function): the header
+    // contains only primitive values and a byte sequence, which are valid
+    // for any bit pattern, so the validity hazard that makes deserialization
+    // unsafe cannot arise; this is why this function can be safe.
+
+    /// Reads the serialized type name, which is diagnostic data possibly
+    /// coming from a foreign file, without assuming it is valid UTF-8 and
+    /// without letting its length prefix drive an unbounded allocation:
+    /// the stream is consumed entirely, but only a bounded prefix of the
+    /// name is kept.
+    fn read_type_name(backend: &mut impl ReadWithPos) -> Result<String> {
+        const MAX_NAME_LEN: usize = 1024;
+        let len = unsafe { usize::_deser_full_inner(backend) }?;
+        let mut name = Vec::with_capacity(len.min(MAX_NAME_LEN));
+        let mut buf = [0u8; 256];
+        let mut remaining = len;
+        while remaining > 0 {
+            let chunk = remaining.min(buf.len());
+            backend.read_exact(&mut buf[..chunk])?;
+            let keep = chunk.min(MAX_NAME_LEN.saturating_sub(name.len()));
+            name.extend_from_slice(&buf[..keep]);
+            remaining -= chunk;
+        }
+        Ok(String::from_utf8_lossy(&name).into_owned())
+    }
+
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
     T::SerType::type_hash(&mut type_hasher);
     let self_type_hash = type_hasher.finish();
@@ -741,28 +912,30 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
     let ser_align_hash = unsafe { u64::_deser_full_inner(backend)? };
 
     if ser_type_hash != self_type_hash {
-        let ser_type_name = unsafe { String::_deser_full_inner(backend)? };
+        // Do not let a failing name read mask the mismatch diagnostic.
+        let ser_type_name = read_type_name(backend).unwrap_or_else(|_| "<unreadable>".to_string());
         return Err(Error::TypeHashMismatch {
             ser_type_name,
             ser_type_hash,
-            self_type_name,
-            self_ser_type_name,
+            self_type_name: core::any::type_name::<T>().to_string(),
+            self_ser_type_name: core::any::type_name::<T::SerType>().to_string(),
             self_type_hash,
         });
     }
     if ser_align_hash != self_align_hash {
-        let ser_type_name = unsafe { String::_deser_full_inner(backend)? };
+        // Do not let a failing name read mask the mismatch diagnostic.
+        let ser_type_name = read_type_name(backend).unwrap_or_else(|_| "<unreadable>".to_string());
         return Err(Error::AlignHashMismatch {
             ser_type_name,
             ser_align_hash,
-            self_type_name,
-            self_ser_type_name,
+            self_type_name: core::any::type_name::<T>().to_string(),
+            self_ser_type_name: core::any::type_name::<T::SerType>().to_string(),
             self_align_hash,
         });
     }
 
     // Consume the type name to position the stream at the body.
-    let _ = unsafe { String::_deser_full_inner(backend)? };
+    let _ = read_type_name(backend)?;
 
     Ok(())
 }
@@ -787,119 +960,4 @@ pub trait DeserHelper<T: CopySelector> {
     unsafe fn _deser_eps_inner_impl<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> Result<Self::DeserType<'a>>;
-}
-
-#[derive(thiserror::Error, Debug)]
-/// Errors that can happen during deserialization.
-pub enum Error {
-    #[error("Error reading stats for file during ε-serde deserialization: {0}")]
-    /// [`Deserialize::load_full`] could not open the provided file.
-    #[cfg(feature = "std")]
-    FileOpenError(std::io::Error),
-    #[error("Read error during ε-serde deserialization")]
-    /// The underlying reader returned an error.
-    ReadError,
-    /// The file is from ε-serde but the endianness is wrong.
-    #[cfg_attr(
-        target_endian = "big",
-        error("The current arch is big-endian but the data is little-endian.")
-    )]
-    #[cfg_attr(
-        target_endian = "little",
-        error("The current arch is little-endian but the data is big-endian.")
-    )]
-    EndiannessMismatch,
-    #[error(
-        "Alignment error. Most likely you are deserializing from a memory region with insufficient alignment."
-    )]
-    /// Some fields are not properly aligned.
-    AlignmentError,
-    #[error("Major version mismatch. Expected {major} but got {0}.", major = VERSION.0)]
-    /// The file was serialized with a version of ε-serde that is not compatible.
-    MajorVersionMismatch(u16),
-    #[error("Minor version mismatch. Expected {minor} but got {0}.", minor = VERSION.1)]
-    /// The file was serialized with a compatible, but too new version of ε-serde
-    /// so we might be missing features.
-    MinorVersionMismatch(u16),
-    #[error("The file was serialized on an architecture where a usize has size {0}, but on the current architecture it has size {size}.", size = core::mem::size_of::<usize>())]
-    /// The pointer width of the serialized file is different from the pointer
-    /// width of the current architecture. For example, the file was serialized
-    /// on a 64-bit machine and we are trying to deserialize it on a 32-bit
-    /// machine.
-    UsizeSizeMismatch(usize),
-    #[error("Wrong magic cookie 0x{0:016x}. The byte stream does not come from ε-serde.")]
-    /// The magic cookie is wrong. The byte sequence does not come from ε-serde.
-    InvalidMagicCookie(u64),
-    #[error("Invalid tag: 0x{0:02x}")]
-    /// A tag is wrong (e.g., for [`Option`]).
-    InvalidTag(usize),
-    #[error("Invalid data during ε-serde deserialization")]
-    /// The serialized bytes do not encode a valid value of the deserializing
-    /// type on a value-validating path (e.g., a zero for a `NonZero*` type, an
-    /// out-of-range scalar for a [`char`], or invalid UTF-8 for a [`String`]).
-    ///
-    /// Note that this error can only be returned by full-copy deserialization
-    /// of the affected types, which validates values; ε-copy deserialization of
-    /// zero-copy types performs no such validation (see the [trait
-    /// documentation]).
-    ///
-    /// [trait documentation]: Deserialize
-    InvalidData,
-    #[error(
-        r#"Wrong type hash
-Actual: 0x{ser_type_hash:016x}; expected: 0x{self_type_hash:016x}.
-
-The serialized type is
-    {ser_type_name},
-but the deserializing type on which the deserialization method was invoked is
-    {self_type_name},
-which has serialization type
-    {self_ser_type_name}.
-
-You are trying to deserialize a file with the wrong type."#
-    )]
-    /// The type hash is wrong. Probably the user is trying to deserialize a
-    /// file with the wrong type.
-    TypeHashMismatch {
-        /// The name of the type that was serialized.
-        ser_type_name: String,
-        /// The [`TypeHash`] of the type that was serialized.
-        ser_type_hash: u64,
-        /// The name of the type on which the deserialization method was called.
-        self_type_name: String,
-        /// The name of the serialization type of `self_type_name`.
-        self_ser_type_name: String,
-        /// The [`TypeHash`] of the type on which the deserialization method was called.
-        self_type_hash: u64,
-    },
-    #[error(
-        r#"Wrong alignment hash
-Actual: 0x{ser_align_hash:016x}; expected: 0x{self_align_hash:016x}.
-
-The serialized type is
-    {ser_type_name},
-but the deserializing type on which the deserialization method was invoked is
-    {self_type_name},
-which has serialization type
-    {self_ser_type_name}.
-
-You are trying to deserialize a file that was serialized on an
-architecture with incompatible alignment requirements."#
-    )]
-    /// The alignment hash is wrong. Probably the user is trying to deserialize
-    /// a file with some zero-copy type that has different in-memory
-    /// representations on the serialization architecture and on the current
-    /// one, usually because of alignment issues.
-    AlignHashMismatch {
-        /// The name of the type that was serialized.
-        ser_type_name: String,
-        /// The [`AlignHash`] of the type that was serialized.
-        ser_align_hash: u64,
-        /// The name of the type on which the deserialization method was called.
-        self_type_name: String,
-        /// The name of the serialization type of `self_type_name`.
-        self_ser_type_name: String,
-        /// The [`AlignHash`] of the type on which the deserialization method was called.
-        self_align_hash: u64,
-    },
 }

@@ -18,10 +18,11 @@ use core::fmt;
 use maybe_dangling::MaybeDangling;
 
 bitflags! {
-    /// Flags for [`mmap`] and [`load_mmap`].
+    /// Flags for [`mmap`], [`load_mmap`], and [`read_mmap`].
     ///
-    /// [`mmap`]: crate::deser::Deserialize::mmap
-    /// [`load_mmap`]: crate::deser::Deserialize::load_mmap
+    /// [`mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.mmap
+    /// [`load_mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mmap
+    /// [`read_mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.read_mmap
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct Flags: u32 {
         /// Suggest to map a region using transparent huge pages. This flag
@@ -70,7 +71,7 @@ impl Flags {
     }
 }
 
-/// The alignment by the [`Memory`] variant of [`MemBackend`].
+/// The alignment used by the [`Memory`] variant of [`MemBackend`].
 ///
 /// [`Memory`]: MemBackend::Memory
 pub type MemoryAlignment = crate::Aligned64;
@@ -79,11 +80,11 @@ pub type MemoryAlignment = crate::Aligned64;
 /// instance is owned; the [`Memory`] variant is used when the instance has
 /// been deserialized from a heap-allocated memory region; the [`Mmap`] variant
 /// is used when the instance has been deserialized from a `mmap()`-based
-/// region, either coming from an allocation or a from mapping a file.
+/// region, either coming from an allocation or from mapping a file.
 ///
 /// [`None`]: MemBackend::None
 /// [`Memory`]: MemBackend::Memory
-/// [`Mmap`]: MemBackend::Mmap
+/// [`Mmap`]: https://docs.rs/epserde/latest/epserde/deser/mem_case/enum.MemBackend.html#variant.Mmap
 #[derive(Debug)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub enum MemBackend {
@@ -91,17 +92,21 @@ pub enum MemBackend {
     /// [`MemCase::encase`].
     None,
     /// The backend is heap-allocated in a memory region aligned to 64 bytes.
-    /// This variant is returned by [`crate::deser::Deserialize::load_mem`].
+    /// This variant is returned by [`load_mem`].
     ///
     /// The allocation is held in an [`AliasableBox`] rather than a plain `Box`
     /// because a [`MemCase`] also stores references pointing inside this region:
     /// a plain `Box` asserts unique access to its contents, which conflicts with
     /// those aliasing references under the stricter aliasing models checked by
     /// Miri.
+    ///
+    /// [`load_mem`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mem
     Memory(AliasableBox<[MemoryAlignment]>),
     /// The backend is the result to a call to `mmap()`. This variant is
-    /// returned by [`crate::deser::Deserialize::load_mmap`] and
-    /// [`crate::deser::Deserialize::mmap`].
+    /// returned by [`load_mmap`] and [`mmap`].
+    ///
+    /// [`load_mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mmap
+    /// [`mmap`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.mmap
     #[cfg(feature = "mmap")]
     Mmap(mmap_rs::Mmap),
 }
@@ -151,7 +156,7 @@ pub struct Owned<T>(T);
 /// A convenience type alias for the type of [`MemCase`] instances containing
 /// owned instances.
 ///
-/// This alias is particular useful in conjunction with the [implementation of
+/// This alias is particularly useful in conjunction with the [implementation of
 /// `From<T>` for `MemOwned<T>`].
 ///
 /// [implementation of `From<T>` for `MemOwned<T>`]: #impl-From<T>-for-MemCase<Owned<T>>
@@ -249,8 +254,6 @@ impl<T> SerInner for Owned<T> {
 /// [`Yoke`]: https://docs.rs/yoke/latest/yoke/struct.Yoke.html
 /// [`Yoke::new_always_owned`]: https://docs.rs/yoke/latest/yoke/struct.Yoke.html#method.new_always_owned
 /// [`Yokeable`]: https://docs.rs/yoke/latest/yoke/trait.Yokeable.html
-/// [`StableDeref`]: https://docs.rs/stable_deref_trait/latest/stable_deref_trait/trait.StableDeref.html
-/// [`MaybeDangling`]: maybe_dangling::MaybeDangling
 /// [`CovariantProof`]: super::CovariantProof
 /// [`Deref`]: core::ops::Deref
 /// [`DeserType<'static, S>`]: DeserType
@@ -296,7 +299,7 @@ where
 /// Convenience implementation to create a [`MemCase`] from an owned instance.
 ///
 /// If you are assigning to a field of type [`MemOwned<T>`] (a type alias for
-/// `MemCase<Owned<T>>`, you can just write `field: t.into()`, where `t` is of
+/// `MemCase<Owned<T>>`), you can just write `field: t.into()`, where `t` is of
 /// type `T`.
 ///
 /// # Examples
@@ -314,25 +317,26 @@ impl<T> From<T> for MemCase<Owned<T>> {
     }
 }
 
-impl<S: DeserInner> MemCase<S> {
+impl<T> MemCase<Owned<T>> {
     /// Encases an owned instance in a [`MemCase`] with no backend.
     ///
     /// A [`MemCase`] must store a deserialization associated type, so this
-    /// methods wraps its argument in a [`Owned`] wrapper, returning the type
+    /// method wraps its argument in a [`Owned`] wrapper, returning the type
     /// alias [`MemOwned<T>`], which is [`MemCase<Owned<T>>`]. Since the
     /// deserialization type of [`Owned<T>`] is `T`, [`MemCase::uncase`] will
     /// return a reference to the instance of `T`.
     ///
-    /// Type inference will not work with this method as the compiler should be
-    /// able to work back `T` from `MemOwned<T>::DeserType<'a>`. The [convenient
-    /// implementation of `From<T>` for `MemOwned<T>`] is usually easier to use.
+    /// The [convenient implementation of `From<T>` for `MemOwned<T>`] is
+    /// usually easier to use.
     ///
     /// [`MemOwned<T>`]: MemOwned
     /// [convenient implementation of `From<T>` for `MemOwned<T>`]: #impl-From<T>-for-MemCase<Owned<T>>
-    pub const fn encase<T>(s: T) -> MemOwned<T> {
+    pub const fn encase(s: T) -> MemOwned<T> {
         MemCase(MaybeDangling::new(s), MemBackend::None)
     }
+}
 
+impl<S: DeserInner> MemCase<S> {
     /// Returns a reference to the instance contained in this [`MemCase`].
     ///
     /// Both the lifetime of the returned reference and the lifetime of
@@ -356,21 +360,22 @@ impl<S: DeserInner> MemCase<S> {
     ///
     /// The intended usage of this method is that of calling easily methods on
     /// the inner instance, as in `mem_case.uncase_static().method()`. The
-    /// returned reference is dangerous, as it is decoupled from the [`MemCase`]
-    /// instance; even storing it in a variable can easily lead to undefined behavior
-    /// (e.g., if the [`MemCase`] is dropped before the reference is used).
+    /// returned reference itself borrows `self`, so it cannot outlive the
+    /// [`MemCase`]; the danger lies in the `'static` lifetime of the inner
+    /// deserialization type: safe code can extract from the returned reference
+    /// inner references with lifetime `'static` and use them after the
+    /// [`MemCase`] has been dropped, leading to undefined behavior.
     pub unsafe fn uncase_static(&self) -> &DeserType<'static, S> {
         &self.0
     }
 }
 
-// SAFETY: a MemCase is the deserialized value plus its MemBackend, so it is
-// Send/Sync whenever both are. The bound on the value is explicit; for the
-// backend, all variants are safe to move and share across threads: None
-// trivially, Memory because AliasableBox<[MemoryAlignment]> is an owned heap
-// allocation, and Mmap because mmap_rs::Mmap is an owned, immutable,
-// process-wide memory mapping (it lacks Send/Sync impls only because it stores
-// a NonNull, which makes the auto traits conservatively opt out).
+// SAFETY: a MemCase is the deserialized value plus its MemBackend. These impls
+// assert that every backend variant is Send/Sync: None trivially, Memory
+// because it is an aliasable box of plain bytes, and Mmap because
+// mmap_rs::Mmap implements Send and Sync (in mmap-rs 0.7 all platform mapping
+// types implement them explicitly). The deserialized value is covered by the
+// where clauses, which require the deserialization type of S to be Send/Sync.
 unsafe impl<S: DeserInner> Send for MemCase<S> where DeserType<'static, S>: Send {}
 unsafe impl<S: DeserInner> Sync for MemCase<S> where DeserType<'static, S>: Sync {}
 

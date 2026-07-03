@@ -19,7 +19,7 @@ struct A<T>(T);
 
 // A user-defined wrapper whose only occurrence of T is inside force_full_copy.
 // T does not appear at any variable position outside the marked field,
-// so T is not in the ε-copy set, and `inner` keeps its verbatim
+// so T is not in the ε-copy set, and inner keeps its verbatim
 // slot in DeserType<'_>.
 #[derive(Epserde, Debug, PartialEq, Eq, Clone)]
 struct PinnedWrapper<T> {

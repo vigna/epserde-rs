@@ -37,6 +37,52 @@ pub type Result<T> = core::result::Result<T, Error>;
 /// [`<T as SerInner>::SerType`]: SerInner::SerType
 pub type SerType<T> = <T as SerInner>::SerType;
 
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+/// Errors that can happen during serialization.
+pub enum Error {
+    /// The underlying writer could not complete a write (e.g., an
+    /// [`AlignedCursor`] reached the `usize::MAX` length limit in a `no_std`
+    /// build).
+    ///
+    /// When the `std` feature is enabled, writers report their failures
+    /// through [`IoError`] instead (in the example above, as
+    /// an [`InvalidInput`] error).
+    ///
+    /// [`AlignedCursor`]: crate::utils::AlignedCursor
+    /// [`IoError`]: https://docs.rs/epserde/latest/epserde/ser/enum.Error.html#variant.IoError
+    /// [`InvalidInput`]: https://doc.rust-lang.org/std/io/enum.ErrorKind.html#variant.InvalidInput
+    #[error("Write error during ε-serde serialization")]
+    WriteError,
+    /// The underlying [`std::io::Write`] returned an I/O error.
+    #[cfg(feature = "std")]
+    #[error("I/O error during ε-serde serialization: {0}")]
+    IoError(#[source] std::io::Error),
+    /// [`Serialize::store`] could not open the provided file.
+    #[cfg(feature = "std")]
+    #[error("Error opening file during ε-serde serialization: {0}")]
+    FileOpenError(#[source] std::io::Error),
+    /// The declared length of an iterator did not match
+    /// the actual length.
+    ///
+    /// Note that when an iterator yields more items than its declared length,
+    /// serialization stops without writing the excess items (one of which is
+    /// consumed to detect the mismatch), so `actual` is just a lower bound
+    /// (the declared length plus one).
+    #[error(
+        "Iterator length mismatch during ε-serde serialization: expected {expected} items, got {actual}"
+    )]
+    IteratorLengthMismatch { actual: usize, expected: usize },
+    /// An exhausted [`RangeInclusive`] cannot be serialized, as
+    /// deserialization cannot reconstruct it.
+    ///
+    /// [`RangeInclusive`]: core::ops::RangeInclusive
+    #[error(
+        "Cannot serialize an exhausted RangeInclusive, as deserialization cannot reconstruct it"
+    )]
+    ExhaustedRange,
+}
+
 /// Main serialization trait. It is separated from [`SerInner`] to avoid
 /// that the user modify its behavior, and hide internal serialization methods.
 ///
@@ -46,8 +92,8 @@ pub type SerType<T> = <T as SerInner>::SerType;
 /// # Safety
 ///
 /// All serialization methods are unsafe as they write padding bytes.
-/// Serializing to such a vector and accessing such bytes will lead to undefined
-/// behavior as padding bytes are uninitialized.
+/// Serializing such a type and then accessing the padding bytes of the output
+/// will lead to undefined behavior as padding bytes are uninitialized.
 ///
 /// If you are concerned about this issue, you must organize your structures so
 /// that they do not contain any padding (e.g., by creating explicit padding
@@ -58,10 +104,10 @@ pub type SerType<T> = <T as SerInner>::SerType;
 /// ```ignore
 /// use epserde::{ser::Serialize, Epserde};
 ///
+/// #[derive(Epserde)]
 /// #[repr(C)]
 /// #[repr(align(1024))]
 /// #[epserde(zero_copy)]
-///
 /// struct Example(u8);
 ///
 /// let value = [Example(0), Example(1)];
@@ -75,6 +121,7 @@ pub type SerType<T> = <T as SerInner>::SerType;
 /// ```
 ///
 /// [`FromBytes`]: https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html
+/// [`Serialize::store`]: https://docs.rs/epserde/latest/epserde/ser/trait.Serialize.html#method.store
 pub trait Serialize {
     /// Serializes the type using the given backend.
     ///
@@ -180,7 +227,7 @@ pub trait SerInner {
 impl<T: SerInner<SerType: TypeHash + AlignHash>> Serialize for T {
     unsafe fn ser_on_field_write(&self, backend: &mut impl WriteWithNames) -> Result<()> {
         write_header::<SerType<Self>>(backend)?;
-        backend.write("ROOT", self)?;
+        unsafe { backend.write("ROOT", self) }?;
         backend.flush()
     }
 }
@@ -196,10 +243,14 @@ impl<T: SerInner<SerType: TypeHash + AlignHash>> Serialize for T {
 ///
 /// [`SerType<Self>`]: SerType
 pub fn write_header<S: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) -> Result<()> {
-    backend.write("MAGIC", &MAGIC)?;
-    backend.write("VERSION_MAJOR", &VERSION.0)?;
-    backend.write("VERSION_MINOR", &VERSION.1)?;
-    backend.write("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8))?;
+    // SAFETY (for all the unsafe blocks in this function): the header
+    // contains only primitive values and a str, whose memory representation
+    // has no padding, so the uninitialized-bytes hazard that makes write
+    // unsafe cannot arise; this is why this function can be safe.
+    unsafe { backend.write("MAGIC", &MAGIC) }?;
+    unsafe { backend.write("VERSION_MAJOR", &VERSION.0) }?;
+    unsafe { backend.write("VERSION_MINOR", &VERSION.1) }?;
+    unsafe { backend.write("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8)) }?;
 
     let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
     S::type_hash(&mut type_hasher);
@@ -208,9 +259,9 @@ pub fn write_header<S: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) 
     let mut offset_of = 0;
     S::align_hash(&mut align_hasher, &mut offset_of);
 
-    backend.write("TYPE_HASH", &type_hasher.finish())?;
-    backend.write("ALIGN_HASH", &align_hasher.finish())?;
-    backend.write("TYPE_NAME", &core::any::type_name::<S>())
+    unsafe { backend.write("TYPE_HASH", &type_hasher.finish()) }?;
+    unsafe { backend.write("ALIGN_HASH", &align_hasher.finish()) }?;
+    unsafe { backend.write("TYPE_NAME", &core::any::type_name::<S>()) }
 }
 
 /// A helper trait that makes it possible to implement differently serialization
@@ -221,57 +272,4 @@ pub trait SerHelper<T: CopySelector> {
     ///
     /// See the documentation of [`Serialize`].
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> Result<()>;
-}
-
-#[derive(Debug)]
-/// Errors that can happen during serialization.
-pub enum Error {
-    /// The underlying writer returned an error.
-    WriteError,
-    /// [`Serialize::store`] could not open the provided file.
-    #[cfg(feature = "std")]
-    FileOpenError(std::io::Error),
-    /// The declared length of an iterator did not match
-    /// the actual length.
-    IteratorLengthMismatch { actual: usize, expected: usize },
-    /// An exhausted [`RangeInclusive`] cannot be serialized, as
-    /// deserialization cannot reconstruct it.
-    ///
-    /// [`RangeInclusive`]: core::ops::RangeInclusive
-    ExhaustedRange,
-}
-
-impl core::error::Error for Error {
-    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
-        match self {
-            #[cfg(feature = "std")]
-            Self::FileOpenError(error) => Some(error),
-            _ => None,
-        }
-    }
-}
-
-impl core::fmt::Display for Error {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match self {
-            Self::WriteError => write!(f, "Write error during ε-serde serialization"),
-            #[cfg(feature = "std")]
-            Self::FileOpenError(error) => {
-                write!(
-                    f,
-                    "Error opening file during ε-serde serialization: {}",
-                    error
-                )
-            }
-            Self::IteratorLengthMismatch { actual, expected } => write!(
-                f,
-                "Iterator length mismatch during ε-serde serialization: expected {} items, got {}",
-                expected, actual
-            ),
-            Self::ExhaustedRange => write!(
-                f,
-                "Cannot serialize an exhausted RangeInclusive, as deserialization cannot reconstruct it"
-            ),
-        }
-    }
 }

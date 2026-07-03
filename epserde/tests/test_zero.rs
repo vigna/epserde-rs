@@ -10,33 +10,34 @@ macro_rules! impl_test {
     ($ty:ty, $data:expr) => {{
         let mut cursor = <AlignedCursor<Aligned16>>::new();
 
-        let _ = unsafe { $data.serialize_with_schema(&mut cursor).unwrap() };
+        let _ = unsafe { $data.serialize_with_schema(&mut cursor)? };
 
         cursor.set_position(0);
-        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor).unwrap() };
-        assert_eq!($data, full_copy);
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor)? };
+        assert_eq!(full_copy, $data);
 
-        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes()).unwrap() };
-        assert_eq!($data, *eps_copy);
+        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes())? };
+        assert_eq!(*eps_copy, $data);
     }
     {
         let mut cursor = <AlignedCursor<Aligned16>>::new();
-        unsafe { $data.serialize(&mut cursor).unwrap() };
+        unsafe { $data.serialize(&mut cursor)? };
 
         cursor.set_position(0);
-        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor).unwrap() };
-        assert_eq!($data, full_copy);
+        let full_copy = unsafe { <$ty>::deserialize_full(&mut cursor)? };
+        assert_eq!(full_copy, $data);
 
-        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes()).unwrap() };
-        assert_eq!($data, *eps_copy);
+        let eps_copy = unsafe { <$ty>::deserialize_eps(cursor.as_bytes())? };
+        assert_eq!(*eps_copy, $data);
     }};
 }
 
 macro_rules! test_zero {
     ($test_name:ident, $ty:ty, $data: expr) => {
         #[test]
-        fn $test_name() {
+        fn $test_name() -> anyhow::Result<()> {
             impl_test!($ty, $data);
+            Ok(())
         }
     };
 }
@@ -88,3 +89,17 @@ fn test_repr_hash_normalization() {
     ReprCAlignSplit::align_hash(&mut h2, &mut 0);
     assert_eq!(h2.finish(), h1.finish());
 }
+
+// A data-carrying zero-copy enum with a sized discriminant representation
+#[derive(Epserde, Debug, PartialEq, Clone, Copy)]
+#[repr(C, u8)]
+#[epserde(zero_copy)]
+enum DataEnum {
+    A(u16) = 1,
+    B(u32),
+    C { a: i32, b: i32 } = 7,
+}
+
+test_zero!(test_data_enum_a, DataEnum, DataEnum::A(42));
+test_zero!(test_data_enum_b, DataEnum, DataEnum::B(1000));
+test_zero!(test_data_enum_c, DataEnum, DataEnum::C { a: -1, b: 1 });

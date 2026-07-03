@@ -46,7 +46,7 @@ impl SerInner for String {
     const IS_ZERO_COPY: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        ser_slice_zero(backend, self.as_bytes())
+        unsafe { ser_slice_zero(backend, self.as_bytes()) }
     }
 }
 
@@ -54,7 +54,9 @@ impl DeserInner for String {
     check_covariance!();
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
         let slice = unsafe { deser_full_vec_zero(backend) }?;
-        String::from_utf8(slice).map_err(|_| deser::Error::InvalidData)
+        // SAFETY: the bytes are valid UTF-8 because the data comes from a
+        // correct serialization (see the Deserialize contract).
+        Ok(unsafe { String::from_utf8_unchecked(slice) })
     }
 
     type DeserType<'a> = &'a str;
@@ -63,7 +65,8 @@ impl DeserInner for String {
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
         let slice = unsafe { deser_eps_slice_zero(backend) }?;
-        // SAFETY: Actually this is unsafe if the data we read is not valid UTF-8
+        // SAFETY: the bytes are valid UTF-8 because the data comes from a
+        // correct serialization (see the Deserialize contract).
         Ok({
             unsafe {
                 #[allow(clippy::transmute_bytes_to_str)]
@@ -89,11 +92,12 @@ impl AlignHash for Box<str> {
 
 impl SerInner for Box<str> {
     type SerType = Self;
-    // Box<[$ty]> can, but Vec<Box<[$ty]>> cannot!
+    // The bytes of a Box<str> are written as a zero-copy slice, but
+    // Box<str> itself is not zero-copy.
     const IS_ZERO_COPY: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        ser_slice_zero(backend, self.as_bytes())
+        unsafe { ser_slice_zero(backend, self.as_bytes()) }
     }
 }
 
@@ -135,6 +139,6 @@ impl SerInner for &str {
     const IS_ZERO_COPY: bool = false;
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        ser_slice_zero(backend, self.as_bytes())
+        unsafe { ser_slice_zero(backend, self.as_bytes()) }
     }
 }

@@ -5,8 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-//! Example of a zero-copy internal parameter, which is left untouched, but
-//! needs `ZeroCopy` to be implemented.
+//! Example of a zero-copy internal parameter, which is left untouched because
+//! of the `#[epserde(force_full_copy)]` marker on the field, but needs
+//! `ZeroCopy` to be implemented.
 //!
 //! Please compile with the "schema" feature to see the schema output.
 

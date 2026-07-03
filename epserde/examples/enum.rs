@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!();
 
-    // Note that we need an explicitly type annotation here, as the type of the
+    // Note that we need an explicit type annotation here, as the type of the
     // enum is not fully determined by the value--we need to know the type of
     // the parameter, which is assumed to be Vec<i32> by default.
     let data: Data = Data::A;

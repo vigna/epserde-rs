@@ -55,14 +55,14 @@ where
 impl<T: ZeroCopy, const N: usize> SerHelper<Zero> for [T; N] {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        ser_zero(backend, self)
+        unsafe { ser_zero(backend, self) }
     }
 }
 
 impl<T: DeepCopy, const N: usize> SerHelper<Deep> for [T; N] {
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         for item in self.iter() {
-            backend.write("item", item)?;
+            unsafe { backend.write("item", item) }?;
         }
         Ok(())
     }
@@ -115,14 +115,21 @@ impl<T: ZeroCopy + DeserInner, const N: usize> DeserHelper<Zero> for [T; N] {
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<DeserType<'a, Self>> {
         let bytes = core::mem::size_of::<[T; N]>();
+        // Even for zero-sized arrays we must consume the alignment padding
+        // written by serialization, or the stream desynchronizes.
+        backend.align::<T>()?;
         if bytes == 0 {
             // SAFETY: [T; N] is zero-sized (see the NonNull::dangling docs)
             return Ok(unsafe { core::ptr::NonNull::<[T; N]>::dangling().as_ref() });
         }
-        backend.align::<T>()?;
         let block = backend.data.get(..bytes).ok_or(deser::Error::ReadError)?;
         let (pre, data, after) = unsafe { block.align_to::<[T; N]>() };
-        debug_assert!(pre.is_empty());
+        // A hard check, rather than a debug assertion: a wrong user-provided
+        // AlignTo implementation returning less than the alignment of T would
+        // otherwise cause an out-of-bounds panic below in release mode.
+        if !pre.is_empty() {
+            return Err(deser::Error::AlignmentError);
+        }
         debug_assert!(after.is_empty());
         let res = &data[0];
         backend.skip(bytes)?;
@@ -131,25 +138,36 @@ impl<T: ZeroCopy + DeserInner, const N: usize> DeserHelper<Zero> for [T; N] {
 }
 
 /// Initializes an array element by element, dropping the already-initialized
-/// prefix and returning the error if the initialization of an element fails.
+/// prefix if the initialization of an element fails or panics, and returning
+/// the error if it fails.
 fn try_init_array<T, const N: usize>(
     mut init: impl FnMut() -> deser::Result<T>,
 ) -> deser::Result<[T; N]> {
-    let mut res = MaybeUninit::<[T; N]>::uninit();
-    let first = res.as_mut_ptr() as *mut T;
-    for i in 0..N {
-        match init() {
-            // SAFETY: the i-th slot of the array is in bounds
-            Ok(v) => unsafe { first.add(i).write(v) },
-            Err(e) => {
-                // SAFETY: the first i slots of the array have been initialized
-                for j in 0..i {
-                    unsafe { first.add(j).drop_in_place() };
-                }
-                return Err(e);
+    /// Drops the initialized prefix on unwind or early return.
+    struct Guard<T> {
+        first: *mut T,
+        init: usize,
+    }
+    impl<T> Drop for Guard<T> {
+        fn drop(&mut self) {
+            for j in 0..self.init {
+                // SAFETY: the first self.init slots have been initialized
+                unsafe { self.first.add(j).drop_in_place() };
             }
         }
     }
+
+    let mut res = MaybeUninit::<[T; N]>::uninit();
+    let mut guard = Guard {
+        first: res.as_mut_ptr() as *mut T,
+        init: 0,
+    };
+    for i in 0..N {
+        // SAFETY: the i-th slot of the array is in bounds
+        unsafe { guard.first.add(i).write(init()?) };
+        guard.init = i + 1;
+    }
+    core::mem::forget(guard);
     // SAFETY: all N slots of the array have been initialized
     Ok(unsafe { res.assume_init() })
 }

@@ -34,9 +34,15 @@ pub struct AlignedCursor<T = Aligned16> {
     len: usize,
 }
 
-impl<T: Default + Clone> AlignedCursor<T> {
+impl<T> AlignedCursor<T> {
     /// Returns a new empty [`AlignedCursor`].
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
+        const {
+            assert!(
+                core::mem::size_of::<T>() != 0,
+                "AlignedCursor cannot be used with a zero-sized alignment type"
+            )
+        }
         Self {
             vec: Vec::new(),
             pos: 0,
@@ -46,26 +52,17 @@ impl<T: Default + Clone> AlignedCursor<T> {
 
     /// Returns a new empty [`AlignedCursor`] with a specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
+        const {
+            assert!(
+                core::mem::size_of::<T>() != 0,
+                "AlignedCursor cannot be used with a zero-sized alignment type"
+            )
+        }
         Self {
             vec: Vec::with_capacity(capacity.div_ceil(core::mem::size_of::<T>())),
             pos: 0,
             len: 0,
         }
-    }
-
-    /// Makes an [`AlignedCursor`] from a slice.
-    ///
-    /// This method will make a copy to guarantee the required alignment.
-    pub fn from_slice(data: &[u8]) -> Self {
-        #[cfg(not(feature = "std"))]
-        use crate::ser::WriteNoStd;
-        #[cfg(feature = "std")]
-        use std::io::Write;
-
-        let mut cursor = Self::with_capacity(data.len());
-        cursor.write_all(data).unwrap();
-        cursor.set_position(0);
-        cursor
     }
 
     /// Consumes this cursor, returning the underlying storage and the length of
@@ -85,6 +82,9 @@ impl<T: Default + Clone> AlignedCursor<T> {
     /// [position]: AlignedCursor::position
     pub fn as_bytes(&self) -> &[u8] {
         let ptr = self.vec.as_ptr() as *const u8;
+        // SAFETY: the invariant len <= vec.len() * size_of::<T>() is
+        // maintained by set_len and by the write implementations, and the
+        // first len bytes are always initialized.
         unsafe { slice::from_raw_parts(ptr, self.len) }
     }
 
@@ -99,6 +99,9 @@ impl<T: Default + Clone> AlignedCursor<T> {
     /// [position]: AlignedCursor::position
     pub fn as_bytes_mut(&mut self) -> &mut [u8] {
         let ptr = self.vec.as_mut_ptr() as *mut u8;
+        // SAFETY: the invariant len <= vec.len() * size_of::<T>() is
+        // maintained by set_len and by the write implementations, and the
+        // first len bytes are always initialized.
         unsafe { slice::from_raw_parts_mut(ptr, self.len) }
     }
 
@@ -120,8 +123,25 @@ impl<T: Default + Clone> AlignedCursor<T> {
     /// Sets the current position of this cursor.
     ///
     /// Valid positions are all `usize` values.
-    pub fn set_position(&mut self, pos: usize) {
+    pub const fn set_position(&mut self, pos: usize) {
         self.pos = pos;
+    }
+}
+
+impl<T: Default + Clone> AlignedCursor<T> {
+    /// Makes an [`AlignedCursor`] from a slice.
+    ///
+    /// This method will make a copy to guarantee the required alignment.
+    pub fn from_slice(data: &[u8]) -> Self {
+        #[cfg(not(feature = "std"))]
+        use crate::ser::WriteNoStd;
+        #[cfg(feature = "std")]
+        use std::io::Write;
+
+        let mut cursor = Self::with_capacity(data.len());
+        cursor.write_all(data).unwrap();
+        cursor.set_position(0);
+        cursor
     }
 
     /// Sets the length of this cursor.
@@ -136,7 +156,7 @@ impl<T: Default + Clone> AlignedCursor<T> {
     }
 }
 
-impl<T: Default + Clone> Default for AlignedCursor<T> {
+impl<T> Default for AlignedCursor<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -157,7 +177,15 @@ impl<T: Default + Clone> Default for AlignedCursor<T> {
 /// [`WriteNoStd`]: crate::ser::WriteNoStd
 impl<T: Default + Clone> crate::deser::ReadNoStd for AlignedCursor<T> {
     fn read_exact(&mut self, buf: &mut [u8]) -> crate::deser::Result<()> {
-        if self.pos + buf.len() > self.len {
+        // Reading zero bytes always succeeds, even past the end, matching
+        // the std implementation; the early return also keeps the slice
+        // index below in bounds when pos is beyond len.
+        if buf.is_empty() {
+            return Ok(());
+        }
+        // Checked formulation: pos can be beyond len (or even usize::MAX),
+        // so pos + buf.len() might overflow.
+        if buf.len() > self.len.saturating_sub(self.pos) {
             return Err(crate::deser::Error::ReadError);
         }
         let pos = self.pos;
@@ -173,8 +201,16 @@ impl<T: Default + Clone> crate::deser::ReadNoStd for AlignedCursor<T> {
 /// [ReadNoStd]: crate::deser::ReadNoStd
 impl<T: Default + Clone> crate::ser::WriteNoStd for AlignedCursor<T> {
     fn write_all(&mut self, buf: &[u8]) -> crate::ser::Result<()> {
+        // Writing zero bytes always succeeds, even past the end, mirroring
+        // read_exact; the early return also keeps the slice index below in
+        // bounds when pos is beyond the current capacity.
+        if buf.is_empty() {
+            return Ok(());
+        }
         let len = buf.len().min(usize::MAX - self.pos);
-        if !buf.is_empty() && len == 0 {
+        // write_all has all-or-error semantics, so a write truncated at the
+        // usize::MAX length limit must fail, unlike in the std write.
+        if len < buf.len() {
             return Err(crate::ser::Error::WriteError);
         }
 
@@ -225,8 +261,15 @@ impl<T: Default + Clone> std::io::Read for AlignedCursor<T> {
 #[cfg(feature = "std")]
 impl<T: Default + Clone> std::io::Write for AlignedCursor<T> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        // Writing zero bytes always succeeds, even past the end, mirroring
+        // the no_std write_all; the early return also keeps the slice index
+        // below in bounds when pos is beyond the current capacity, and
+        // avoids extending len.
+        if buf.is_empty() {
+            return Ok(0);
+        }
         let len = buf.len().min(usize::MAX - self.pos);
-        if !buf.is_empty() && len == 0 {
+        if len == 0 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "write operation overflows usize::MAX length limit",

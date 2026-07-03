@@ -31,8 +31,11 @@ impl TypeHash for DefaultHasher {
     }
 }
 
+// Deep, not Zero: BuildHasherDefault is not Copy, so with Copy = Zero it
+// would satisfy neither the ZeroCopy nor the DeepCopy blanket bound, making
+// sequences such as Vec<BuildHasherDefault<H>> impossible to (de)serialize.
 unsafe impl<H> CopyType for BuildHasherDefault<H> {
-    type Copy = Zero;
+    type Copy = Deep;
 }
 
 impl<H> AlignTo for BuildHasherDefault<H> {
@@ -54,7 +57,7 @@ impl<H> AlignHash for BuildHasherDefault<H> {
 
 impl<H> SerInner for BuildHasherDefault<H> {
     type SerType = BuildHasherDefault<H>;
-    const IS_ZERO_COPY: bool = true;
+    const IS_ZERO_COPY: bool = false;
 
     unsafe fn _ser_inner(&self, _backend: &mut impl WriteWithNames) -> ser::Result<()> {
         Ok(())
@@ -113,9 +116,11 @@ impl<Idx: AlignHash> AlignHash for RangeFrom<Idx> {
 
 impl<Idx: AlignHash> AlignHash for RangeInclusive<Idx> {
     fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        // Only start and end are serialized: an exhausted range is rejected
+        // at serialization time, so the exhausted flag never reaches the
+        // stream and must not contribute to the hash.
         Idx::align_hash(hasher, &mut 0);
         Idx::align_hash(hasher, &mut 0);
-        bool::align_hash(hasher, &mut 0);
     }
 }
 
@@ -159,8 +164,8 @@ impl<Idx: SerInner> SerInner for Range<Idx> {
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        backend.write("start", &self.start)?;
-        backend.write("end", &self.end)?;
+        unsafe { backend.write("start", &self.start) }?;
+        unsafe { backend.write("end", &self.end) }?;
         Ok(())
     }
 }
@@ -192,7 +197,7 @@ impl<Idx: SerInner> SerInner for RangeFrom<Idx> {
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        backend.write("start", &self.start)?;
+        unsafe { backend.write("start", &self.start) }?;
         Ok(())
     }
 }
@@ -227,8 +232,8 @@ impl<Idx: SerInner> SerInner for RangeInclusive<Idx> {
         if matches!(self.end_bound(), Bound::Excluded(_)) {
             return Err(ser::Error::ExhaustedRange);
         }
-        backend.write("start", self.start())?;
-        backend.write("end", self.end())?;
+        unsafe { backend.write("start", self.start()) }?;
+        unsafe { backend.write("end", self.end()) }?;
         Ok(())
     }
 }
@@ -260,7 +265,7 @@ impl<Idx: SerInner> SerInner for RangeTo<Idx> {
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        backend.write("end", &self.end)?;
+        unsafe { backend.write("end", &self.end) }?;
         Ok(())
     }
 }
@@ -290,7 +295,7 @@ impl<Idx: SerInner> SerInner for RangeToInclusive<Idx> {
 
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        backend.write("end", &self.end)?;
+        unsafe { backend.write("end", &self.end) }?;
         Ok(())
     }
 }
@@ -351,8 +356,10 @@ impl<T: TypeHash> TypeHash for Bound<T> {
     }
 }
 
-impl<T> AlignHash for Bound<T> {
-    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+impl<T: AlignHash> AlignHash for Bound<T> {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        T::align_hash(hasher, &mut 0);
+    }
 }
 
 impl<T: SerInner> SerInner for Bound<T> {
@@ -361,14 +368,14 @@ impl<T: SerInner> SerInner for Bound<T> {
 
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
-            Bound::Unbounded => backend.write("Tag", &0_u8),
+            Bound::Unbounded => unsafe { backend.write("Tag", &0_u8) },
             Bound::Included(val) => {
-                backend.write("Tag", &1_u8)?;
-                backend.write("Included", val)
+                unsafe { backend.write("Tag", &1_u8) }?;
+                unsafe { backend.write("Included", val) }
             }
             Bound::Excluded(val) => {
-                backend.write("Tag", &2_u8)?;
-                backend.write("Excluded", val)
+                unsafe { backend.write("Tag", &2_u8) }?;
+                unsafe { backend.write("Excluded", val) }
             }
         }
     }
@@ -415,8 +422,11 @@ impl<B: TypeHash, C: TypeHash> TypeHash for ControlFlow<B, C> {
     }
 }
 
-impl<B, C> AlignHash for ControlFlow<B, C> {
-    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+impl<B: AlignHash, C: AlignHash> AlignHash for ControlFlow<B, C> {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        B::align_hash(hasher, &mut 0);
+        C::align_hash(hasher, &mut 0);
+    }
 }
 
 impl<B: SerInner, C: SerInner> SerInner for ControlFlow<B, C> {
@@ -426,12 +436,12 @@ impl<B: SerInner, C: SerInner> SerInner for ControlFlow<B, C> {
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
             ControlFlow::Break(br) => {
-                backend.write("Tag", &0_u8)?;
-                backend.write("Break", br)
+                unsafe { backend.write("Tag", &0_u8) }?;
+                unsafe { backend.write("Break", br) }
             }
             ControlFlow::Continue(val) => {
-                backend.write("Tag", &1_u8)?;
-                backend.write("Continue", val)
+                unsafe { backend.write("Tag", &1_u8) }?;
+                unsafe { backend.write("Continue", val) }
             }
         }
     }
@@ -482,8 +492,11 @@ impl<T: TypeHash, E: TypeHash> TypeHash for Result<T, E> {
     }
 }
 
-impl<T, E> AlignHash for Result<T, E> {
-    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+impl<T: AlignHash, E: AlignHash> AlignHash for Result<T, E> {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        T::align_hash(hasher, &mut 0);
+        E::align_hash(hasher, &mut 0);
+    }
 }
 
 impl<T: SerInner, E: SerInner> SerInner for Result<T, E> {
@@ -493,12 +506,12 @@ impl<T: SerInner, E: SerInner> SerInner for Result<T, E> {
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
             Ok(val) => {
-                backend.write("Tag", &0_u8)?;
-                backend.write("Ok", val)
+                unsafe { backend.write("Tag", &0_u8) }?;
+                unsafe { backend.write("Ok", val) }
             }
             Err(err) => {
-                backend.write("Tag", &1_u8)?;
-                backend.write("Err", err)
+                unsafe { backend.write("Tag", &1_u8) }?;
+                unsafe { backend.write("Err", err) }
             }
         }
     }

@@ -396,16 +396,15 @@ fn gen_eps_deser_method_call(
 ) -> proc_macro2::TokenStream {
     if let syn::Type::Path(syn::TypePath {
         qself: None,
-        path: syn::Path {
-            leading_colon: None,
-            segments,
-        },
+        path: syn::Path { segments, .. },
     }) = field_type
     {
         // This is a pretty weak check, as a user could define its own
         // PhantomDeserData, but it should be good enough in practice.
         // The two checks below are mutually exclusive (a path has
-        // exactly one last segment).
+        // exactly one last segment). Note that we must accept a leading
+        // colon, as in ::core::marker::PhantomData, mirroring the
+        // replaceable-parameter walk.
         if let Some(segment) = segments.last() {
             if segment.ident == "PhantomDeserData" {
                 return syn::parse_quote!(#field_name: unsafe { <#field_type>::_deser_eps_inner_special(backend)? });
@@ -722,7 +721,7 @@ struct EpserdeAttrs {
     /// `SerType`/`DeserType` substitution and no `SerInner`/`DeserInner`
     /// bounds.
     phantom_params: Vec<syn::Ident>,
-    /// Whether old-style `#[epserde(zero_copy)]` was used.
+    /// Whether old-style `#[epserde_zero_copy]` was used.
     deprecated_zero_copy: bool,
     /// Whether old-style `#[epserde_deep_copy]` was used.
     deprecated_deep_copy: bool,
@@ -758,8 +757,8 @@ fn repr_hints(attrs: &[syn::Attribute]) -> syn::Result<Vec<String>> {
     Ok(hints)
 }
 
-/// Parses epserde attributes from `#[epserde(...)]`, `#[epserde(zero_copy)]`,
-/// and `#[epserde_(deep_copy)]`.
+/// Parses epserde attributes from `#[epserde(...)]`, `#[epserde_zero_copy]`,
+/// and `#[epserde_deep_copy]`.
 fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
     let is_repr_c = repr_hints(&input.attrs)?.iter().any(|hint| hint == "C");
 
@@ -880,7 +879,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
     })
 }
 
-/// Emits deprecation warnings for old-style `#[epserde(zero_copy)]` and
+/// Emits deprecation warnings for old-style `#[epserde_zero_copy]` and
 /// `#[epserde_deep_copy]` attributes during compilation.
 fn emit_deprecation_warnings(attrs: &EpserdeAttrs, type_name: &syn::Ident) {
     if attrs.deprecated_zero_copy {
@@ -1275,7 +1274,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         let field_type = &field.ty;
         let force_full_copy = is_force_full_copy(field);
 
-        if force_full_copy && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.repl_params)) {
+        if force_full_copy && !has_repl_param(field_type, &ctx.repl_params) {
             let type_name = &ctx.derive_input.ident;
             eprintln!(
                 "warning: #[epserde(force_full_copy)] on field {field_name} of type {type_name} has no effect; consider removing the marker"
@@ -1388,7 +1387,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                 const IS_ZERO_COPY: bool = #is_zero_copy_expr;
 
                 unsafe fn _ser_inner(&self, backend: &mut impl ::epserde::ser::WriteWithNames) -> ::epserde::ser::Result<()> {
-                    ::epserde::ser::helpers::ser_zero(backend, self)
+                    unsafe { ::epserde::ser::helpers::ser_zero(backend, self) }
                 }
             }
 
@@ -1549,7 +1548,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
             syn::Fields::Unit => {
                 variant_arm.push(quote! { #ident });
                 variant_ser.push(quote! {{
-                    WriteWithNames::write(backend, "tag", &#variant_id)?;
+                    unsafe { WriteWithNames::write(backend, "tag", &#variant_id)? };
                 }});
                 variant_full_des.push(quote! {});
                 variant_eps_des.push(quote! {});
@@ -1558,6 +1557,10 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 // The code in this arm is almost identical to the code for the
                 // next one, except for the handling of field names.
                 let mut field_names = vec![];
+                // Bindings for the match arm: field names are rebound to
+                // reserved identifiers so that a field named, e.g., backend
+                // cannot shadow the writer parameter of _ser_inner.
+                let mut field_bindings = vec![];
                 let mut field_types = vec![];
                 let mut method_calls = vec![];
 
@@ -1567,9 +1570,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let field_type = &field.ty;
                     let force_full_copy = is_force_full_copy(field);
 
-                    if force_full_copy
-                        && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.repl_params))
-                    {
+                    if force_full_copy && !has_repl_param(field_type, &ctx.repl_params) {
                         let type_name = &ctx.derive_input.ident;
                         eprintln!(
                             "warning: #[epserde(force_full_copy)] on field {ident}::{field_name} of type {type_name} has no effect; consider removing the marker"
@@ -1595,6 +1596,13 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                         deser_full,
                     ));
                     field_names.push(quote! { #field_name });
+                    // The raw prefix, if any, must be stripped, or the
+                    // generated identifier would be invalid (e.g., for a
+                    // field named r#type).
+                    field_bindings.push(syn::Ident::new(
+                        &format!("__epserde_field_{}", syn::ext::IdentExt::unraw(field_name)),
+                        field_name.span(),
+                    ));
                     field_types.push(field_type);
                     all_full_deser_fields.push(deser_full);
                 }
@@ -1602,13 +1610,13 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 all_fields_types.extend(&field_types);
 
                 variant_arm.push(quote! {
-                    #ident{ #( #field_names, )* }
+                    #ident{ #( #field_names: #field_bindings, )* }
                 });
 
                 variant_ser.push(quote! {
-                    WriteWithNames::write(backend, "tag", &#variant_id)?;
+                    unsafe { WriteWithNames::write(backend, "tag", &#variant_id)? };
                     #(
-                        WriteWithNames::write(backend, stringify!(#field_names), #field_names)?;
+                        unsafe { WriteWithNames::write(backend, stringify!(#field_names), #field_bindings)? };
                     )*
                 });
 
@@ -1636,9 +1644,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     let field_type = &field.ty;
                     let force_full_copy = is_force_full_copy(field);
 
-                    if force_full_copy
-                        && (ctx.is_zero_copy || !has_repl_param(field_type, &ctx.repl_params))
-                    {
+                    if force_full_copy && !has_repl_param(field_type, &ctx.repl_params) {
                         let type_name = &ctx.derive_input.ident;
                         let idx = syn::Index::from(field_idx);
                         eprintln!(
@@ -1682,7 +1688,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                 });
 
                 variant_ser.push(quote! {
-                    WriteWithNames::write(backend, "tag", &#variant_id)?;
+                    unsafe { WriteWithNames::write(backend, "tag", &#variant_id)? };
                     #(
                         unsafe { WriteWithNames::write(backend, stringify!(#field_indices), #field_indices)? };
                     )*
@@ -1959,7 +1965,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 ///
 /// - the field is deserialized full-copy, rather than ε-copy;
 /// - its type is preserved verbatim in `Self::DeserType<'a>`;
-/// - its occurrences of type paramters do not contribute to the ε-copy parameters.
+/// - its occurrences of type parameters do not contribute to the ε-copy parameters.
 ///
 /// The name carries intent: the field *could* be ε-copy under the default, and
 /// you are deliberately *forcing* it full-copy instead.
@@ -2029,6 +2035,39 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// struct Outer<T> {
 ///     inner: Inner<T>,  // Inner<T>::DeserType<'_> = Inner<T>
 /// }
+/// ```
+///
+/// # The `phantom(...)` type-level attribute
+///
+/// A type-level attribute that declares one or more type parameters phantom
+/// throughout the type. It takes a comma-separated list of type parameters of
+/// the item: `#[epserde(phantom(T, U))]`.
+///
+/// A parameter may be listed only if every occurrence of it in field types is
+/// inside a `PhantomData`. Listed parameters are excluded from the
+/// replaceable-parameter walk entirely: neither `SerType` nor `DeserType<'_>`
+/// substitutes them, and no `SerInner`/`DeserInner` bounds are emitted for
+/// them, so they can be instantiated with non-serializable types such as
+/// `str`.
+///
+/// It shares the rejections of `full_copy(...)`: it is rejected on a
+/// `#[epserde(zero_copy)]` type, on a const parameter, and on an identifier
+/// that is not a declared type parameter. Moreover, a parameter cannot be
+/// listed both in `phantom(...)` and in `full_copy(...)`, as the former is the
+/// stronger claim.
+///
+/// Example: `T` occurs only inside `PhantomData`, so it can be declared
+/// phantom and instantiated with `str`:
+///
+/// ```ignore
+/// #[derive(Epserde)]
+/// #[epserde(phantom(T))]
+/// struct Data<T: ?Sized, U> {
+///     data: Vec<U>,
+///     marker: PhantomData<T>,
+/// }
+///
+/// let d: Data<str, i32> = Data { data: vec![0, 1], marker: PhantomData };
 /// ```
 ///
 /// [ε-serde]: Epserde
@@ -2277,11 +2316,18 @@ fn gen_type_hash_body(
     };
     let name = &ctx.name;
     let const_params = &ctx.const_params;
+    // Zero-copy field hashes use bare field types, so the import would be
+    // dead there.
+    let ser_type_import = if ctx.is_zero_copy {
+        quote! {}
+    } else {
+        quote! { use ::epserde::ser::SerType; }
+    };
 
     quote! {
         use ::core::hash::Hash;
         use ::epserde::traits::TypeHash;
-        use ::epserde::ser::SerType;
+        #ser_type_import
 
         // Hash in copy type
         Hash::hash(#copy_type, hasher);
@@ -2319,7 +2365,6 @@ fn gen_struct_align_hash_body(
         quote! {
             use ::core::hash::Hash;
             use ::epserde::traits::AlignHash;
-            use ::epserde::ser::SerType;
 
             // Hash in size, as padding is given by AlignTo.
             // and it is independent of the architecture.
@@ -2361,7 +2406,6 @@ fn gen_enum_align_hash_body(
         quote! {
             use ::core::hash::Hash;
             use ::epserde::traits::AlignHash;
-            use ::epserde::ser::SerType;
 
             // Hash in size, as padding is given by AlignTo,
             // and it is independent of the architecture
@@ -2380,13 +2424,13 @@ fn gen_enum_align_hash_body(
             )*
         }
     } else {
-        // Hash in all fields starting at offset 0
+        // Each field hashes with a fresh offset (see the field loops), so no
+        // reset of offset_of is needed.
         quote! {
             use ::epserde::traits::AlignHash;
             use ::epserde::ser::SerType;
 
             #(
-                *offset_of = 0;
                 #all_align_hashes
             )*
         }
@@ -2474,7 +2518,16 @@ fn gen_struct_type_info_impl(
         field_names.push(get_field_name(field, field_idx));
         field_types.push(field_type);
 
-        field_types_ts.push(quote! { SerType<#field_type> });
+        // In zero-copy types the serialization type of every field is the
+        // field type itself, so we hash the bare type: this matches the
+        // where clauses, which bound the bare field types, and keeps
+        // TypeInfo usable on generic zero-copy types whose parameters
+        // implement just the type-information traits, not SerInner.
+        if ctx.is_zero_copy {
+            field_types_ts.push(quote! { #field_type });
+        } else {
+            field_types_ts.push(quote! { SerType<#field_type> });
+        }
     }
 
     let (type_hash_where_clause, align_hash_where_clause, align_to_where_clause) =
@@ -2522,31 +2575,84 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
     // type hash. A fieldless enum can be cast to an integer, so we hash the
     // resolved discriminant of every variant (this is symmetric across implicit
     // and explicit discriminants, and makes layout-identical enums such as
-    // `{ A, B }` and `{ A = 0, B = 1 }` hash equal). A data-carrying enum cannot
-    // be cast, so there we hash any explicit discriminant expression instead.
-    // Deep-copy enums write a positional tag rather than the discriminant, so
-    // their discriminant values are irrelevant and are not hashed.
+    // `{ A, B }` and `{ A = 0, B = 1 }` hash equal). A data-carrying enum
+    // cannot be cast, so there we hash the running discriminant value, given
+    // by the last explicit discriminant expression plus the number of variants
+    // since: the expression is const-evaluated in the enum's scope, so a named
+    // constant contributes its value, not its name, and a change of that value
+    // is detected as a type-hash mismatch. Deep-copy enums write a positional
+    // tag rather than the discriminant, so their discriminant values are
+    // irrelevant and are not hashed.
     let enum_is_fieldless = e
         .variants
         .iter()
         .all(|variant| matches!(variant.fields, syn::Fields::Unit));
 
+    // The last explicit discriminant expression seen, if any, and the number
+    // of variants processed since (used by the data-carrying zero-copy path).
+    let mut last_explicit: Option<&syn::Expr> = None;
+    let mut variants_since_explicit: usize = 0;
+
+    // The declared discriminant type, if any (used by the data-carrying
+    // zero-copy path to evaluate explicit discriminant expressions).
+    let repr_int = ctx.repr_attrs.iter().find_map(|hint| {
+        matches!(
+            hint.as_str(),
+            "u8" | "u16"
+                | "u32"
+                | "u64"
+                | "u128"
+                | "usize"
+                | "i8"
+                | "i16"
+                | "i32"
+                | "i64"
+                | "i128"
+                | "isize"
+        )
+        .then(|| syn::Ident::new(hint, proc_macro2::Span::call_site()))
+    });
+
     // Process each variant
     for variant in &e.variants {
         let ident = &variant.ident;
         let mut type_hash = quote! { Hash::hash(stringify!(#ident), hasher); };
+        if let Some((_, discriminant)) = &variant.discriminant {
+            last_explicit = Some(discriminant);
+            variants_since_explicit = 0;
+        }
         if ctx.is_zero_copy {
             if enum_is_fieldless {
                 type_hash.extend([quote! {
                     Hash::hash(&(Self::#ident as i128), hasher);
                 }]);
-            } else if let Some((_, discriminant)) = &variant.discriminant {
+            } else {
+                let offset = variants_since_explicit as i128;
+                // The expression must be evaluated at the enum's declared
+                // discriminant type before widening: interpolated on its own
+                // it would be re-inferred (defaulting to i32), which can
+                // change semantics or trip the arithmetic-overflow lint
+                // (e.g., 1 << 40 in a repr(C, u64) enum). A typed let binding
+                // provides the inference context (a cast would not).
+                let discr_value = match (last_explicit, &repr_int) {
+                    // The primitive is named through ::core::primitive so
+                    // that a user type shadowing the primitive name cannot
+                    // hijack the binding.
+                    (Some(expr), Some(repr_int)) => quote! {
+                        ({
+                            let __epserde_discr: ::core::primitive::#repr_int = #expr;
+                            __epserde_discr as i128
+                        } + #offset)
+                    },
+                    (Some(expr), None) => quote! { ((#expr) as i128 + #offset) },
+                    (None, _) => quote! { (#offset) },
+                };
                 type_hash.extend([quote! {
-                    Hash::hash("=", hasher);
-                    Hash::hash(stringify!(#discriminant), hasher);
+                    Hash::hash(&#discr_value, hasher);
                 }]);
             }
         }
+        variants_since_explicit += 1;
         let mut field_types = vec![];
         let mut align_hash = quote! {};
         let mut align_to = quote! {};
@@ -2560,16 +2666,32 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                     let field_type = &field.ty;
                     field_types.push(field_type);
 
-                    let field_type_ts = quote! { SerType<#field_type> };
+                    // See the comment in gen_struct_type_info_impl for why
+                    // zero-copy types hash the bare field type.
+                    let field_type_ts = if ctx.is_zero_copy {
+                        quote! { #field_type }
+                    } else {
+                        quote! { SerType<#field_type> }
+                    };
 
                     type_hash.extend([quote! {
                         Hash::hash(stringify!(#field_name), hasher);
                         <#field_type_ts as TypeHash>::type_hash(hasher);
                     }]);
 
-                    align_hash.extend([quote! {
-                        <#field_type_ts as AlignHash>::align_hash(hasher, offset_of);
-                    }]);
+                    // In zero-copy enums fields are contiguous in memory, so
+                    // the offset accumulates; in deep-copy enums each field is
+                    // realigned in the stream, so each starts at offset zero,
+                    // mirroring the deep-copy struct body.
+                    if ctx.is_zero_copy {
+                        align_hash.extend([quote! {
+                            <#field_type_ts as AlignHash>::align_hash(hasher, offset_of);
+                        }]);
+                    } else {
+                        align_hash.extend([quote! {
+                            <#field_type_ts as AlignHash>::align_hash(hasher, &mut 0);
+                        }]);
+                    }
 
                     align_to.extend([quote! {
                         if align_to < <#field_type as AlignTo>::align_to() {
@@ -2585,16 +2707,32 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                     let field_type = &field.ty;
                     field_types.push(field_type);
 
-                    let field_type_ts = quote! { SerType<#field_type> };
+                    // See the comment in gen_struct_type_info_impl for why
+                    // zero-copy types hash the bare field type.
+                    let field_type_ts = if ctx.is_zero_copy {
+                        quote! { #field_type }
+                    } else {
+                        quote! { SerType<#field_type> }
+                    };
 
                     type_hash.extend([quote! {
                         Hash::hash(#field_name, hasher);
                         <#field_type_ts as TypeHash>::type_hash(hasher);
                     }]);
 
-                    align_hash.extend([quote! {
-                        <#field_type_ts as AlignHash>::align_hash(hasher, offset_of);
-                    }]);
+                    // In zero-copy enums fields are contiguous in memory, so
+                    // the offset accumulates; in deep-copy enums each field is
+                    // realigned in the stream, so each starts at offset zero,
+                    // mirroring the deep-copy struct body.
+                    if ctx.is_zero_copy {
+                        align_hash.extend([quote! {
+                            <#field_type_ts as AlignHash>::align_hash(hasher, offset_of);
+                        }]);
+                    } else {
+                        align_hash.extend([quote! {
+                            <#field_type_ts as AlignHash>::align_hash(hasher, &mut 0);
+                        }]);
+                    }
 
                     align_to.extend([quote! {
                         if align_to < <#field_type as AlignTo>::align_to() {
@@ -2616,12 +2754,22 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 
     let type_hash_body = gen_type_hash_body(&ctx, &all_type_hashes);
     let align_hash_body = gen_enum_align_hash_body(&ctx, &all_align_hashes);
-    let align_to_body = quote! {
-        let mut align_to = ::core::mem::align_of::<Self>();
-        #(
-            #all_align_tos
-        )*
-        align_to
+    // For a fieldless enum there is nothing to maximize over, so we avoid
+    // emitting an unused import and a never-mutated binding.
+    let align_to_body = if all_align_tos.iter().all(|t| t.is_empty()) {
+        quote! {
+            ::core::mem::align_of::<Self>()
+        }
+    } else {
+        quote! {
+            use ::epserde::traits::AlignTo;
+
+            let mut align_to = ::core::mem::align_of::<Self>();
+            #(
+                #all_align_tos
+            )*
+            align_to
+        }
     };
 
     let align_to_body = if ctx.is_zero_copy {

@@ -5,6 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
+//! A reader keeping track of the current position.
+
 use crate::prelude::*;
 
 use super::ReadNoStd;
@@ -21,7 +23,7 @@ pub struct ReaderWithPos<'a, F> {
 }
 
 impl<'a, F: ReadNoStd> ReaderWithPos<'a, F> {
-    /// Create a new [`ReadWithPos`] on top of a generic [`ReadNoStd`].
+    /// Creates a new [`ReaderWithPos`] on top of a generic [`ReadNoStd`].
     #[inline(always)]
     pub const fn new(backend: &'a mut F) -> Self {
         Self { backend, pos: 0 }

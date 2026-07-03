@@ -48,7 +48,7 @@ macro_rules! impl_prim_type_hash {
 
 macro_rules! impl_prim_ser_des {
     ($($ty:ty),*) => {$(
-		impl SerInner for $ty {
+        impl SerInner for $ty {
             type SerType = Self;
             // Note that primitive types are declared zero-copy to be able to
             // be part of zero-copy types, but we actually deserialize
@@ -61,7 +61,7 @@ macro_rules! impl_prim_ser_des {
             }
         }
 
-		impl DeserInner for $ty {
+        impl DeserInner for $ty {
             type DeserType<'a> = Self;
             check_covariance!();
             #[inline(always)]
@@ -95,8 +95,9 @@ impl_prim_ser_des!(
 
 macro_rules! impl_nonzero_ser_des {
     ($($ty:ty => $base:ty),*) => {$(
-		impl SerInner for $ty {
-            type SerType = Self;                // Note that primitive types are declared zero-copy to be able to
+        impl SerInner for $ty {
+            type SerType = Self;
+            // Note that primitive types are declared zero-copy to be able to
             // be part of zero-copy types, but we actually deserialize
             // them in isolation as values.
             const IS_ZERO_COPY: bool = true;
@@ -107,16 +108,16 @@ macro_rules! impl_nonzero_ser_des {
             }
         }
 
-		impl DeserInner for $ty {
+        impl DeserInner for $ty {
             type DeserType<'a> = Self;
             check_covariance!();
             #[inline(always)]
             unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<$ty> {
                 let mut buf = [0; size_of::<$ty>()];
                 backend.read_exact(&mut buf)?;
-                <$base>::from_ne_bytes(buf)
-                    .try_into()
-                    .map_err(|_| deser::Error::InvalidData)
+                // SAFETY: the value is nonzero because the data comes from a
+                // correct serialization (see the Deserialize contract).
+                Ok(unsafe { <$ty>::new_unchecked(<$base>::from_ne_bytes(buf)) })
             }
             #[inline(always)]
             unsafe fn _deser_eps_inner<'a>(
@@ -128,9 +129,9 @@ macro_rules! impl_nonzero_ser_des {
                     .ok_or(deser::Error::ReadError)?
                     .try_into()
                     .map_err(|_| deser::Error::ReadError)?;
-                let res = <$base>::from_ne_bytes(bytes)
-                    .try_into()
-                    .map_err(|_| deser::Error::InvalidData)?;
+                // SAFETY: the value is nonzero because the data comes from a
+                // correct serialization (see the Deserialize contract).
+                let res = unsafe { <$ty>::new_unchecked(<$base>::from_ne_bytes(bytes)) };
                 backend.skip(size_of::<$ty>())?;
                 Ok(res)
             }
@@ -186,17 +187,26 @@ impl SerInner for bool {
 impl DeserInner for bool {
     check_covariance!();
     #[inline(always)]
+    // The transmute, unlike the coercion suggested by clippy, makes the
+    // unchecked-conversion contract explicit: no validation happens here.
+    #[allow(clippy::transmute_int_to_bool)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<bool> {
-        Ok(unsafe { u8::_deser_full_inner(backend) }? != 0)
+        // SAFETY: the byte is 0 or 1 because the data comes from a correct
+        // serialization (see the Deserialize contract).
+        Ok(unsafe { core::mem::transmute::<u8, bool>(u8::_deser_full_inner(backend)?) })
     }
     type DeserType<'a> = Self;
     #[inline(always)]
+    // See _deser_full_inner for the rationale of the allow.
+    #[allow(clippy::transmute_int_to_bool)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        let res = *backend.data.first().ok_or(deser::Error::ReadError)? != 0;
+        let byte = *backend.data.first().ok_or(deser::Error::ReadError)?;
         backend.skip(1)?;
-        Ok(res)
+        // SAFETY: the byte is 0 or 1 because the data comes from a correct
+        // serialization (see the Deserialize contract).
+        Ok(unsafe { core::mem::transmute::<u8, bool>(byte) })
     }
 }
 
@@ -216,14 +226,18 @@ impl DeserInner for char {
     check_covariance!();
     #[inline(always)]
     unsafe fn _deser_full_inner(backend: &mut impl ReadWithPos) -> deser::Result<Self> {
-        char::from_u32(unsafe { u32::_deser_full_inner(backend) }?).ok_or(deser::Error::InvalidData)
+        // SAFETY: the value is a valid char because the data comes from a
+        // correct serialization (see the Deserialize contract).
+        Ok(unsafe { char::from_u32_unchecked(u32::_deser_full_inner(backend)?) })
     }
     type DeserType<'a> = Self;
     #[inline(always)]
     unsafe fn _deser_eps_inner<'a>(
         backend: &mut SliceWithPos<'a>,
     ) -> deser::Result<Self::DeserType<'a>> {
-        char::from_u32(unsafe { u32::_deser_eps_inner(backend) }?).ok_or(deser::Error::InvalidData)
+        // SAFETY: the value is a valid char because the data comes from a
+        // correct serialization (see the Deserialize contract).
+        Ok(unsafe { char::from_u32_unchecked(u32::_deser_eps_inner(backend)?) })
     }
 }
 
@@ -323,8 +337,10 @@ impl<T: TypeHash> TypeHash for Option<T> {
     }
 }
 
-impl<T> AlignHash for Option<T> {
-    fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
+impl<T: AlignHash> AlignHash for Option<T> {
+    fn align_hash(hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {
+        T::align_hash(hasher, &mut 0);
+    }
 }
 
 impl<T: SerInner> SerInner for Option<T> {
@@ -334,10 +350,10 @@ impl<T: SerInner> SerInner for Option<T> {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         match self {
-            None => backend.write("Tag", &0_u8),
+            None => unsafe { backend.write("Tag", &0_u8) },
             Some(val) => {
-                backend.write("Tag", &1_u8)?;
-                backend.write("Some", val)
+                unsafe { backend.write("Tag", &1_u8) }?;
+                unsafe { backend.write("Some", val) }
             }
         }
     }

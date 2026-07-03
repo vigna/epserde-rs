@@ -2,6 +2,28 @@
 
 ## [0.13.0] - unreleased
 
+### New
+
+- A type parameter can be declared phantom throughout the type with the
+  type-level `#[epserde(phantom(T, …))]` attribute: every occurrence of the
+  listed parameters in field types must be inside a `PhantomData`; neither
+  `SerType` nor `DeserType` substitutes them, and no `SerInner`/`DeserInner`
+  bounds are emitted for them, so they can be instantiated with
+  non-serializable types such as `str`.
+
+- `PhantomData<T>` is now handled natively by the derive: `T` is substituted
+  inside the phantom slot of the deserialization type, so a parameter that
+  appears both in a `PhantomData` field and elsewhere stays consistent.
+
+- `PhantomDeserData` is deprecated since 0.13.0 in favor of plain
+  `PhantomData`; note that the migration changes the type hash.
+
+- Also mutable references to slices can be now serialized.
+
+- Much better diagnostic for violations of ε-copy stability.
+
+- Support for `Result`.
+
 ### Changed
 
 - Major design change: ε-copy deserialization is always propagated through
@@ -19,21 +41,94 @@
   time (previously they were silently ignored); the only valid field-level key
   is `force_full_copy`.
 
-- "Replaceable" (type parameter) and "irreplaceable" is now "ε-copy" and
+- "Replaceable" (type parameter) and "irreplaceable" are now "ε-copy" and
   "full-copy".
 
-- `TypeHash` now uses a full-qualified name for user-defined types.
+- `TypeHash` now uses a fully-qualified name for user-defined types.
   This will break the serialization format in all practical cases.
   Hence, the major revision of the file format was bumped.
+
+- Deserialization no longer validates `NonZero*`, `char`, or `String` values
+  (previously the full-copy paths, and the ε-copy paths of scalar values,
+  panicked on invalid data), and `bool` is no longer coerced (previously any
+  nonzero byte deserialized as true): all deserialization now uses unchecked
+  conversions, making the safety contract uniform (deserialized data must
+  come from a correct serialization).
+
+- The serialization helpers `ser_zero`, `ser_zero_unchecked`, `ser_slice_zero`,
+  and `ser_slice_deep`, the method `WriteWithNames::write`, and the
+  deserialization helpers `deser_full_vec_deep` and `deser_eps_vec_deep` are
+  now `unsafe`, closing safe paths to the operations that the
+  `Serialize`/`Deserialize` contracts gate.
+
+- `ser::Error` and `deser::Error` are now `#[non_exhaustive]`; the new
+  variants `ser::Error::IoError` and `deser::Error::IoError`, available with
+  the `std` feature, carry the underlying `std::io::Error` of the writer or
+  reader; `deser::Error::FileOpenError` is now used by all convenience
+  methods and its message has been fixed.
+
+- The `AlignHash` of `Option`, `Bound`, `ControlFlow`, and `Result` now
+  forwards the alignment hash of their payload types, so cross-architecture
+  layout mismatches of zero-copy payloads are detected; the alignment hash of
+  `RangeInclusive` no longer includes a `bool` that is never serialized. This
+  breaks the serialization format for `Option`, `Bound`, `ControlFlow`, and
+  `RangeInclusive` (`Result` support is new in this release, so it has no
+  prior format to break).
+
+- The `AlignHash` of a deep-copy enum now hashes each field with a fresh zero
+  offset, mirroring deep-copy structs, since every field is realigned in the
+  stream; previously the offset accumulated across the fields of a variant
+  (and across variants). This breaks the serialization format for deep-copy
+  enums with zero-copy fields.
 
 - `SliceWithPos::skip` can now return an error.
 
 - The `TypeHash` of a zero-copy enum now includes its discriminant values,
   since such an enum is (de)serialized as raw bytes and re-numbering its
-  variants changes the encoding. For a fieldless enum every variant's resolved
-  discriminant is hashed; for a data-carrying enum (which cannot be cast to an
-  integer) any explicit discriminant expression is hashed. This makes such a
-  change a detectable type-hash mismatch rather than a silent mis-decode.
+  variants changes the encoding. For a fieldless enum, every variant's
+  discriminant is hashed as its cast integer value; for a data-carrying enum
+  (which cannot be cast), every variant's resolved running discriminant is
+  hashed (the last explicit discriminant expression, evaluated in the enum's
+  scope, plus the number of variants since). In both cases a change in the
+  value of a named constant used as a discriminant is detected, and
+  equivalent spellings of the same value (implicit or explicit, literal or
+  named constant) hash equal. This makes such changes a detectable type-hash
+  mismatch rather than a silent mis-decode, and breaks the serialization
+  format for all zero-copy enums.
+
+- `BuildHasherDefault` is now classified as deep-copy, making sequences of it
+  serializable (it is not `Copy`, so it could never satisfy the zero-copy
+  bound).
+
+- `SerIter` now documents that serialization consumes the iterator; it stops
+  writing at the declared length when an iterator under-reports its length;
+  its deep-copy path now records per-item schema entries; `SerIter::new` is
+  now `const`; and spurious derived trait bounds on its phantom parameter have
+  been removed (the `Clone`, `PartialEq`, `Eq`, and `Default` implementations
+  were dropped, and `Debug` is now bounded only on the iterator).
+
+- `AlignedCursor::new` and `AlignedCursor::set_position` are now `const`;
+  read-only accessors no longer require `Default + Clone`; a zero-sized
+  alignment type is now rejected at compile time; the `no_std` `write_all` now
+  honors all-or-error semantics, returning an error instead of silently
+  truncating at the `usize::MAX` length limit; and the `no_std` `read_exact`
+  no longer overflows on positions near `usize::MAX`. Reading or writing
+  zero bytes at a position past the end now succeeds without any effect (in
+  particular, an empty write no longer extends the cursor length), matching
+  the standard `read_exact`/`write_all` contracts on both the `std` and
+  `no_std` implementations.
+
+- `MemCase::encase` has been moved so that type inference works: it no longer
+  needs a turbofish.
+
+- Header checking now reads the serialized type name as raw bytes with lossy
+  UTF-8 conversion, as it is diagnostic data coming from a possibly foreign
+  file; the name kept for diagnostics is capped at 1024 bytes, so a hostile
+  length prefix can no longer drive an unbounded allocation; the
+  deserializing type's names are no longer allocated on the success path.
+
+- Stream alignment now writes padding in chunks rather than one byte at a
+  time.
 
 - `Schema::debug` has been renamed `Schema::to_csv_with_data`, mirroring the
   sibling `Schema::to_csv`.
@@ -49,25 +144,23 @@
 - Variants of `ser::Error` and `deser::Error` have more precise names (e.g.,
   `AlignHashMismatch` instead of `WrongAlignHash`).
 
-### New
-
-- New deserialization error variant `deser::Error::InvalidData`, returned by
-  full-copy deserialization of a `NonZero*`, `char`, or `String` whose
-  serialized bytes do not encode a valid value (previously these paths
-  panicked).
-
-- Also mutable references to slices can be now serialized.
-
-- Much better diagnostic for violations of ε-copy stability.
-
-- Support for `Result`.
-
 ### Fixed
 
-- Fixed a few possible UB soundness issues and leaks when I/O errors happen
-  during (de)serialization.
+- Fixed alignment issues with zero-width types: in particular, ε-copy
+  deserialization of zero-sized zero-copy types with nonzero alignment
+  (e.g., aligned unit structs, `[T; 0]`, and vectors thereof) no longer
+  desynchronizes the stream, which could silently corrupt every following
+  field.
 
-- Fixed alignment issues with zero-width types.
+- The `AlignTo` implementation generated for zero-copy enums now imports the
+  trait with a fully qualified path, so deriving `Epserde` on such an enum
+  compiles also in files that do not import the prelude.
+
+- Fixed a few possible UB soundness issues and leaks when I/O errors happen
+  during (de)serialization; in particular, `MemCase`-producing methods no
+  longer leak the memory backend if ε-copy deserialization fails or panics,
+  and array deserialization no longer leaks initialized elements if an
+  element deserialization panics.
 
 - Now we read correctly attributes like `#[repr(C, align(N))]`, and the
   contribution of such attributes to the alignment hash is normalized.
@@ -78,16 +171,19 @@
 - The `TypeHash` of `Vec<T>` was the same as that of `Box<[T]>`, which would
   have made them equivalent as parameters in `PhantomData`.
 
-- Full-copy deserialization of a `NonZero*`, `char`, or `String` now returns
-  `deser::Error::InvalidData` on invalid serialized bytes instead of panicking.
-
-- The `no_std` `WriteNoStd` implementation for `AlignedCursor` no longer panics
-  when a write is truncated at the `usize::MAX` length limit (it now matches the
-  `std` `Write` implementation).
-
 - The derive macro no longer requires a spurious `DeepCopy` bound on a type
   parameter that occurs only inside a `PhantomData` sequence (e.g.
   `PhantomData<Vec<U>>`) sharing a field with an ε-copy sequence.
+
+- The derive macro no longer breaks on an enum named-variant field called
+  `backend`, and now recognizes `::core::marker::PhantomData` written with a
+  leading path separator.
+
+- `#[derive(TypeInfo)]` on generic zero-copy types no longer requires
+  `SerInner` bounds on the type parameters.
+
+- Homogeneous tuples now forward `IS_ZERO_COPY` from their element type
+  instead of hardcoding `true`.
 
 - `ser::Error` now exposes the underlying I/O error as the `source()` of its
   `FileOpenError` variant.

@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     let data = [1; 10];
-    let mut cursor = <AlignedCursor<Aligned16>>::new(); // Serialize
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
 
     // Serialize
     #[cfg(feature = "schema")]

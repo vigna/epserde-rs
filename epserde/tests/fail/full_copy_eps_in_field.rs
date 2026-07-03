@@ -13,7 +13,7 @@
 use epserde::prelude::*;
 
 // The field type is written with a qualified path on purpose: the diagnostic
-// must point at the constructor `ControlFlow`, not the leading `std` qualifier.
+// must point at the constructor ControlFlow, not the leading std qualifier.
 #[derive(Epserde)]
 #[epserde(full_copy(F))]
 struct S<F, E>(std::ops::ControlFlow<F, E>);

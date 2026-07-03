@@ -12,8 +12,8 @@
 //! field to return. The trait implementations must be written by hand, as the
 //! derive code does not at this time handle lifetimes. They follow closely the
 //! derive-generated code one would obtain if the inner type was `Vec<u8>`, just
-//! replacing the inner type where necessary, and keeping full deserialization
-//! unimplemented.
+//! replacing the inner type where necessary, and keeping full-copy
+//! deserialization unimplemented.
 //!
 //! Please compile with the "schema" feature to see the schema output.
 
@@ -46,7 +46,7 @@ impl<'a> SerInner for S<'a> {
     type SerType = S<'a>;
     const IS_ZERO_COPY: bool = false;
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
-        WriteWithNames::write(backend, "0", &self.0)?;
+        unsafe { WriteWithNames::write(backend, "0", &self.0) }?;
         Ok(())
     }
 }

@@ -63,7 +63,7 @@ impl CopySelector for Deep {
 /// deserializable, `T` must implement `CopyType<Copy=Zero>`. The conditions for
 /// this marker trait are that `T` is a [copy type], that it has a fixed memory
 /// layout, and that it does not contain any reference (in particular, that it
-/// has `'static` lifetime). If this happen vectors of `T` or boxed slices of
+/// has `'static` lifetime). If this happens vectors of `T` or boxed slices of
 /// `T` can be ε-copy deserialized using a reference to a slice of `T`.
 ///
 /// You can make zero-copy your own types, but you must ensure that they do not
@@ -136,7 +136,8 @@ impl<
 /// implemented by a blanket implementation.
 ///
 /// Note that we require `SerInner` but not `DeserInner` to make the
-/// serialization of undeserializable types possible (for example, iterators).
+/// serialization of undeserializable types possible (for example, types
+/// containing a `SerIter` field).
 pub trait DeepCopy: CopyType<Copy = Deep> + SerInner<SerType: TypeHash + AlignHash> {}
 
 impl<T: CopyType<Copy = Deep> + SerInner<SerType: TypeHash + AlignHash>> DeepCopy for T {}
