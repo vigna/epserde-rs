@@ -287,7 +287,7 @@ impl<S: DeserInner> Drop for BackendGuard<S> {
 ///
 /// - Malicious [`TypeHash`]/[`AlignHash`] implementations may lead to reading
 ///   incompatible structures using the same code, or cause undefined behavior
-///   by loading data with an incorrect alignment. A wrong [`AlignTo`]
+///   by loading data with an incorrect alignment. A wrong [`PadTo`]
 ///   implementation similarly desynchronizes the stream with respect to
 ///   serialization, causing wrong values or errors.
 ///
@@ -369,19 +369,19 @@ pub trait Deserialize: DeserInner {
     /// [`load_mem`]: https://docs.rs/epserde/latest/epserde/deser/trait.Deserialize.html#method.load_mem
     /// [trait documentation]: Deserialize
     unsafe fn read_mem(mut read: impl ReadNoStd, size: usize) -> anyhow::Result<MemCase<Self>> {
-        let align_to = align_of::<MemoryAlignment>();
-        if align_of::<Self>() > align_to {
+        let pad_to = align_of::<MemoryAlignment>();
+        if align_of::<Self>() > pad_to {
             return Err(Error::AlignmentError.into());
         }
-        // Round up to MemoryAlignment size; the maximum with align_to
+        // Round up to MemoryAlignment size; the maximum with pad_to
         // guarantees a nonzero allocation size even when size is zero.
         let capacity = size
-            .checked_add(crate::pad_align_to(size, align_to))
+            .checked_add(crate::pad_align_to(size, pad_to))
             .ok_or_else(|| {
                 anyhow::anyhow!("Size too large: adding alignment padding overflows usize")
             })?
-            .max(align_to);
-        let layout = core::alloc::Layout::from_size_align(capacity, align_to)?;
+            .max(pad_to);
+        let layout = core::alloc::Layout::from_size_align(capacity, pad_to)?;
 
         let mut uninit: MaybeUninit<MemCase<Self>> = MaybeUninit::uninit();
         let ptr = uninit.as_mut_ptr();
@@ -407,8 +407,8 @@ pub trait Deserialize: DeserInner {
 
             <Vec<MemoryAlignment>>::from_raw_parts(
                 raw as *mut MemoryAlignment,
-                capacity / align_to,
-                capacity / align_to,
+                capacity / pad_to,
+                capacity / pad_to,
             )
         };
 

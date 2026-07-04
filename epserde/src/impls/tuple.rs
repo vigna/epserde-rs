@@ -65,14 +65,14 @@ macro_rules! impl_tuples {
             }
         }
 
-        impl<T: AlignTo> AlignTo for ($($t,)*)
+        impl<T: PadTo> PadTo for ($($t,)*)
         {
-            fn align_to() -> usize {
-                let mut align_to = 0;
-                $(if align_to < <$t>::align_to() {
-                    align_to = <$t>::align_to();
+            fn pad_to() -> usize {
+                let mut pad_to = 0;
+                $(if pad_to < <$t>::pad_to() {
+                    pad_to = <$t>::pad_to();
                 })*
-                align_to
+                pad_to
             }
         }
 

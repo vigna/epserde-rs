@@ -38,8 +38,8 @@ macro_rules! impl_prim_type_hash {
             }
         }
 
-        impl AlignTo for $ty {
-            fn align_to() -> usize {
+        impl PadTo for $ty {
+            fn pad_to() -> usize {
                 size_of::<$ty>()
             }
         }
@@ -278,8 +278,8 @@ unsafe impl<T: ?Sized> CopyType for PhantomData<T> {
     type Copy = Zero;
 }
 
-impl<T: ?Sized> AlignTo for PhantomData<T> {
-    fn align_to() -> usize {
+impl<T: ?Sized> PadTo for PhantomData<T> {
+    fn pad_to() -> usize {
         0
     }
 }

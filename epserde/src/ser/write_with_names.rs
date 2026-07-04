@@ -40,12 +40,12 @@ use alloc::{
 /// [implementation of `Option`]: impls::prim
 pub trait WriteWithNames: WriteWithPos + Sized {
     /// Adds zero padding so that `self.pos()` becomes a multiple of
-    /// `V::align_to()` (a value of zero requests no alignment).
+    /// `V::pad_to()` (a value of zero requests no alignment).
     ///
     /// Other implementations must write the same number of zeros.
-    fn align<V: AlignTo>(&mut self) -> Result<()> {
+    fn align<V: PadTo>(&mut self) -> Result<()> {
         const ZEROS: [u8; 64] = [0; 64];
-        let mut padding = pad_align_to(self.pos(), V::align_to());
+        let mut padding = pad_align_to(self.pos(), V::pad_to());
         while padding > 0 {
             let chunk = padding.min(ZEROS.len());
             self.write_all(&ZEROS[..chunk])?;
@@ -237,9 +237,9 @@ impl<W: WriteWithPos> WriteWithPos for SchemaWriter<'_, W> {
 /// WARNING: these implementations must be kept in sync with the ones
 /// in the default implementation of [`WriteWithNames`].
 impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
-    fn align<V: AlignTo>(&mut self) -> Result<()> {
+    fn align<V: PadTo>(&mut self) -> Result<()> {
         const ZEROS: [u8; 64] = [0; 64];
-        let padding = pad_align_to(self.pos(), V::align_to());
+        let padding = pad_align_to(self.pos(), V::pad_to());
         if padding != 0 {
             self.schema.0.push(SchemaRow {
                 field: "PADDING".into(),
@@ -293,7 +293,7 @@ impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
             ty: core::any::type_name::<V>().to_string(),
             offset: self.pos(),
             size: value.len(),
-            align: V::align_to(),
+            align: V::pad_to(),
         });
         self.path.pop();
 

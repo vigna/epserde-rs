@@ -30,11 +30,11 @@ struct MyStruct {
 }
 
 #[test]
-/// Check that align_to reflects the repr(align) attributes and that the
+/// Check that pad_to reflects the repr(align) attributes and that the
 /// resulting types round trip
-fn test_align_to() -> anyhow::Result<()> {
-    assert_eq!(MyStruct64::align_to(), 64);
-    assert_eq!(MyStruct2::align_to(), MyStruct::align_to());
+fn test_pad_to() -> anyhow::Result<()> {
+    assert_eq!(MyStruct64::pad_to(), 64);
+    assert_eq!(MyStruct2::pad_to(), MyStruct::pad_to());
 
     let x = MyStruct { u: 0x89 };
     let mut cursor = <AlignedCursor<Aligned16>>::new();

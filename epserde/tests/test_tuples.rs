@@ -60,7 +60,7 @@ fn test_tuple_is_zero_copy_forwarded() {
     use core::hash::Hash;
     use epserde::deser::{DeserInner, ReadWithPos, SliceWithPos};
     use epserde::ser::{SerInner, WriteWithNames};
-    use epserde::traits::{AlignHash, AlignTo, CopyType, TypeHash, Zero};
+    use epserde::traits::{AlignHash, CopyType, PadTo, TypeHash, Zero};
 
     #[derive(Copy, Clone)]
     struct Fake(#[allow(dead_code)] u8);
@@ -76,8 +76,8 @@ fn test_tuple_is_zero_copy_forwarded() {
     impl AlignHash for Fake {
         fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
     }
-    impl AlignTo for Fake {
-        fn align_to() -> usize {
+    impl PadTo for Fake {
+        fn pad_to() -> usize {
             1
         }
     }

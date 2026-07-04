@@ -43,9 +43,9 @@ impl<F: ReadNoStd> ReadWithPos for ReaderWithPos<'_, F> {
         self.pos
     }
 
-    fn align<T: AlignTo>(&mut self) -> deser::Result<()> {
+    fn align<T: PadTo>(&mut self) -> deser::Result<()> {
         // Skip bytes as needed
-        let mut padding = crate::pad_align_to(self.pos, T::align_to());
+        let mut padding = crate::pad_align_to(self.pos, T::pad_to());
         let mut buf = [0u8; 64];
         while padding > 0 {
             let n = padding.min(buf.len());

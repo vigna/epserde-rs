@@ -61,7 +61,7 @@ This distinction drives specialization throughout the crate via `SerHelper<Zero>
 - `DeserInner` — derived/implemented (has `DeserType<'a>` associated type for lifetime-dependent deserialized form, `_deser_full_inner()`, `_deser_eps_inner()`)
 
 **Type identity** (`traits/`):
-- `TypeHash`, `AlignHash`, `AlignTo` — compute hashes for type/alignment validation during deserialization
+- `TypeHash`, `AlignHash` — compute hashes for type/alignment validation during deserialization; `PadTo` — the power-of-two boundary serialized zero-copy data is padded to (size-based for primitives; distinct from `align_of`, which governs reference validity)
 
 ### MemCase & Backends
 
@@ -69,7 +69,7 @@ This distinction drives specialization throughout the crate via `SerHelper<Zero>
 
 ### Derive Macros (`epserde-derive/src/lib.rs`)
 
-`#[derive(Epserde)]` generates `CopyType`, `SerInner`, `DeserInner`, `TypeHash`, `AlignHash`, and `AlignTo`. Key behavior:
+`#[derive(Epserde)]` generates `CopyType`, `SerInner`, `DeserInner`, `TypeHash`, `AlignHash`, and `PadTo`. Key behavior:
 - **Type parameter replacement**: A *replaceable parameter* is a type parameter that occurs in *bare* form (as `T` itself — not inside `PhantomData`, not as a projection like `T::Assoc`) in a field's type. A replaceable parameter of an unmarked field is ε-copy: the derive substitutes it with `T::DeserType<'a>` in the deserialized form. Marking a field with `#[epserde(force_full_copy)]` opts it out (full-copy deserialization, type verbatim); a field with no replaceable parameter is full-copy as well. The type-level `#[epserde(full_copy(T, ...))]` pins listed parameters to full-copy in `DeserType` only (`SerType` still substitutes them): use it when a nested field type holds the parameter full-copy, so the syntactic walk would wrongly ε-substitute it. The naming is intentional: the field marker *forces* a field that could be ε-copy to full-copy, while the type-level form *declares* parameters the local walk cannot see are full-copy. The type-level `#[epserde(phantom(T, ...))]` is the stronger claim: the listed parameters are phantom throughout the type (nested field types hold them only in `PhantomData` slots), so they are excluded from the replaceable-parameter walk entirely — no `SerType`/`DeserType` substitution and no `SerInner`/`DeserInner` bounds — and can be instantiated with non-serializable types such as `str`. Const parameters are never replaceable (a forwarded const argument is syntactically indistinguishable from a type and must stay verbatim).
 - **Static zero-copy assertion**: Uses const blocks to verify zero-copy candidates at compile time
 - Supports structs and enums (unit, named, unnamed variants)

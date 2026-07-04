@@ -9,7 +9,7 @@
 
 use crate::{
     deser::DeserInner,
-    prelude::AlignTo,
+    prelude::PadTo,
     ser::SerInner,
     traits::{AlignHash, TypeHash},
 };
@@ -113,7 +113,7 @@ pub trait ZeroCopy:
     + SerInner<SerType = Self>
     + TypeHash
     + AlignHash
-    + AlignTo
+    + PadTo
     + 'static
 {
 }
@@ -125,7 +125,7 @@ impl<
         + DeserInner
         + TypeHash
         + AlignHash
-        + AlignTo
+        + PadTo
         + 'static,
 > ZeroCopy for T
 {

@@ -9,8 +9,8 @@ use epserde::prelude::*;
 #[derive(Epserde, Clone, Copy)]
 struct NotZeroCopy(usize);
 
-impl AlignTo for NotZeroCopy {
-    fn align_to() -> usize {
+impl PadTo for NotZeroCopy {
+    fn pad_to() -> usize {
         0
     }
 }

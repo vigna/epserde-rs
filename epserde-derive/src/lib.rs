@@ -1141,7 +1141,7 @@ fn gen_ser_deser_where_clauses(
     (ser_where_clause, deser_where_clause)
 }
 
-/// Generates the where clauses for `TypeHash`, `AlignHash`, and `AlignTo`.
+/// Generates the where clauses for `TypeHash`, `AlignHash`, and `PadTo`.
 ///
 /// The where clauses bound with the trait being implemented; the bound is
 /// applied to the field types for zero-copy types, and to the associated
@@ -1192,11 +1192,11 @@ fn gen_type_info_where_clauses(
     bound_align_hash.push(syn::parse_quote!(::epserde::traits::AlignHash));
     let align_hash = gen_type_info_where_clause(bound_align_hash);
 
-    let mut bound_align_to = Punctuated::new();
-    bound_align_to.push(syn::parse_quote!(::epserde::traits::AlignTo));
-    let align_to = gen_type_info_where_clause(bound_align_to);
+    let mut bound_pad_to = Punctuated::new();
+    bound_pad_to.push(syn::parse_quote!(::epserde::traits::PadTo));
+    let pad_to = gen_type_info_where_clause(bound_pad_to);
 
-    (type_hash, align_hash, align_to)
+    (type_hash, align_hash, pad_to)
 }
 
 /// Context structure for the [`Epserde`] derive macro.
@@ -1916,7 +1916,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// Generates an [ε-serde] implementation for custom types.
 ///
 /// It generates implementations for the traits `CopyType`, `TypeHash`,
-/// `AlignHash`, `SerInner`, and `DeserInner` (and `AlignTo` for zero-copy
+/// `AlignHash`, `SerInner`, and `DeserInner` (and `PadTo` for zero-copy
 /// types).
 ///
 /// Presently we do not support unions, where clauses on the original type,
@@ -2366,7 +2366,7 @@ fn gen_struct_align_hash_body(
             use ::core::hash::Hash;
             use ::epserde::traits::AlignHash;
 
-            // Hash in size, as padding is given by AlignTo.
+            // Hash in size, as padding is given by PadTo.
             // and it is independent of the architecture.
             Hash::hash(&::core::mem::size_of::<Self>(), hasher);
 
@@ -2407,7 +2407,7 @@ fn gen_enum_align_hash_body(
             use ::core::hash::Hash;
             use ::epserde::traits::AlignHash;
 
-            // Hash in size, as padding is given by AlignTo,
+            // Hash in size, as padding is given by PadTo,
             // and it is independent of the architecture
             Hash::hash(&::core::mem::size_of::<Self>(), hasher);
 
@@ -2437,43 +2437,43 @@ fn gen_enum_align_hash_body(
     }
 }
 
-/// Generates the `AlignTo` implementation body for struct types.
-fn gen_struct_align_to_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
+/// Generates the `PadTo` implementation body for struct types.
+fn gen_struct_pad_to_body(fields_types: &[&syn::Type]) -> proc_macro2::TokenStream {
     quote! {
-        use ::epserde::traits::AlignTo;
+        use ::epserde::traits::PadTo;
 
-        let mut align_to = ::core::mem::align_of::<Self>();
+        let mut pad_to = ::core::mem::align_of::<Self>();
 
         #(
-            if align_to < <#fields_types as AlignTo>::align_to() {
-                align_to = <#fields_types as AlignTo>::align_to();
+            if pad_to < <#fields_types as PadTo>::pad_to() {
+                pad_to = <#fields_types as PadTo>::pad_to();
             }
         )*
-        align_to
+        pad_to
     }
 }
 
 /// Generates the implementations for `TypeHash`, `AlignHash`, and
-/// optionally `AlignTo`.
+/// optionally `PadTo`.
 fn gen_type_info_traits(
     ctx: TypeInfoContext,
     type_hash_where_clause: syn::WhereClause,
     align_hash_where_clause: syn::WhereClause,
-    align_to_where_clause: syn::WhereClause,
+    pad_to_where_clause: syn::WhereClause,
     type_hash_body: proc_macro2::TokenStream,
     align_hash_body: proc_macro2::TokenStream,
-    align_to_body: Option<proc_macro2::TokenStream>,
+    pad_to_body: Option<proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
     let name = &ctx.name;
     let generics_for_impl = &ctx.generics_for_impl;
     let generics_for_type = &ctx.generics_for_type;
 
-    let align_to_impl = if let Some(align_to_body) = align_to_body {
+    let pad_to_impl = if let Some(pad_to_body) = pad_to_body {
         quote! {
             #[automatically_derived]
-            impl #generics_for_impl ::epserde::traits::AlignTo for #name #generics_for_type #align_to_where_clause {
-                fn align_to() -> usize {
-                    #align_to_body
+            impl #generics_for_impl ::epserde::traits::PadTo for #name #generics_for_type #pad_to_where_clause {
+                fn pad_to() -> usize {
+                    #pad_to_body
                 }
             }
         }
@@ -2499,7 +2499,7 @@ fn gen_type_info_traits(
             }
         }
 
-        #align_to_impl
+        #pad_to_impl
     }
 }
 
@@ -2530,7 +2530,7 @@ fn gen_struct_type_info_impl(
         }
     }
 
-    let (type_hash_where_clause, align_hash_where_clause, align_to_where_clause) =
+    let (type_hash_where_clause, align_hash_where_clause, pad_to_where_clause) =
         gen_type_info_where_clauses(ctx.where_clause, ctx.is_zero_copy, &field_types);
 
     // Generate field hashes for TypeHash
@@ -2546,8 +2546,8 @@ fn gen_struct_type_info_impl(
     // Generate implementation bodies
     let type_hash_body = gen_type_hash_body(&ctx, &field_hashes);
     let align_hash_body = gen_struct_align_hash_body(&ctx, &field_types_ts);
-    let align_to_body = if ctx.is_zero_copy {
-        Some(gen_struct_align_to_body(&field_types))
+    let pad_to_body = if ctx.is_zero_copy {
+        Some(gen_struct_pad_to_body(&field_types))
     } else {
         None
     };
@@ -2556,10 +2556,10 @@ fn gen_struct_type_info_impl(
         ctx,
         type_hash_where_clause,
         align_hash_where_clause,
-        align_to_where_clause,
+        pad_to_where_clause,
         type_hash_body,
         align_hash_body,
-        align_to_body,
+        pad_to_body,
     )
 }
 
@@ -2567,7 +2567,7 @@ fn gen_struct_type_info_impl(
 fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macro2::TokenStream {
     let mut all_type_hashes = vec![];
     let mut all_align_hashes = vec![];
-    let mut all_align_tos = vec![];
+    let mut all_pad_tos = vec![];
     let mut all_field_types = vec![];
 
     // A zero-copy enum is (de)serialized as raw memory, so its discriminant
@@ -2655,7 +2655,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
         variants_since_explicit += 1;
         let mut field_types = vec![];
         let mut align_hash = quote! {};
-        let mut align_to = quote! {};
+        let mut pad_to = quote! {};
 
         match &variant.fields {
             syn::Fields::Unit => {}
@@ -2693,9 +2693,9 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                         }]);
                     }
 
-                    align_to.extend([quote! {
-                        if align_to < <#field_type as AlignTo>::align_to() {
-                            align_to = <#field_type as AlignTo>::align_to();
+                    pad_to.extend([quote! {
+                        if pad_to < <#field_type as PadTo>::pad_to() {
+                            pad_to = <#field_type as PadTo>::pad_to();
                         }
                     }]);
                 }
@@ -2734,9 +2734,9 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                         }]);
                     }
 
-                    align_to.extend([quote! {
-                        if align_to < <#field_type as AlignTo>::align_to() {
-                            align_to = <#field_type as AlignTo>::align_to();
+                    pad_to.extend([quote! {
+                        if pad_to < <#field_type as PadTo>::pad_to() {
+                            pad_to = <#field_type as PadTo>::pad_to();
                         }
                     }]);
                 }
@@ -2745,35 +2745,35 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 
         all_type_hashes.push(type_hash);
         all_align_hashes.push(align_hash);
-        all_align_tos.push(align_to);
+        all_pad_tos.push(pad_to);
         all_field_types.extend(field_types);
     }
 
-    let (where_clause_type_hash, where_clause_align_hash, where_clause_align_to) =
+    let (where_clause_type_hash, where_clause_align_hash, where_clause_pad_to) =
         gen_type_info_where_clauses(ctx.where_clause, ctx.is_zero_copy, &all_field_types);
 
     let type_hash_body = gen_type_hash_body(&ctx, &all_type_hashes);
     let align_hash_body = gen_enum_align_hash_body(&ctx, &all_align_hashes);
     // For a fieldless enum there is nothing to maximize over, so we avoid
     // emitting an unused import and a never-mutated binding.
-    let align_to_body = if all_align_tos.iter().all(|t| t.is_empty()) {
+    let pad_to_body = if all_pad_tos.iter().all(|t| t.is_empty()) {
         quote! {
             ::core::mem::align_of::<Self>()
         }
     } else {
         quote! {
-            use ::epserde::traits::AlignTo;
+            use ::epserde::traits::PadTo;
 
-            let mut align_to = ::core::mem::align_of::<Self>();
+            let mut pad_to = ::core::mem::align_of::<Self>();
             #(
-                #all_align_tos
+                #all_pad_tos
             )*
-            align_to
+            pad_to
         }
     };
 
-    let align_to_body = if ctx.is_zero_copy {
-        Some(align_to_body)
+    let pad_to_body = if ctx.is_zero_copy {
+        Some(pad_to_body)
     } else {
         None
     };
@@ -2782,17 +2782,17 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
         ctx,
         where_clause_type_hash,
         where_clause_align_hash,
-        where_clause_align_to,
+        where_clause_pad_to,
         type_hash_body,
         align_hash_body,
-        align_to_body,
+        pad_to_body,
     )
 }
 
 /// Generates a [partial ε-serde] implementation for custom types.
 ///
 /// It generates implementations just for the traits `TypeHash` and `AlignHash`
-/// (plus `AlignTo` for zero-copy types), but not for `CopyType`, `SerInner`, or
+/// (plus `PadTo` for zero-copy types), but not for `CopyType`, `SerInner`, or
 /// `DeserInner`. See the documentation of [`Epserde`] for more information.
 ///
 /// [partial ε-serde]: TypeInfo

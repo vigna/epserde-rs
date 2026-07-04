@@ -26,6 +26,12 @@
 
 ### Changed
 
+- Renamed the `AlignTo` trait to `PadTo`, and its method `align_to` to
+  `pad_to`: the value is the power-of-two boundary to which serialized
+  zero-copy data is padded, and the previous name was too easily confused
+  with `std::mem::align_of`, which is a different quantity (references need
+  `align_of`; the stream is padded to `pad_to`).
+
 - Major design change: ε-copy deserialization is always propagated through
   fields (used to stop at fields whose type is not a parameter). The old
   behavior can be obtained by decorating the field with
@@ -152,7 +158,7 @@
   desynchronizes the stream, which could silently corrupt every following
   field.
 
-- The `AlignTo` implementation generated for zero-copy enums now imports the
+- The `PadTo` implementation generated for zero-copy enums now imports the
   trait with a fully qualified path, so deriving `Epserde` on such an enum
   compiles also in files that do not import the prelude.
 
@@ -357,7 +363,7 @@
 - Revised bound propagation (again).
 
 - Renamed `MaxSizeOf` to `AlignTo` as it includes results from
-  `std::mem::align_of`.
+  `std::mem::align_of` (renamed again to `PadTo` in 0.13.0).
 
 ### Changed
 
@@ -384,7 +390,7 @@
 
 - New `SerType` type alias, analogous to `DeserType`.
 
-- Major internal code restructuring: `TypeHash`/`AlignHash`/`AlignTo` are now
+- Major internal code restructuring: `TypeHash`/`AlignHash`/`PadTo` are now
   computed on the serialization type, not on the serializing type.
 
 - New convenience serialization implementation for `&str`, in the same vain as
@@ -467,7 +473,7 @@
   not always work, as the associated (de)serialization type of zero-copy
   type is just `Self`.
 
-- Trait bounds for `TypeHash`, `AlignHash` and `AlignTo` were generated
+- Trait bounds for `TypeHash`, `AlignHash` and `PadTo` were generated
   incorrectly.
 
 ## [0.8.0] - 2025-03-03
@@ -510,7 +516,7 @@
 
 ### Improved
 
-- Added missing implementation of `TypeHash`, `ReprHash`, `AlignTo`,
+- Added missing implementation of `TypeHash`, `ReprHash`, `PadTo`,
   `SerInner`, `DeserInner` for `Range`, `RangeFrom`, `RangeFull`,
   `RangeInclusive`, `RangeTo`, `RangeToInclusive`, `Bound`, `ControlFlow`.
 
@@ -523,7 +529,7 @@
 
 ### Fixed
 
-- Added missing implementation of AlignTo for PhantomData.
+- Added missing implementation of PadTo for PhantomData.
 
 ## [0.6.0] - 2024-06-03
 

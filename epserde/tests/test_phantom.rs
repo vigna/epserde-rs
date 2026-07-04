@@ -331,13 +331,13 @@ fn test_leading_separator_phantom_data() -> anyhow::Result<()> {
 /// SerInner on the type parameter.
 #[test]
 fn test_type_info_generic_zero_copy() {
-    use epserde::traits::{AlignHash, AlignTo};
+    use epserde::traits::{AlignHash, PadTo};
 
     #[allow(dead_code)]
     #[derive(TypeInfo, Copy, Clone)]
     #[repr(C)]
     #[epserde(zero_copy)]
-    struct GenericZero<T: TypeHash + AlignHash + AlignTo + Copy + 'static> {
+    struct GenericZero<T: TypeHash + AlignHash + PadTo + Copy + 'static> {
         x: T,
     }
 

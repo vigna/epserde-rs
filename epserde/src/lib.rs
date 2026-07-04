@@ -19,7 +19,7 @@ pub use epserde_derive::{Epserde, TypeInfo};
 use crate::{
     deser::{DeserInner, DeserType, ReadWithPos, SliceWithPos},
     ser::{SerInner, WriteWithNames},
-    traits::{AlignHash, AlignTo, CopyType, TypeHash, Zero},
+    traits::{AlignHash, CopyType, PadTo, TypeHash, Zero},
 };
 
 pub mod deser;
@@ -99,12 +99,12 @@ impl Default for Aligned64 {
 }
 
 /// Computes the padding needed for alignment, that is, the smallest
-/// number such that `(value + pad_align_to(value, align_to)) & (align_to - 1) == 0`.
+/// number such that `(value + pad_align_to(value, pad_to)) & (pad_to - 1) == 0`.
 ///
-/// An `align_to` equal to zero (the [`AlignTo`] value of
+/// An `pad_to` equal to zero (the [`PadTo`] value of
 /// zero-sized types) requests no alignment and returns zero.
-pub const fn pad_align_to(value: usize, align_to: usize) -> usize {
-    value.wrapping_neg() & align_to.saturating_sub(1)
+pub const fn pad_align_to(value: usize, pad_to: usize) -> usize {
+    value.wrapping_neg() & pad_to.saturating_sub(1)
 }
 
 /// **Deprecated.** Use plain [`PhantomData`] instead.
@@ -160,9 +160,9 @@ unsafe impl<T> CopyType for PhantomDeserData<T> {
 }
 
 #[allow(deprecated)]
-impl<T> AlignTo for PhantomDeserData<T> {
+impl<T> PadTo for PhantomDeserData<T> {
     #[inline(always)]
-    fn align_to() -> usize {
+    fn pad_to() -> usize {
         0
     }
 }

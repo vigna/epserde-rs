@@ -102,14 +102,14 @@ pub(crate) fn std_align_hash<T: ZeroCopy>(
 /// A trait providing the desired alignment of zero-copy types in serialized
 /// data.
 ///
-/// We use the value returned by [`AlignTo::align_to`] to generate padding
+/// We use the value returned by [`PadTo::pad_to`] to generate padding
 /// before storing a zero-copy type. Note that this is different from the
 /// padding used to align the same type inside a struct, which is not under our
 /// control and is given by [`core::mem::align_of`].
 ///
 /// The alignment returned by this function is computed by maximizing the
 /// alignment required by the type itself (i.e., [`core::mem::align_of`]) and
-/// the [`AlignTo::align_to`] of its fields; moreover, [`AlignTo::align_to`] of
+/// the [`PadTo::pad_to`] of its fields; moreover, [`PadTo::pad_to`] of
 /// primitive types is defined using the size, rather than the value returned by
 /// [`core::mem::align_of`]. In this way we increase interoperability between
 /// architectures with different alignment requirements for the same types
@@ -118,12 +118,12 @@ pub(crate) fn std_align_hash<T: ZeroCopy>(
 /// By maximizing with [`core::mem::align_of`] we ensure that we provide
 /// sufficient alignment in case the attribute `repr(align(N))` was specified.
 ///
-/// Deep-copy types do not need to implement [`AlignTo`].
-pub trait AlignTo: Sized {
+/// Deep-copy types do not need to implement [`PadTo`].
+pub trait PadTo: Sized {
     /// Returns the alignment (in bytes) to which this type must be padded in
     /// serialized data; the value `0` (used by zero-sized types such as
     /// [`PhantomData`] that store nothing) imposes no alignment.
     ///
     /// [`PhantomData`]: core::marker::PhantomData
-    fn align_to() -> usize;
+    fn pad_to() -> usize;
 }

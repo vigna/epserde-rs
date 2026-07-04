@@ -119,7 +119,7 @@ pub unsafe fn deser_eps_zero<'a, T: for<'b> ZeroCopy<DeserType<'b> = &'b T>>(
     let block = backend.data.get(..bytes).ok_or(deser::Error::ReadError)?;
     let (pre, data, after) = unsafe { block.align_to::<T>() };
     // A hard check, rather than a debug assertion: a wrong user-provided
-    // AlignTo implementation returning less than the alignment of T would
+    // PadTo implementation returning less than the alignment of T would
     // otherwise cause an out-of-bounds panic below in release mode.
     if !pre.is_empty() {
         return Err(deser::Error::AlignmentError);
@@ -157,7 +157,7 @@ pub unsafe fn deser_eps_slice_zero<'a, T: ZeroCopy>(
     let block = backend.data.get(..bytes).ok_or(deser::Error::ReadError)?;
     let (pre, data, after) = unsafe { block.align_to::<T>() };
     // A hard check, rather than a debug assertion: a wrong user-provided
-    // AlignTo implementation returning less than the alignment of T would
+    // PadTo implementation returning less than the alignment of T would
     // otherwise silently return a slice shorter than len in release mode.
     if !pre.is_empty() {
         return Err(deser::Error::AlignmentError);

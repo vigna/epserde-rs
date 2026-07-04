@@ -38,8 +38,8 @@ unsafe impl<H> CopyType for BuildHasherDefault<H> {
     type Copy = Deep;
 }
 
-impl<H> AlignTo for BuildHasherDefault<H> {
-    fn align_to() -> usize {
+impl<H> PadTo for BuildHasherDefault<H> {
+    fn pad_to() -> usize {
         0
     }
 }
@@ -152,8 +152,8 @@ impl AlignHash for RangeFull {
     fn align_hash(_hasher: &mut impl core::hash::Hasher, _offset_of: &mut usize) {}
 }
 
-impl AlignTo for RangeFull {
-    fn align_to() -> usize {
+impl PadTo for RangeFull {
+    fn pad_to() -> usize {
         0
     }
 }

@@ -76,6 +76,6 @@ pub trait ReadWithPos: ReadNoStd + Sized {
     /// Returns the current position.
     fn pos(&self) -> usize;
 
-    /// Pads the cursor to the next multiple of [`AlignTo::align_to`] of `T`.
-    fn align<T: AlignTo>(&mut self) -> deser::Result<()>;
+    /// Pads the cursor to the next multiple of [`PadTo::pad_to`] of `T`.
+    fn align<T: PadTo>(&mut self) -> deser::Result<()>;
 }

@@ -1102,7 +1102,7 @@ implementing [`TypeHash`] and [`AlignHash`].
 There is analogously a blanket implementation for the [`ZeroCopy`] trait for all
 types implementing [`CopyType`] with associated type [`CopyType::Copy`] equal to
 [`Zero`] and also implementing [`Copy`], [`TypeHash`], [`AlignHash`],
-[`AlignTo`] and [`SerInner`] with [`SerType`] equal to `Self`; they must also
+[`PadTo`] and [`SerInner`] with [`SerType`] equal to `Self`; they must also
 outlive the `'static` lifetime, and be `repr(C)`. Note that in this case we
 bound the original type, rather than the [`SerType`], because zero-copy types
 are always serialized as themselves, and all fields of a zero-copy type are
@@ -1404,11 +1404,11 @@ The macro provides also an `#[epserde(bound(ser = ..., deser = ...))]` attribute
 which can be used to add trait bounds to the generated code (see the example
 above on pinning associated types).
 
-You can also implement manually the traits [`CopyType`], [`AlignTo`],
+You can also implement manually the traits [`CopyType`], [`PadTo`],
 [`TypeHash`], [`AlignHash`], [`SerInner`], and [`DeserInner`], but
 the process is error-prone, and you must be fully aware of ε-serde's
 conventions. The procedural macro [`TypeInfo`] can be used to generate
-[`TypeHash`] and [`AlignHash`] automatically (plus [`AlignTo`] for
+[`TypeHash`] and [`AlignHash`] automatically (plus [`PadTo`] for
 zero-copy types).
 
 ## Acknowledgments
@@ -1425,8 +1425,8 @@ European Union nor the Italian MUR can be held responsible for them.
 [`ZeroCopy`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.ZeroCopy.html
 [`DeepCopy`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.DeepCopy.html
 [`CopyType`]: https://docs.rs/epserde/latest/epserde/traits/copy_type/trait.CopyType.html
-[`AlignTo`]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignTo.html
-[alignment hash]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignTo.html
+[`PadTo`]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.PadTo.html
+[alignment hash]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignHash.html
 [`TypeHash`]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html
 [`AlignHash`]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.AlignHash.html
 [type hash]: https://docs.rs/epserde/latest/epserde/traits/type_info/trait.TypeHash.html
