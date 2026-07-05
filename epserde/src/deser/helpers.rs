@@ -107,8 +107,6 @@ pub unsafe fn deser_eps_zero<'a, T: for<'b> ZeroCopy<DeserType<'b> = &'b T>>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<&'a T> {
     let bytes = core::mem::size_of::<T>();
-    // Even for zero-sized types we must consume the alignment padding
-    // written by serialization, or the stream desynchronizes.
     backend.align::<T>()?;
     if bytes == 0 {
         // SAFETY: T is zero-sized (see the from_raw_parts docs)
@@ -118,9 +116,6 @@ pub unsafe fn deser_eps_zero<'a, T: for<'b> ZeroCopy<DeserType<'b> = &'b T>>(
     }
     let block = backend.data.get(..bytes).ok_or(deser::Error::ReadError)?;
     let (pre, data, after) = unsafe { block.align_to::<T>() };
-    // A hard check, rather than a debug assertion: a wrong user-provided
-    // PadTo implementation returning less than the alignment of T would
-    // otherwise cause an out-of-bounds panic below in release mode.
     if !pre.is_empty() {
         return Err(deser::Error::AlignmentError);
     }
@@ -142,8 +137,6 @@ pub unsafe fn deser_eps_slice_zero<'a, T: ZeroCopy>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<&'a [T]> {
     let len = unsafe { usize::_deser_full_inner(backend) }?;
-    // Even for zero-sized types we must consume the alignment padding
-    // written by serialization, or the stream desynchronizes.
     backend.align::<T>()?;
     if core::mem::size_of::<T>() == 0 {
         // SAFETY: T is zero-sized (see the from_raw_parts docs)
@@ -156,9 +149,6 @@ pub unsafe fn deser_eps_slice_zero<'a, T: ZeroCopy>(
         .ok_or(deser::Error::ReadError)?;
     let block = backend.data.get(..bytes).ok_or(deser::Error::ReadError)?;
     let (pre, data, after) = unsafe { block.align_to::<T>() };
-    // A hard check, rather than a debug assertion: a wrong user-provided
-    // PadTo implementation returning less than the alignment of T would
-    // otherwise silently return a slice shorter than len in release mode.
     if !pre.is_empty() {
         return Err(deser::Error::AlignmentError);
     }

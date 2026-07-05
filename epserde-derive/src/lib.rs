@@ -704,9 +704,9 @@ fn get_type_const_params(
 struct EpserdeAttrs {
     /// Whether the type has `#[repr(C)]`.
     is_repr_c: bool,
-    /// Whether `#[epserde(zero_copy)]` or `#[epserde_zero_copy]` was specified.
+    /// Whether `#[epserde(zero_copy)]` was specified.
     is_zero_copy: bool,
-    /// Whether `#[epserde(deep_copy)]` or `#[epserde_deep_copy]` was specified.
+    /// Whether `#[epserde(deep_copy)]` was specified.
     is_deep_copy: bool,
     /// Additional where-clause predicates for `DeserInner` impl.
     deser_bounds: Vec<WherePredicate>,
@@ -721,10 +721,6 @@ struct EpserdeAttrs {
     /// `SerType`/`DeserType` substitution and no `SerInner`/`DeserInner`
     /// bounds.
     phantom_params: Vec<syn::Ident>,
-    /// Whether old-style `#[epserde_zero_copy]` was used.
-    deprecated_zero_copy: bool,
-    /// Whether old-style `#[epserde_deep_copy]` was used.
-    deprecated_deep_copy: bool,
 }
 
 /// Collects the representation hints of all `repr` attributes of a type,
@@ -768,17 +764,9 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
     let mut ser_bounds = Vec::new();
     let mut full_copy_params = Vec::new();
     let mut phantom_params = Vec::new();
-    let mut deprecated_zero_copy = false;
-    let mut deprecated_deep_copy = false;
 
     for attr in &input.attrs {
-        if attr.meta.path().is_ident("epserde_zero_copy") {
-            is_zero_copy = true;
-            deprecated_zero_copy = true;
-        } else if attr.meta.path().is_ident("epserde_deep_copy") {
-            is_deep_copy = true;
-            deprecated_deep_copy = true;
-        } else if attr.meta.path().is_ident("epserde") {
+        if attr.meta.path().is_ident("epserde") {
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("zero_copy") {
                     is_zero_copy = true;
@@ -874,24 +862,7 @@ fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
         ser_bounds,
         full_copy_params,
         phantom_params,
-        deprecated_zero_copy,
-        deprecated_deep_copy,
     })
-}
-
-/// Emits deprecation warnings for old-style `#[epserde_zero_copy]` and
-/// `#[epserde_deep_copy]` attributes during compilation.
-fn emit_deprecation_warnings(attrs: &EpserdeAttrs, type_name: &syn::Ident) {
-    if attrs.deprecated_zero_copy {
-        eprintln!(
-            "warning: use #[epserde(zero_copy)] instead of #[epserde_zero_copy] on type {type_name}"
-        );
-    }
-    if attrs.deprecated_deep_copy {
-        eprintln!(
-            "warning: use #[epserde(deep_copy)] instead of #[epserde_deep_copy] on type {type_name}"
-        );
-    }
 }
 
 /// For each bounded type parameter that is substituted in an associated
@@ -2053,25 +2024,29 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
 /// It shares the rejections of `full_copy(...)`: it is rejected on a
 /// `#[epserde(zero_copy)]` type, on a const parameter, and on an identifier
 /// that is not a declared type parameter. Moreover, a parameter cannot be
-/// listed both in `phantom(...)` and in `full_copy(...)`, as the former is the
-/// stronger claim.
+/// listed both in `phantom(...)` and in `full_copy(...)`.
 ///
 /// Example: `T` occurs only inside `PhantomData`, so it can be declared
 /// phantom and instantiated with `str`:
 ///
 /// ```ignore
+/// // Here the derive code can establish locally that T is inside a PhantomData
 /// #[derive(Epserde)]
-/// #[epserde(phantom(T))]
-/// struct Data<T: ?Sized, U> {
-///     data: Vec<U>,
+/// struct HiddenPhantom<T: ?Sized> {
 ///     marker: PhantomData<T>,
 /// }
 ///
-/// let d: Data<str, i32> = Data { data: vec![0, 1], marker: PhantomData };
+/// // Here we need the attribute
+/// #[derive(Epserde)]
+/// #[epserde(phantom(T))]
+/// struct Data<T: ?Sized, U> {
+///     data: U,
+///     hidden: HiddenPhantom<T>,
+/// }
 /// ```
 ///
 /// [ε-serde]: Epserde
-#[proc_macro_derive(Epserde, attributes(epserde_zero_copy, epserde_deep_copy, epserde))]
+#[proc_macro_derive(Epserde, attributes(epserde))]
 pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // This part is in common with type_info_derive
     let mut derive_input = parse_macro_input!(input as DeriveInput);
@@ -2099,8 +2074,6 @@ pub fn epserde_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         Ok(v) => v,
         Err(e) => return e.to_compile_error().into(),
     };
-
-    emit_deprecation_warnings(&attrs, &derive_input.ident);
 
     // Validate per-field epserde attributes: the only valid field-level key is
     // force_full_copy.
@@ -2796,7 +2769,7 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
 /// `DeserInner`. See the documentation of [`Epserde`] for more information.
 ///
 /// [partial ε-serde]: TypeInfo
-#[proc_macro_derive(TypeInfo, attributes(epserde_zero_copy, epserde_deep_copy, epserde))]
+#[proc_macro_derive(TypeInfo, attributes(epserde))]
 pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut derive_input = parse_macro_input!(input as DeriveInput);
 
@@ -2822,8 +2795,6 @@ pub fn type_info_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         Ok(v) => v,
         Err(e) => return e.to_compile_error().into(),
     };
-
-    emit_deprecation_warnings(&attrs, &derive_input.ident);
 
     type_info_derive_impl(
         &derive_input,

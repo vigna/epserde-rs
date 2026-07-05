@@ -150,6 +150,8 @@
 - Variants of `ser::Error` and `deser::Error` have more precise names (e.g.,
   `AlignHashMismatch` instead of `WrongAlignHash`).
 
+- `epserde_zero_copy` and `epserde_deep_copy` are no longer available.
+
 ### Fixed
 
 - Fixed alignment issues with zero-width types: in particular, ε-copy

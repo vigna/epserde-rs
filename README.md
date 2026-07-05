@@ -120,13 +120,6 @@ These are the main limitations you should be aware of before choosing to use
   generated at deserialization time is stored in newly allocated memory. This is
   not the case with [Abomonation].
 
-## Warning to Previous Users
-
-The attributes `#[epserde_zero_copy]` and `#[epserde_deep_copy]` have been
-renamed to `#[epserde(zero_copy)]` and `#[epserde(deep_copy)]`, respectively.
-The old names will continue to work and raise a deprecation warning, but we
-plan to remove them in the next major release.
-
 ## Example: Zero-copy of standard types
 
 Let us start with the simplest case: data that can be zero-copy deserialized. In
@@ -161,7 +154,7 @@ let t: [usize; 1000] =
     unsafe { <[usize; 1000]>::deserialize_full(&mut std::fs::File::open(&file)?)? };
 assert_eq!(s, t);
 
-// In this case we map the data structure into memory
+// In this case we map the array into memory
 let u: MemCase<[usize; 1000]> =
     unsafe { <[usize; 1000]>::mmap(&file, Flags::empty())? };
 
@@ -214,7 +207,7 @@ let t: Vec<usize> =
     unsafe { <Vec<usize>>::load_full(&file)? };
 assert_eq!(s, t);
 
-// In this case we map the data structure into memory
+// In this case we map the vector into memory
 let u: MemCase<Vec<usize>> =
     unsafe { <Vec<usize>>::mmap(&file, Flags::empty())? };
 assert_eq!(s, **u.uncase());
@@ -277,7 +270,7 @@ let t: Vec<Data> =
     unsafe { <Vec<Data>>::load_full(&file)? };
 assert_eq!(s, t);
 
-// In this case we map the data structure into memory
+// In this case we map the vector into memory
 let u: MemCase<Vec<Data>> =
     unsafe { <Vec<Data>>::mmap(&file, Flags::empty())? };
 assert_eq!(s, **u.uncase());
@@ -331,7 +324,7 @@ let t: MyStruct<Vec<isize>> =
     unsafe { <MyStruct<Vec<isize>>>::load_full(&file)? };
 assert_eq!(s, t);
 
-// In this case we map the data structure into memory
+// In this case we map the structure into memory
 let u: MemCase<MyStruct<Vec<isize>>> =
     unsafe { <MyStruct<Vec<isize>>>::mmap(&file, Flags::empty())? };
 let u: &MyStruct<&[isize]> = u.uncase();
@@ -437,6 +430,39 @@ attribute](#example-pinning-a-field-with-force_full_copy).
 Note that adding the bound `A: ZeroCopy` will not work—the derive should replace
 `Vec<A>` with `&[A]` in the deserialization type, but that is incompatible
 with the syntax of the type (a specific error will be issued).
+
+Replacement happens recursively:
+
+```rust
+# use epserde::prelude::*;
+#[derive(Epserde, Debug, PartialEq)]
+struct MyStructRec<A: DeepCopy> {
+    data: Vec<A>,
+}
+
+type MyStruct = MyStructRec<Vec<isize>>;
+
+// Create a structure where A is a Vec<isize>
+let s = MyStructRec { data: vec![vec![0, 1, 2, 3], vec![4, 5, 6, 7]] };
+// Serialize it
+let mut file = std::env::temp_dir();
+file.push("serialized4");
+unsafe { s.store(&file)? };
+// Load the serialized form in a buffer
+let b = std::fs::read(&file)?;
+let t: MyStructRec<&[i32]> = unsafe { <MyStructRec<Vec<i32>>>::deserialize_eps(b.as_ref())? };
+
+assert_eq!(s.data.len(), t.data.len());
+assert_eq!(&s.data[0], t.data[0]);
+assert_eq!(&s.data[1], t.data[1]);
+
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+In this case we have to bound `A` to be `DeepCopy` because a zero-copy `A` would
+make the type [_unstable_](#specification)—ε-copy deserialization would require
+replacing `Vec<A>` with `&[A]`, which is impossible. The rules governing type
+replacement are discussed in the [specification](#specification).
 
 ## Example: User-defined deep-copy structures without parameters
 

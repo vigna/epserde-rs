@@ -56,7 +56,7 @@ macro_rules! test_aligned_zst {
     ($ty:ty, $init:expr) => {{
         let data = FollowedBy::<$ty> {
             zst: $init,
-            value: 0xDEAD_BEEF_CAFE_BABE,
+            value: 0xDEAD_BEEF_DEAD_F00D,
         };
         let mut cursor = <AlignedCursor<Aligned64>>::new();
         unsafe { data.serialize(&mut cursor)? };

@@ -124,9 +124,6 @@ impl<T: ZeroCopy + DeserInner, const N: usize> DeserHelper<Zero> for [T; N] {
         }
         let block = backend.data.get(..bytes).ok_or(deser::Error::ReadError)?;
         let (pre, data, after) = unsafe { block.align_to::<[T; N]>() };
-        // A hard check, rather than a debug assertion: a wrong user-provided
-        // PadTo implementation returning less than the alignment of T would
-        // otherwise cause an out-of-bounds panic below in release mode.
         if !pre.is_empty() {
             return Err(deser::Error::AlignmentError);
         }
