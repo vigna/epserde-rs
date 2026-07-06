@@ -440,8 +440,6 @@ struct MyStructRec<A: DeepCopy> {
     data: Vec<A>,
 }
 
-type MyStruct = MyStructRec<Vec<isize>>;
-
 // Create a structure where A is a Vec<isize>
 let s = MyStructRec { data: vec![vec![0, 1, 2, 3], vec![4, 5, 6, 7]] };
 // Serialize it

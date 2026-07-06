@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.13.0] - unreleased
+## [0.13.0] - 2026-07-06
 
 ### New
 
@@ -26,12 +26,6 @@
 
 ### Changed
 
-- Renamed the `AlignTo` trait to `PadTo`, and its method `align_to` to
-  `pad_to`: the value is the power-of-two boundary to which serialized
-  zero-copy data is padded, and the previous name was too easily confused
-  with `std::mem::align_of`, which is a different quantity (references need
-  `align_of`; the stream is padded to `pad_to`).
-
 - Major design change: ε-copy deserialization is always propagated through
   fields (used to stop at fields whose type is not a parameter). The old
   behavior can be obtained by decorating the field with
@@ -39,6 +33,12 @@
   replacement inside fields whose type is not a parameter (e.g., `S<A>([A; 3])`
   can have `Vec<usize>` as a parameter, getting the deserialization type
   `S<&[usize]>`).
+
+- Renamed the `AlignTo` trait to `PadTo`, and its method `align_to` to
+  `pad_to`: the value is the power-of-two boundary to which serialized
+  zero-copy data is padded, and the previous name was too easily confused
+  with `std::mem::align_of`, which is a different quantity (references need
+  `align_of`; the stream is padded to `pad_to`).
 
 - A type parameter can be pinned to full-copy deserialization across the whole
   type with the type-level `#[epserde(full_copy(T, …))]` attribute.
@@ -78,8 +78,7 @@
   layout mismatches of zero-copy payloads are detected; the alignment hash of
   `RangeInclusive` no longer includes a `bool` that is never serialized. This
   breaks the serialization format for `Option`, `Bound`, `ControlFlow`, and
-  `RangeInclusive` (`Result` support is new in this release, so it has no
-  prior format to break).
+  `RangeInclusive`.
 
 - The `AlignHash` of a deep-copy enum now hashes each field with a fresh zero
   offset, mirroring deep-copy structs, since every field is realigned in the
@@ -129,7 +128,7 @@
 
 - Header checking now reads the serialized type name as raw bytes with lossy
   UTF-8 conversion, as it is diagnostic data coming from a possibly foreign
-  file; the name kept for diagnostics is capped at 1024 bytes, so a hostile
+  file; the name kept for diagnostics is capped at 8192 bytes, so a hostile
   length prefix can no longer drive an unbounded allocation; the
   deserializing type's names are no longer allocated on the success path.
 
