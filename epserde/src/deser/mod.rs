@@ -57,7 +57,7 @@ pub enum Error {
     #[cfg(feature = "std")]
     #[error("Error opening or inspecting file during ε-serde deserialization: {0}")]
     FileOpenError(#[source] std::io::Error),
-    /// The underlying reader returned an error.
+    /// The underlying [`std::io::Read`] returned an error.
     #[cfg(feature = "std")]
     #[error("I/O error during ε-serde deserialization: {0}")]
     IoError(#[source] std::io::Error),

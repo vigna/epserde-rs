@@ -41,6 +41,14 @@ pub type SerType<T> = <T as SerInner>::SerType;
 #[non_exhaustive]
 /// Errors that can happen during serialization.
 pub enum Error {
+    /// [`Serialize::store`] could not open the provided file.
+    #[cfg(feature = "std")]
+    #[error("Error opening file during ε-serde serialization: {0}")]
+    FileOpenError(#[source] std::io::Error),
+    /// The underlying [`std::io::Write`] returned an I/O error.
+    #[cfg(feature = "std")]
+    #[error("I/O error during ε-serde serialization: {0}")]
+    IoError(#[source] std::io::Error),
     /// The underlying writer could not complete a write (e.g., an
     /// [`AlignedCursor`] reached the `usize::MAX` length limit in a `no_std`
     /// build).
@@ -54,14 +62,6 @@ pub enum Error {
     /// [`InvalidInput`]: https://doc.rust-lang.org/std/io/enum.ErrorKind.html#variant.InvalidInput
     #[error("Write error during ε-serde serialization")]
     WriteError,
-    /// The underlying [`std::io::Write`] returned an I/O error.
-    #[cfg(feature = "std")]
-    #[error("I/O error during ε-serde serialization: {0}")]
-    IoError(#[source] std::io::Error),
-    /// [`Serialize::store`] could not open the provided file.
-    #[cfg(feature = "std")]
-    #[error("Error opening file during ε-serde serialization: {0}")]
-    FileOpenError(#[source] std::io::Error),
     /// The declared length of an iterator did not match
     /// the actual length.
     ///
@@ -101,10 +101,10 @@ pub enum Error {
 ///
 /// For example, this code reads a portion of the stack:
 ///
-/// ```ignore
+/// ```no_run
 /// use epserde::{ser::Serialize, Epserde};
 ///
-/// #[derive(Epserde)]
+/// #[derive(Clone,Copy,Epserde)]
 /// #[repr(C)]
 /// #[repr(align(1024))]
 /// #[epserde(zero_copy)]
