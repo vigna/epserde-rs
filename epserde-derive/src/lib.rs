@@ -934,7 +934,7 @@ fn bound_ser_deser_types(
                 lifetimes.push(GenericParam::Lifetime(LifetimeParam {
                     attrs: vec![],
                     lifetime: syn::Lifetime::new(
-                        "'__epserde_desertype",
+                        "'__ඞඞඞepserdeඞඞඞ_desertype",
                         proc_macro2::Span::call_site(),
                     ),
                     colon_token: None,
@@ -951,7 +951,7 @@ fn bound_ser_deser_types(
                             gt_token: token::Gt::default(),
                         }),
                         bounded_ty: syn::parse_quote!(
-                            ::epserde::deser::DeserType<'__epserde_desertype, #ident>
+                            ::epserde::deser::DeserType<'__ඞඞඞepserdeඞඞඞ_desertype, #ident>
                         ),
                         colon_token: token::Colon::default(),
                         bounds: bounds.clone(),
@@ -1017,7 +1017,7 @@ fn gen_generics_for_deser_type(
         .iter()
         .map(|ident| {
             if eps_params.contains(ident) {
-                quote!(::epserde::deser::DeserType<'__epserde_desertype, #ident>)
+                quote!(::epserde::deser::DeserType<'__ඞඞඞepserdeඞඞඞ_desertype, #ident>)
             } else {
                 quote!(#ident)
             }
@@ -1378,7 +1378,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     unsafe { ::epserde::deser::helpers::deser_full_zero::<Self>(backend) }
                 }
 
-                type DeserType<'__epserde_desertype> = &'__epserde_desertype Self;
+                type DeserType<'__ඞඞඞepserdeඞඞඞ_desertype> = &'__ඞඞඞepserdeඞඞඞ_desertype Self;
 
                 unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
@@ -1455,7 +1455,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     })
                 }
 
-                type DeserType<'__epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
+                type DeserType<'__ඞඞඞepserdeඞඞඞ_desertype> = #name<#(#generics_for_deser_type,)*>;
 
                 unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
@@ -1571,7 +1571,10 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     // generated identifier would be invalid (e.g., for a
                     // field named r#type).
                     field_bindings.push(syn::Ident::new(
-                        &format!("__epserde_field_{}", syn::ext::IdentExt::unraw(field_name)),
+                        &format!(
+                            "__ඞඞඞepserdeඞඞඞ_field_{}",
+                            syn::ext::IdentExt::unraw(field_name)
+                        ),
                         field_name.span(),
                     ));
                     field_types.push(field_type);
@@ -1778,7 +1781,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     unsafe { ::epserde::deser::helpers::deser_full_zero::<Self>(backend) }
                 }
 
-                type DeserType<'__epserde_desertype> = &'__epserde_desertype Self;
+                type DeserType<'__ඞඞඞepserdeඞඞඞ_desertype> = &'__ඞඞඞepserdeඞඞඞ_desertype Self;
 
                 unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
@@ -1860,7 +1863,7 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     }
                 }
 
-                type DeserType<'__epserde_desertype> = #name<#(#generics_for_deser_type,)*>;
+                type DeserType<'__ඞඞඞepserdeඞඞඞ_desertype> = #name<#(#generics_for_deser_type,)*>;
 
                 unsafe fn _deser_eps_inner<'deser_eps_inner_lifetime>(
                     backend: &mut ::epserde::deser::SliceWithPos<'deser_eps_inner_lifetime>,
@@ -2613,8 +2616,8 @@ fn gen_enum_type_info_impl(ctx: TypeInfoContext, e: &syn::DataEnum) -> proc_macr
                     // hijack the binding.
                     (Some(expr), Some(repr_int)) => quote! {
                         ({
-                            let __epserde_discr: ::core::primitive::#repr_int = #expr;
-                            __epserde_discr as i128
+                            let __ඞඞඞepserdeඞඞඞ_discr: ::core::primitive::#repr_int = #expr;
+                            __ඞඞඞepserdeඞඞඞ_discr as i128
                         } + #offset)
                     },
                     (Some(expr), None) => quote! { ((#expr) as i128 + #offset) },

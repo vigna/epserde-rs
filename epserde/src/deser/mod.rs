@@ -861,7 +861,7 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
     /// the stream is consumed entirely, but only a bounded prefix of the
     /// name is kept.
     fn read_type_name(backend: &mut impl ReadWithPos) -> Result<String> {
-        const MAX_NAME_LEN: usize = 1024;
+        const MAX_NAME_LEN: usize = 8192;
         let len = unsafe { usize::_deser_full_inner(backend) }?;
         let mut name = Vec::with_capacity(len.min(MAX_NAME_LEN));
         let mut buf = [0u8; 256];

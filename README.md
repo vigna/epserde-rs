@@ -446,7 +446,7 @@ type MyStruct = MyStructRec<Vec<isize>>;
 let s = MyStructRec { data: vec![vec![0, 1, 2, 3], vec![4, 5, 6, 7]] };
 // Serialize it
 let mut file = std::env::temp_dir();
-file.push("serialized4");
+file.push("serialized5");
 unsafe { s.store(&file)? };
 // Load the serialized form in a buffer
 let b = std::fs::read(&file)?;
@@ -479,7 +479,7 @@ struct MyStruct(Vec<isize>);
 let s = MyStruct(vec![0, 1, 2, 3]);
 // Serialize it
 let mut file = std::env::temp_dir();
-file.push("serialized5");
+file.push("serialized6");
 unsafe { s.store(&file)? };
 // Load the serialized form in a buffer
 let b = std::fs::read(&file)?;
@@ -516,7 +516,7 @@ struct MyStruct<A: ZeroCopy> {
 let s: MyStruct<i32> = MyStruct { data: 0 };
 // Serialize it
 let mut file = std::env::temp_dir();
-file.push("serialized6");
+file.push("serialized7");
 unsafe { s.store(&file)? };
 // Load the serialized form in a buffer
 let b = std::fs::read(&file)?;
@@ -552,7 +552,7 @@ enum Enum<T=Vec<usize>> {
 let e = Enum::B(vec![0, 1, 2, 3]);
 // Serialize it
 let mut file = std::env::temp_dir();
-file.push("serialized7");
+file.push("serialized8");
 unsafe { e.store(&file)? };
 // Deserializing using just Enum will fail, as the type parameter
 // by default is Vec<usize>
@@ -573,7 +573,7 @@ let v = vec![0, 1, 2, 3];
 let s: &[i32] = v.as_ref();
 // Serialize it
 let mut file = std::env::temp_dir();
-file.push("serialized8");
+file.push("serialized9");
 unsafe { s.store(&file)? };
 // Load the serialized form in a buffer
 let b = std::fs::read(&file)?;
@@ -633,7 +633,7 @@ struct Outer<T>(#[epserde(force_full_copy)] Inner<T>);
 
 let s: Outer<Vec<isize>> = Outer(Inner(vec![0, 1, 2, 3]));
 let mut file = std::env::temp_dir();
-file.push("serialized9");
+file.push("serialized10");
 unsafe { s.store(&file)? };
 let b = std::fs::read(&file)?;
 
@@ -773,7 +773,7 @@ let v = vec![0, 1, 2, 3];
 let i: Iter<'_, i32> = v.iter();
 // Serialize it by wrapping it in a SerIter
 let mut file = std::env::temp_dir();
-file.push("serialized10");
+file.push("serialized11");
 unsafe { SerIter::<i32, _>::from(i).store(&file)? };
 // Load the serialized form in a buffer
 let b = std::fs::read(&file)?;
@@ -880,7 +880,7 @@ impl<'a> DeserInner for S<'a> {
 let s = [0_u8, 1, 2, 3];
 let v = S(&s);
 let mut file = std::env::temp_dir();
-file.push("serialized11");
+file.push("serialized12");
 unsafe { v.store(&file)? };
 let b = std::fs::read(&file)?;
 let w = unsafe { <S>::deserialize_eps(&b)? };
@@ -937,7 +937,7 @@ struct Data<T> {
 
 let s: Data<Vec<isize>> = Data { data: vec![0, 1, 2, 3], phantom: PhantomData };
 let mut file = std::env::temp_dir();
-file.push("serialized12");
+file.push("serialized13");
 unsafe { s.store(&file)? };
 let b = std::fs::read(&file)?;
 
@@ -985,7 +985,7 @@ let s: Data<str, Vec<isize>> = Data {
     inner: Inner { data: vec![0, 1, 2, 3], phantom: PhantomData },
 };
 let mut file = std::env::temp_dir();
-file.push("serialized13");
+file.push("serialized14");
 unsafe { s.store(&file)? };
 let b = std::fs::read(&file)?;
 
