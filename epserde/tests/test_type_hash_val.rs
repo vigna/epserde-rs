@@ -275,3 +275,77 @@ fn test_zero_copy_data_enum_wide_discriminant() -> anyhow::Result<()> {
     assert_eq!(sum(), literal());
     Ok(())
 }
+
+#[test]
+/// A discriminant expression may mention Self, either as a Self-qualified
+/// associated constant or, in a fieldless enum, as a cast of an earlier
+/// variant. The mirror enum generated for the type hash replaces Self with the
+/// enum's name, so such enums both compile and hash equal to the same enums
+/// with the resolved literal discriminants. The enums below are local to
+/// sibling functions, so they share the same name and module path; only the
+/// discriminant spelling differs.
+fn test_zero_copy_enum_self_discriminant() -> anyhow::Result<()> {
+    // Data-carrying: a Self-qualified associated constant.
+    fn data_with_self() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        #[repr(C, u8)]
+        #[epserde(zero_copy)]
+        enum E {
+            A(u8) = Self::K,
+            B(u8),
+        }
+        impl E {
+            const K: u8 = 7;
+        }
+        let mut h = Xxh3::with_seed(0);
+        E::type_hash(&mut h);
+        h.finish()
+    }
+    // The same discriminants as literals.
+    fn data_with_literals() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        #[repr(C, u8)]
+        #[epserde(zero_copy)]
+        enum E {
+            A(u8) = 7,
+            B(u8),
+        }
+        let mut h = Xxh3::with_seed(0);
+        E::type_hash(&mut h);
+        h.finish()
+    }
+    // Fieldless: a cast of an earlier variant through Self.
+    fn fieldless_with_self() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        #[repr(C)]
+        #[epserde(zero_copy)]
+        enum F {
+            A = 3,
+            B = Self::A as isize + 10,
+        }
+        let mut h = Xxh3::with_seed(0);
+        F::type_hash(&mut h);
+        h.finish()
+    }
+    // The same discriminants as literals.
+    fn fieldless_with_literals() -> u64 {
+        #[allow(dead_code)]
+        #[derive(epserde::Epserde, Clone, Copy)]
+        #[repr(C)]
+        #[epserde(zero_copy)]
+        enum F {
+            A = 3,
+            B = 13,
+        }
+        let mut h = Xxh3::with_seed(0);
+        F::type_hash(&mut h);
+        h.finish()
+    }
+
+    assert_eq!(data_with_self(), data_with_literals());
+    assert_eq!(fieldless_with_self(), fieldless_with_literals());
+    Ok(())
+}
