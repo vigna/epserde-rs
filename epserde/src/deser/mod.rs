@@ -33,6 +33,7 @@ pub use slice_with_pos::*;
 
 #[cfg(not(feature = "std"))]
 use alloc::{
+    boxed::Box,
     string::{String, ToString},
     vec::Vec,
 };
@@ -136,13 +137,13 @@ You are trying to deserialize a file with the wrong type."#
         /// The name of the type that was serialized.
         ser_type_name: String,
         /// The [`TypeHash`] of the type that was serialized.
-        ser_type_hash: Hash256,
+        ser_type_hash: Box<Hash256>,
         /// The name of the type on which the deserialization method was called.
         self_type_name: String,
         /// The name of the serialization type of `self_type_name`.
         self_ser_type_name: String,
         /// The [`TypeHash`] of the type on which the deserialization method was called.
-        self_type_hash: Hash256,
+        self_type_hash: Box<Hash256>,
     },
     /// The alignment hash is wrong. Probably the user is trying to deserialize
     /// a file with some zero-copy type that has different in-memory
@@ -166,13 +167,13 @@ architecture with incompatible alignment requirements."#
         /// The name of the type that was serialized.
         ser_type_name: String,
         /// The [`AlignHash`] of the type that was serialized.
-        ser_align_hash: Hash256,
+        ser_align_hash: Box<Hash256>,
         /// The name of the type on which the deserialization method was called.
         self_type_name: String,
         /// The name of the serialization type of `self_type_name`.
         self_ser_type_name: String,
         /// The [`AlignHash`] of the type on which the deserialization method was called.
-        self_align_hash: Hash256,
+        self_align_hash: Box<Hash256>,
     },
 }
 
@@ -929,10 +930,10 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
         let ser_type_name = read_type_name(backend).unwrap_or_else(|_| "<unreadable>".to_string());
         return Err(Error::TypeHashMismatch {
             ser_type_name,
-            ser_type_hash: Hash256(ser_type_hash),
+            ser_type_hash: Box::new(Hash256(ser_type_hash)),
             self_type_name: core::any::type_name::<T>().to_string(),
             self_ser_type_name: core::any::type_name::<T::SerType>().to_string(),
-            self_type_hash: Hash256(self_type_hash),
+            self_type_hash: Box::new(Hash256(self_type_hash)),
         });
     }
     if ser_align_hash != self_align_hash {
@@ -940,10 +941,10 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
         let ser_type_name = read_type_name(backend).unwrap_or_else(|_| "<unreadable>".to_string());
         return Err(Error::AlignHashMismatch {
             ser_type_name,
-            ser_align_hash: Hash256(ser_align_hash),
+            ser_align_hash: Box::new(Hash256(ser_align_hash)),
             self_type_name: core::any::type_name::<T>().to_string(),
             self_ser_type_name: core::any::type_name::<T::SerType>().to_string(),
-            self_align_hash: Hash256(self_align_hash),
+            self_align_hash: Box::new(Hash256(self_align_hash)),
         });
     }
 

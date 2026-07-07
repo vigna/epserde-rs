@@ -71,6 +71,7 @@ struct MyStructZero {
     b: u64,
 }
 
+#[allow(dead_code)]
 #[derive(Epserde, Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 #[epserde(zero_copy)]
