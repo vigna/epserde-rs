@@ -17,7 +17,7 @@
 use crate::traits::*;
 use crate::*;
 
-use core::hash::Hasher;
+use crate::traits::CryptoHasher;
 
 pub mod write_with_names;
 pub use write_with_names::*;
@@ -252,15 +252,15 @@ pub fn write_header<S: TypeHash + AlignHash>(backend: &mut impl WriteWithNames) 
     unsafe { backend.write("VERSION_MINOR", &VERSION.1) }?;
     unsafe { backend.write("USIZE_SIZE", &(core::mem::size_of::<usize>() as u8)) }?;
 
-    let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
+    let mut type_hasher = CryptoHasher::new();
     S::type_hash(&mut type_hasher);
 
-    let mut align_hasher = xxhash_rust::xxh3::Xxh3::new();
+    let mut align_hasher = CryptoHasher::new();
     let mut offset_of = 0;
     S::align_hash(&mut align_hasher, &mut offset_of);
 
-    unsafe { backend.write("TYPE_HASH", &type_hasher.finish()) }?;
-    unsafe { backend.write("ALIGN_HASH", &align_hasher.finish()) }?;
+    unsafe { backend.write("TYPE_HASH", &type_hasher.finalize()) }?;
+    unsafe { backend.write("ALIGN_HASH", &align_hasher.finalize()) }?;
     unsafe { backend.write("TYPE_NAME", &core::any::type_name::<S>()) }
 }
 

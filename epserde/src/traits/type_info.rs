@@ -9,8 +9,56 @@
 
 use crate::pad_align_to;
 use core::hash::Hash;
+use sha2::{Digest, Sha256};
 
 use super::ZeroCopy;
+
+/// A [`core::hash::Hasher`] that accumulates the bytes fed to it into a
+/// [SHA-256](Sha256) digest.
+///
+/// This is the hasher used to compute the type and alignment hashes stored in
+/// the header (see [`crate::ser::write_header`]). The [`TypeHash`] and
+/// [`AlignHash`] machinery only ever *feeds bytes* into a
+/// [`core::hash::Hasher`]; it never calls [`finish`]. This wrapper exploits
+/// that: [`write`] forwards the bytes to the SHA-256 state, while [`finish`]
+/// is unreachable, since its 64-bit return value cannot represent the 256-bit
+/// digest. Call [`CryptoHasher::finalize`] to obtain the digest instead.
+///
+/// [`finish`]: core::hash::Hasher::finish
+/// [`write`]: core::hash::Hasher::write
+#[derive(Clone)]
+pub struct CryptoHasher(Sha256);
+
+impl CryptoHasher {
+    /// Creates a new hasher with a fresh SHA-256 state.
+    pub fn new() -> Self {
+        Self(Sha256::new())
+    }
+
+    /// Consumes the hasher and returns the 256-bit digest of the bytes fed to
+    /// it.
+    pub fn finalize(self) -> [u8; 32] {
+        let mut digest = [0u8; 32];
+        digest.copy_from_slice(self.0.finalize().as_slice());
+        digest
+    }
+}
+
+impl Default for CryptoHasher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl core::hash::Hasher for CryptoHasher {
+    fn write(&mut self, bytes: &[u8]) {
+        self.0.update(bytes);
+    }
+
+    fn finish(&self) -> u64 {
+        unreachable!("CryptoHasher produces a 256-bit digest; use CryptoHasher::finalize")
+    }
+}
 
 /// Recursively compute a type hash for a type.
 ///

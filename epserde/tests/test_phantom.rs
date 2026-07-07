@@ -341,8 +341,7 @@ fn test_type_info_generic_zero_copy() {
         x: T,
     }
 
-    let mut hasher = xxhash_rust::xxh3::Xxh3::with_seed(0);
+    let mut hasher = CryptoHasher::new();
     <GenericZero<u32>>::type_hash(&mut hasher);
-    use core::hash::Hasher;
-    assert_ne!(hasher.finish(), 0);
+    assert_ne!(hasher.finalize(), [0u8; 32]);
 }

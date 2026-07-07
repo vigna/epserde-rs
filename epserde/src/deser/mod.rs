@@ -17,7 +17,6 @@ use crate::ser::SerInner;
 use crate::traits::*;
 use crate::{MAGIC, MAGIC_REV, VERSION};
 use aliasable::boxed::AliasableBox;
-use core::hash::Hasher;
 use core::{mem::MaybeUninit, ptr::addr_of_mut};
 use maybe_dangling::MaybeDangling;
 
@@ -47,6 +46,20 @@ pub type Result<T> = core::result::Result<T, Error>;
 ///
 /// [deserialization associated type]: DeserInner::DeserType
 pub type DeserType<'a, T> = <T as DeserInner>::DeserType<'a>;
+
+/// A 256-bit type or alignment hash, rendered as lowercase hexadecimal in
+/// deserialization error messages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Hash256(pub [u8; 32]);
+
+impl core::fmt::Display for Hash256 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        for byte in self.0 {
+            write!(f, "{byte:02x}")?;
+        }
+        Ok(())
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -108,7 +121,7 @@ pub enum Error {
     /// file with the wrong type.
     #[error(
         r#"Wrong type hash
-Actual: 0x{ser_type_hash:016x}; expected: 0x{self_type_hash:016x}.
+Actual: 0x{ser_type_hash}; expected: 0x{self_type_hash}.
 
 The serialized type is
     {ser_type_name},
@@ -123,13 +136,13 @@ You are trying to deserialize a file with the wrong type."#
         /// The name of the type that was serialized.
         ser_type_name: String,
         /// The [`TypeHash`] of the type that was serialized.
-        ser_type_hash: u64,
+        ser_type_hash: Hash256,
         /// The name of the type on which the deserialization method was called.
         self_type_name: String,
         /// The name of the serialization type of `self_type_name`.
         self_ser_type_name: String,
         /// The [`TypeHash`] of the type on which the deserialization method was called.
-        self_type_hash: u64,
+        self_type_hash: Hash256,
     },
     /// The alignment hash is wrong. Probably the user is trying to deserialize
     /// a file with some zero-copy type that has different in-memory
@@ -137,7 +150,7 @@ You are trying to deserialize a file with the wrong type."#
     /// one, usually because of alignment issues.
     #[error(
         r#"Wrong alignment hash
-Actual: 0x{ser_align_hash:016x}; expected: 0x{self_align_hash:016x}.
+Actual: 0x{ser_align_hash}; expected: 0x{self_align_hash}.
 
 The serialized type is
     {ser_type_name},
@@ -153,13 +166,13 @@ architecture with incompatible alignment requirements."#
         /// The name of the type that was serialized.
         ser_type_name: String,
         /// The [`AlignHash`] of the type that was serialized.
-        ser_align_hash: u64,
+        ser_align_hash: Hash256,
         /// The name of the type on which the deserialization method was called.
         self_type_name: String,
         /// The name of the serialization type of `self_type_name`.
         self_ser_type_name: String,
         /// The [`AlignHash`] of the type on which the deserialization method was called.
-        self_align_hash: u64,
+        self_align_hash: Hash256,
     },
 }
 
@@ -876,14 +889,14 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
         Ok(String::from_utf8_lossy(&name).into_owned())
     }
 
-    let mut type_hasher = xxhash_rust::xxh3::Xxh3::new();
+    let mut type_hasher = CryptoHasher::new();
     T::SerType::type_hash(&mut type_hasher);
-    let self_type_hash = type_hasher.finish();
+    let self_type_hash = type_hasher.finalize();
 
-    let mut align_hasher = xxhash_rust::xxh3::Xxh3::new();
+    let mut align_hasher = CryptoHasher::new();
     let mut offset_of = 0;
     T::SerType::align_hash(&mut align_hasher, &mut offset_of);
-    let self_align_hash = align_hasher.finish();
+    let self_align_hash = align_hasher.finalize();
 
     let magic = unsafe { u64::_deser_full_inner(backend)? };
     match magic {
@@ -908,18 +921,18 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
         return Err(Error::UsizeSizeMismatch(usize_size));
     };
 
-    let ser_type_hash = unsafe { u64::_deser_full_inner(backend)? };
-    let ser_align_hash = unsafe { u64::_deser_full_inner(backend)? };
+    let ser_type_hash = unsafe { <[u8; 32]>::_deser_full_inner(backend)? };
+    let ser_align_hash = unsafe { <[u8; 32]>::_deser_full_inner(backend)? };
 
     if ser_type_hash != self_type_hash {
         // Do not let a failing name read mask the mismatch diagnostic.
         let ser_type_name = read_type_name(backend).unwrap_or_else(|_| "<unreadable>".to_string());
         return Err(Error::TypeHashMismatch {
             ser_type_name,
-            ser_type_hash,
+            ser_type_hash: Hash256(ser_type_hash),
             self_type_name: core::any::type_name::<T>().to_string(),
             self_ser_type_name: core::any::type_name::<T::SerType>().to_string(),
-            self_type_hash,
+            self_type_hash: Hash256(self_type_hash),
         });
     }
     if ser_align_hash != self_align_hash {
@@ -927,10 +940,10 @@ pub fn check_header<T: SerInner<SerType: TypeHash + AlignHash>>(
         let ser_type_name = read_type_name(backend).unwrap_or_else(|_| "<unreadable>".to_string());
         return Err(Error::AlignHashMismatch {
             ser_type_name,
-            ser_align_hash,
+            ser_align_hash: Hash256(ser_align_hash),
             self_type_name: core::any::type_name::<T>().to_string(),
             self_ser_type_name: core::any::type_name::<T::SerType>().to_string(),
-            self_align_hash,
+            self_align_hash: Hash256(self_align_hash),
         });
     }
 

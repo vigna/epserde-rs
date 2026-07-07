@@ -4,15 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use core::hash::Hasher;
-use epserde::traits::TypeHash;
+use epserde::traits::{CryptoHasher, TypeHash};
 use std::collections::HashMap;
-use xxhash_rust::xxh3::{Xxh3, Xxh3Builder};
 macro_rules! impl_test {
     ($hashes:expr, $value:expr) => {{
-        let mut hasher = Xxh3::with_seed(0);
+        let mut hasher = CryptoHasher::new();
         ($value).type_hash_val(&mut hasher);
-        let type_hash = hasher.finish();
+        let type_hash = hasher.finalize();
         let res = $hashes.insert(type_hash, stringify!($value));
         assert!(
             res.is_none(),
@@ -61,7 +59,7 @@ fn test_type_hash_collision() {
 /// discriminant differs, isolating its contribution to the hash.
 fn test_zero_copy_enum_discriminant_hash() {
     // Explicit discriminants 0, 1.
-    fn explicit_0_1() -> u64 {
+    fn explicit_0_1() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C)]
@@ -70,12 +68,12 @@ fn test_zero_copy_enum_discriminant_hash() {
             A = 0,
             B = 1,
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         E::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
     // Implicit discriminants, which resolve to 0, 1.
-    fn implicit_0_1() -> u64 {
+    fn implicit_0_1() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C)]
@@ -84,12 +82,12 @@ fn test_zero_copy_enum_discriminant_hash() {
             A,
             B,
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         E::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
     // Explicit discriminants 0, 5.
-    fn explicit_0_5() -> u64 {
+    fn explicit_0_5() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C)]
@@ -98,9 +96,9 @@ fn test_zero_copy_enum_discriminant_hash() {
             A = 0,
             B = 5,
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         E::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
 
     // Re-numbering a variant changes the hash (detects the silent mis-decode).
@@ -119,7 +117,7 @@ fn test_zero_copy_enum_discriminant_hash() {
 /// discriminants differ, isolating their contribution to the hash.
 fn test_zero_copy_data_enum_discriminant_hash() -> anyhow::Result<()> {
     // Explicit discriminants 1, 2.
-    fn explicit_1_2() -> u64 {
+    fn explicit_1_2() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C, u8)]
@@ -128,12 +126,12 @@ fn test_zero_copy_data_enum_discriminant_hash() -> anyhow::Result<()> {
             A(u8) = 1,
             B(u8) = 2,
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         E::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
     // Explicit discriminant 1, implicit discriminant that resolves to 2.
-    fn explicit_1_implicit_2() -> u64 {
+    fn explicit_1_implicit_2() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C, u8)]
@@ -142,12 +140,12 @@ fn test_zero_copy_data_enum_discriminant_hash() -> anyhow::Result<()> {
             A(u8) = 1,
             B(u8),
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         E::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
     // Explicit discriminant 3, implicit discriminant that resolves to 4.
-    fn explicit_3_implicit_4() -> u64 {
+    fn explicit_3_implicit_4() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C, u8)]
@@ -156,12 +154,12 @@ fn test_zero_copy_data_enum_discriminant_hash() -> anyhow::Result<()> {
             A(u8) = 3,
             B(u8),
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         E::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
     // A named constant discriminant that resolves to 1.
-    fn named_const_1() -> u64 {
+    fn named_const_1() -> [u8; 32] {
         const FOO: u8 = 1;
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
@@ -171,9 +169,9 @@ fn test_zero_copy_data_enum_discriminant_hash() -> anyhow::Result<()> {
             A(u8) = FOO,
             B(u8) = 2,
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         E::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
 
     // The resolved values are hashed, so implicit and explicit forms of the
@@ -192,28 +190,28 @@ fn test_zero_copy_data_enum_discriminant_hash() -> anyhow::Result<()> {
 /// the variants of a deep-copy enum must not change the type hash.
 fn test_deep_copy_enum_discriminant_hash() -> anyhow::Result<()> {
     // Explicit discriminants 0, 1.
-    fn explicit_0_1() -> u64 {
+    fn explicit_0_1() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         enum E {
             A = 0,
             B = 1,
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         E::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
     // Explicit discriminants 3, 5.
-    fn explicit_3_5() -> u64 {
+    fn explicit_3_5() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         enum E {
             A = 3,
             B = 5,
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         E::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
 
     // Deep-copy deserialization ignores the declared discriminants, so the
@@ -227,12 +225,14 @@ fn test_type_hash_const_type_parameters() {
     #[derive(epserde::Epserde)]
     struct S<const N: usize>(std::marker::PhantomData<[u8; N]>);
 
-    let mut hasher0 = Xxh3Builder::new().with_seed(0).build();
-    let mut hasher1 = Xxh3Builder::new().with_seed(0).build();
+    let mut hasher0 = CryptoHasher::new();
+    let mut hasher1 = CryptoHasher::new();
     S::<0>::type_hash(&mut hasher0);
     S::<1>::type_hash(&mut hasher1);
-    dbg!(hasher0.finish(), hasher1.finish());
-    assert_ne!(hasher0.finish(), hasher1.finish());
+    let digest0 = hasher0.finalize();
+    let digest1 = hasher1.finalize();
+    dbg!(digest0, digest1);
+    assert_ne!(digest0, digest1);
 }
 
 /// An explicit discriminant expression whose type depends on the enum's
@@ -244,7 +244,7 @@ fn test_type_hash_const_type_parameters() {
 #[test]
 fn test_zero_copy_data_enum_wide_discriminant() -> anyhow::Result<()> {
     // The discriminant as an expression overflowing i32 inference.
-    fn sum() -> u64 {
+    fn sum() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C, u32)]
@@ -253,12 +253,12 @@ fn test_zero_copy_data_enum_wide_discriminant() -> anyhow::Result<()> {
             A(u8) = 2_000_000_000 + 2_000_000_000,
             B(u8),
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         E::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
     // The same discriminant as a literal.
-    fn literal() -> u64 {
+    fn literal() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C, u32)]
@@ -267,9 +267,9 @@ fn test_zero_copy_data_enum_wide_discriminant() -> anyhow::Result<()> {
             A(u8) = 4_000_000_000,
             B(u8),
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         E::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
 
     assert_eq!(sum(), literal());
@@ -286,7 +286,7 @@ fn test_zero_copy_data_enum_wide_discriminant() -> anyhow::Result<()> {
 /// discriminant spelling differs.
 fn test_zero_copy_enum_self_discriminant() -> anyhow::Result<()> {
     // Data-carrying: a Self-qualified associated constant.
-    fn data_with_self() -> u64 {
+    fn data_with_self() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C, u8)]
@@ -298,12 +298,12 @@ fn test_zero_copy_enum_self_discriminant() -> anyhow::Result<()> {
         impl E {
             const K: u8 = 7;
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         E::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
     // The same discriminants as literals.
-    fn data_with_literals() -> u64 {
+    fn data_with_literals() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C, u8)]
@@ -312,12 +312,12 @@ fn test_zero_copy_enum_self_discriminant() -> anyhow::Result<()> {
             A(u8) = 7,
             B(u8),
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         E::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
     // Fieldless: a cast of an earlier variant through Self.
-    fn fieldless_with_self() -> u64 {
+    fn fieldless_with_self() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C)]
@@ -326,12 +326,12 @@ fn test_zero_copy_enum_self_discriminant() -> anyhow::Result<()> {
             A = 3,
             B = Self::A as isize + 10,
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         F::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
     // The same discriminants as literals.
-    fn fieldless_with_literals() -> u64 {
+    fn fieldless_with_literals() -> [u8; 32] {
         #[allow(dead_code)]
         #[derive(epserde::Epserde, Clone, Copy)]
         #[repr(C)]
@@ -340,9 +340,9 @@ fn test_zero_copy_enum_self_discriminant() -> anyhow::Result<()> {
             A = 3,
             B = 13,
         }
-        let mut h = Xxh3::with_seed(0);
+        let mut h = CryptoHasher::new();
         F::type_hash(&mut h);
-        h.finish()
+        h.finalize()
     }
 
     assert_eq!(data_with_self(), data_with_literals());

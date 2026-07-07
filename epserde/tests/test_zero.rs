@@ -80,14 +80,12 @@ struct ReprCAlignSplit {
 
 #[test]
 fn test_repr_hash_normalization() {
-    use core::hash::Hasher;
-    use xxhash_rust::xxh3::Xxh3;
     // Equivalent repr spellings must produce the same alignment hash
-    let mut h1 = Xxh3::with_seed(0);
+    let mut h1 = CryptoHasher::new();
     ReprCAlign::align_hash(&mut h1, &mut 0);
-    let mut h2 = Xxh3::with_seed(0);
+    let mut h2 = CryptoHasher::new();
     ReprCAlignSplit::align_hash(&mut h2, &mut 0);
-    assert_eq!(h2.finish(), h1.finish());
+    assert_eq!(h1.finalize(), h2.finalize());
 }
 
 // A data-carrying zero-copy enum with a sized discriminant representation

@@ -25,8 +25,8 @@ fn serialized_bytes<T: Serialize>(value: &T) -> anyhow::Result<Vec<u8>> {
 #[test]
 fn test_align_hash_mismatch() -> anyhow::Result<()> {
     let mut bytes = serialized_bytes(&vec![1_i64, 2, 3])?;
-    // Corrupt the alignment hash at offset 21.
-    bytes[21] ^= 0xff;
+    // Corrupt the alignment hash, which follows the 32-byte type hash.
+    bytes[45] ^= 0xff;
 
     let mut cursor = <AlignedCursor>::from_slice(&bytes);
     let err = match unsafe { <Vec<i64>>::deserialize_full(&mut cursor) } {

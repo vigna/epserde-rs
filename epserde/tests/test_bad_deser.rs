@@ -4,10 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use core::hash::Hasher;
 use epserde::prelude::*;
 use epserde::*;
-use xxhash_rust::xxh3::Xxh3;
 
 #[test]
 fn test_wrong_endianness() -> anyhow::Result<()> {
@@ -96,13 +94,13 @@ fn test_wrong_endianness() -> anyhow::Result<()> {
     // reset the minor version, but deserialize with the wrong type
     cursor.as_bytes_mut()[10..12].copy_from_slice(&VERSION.1.to_ne_bytes());
 
-    let mut type_hasher = Xxh3::with_seed(0);
+    let mut type_hasher = CryptoHasher::new();
     <usize>::type_hash(&mut type_hasher);
-    let usize_type_hash = type_hasher.finish();
+    let usize_type_hash = type_hasher.finalize();
 
-    let mut type_hasher = Xxh3::with_seed(0);
+    let mut type_hasher = CryptoHasher::new();
     <i8>::type_hash(&mut type_hasher);
-    let i8_hash = type_hasher.finish();
+    let i8_hash = type_hasher.finalize();
 
     let result =
         unsafe { <i8>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes())) };
@@ -115,10 +113,10 @@ fn test_wrong_endianness() -> anyhow::Result<()> {
             self_type_hash,
         }) => {
             assert_eq!(ser_type_name, "usize");
-            assert_eq!(ser_type_hash, usize_type_hash);
+            assert_eq!(ser_type_hash.0, usize_type_hash);
             assert_eq!(self_type_name, "i8");
             assert_eq!(self_ser_type_name, "i8");
-            assert_eq!(self_type_hash, i8_hash);
+            assert_eq!(self_type_hash.0, i8_hash);
         }
         result => anyhow::bail!("wrong result: {:?}", result),
     }
@@ -133,10 +131,10 @@ fn test_wrong_endianness() -> anyhow::Result<()> {
             self_type_hash,
         }) => {
             assert_eq!(ser_type_name, "usize");
-            assert_eq!(ser_type_hash, usize_type_hash);
+            assert_eq!(ser_type_hash.0, usize_type_hash);
             assert_eq!(self_type_name, "i8");
             assert_eq!(self_ser_type_name, "i8");
-            assert_eq!(self_type_hash, i8_hash);
+            assert_eq!(self_type_hash.0, i8_hash);
         }
         result => anyhow::bail!("wrong result: {:?}", result),
     }
