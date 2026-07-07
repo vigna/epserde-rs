@@ -16,16 +16,16 @@ use super::ZeroCopy;
 /// A [`core::hash::Hasher`] that accumulates the bytes fed to it into a
 /// [SHA-256](Sha256) digest.
 ///
-/// This is the hasher used to compute the type and alignment hashes stored in
-/// the header (see [`crate::ser::write_header`]). The [`TypeHash`] and
-/// [`AlignHash`] machinery only ever *feeds bytes* into a
-/// [`core::hash::Hasher`]; it never calls [`finish`]. This wrapper exploits
-/// that: [`write`] forwards the bytes to the SHA-256 state, while [`finish`]
-/// is unreachable, since its 64-bit return value cannot represent the 256-bit
+/// This is the hasher used to compute the type and alignment [hashes stored in
+/// the header]. [`TypeHash`] and [`AlignHash`] only ever feed data into a
+/// [`core::hash::Hasher`]; they never call [`finish`]. This wrapper exploits
+/// that: [`write`] forwards the bytes to the SHA-256 state, while [`finish`] is
+/// unreachable, since its 64-bit return value cannot represent the 256-bit
 /// digest. Call [`CryptoHasher::finalize`] to obtain the digest instead.
 ///
 /// [`finish`]: core::hash::Hasher::finish
 /// [`write`]: core::hash::Hasher::write
+/// [hashes stored in the header]: crate::ser::write_header
 #[derive(Clone)]
 pub struct CryptoHasher(Sha256);
 
