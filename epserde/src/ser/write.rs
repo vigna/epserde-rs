@@ -97,7 +97,14 @@ impl<F: WriteNoStd> WriteNoStd for WriterWithPos<'_, F> {
     #[inline(always)]
     fn write_all(&mut self, buf: &[u8]) -> ser::Result<()> {
         self.backend.write_all(buf)?;
-        self.pos += buf.len();
+        // Checked: on a backend accepting more than usize::MAX bytes (e.g.,
+        // a stream sink on a 32-bit target) a wrapped position would corrupt
+        // padding computations, schema offsets, and the value returned by
+        // Serialize::serialize.
+        self.pos = self
+            .pos
+            .checked_add(buf.len())
+            .ok_or(ser::Error::WriteError)?;
         Ok(())
     }
 

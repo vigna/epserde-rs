@@ -172,6 +172,10 @@ pub trait PadTo: Sized {
     /// serialized data; the value `0` (used by zero-sized types such as
     /// [`PhantomData`] that store nothing) imposes no alignment.
     ///
+    /// The returned value must be zero or a power of two: [`pad_align_to`]
+    /// relies on this contract (and debug-asserts it).
+    ///
     /// [`PhantomData`]: core::marker::PhantomData
+    /// [`pad_align_to`]: crate::pad_align_to
     fn pad_to() -> usize;
 }
