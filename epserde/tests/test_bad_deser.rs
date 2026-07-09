@@ -199,3 +199,61 @@ fn test_read_mem_empty() {
     let res = unsafe { <usize>::read_mem(&b""[..], 0) };
     assert!(res.is_err());
 }
+
+#[test]
+fn test_bad_length_prefix() -> anyhow::Result<()> {
+    // A corrupted length prefix claiming an implausible capacity must return
+    // Err(CapacityOverflow) rather than panicking or aborting inside the
+    // allocator.
+    fn corrupt_len(bytes: &mut [u8], schema: &epserde::ser::Schema) -> anyhow::Result<()> {
+        // "ROOT.len" is the outer collection's length prefix.
+        let offset = schema
+            .0
+            .iter()
+            .find(|row| row.field == "ROOT.len")
+            .map(|row| row.offset)
+            .ok_or_else(|| anyhow::anyhow!("no ROOT.len field in schema"))?;
+        let end = offset + core::mem::size_of::<usize>();
+        bytes[offset..end].copy_from_slice(&usize::MAX.to_ne_bytes());
+        Ok(())
+    }
+
+    // Zero-copy element path (deser_full_vec_zero).
+    let data = vec![1_i32, 2, 3];
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    let schema = unsafe { data.serialize_with_schema(&mut cursor)? };
+    corrupt_len(cursor.as_bytes_mut(), &schema)?;
+
+    let err = unsafe {
+        <Vec<i32>>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes()))
+    };
+    assert!(
+        matches!(err, Err(deser::Error::CapacityOverflow)),
+        "wrong error type: {:?}",
+        err
+    );
+
+    // Deep-copy element path (deser_full_vec_deep and deser_eps_vec_deep).
+    let data = vec![vec![1_i32, 2], vec![3, 4]];
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    let schema = unsafe { data.serialize_with_schema(&mut cursor)? };
+    corrupt_len(cursor.as_bytes_mut(), &schema)?;
+
+    let err = unsafe {
+        <Vec<Vec<i32>>>::deserialize_full(&mut <AlignedCursor>::from_slice(cursor.as_bytes()))
+    };
+    assert!(
+        matches!(err, Err(deser::Error::CapacityOverflow)),
+        "wrong error type: {:?}",
+        err
+    );
+
+    let err = unsafe { <Vec<Vec<i32>>>::deserialize_eps(cursor.as_bytes()) };
+    assert!(
+        matches!(err, Err(deser::Error::CapacityOverflow)),
+        "wrong error type: {:?}",
+        err
+    );
+
+    Ok(())
+}

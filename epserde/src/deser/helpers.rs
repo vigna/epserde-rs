@@ -54,22 +54,24 @@ pub unsafe fn deser_full_vec_zero<T: ZeroCopy>(
 ) -> deser::Result<Vec<T>> {
     let len = unsafe { usize::_deser_full_inner(backend) }?;
     backend.align::<T>()?;
-    let mut res: Vec<T> = Vec::with_capacity(len);
+    // Compute the byte count explicitly so we never rely on a panicking
+    // allocator to reject an implausible length. For zero-sized types the
+    // product is zero.
+    let num_bytes = len
+        .checked_mul(core::mem::size_of::<T>())
+        .ok_or(deser::Error::CapacityOverflow)?;
+    let mut res: Vec<T> = Vec::new();
+    res.try_reserve_exact(len)
+        .map_err(|_| deser::Error::CapacityOverflow)?;
     // Read into the spare capacity, so no reference to uninitialized values
     // of type T is ever created, and set the length only afterwards.
     let spare = res.spare_capacity_mut();
     // SAFETY: the spare capacity contains at least len elements, and
-    // MaybeUninit<T> has the same layout as T; the multiplication cannot
-    // overflow, as Vec::with_capacity would have failed (and for zero-sized
-    // types, for which with_capacity accepts any length, the product is
-    // zero). Note that the byte buffer is uninitialized, which is covered by
-    // the read_exact caveat in the Deserialize contract.
-    let bytes = unsafe {
-        core::slice::from_raw_parts_mut(
-            spare.as_mut_ptr() as *mut u8,
-            len * core::mem::size_of::<T>(),
-        )
-    };
+    // MaybeUninit<T> has the same layout as T. Note that the byte buffer is
+    // uninitialized, which is covered by the read_exact caveat in the
+    // Deserialize contract.
+    let bytes =
+        unsafe { core::slice::from_raw_parts_mut(spare.as_mut_ptr() as *mut u8, num_bytes) };
     backend.read_exact(bytes)?;
     // SAFETY: read_exact filled all len elements.
     unsafe { res.set_len(len) };
@@ -88,7 +90,9 @@ pub unsafe fn deser_full_vec_deep<T: DeepCopy + DeserInner>(
     backend: &mut impl ReadWithPos,
 ) -> deser::Result<Vec<T>> {
     let len = unsafe { usize::_deser_full_inner(backend)? };
-    let mut res = Vec::with_capacity(len);
+    let mut res = Vec::new();
+    res.try_reserve_exact(len)
+        .map_err(|_| deser::Error::CapacityOverflow)?;
     for _ in 0..len {
         res.push(unsafe { T::_deser_full_inner(backend)? });
     }
@@ -168,7 +172,9 @@ pub unsafe fn deser_eps_vec_deep<'a, T: DeepCopy + DeserInner>(
     backend: &mut SliceWithPos<'a>,
 ) -> deser::Result<Vec<DeserType<'a, T>>> {
     let len = unsafe { usize::_deser_full_inner(backend)? };
-    let mut res = Vec::with_capacity(len);
+    let mut res = Vec::new();
+    res.try_reserve_exact(len)
+        .map_err(|_| deser::Error::CapacityOverflow)?;
     for _ in 0..len {
         res.push(unsafe { T::_deser_eps_inner(backend)? });
     }

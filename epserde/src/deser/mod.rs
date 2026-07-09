@@ -84,6 +84,12 @@ pub enum Error {
     /// [`IoError`]: https://docs.rs/epserde/latest/epserde/deser/enum.Error.html#variant.IoError
     #[error("Read error during ε-serde deserialization")]
     ReadError,
+    /// A length prefix read from the stream requests more capacity than can be
+    /// allocated, either because the resulting size exceeds the maximum
+    /// allocation size or because the allocator is out of memory. This usually
+    /// means the serialized data is truncated or corrupted.
+    #[error("Capacity overflow while allocating a collection during ε-serde deserialization")]
+    CapacityOverflow,
     /// The file is from ε-serde but the endianness is wrong.
     #[cfg_attr(
         target_endian = "big",

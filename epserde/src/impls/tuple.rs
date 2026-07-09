@@ -9,10 +9,12 @@
 //!
 //! We only support tuples of up to 12 elements of the same [`ZeroCopy`] type.
 //! There is no `repr(C)` for tuples, so we [cannot guarantee that the storage
-//! order of the fields is well-defined].
+//! order of the fields is well-defined], albeit we assume that it is
+//! for homogeneous tuples.
 //!
-//! To circumvent this problem, you can define a tuple newtype with a `repr(C)`
-//! attribute.
+//! To circumvent this problem (or to be 100% sure that the order is
+//! well-defined even in the homogeneous case) you can define a tuple newtype
+//! with a `repr(C)` attribute.
 //!
 //! We also provide a [`TypeHash`] implementation for tuples of up to 12
 //! elements to help with the idiom `PhantomData<(T1, T2, …)>`.

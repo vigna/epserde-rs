@@ -1,6 +1,6 @@
 # Change Log
 
-## [0.13.0] - 2026-07-06
+## [0.13.0] - Unreleased
 
 ### New
 
@@ -72,6 +72,11 @@
   the `std` feature, carry the underlying `std::io::Error` of the writer or
   reader; `deser::Error::FileOpenError` is now used by all convenience
   methods and its message has been fixed.
+
+- A corrupted or truncated length prefix claiming an implausible capacity now
+  returns the new `deser::Error::CapacityOverflow` variant instead of panicking
+  or aborting inside the allocator, so all header-valid corruption is reported
+  as a recoverable error.
 
 - The `AlignHash` of `Option`, `Bound`, `ControlFlow`, and `Result` now
   forwards the alignment hash of their payload types, so cross-architecture
@@ -194,6 +199,11 @@
 
 - `ser::Error` now exposes the underlying I/O error as the `source()` of its
   `FileOpenError` variant.
+
+- A corrupted or truncated length prefix claiming an implausible capacity now
+  returns the new `deser::Error::CapacityOverflow` variant instead of panicking
+  or aborting inside the allocator, so all header-valid corruption is reported
+  as a recoverable error.
 
 ## [0.12.6] - 2026-04-02
 
