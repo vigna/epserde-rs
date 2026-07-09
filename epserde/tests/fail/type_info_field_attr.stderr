@@ -1,0 +1,5 @@
+error: field-level #[epserde(...)] attributes have no effect on derive(TypeInfo); they only affect derive(Epserde)
+  --> tests/fail/type_info_field_attr.rs:13:5
+   |
+13 |     #[epserde(force_full_copy)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^

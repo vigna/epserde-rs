@@ -1,0 +1,5 @@
+error: #[epserde(...)] attributes are not supported on enum variants; place field-level markers such as force_full_copy on the variant's fields
+  --> tests/fail/variant_attr.rs:13:5
+   |
+13 |     #[epserde(force_full_copy)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
