@@ -61,9 +61,17 @@ pub mod prelude {
 pub const VERSION: (u16, u16) = (2, 0);
 
 /// Magic cookie, also used as endianness marker.
-pub const MAGIC: u64 = u64::from_ne_bytes(*b"epserde ");
+///
+/// The value is defined with a fixed (little-endian) byte order, so it is the
+/// same number on every platform. Since it is serialized in native byte order,
+/// a file written on a platform with the opposite endianness is read back as
+/// [`MAGIC_REV`]. Defining it with `from_ne_bytes` would instead make the
+/// marker ineffective: the two native conversions would cancel out, every
+/// platform would write the same bytes, and every platform would read them
+/// back as its own [`MAGIC`].
+pub const MAGIC: u64 = u64::from_le_bytes(*b"epserde ");
 /// What we will read if the endianness is mismatched.
-pub const MAGIC_REV: u64 = u64::from_le_bytes(MAGIC.to_be_bytes());
+pub const MAGIC_REV: u64 = MAGIC.swap_bytes();
 
 /// A 16-byte (128-bit) aligned type.
 ///

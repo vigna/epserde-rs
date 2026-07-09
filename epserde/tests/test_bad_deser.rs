@@ -17,7 +17,9 @@ fn test_wrong_endianness() -> anyhow::Result<()> {
     println!("{}", schema.to_csv_with_data(cursor.as_bytes()));
     println!("{:02x?}", cursor.as_bytes());
 
-    // set the reversed endianness
+    // Simulate a file written on a platform with opposite endianness: such a
+    // writer stores MAGIC in its native byte order, which this platform reads
+    // back as MAGIC_REV.
     cursor.as_bytes_mut()[0..8].copy_from_slice(&MAGIC_REV.to_ne_bytes());
 
     let err =
