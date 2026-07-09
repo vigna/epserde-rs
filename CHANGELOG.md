@@ -34,6 +34,9 @@
   can have `Vec<usize>` as a parameter, getting the deserialization type
   `S<&[usize]>`).
 
+- `TypeHash` and `AlignHash` now are computed using SHA-256 (the major version
+  of the file format has been bumped).
+
 - Renamed the `AlignTo` trait to `PadTo`, and its method `align_to` to
   `pad_to`: the value is the power-of-two boundary to which serialized
   zero-copy data is padded, and the previous name was too easily confused
