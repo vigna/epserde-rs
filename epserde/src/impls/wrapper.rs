@@ -8,7 +8,8 @@
 //!
 //! This module provides implementations of serialization traits for (mutable)
 //! references. Moreover, it provides (de)serialization support for [`Box`],
-//! [`Rc`] and [`Arc`] if the `std` or `alloc` feature is enabled.
+//! [`Rc`] and [`Arc`] (with the `std` feature, or through the `alloc` crate in
+//! `no_std` builds).
 //!
 //! While references have the obvious semantics (we serialize the referred
 //! value), wrappers are supported by erasure: if a type parameter has value
@@ -23,6 +24,13 @@
 //! In particular, this means that it is always possible to wrap in a smart
 //! pointer type parameters, even if the serialized data did not come from a
 //! smart pointer.
+//!
+//! Erasure applies to the wrapper position itself: `Box<T>`, `Rc<T>`, and
+//! `Arc<T>` implement only the (de)serialization traits, and not
+//! [`CopyType`] or [`TypeHash`], so they cannot
+//! appear as sequence elements (e.g., `Vec<Box<T>>`) or as [`PhantomData`]
+//! parameters. Boxed slices and `Box<str>` are again the exception, having
+//! their own complete implementations.
 //!
 //! We also provide an implementation of [`TypeHash`] for `*const T`, which is
 //! useful to write tuples in [`PhantomData`] with unsized type parameters, such

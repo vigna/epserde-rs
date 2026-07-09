@@ -7,12 +7,14 @@
 
 //! Implementations for strings.
 //!
-//! All string types have the same serialization type, `Box<str>`, and the same
-//! deserialization type, `&str`. Thus, you can serialize a `String` and fully
-//! deserialize it as `Box<str>`.
+//! The string types `String`, `Box<str>`, and `&str` have the same
+//! serialization type, `Box<str>`; the deserializable owners `String` and
+//! `Box<str>` have deserialization type `&str`. Thus, you can serialize a
+//! `String` and fully deserialize it as `Box<str>`.
 //!
-//! Similarly to the case of [slices], there is a convenience [`SerInner`]
-//! implementation for `&str` that serializes it as `Box<str>`.
+//! Similarly to the case of [slices], the [`SerInner`] implementation for
+//! `&str` is a serialization-only convenience: data serialized from a `&str`
+//! must be deserialized as `String` or `Box<str>`.
 //!
 //! We implement [`TypeHash`] for `str` so that it can be used in
 //! [`PhantomData`].

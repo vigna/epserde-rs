@@ -902,7 +902,9 @@ The standard `examples` directory contains many worked-out examples. The
 You can serialize using just a (mutable) reference. Moreover, wrappers such as
 [`Box`], [`Rc`], and [`Arc`] are supported by _erasure_—they are dynamically
 removed from the type and dynamically reinstated at deserialization if you
-require them.
+require them. Erasure applies to the wrapper position itself (the serialized
+value or the value of a type parameter), not to wrappers used as sequence
+elements (e.g., `Vec<Box<T>>`) or as [`PhantomData`] parameters.
 Please see the documentation of the [`wrapper`] module for more details.
 
 ## Vectors and Boxed slices
