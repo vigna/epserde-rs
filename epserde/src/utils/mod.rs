@@ -7,4 +7,4 @@
 //! Utility structures for (de)serialization.
 
 mod aligned_cursor;
-pub use aligned_cursor::AlignedCursor;
+pub use aligned_cursor::{AlignedCursor, AlignmentBlock};

@@ -8,7 +8,8 @@ use core::slice;
 #[cfg(feature = "std")]
 use std::io::{Seek, SeekFrom};
 
-use crate::Aligned16;
+use crate::{Aligned16, Aligned64};
+use sealed::sealed;
 
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -28,13 +29,36 @@ use alloc::vec::Vec;
 /// [`Aligned64`]: crate::Aligned64
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
-pub struct AlignedCursor<T = Aligned16> {
+pub struct AlignedCursor<T: AlignmentBlock = Aligned16> {
     vec: Vec<T>,
     pos: usize,
     len: usize,
 }
 
-impl<T> AlignedCursor<T> {
+/// Marker trait for types usable as the backing alignment block of an
+/// [`AlignedCursor`].
+///
+/// This trait is *sealed*: it is implemented only by the alignment types
+/// provided by this crate, [`Aligned16`] and [`Aligned64`], and cannot be
+/// implemented downstream. Sealing is a soundness requirement, not just an
+/// API-stability choice: [`AlignedCursor`] reinterprets its `Vec<T>` storage
+/// as raw bytes and gap-fills with `T::default()`, so `T` must be a plain
+/// block of bytes with no drop glue, for which every bit pattern is valid and
+/// whose [`Default`] is all-zero. A type such as `String` is `Default + Clone`
+/// yet has none of these properties; allowing it would let safe code overwrite
+/// its fields with arbitrary bytes, causing undefined behavior.
+///
+/// [`Aligned64`]: crate::Aligned64
+#[sealed]
+pub trait AlignmentBlock: Default + Clone {}
+
+#[sealed]
+impl AlignmentBlock for Aligned16 {}
+
+#[sealed]
+impl AlignmentBlock for Aligned64 {}
+
+impl<T: AlignmentBlock> AlignedCursor<T> {
     /// Returns a new empty [`AlignedCursor`].
     pub const fn new() -> Self {
         const {
@@ -128,7 +152,7 @@ impl<T> AlignedCursor<T> {
     }
 }
 
-impl<T: Default + Clone> AlignedCursor<T> {
+impl<T: AlignmentBlock> AlignedCursor<T> {
     /// Makes an [`AlignedCursor`] from a slice.
     ///
     /// This method will make a copy to guarantee the required alignment.
@@ -156,7 +180,7 @@ impl<T: Default + Clone> AlignedCursor<T> {
     }
 }
 
-impl<T> Default for AlignedCursor<T> {
+impl<T: AlignmentBlock> Default for AlignedCursor<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -175,7 +199,7 @@ impl<T> Default for AlignedCursor<T> {
 ///
 /// [`ReadNoStd`]: crate::deser::ReadNoStd
 /// [`WriteNoStd`]: crate::ser::WriteNoStd
-impl<T: Default + Clone> crate::deser::ReadNoStd for AlignedCursor<T> {
+impl<T: AlignmentBlock> crate::deser::ReadNoStd for AlignedCursor<T> {
     fn read_exact(&mut self, buf: &mut [u8]) -> crate::deser::Result<()> {
         // Reading zero bytes always succeeds, even past the end, matching
         // the std implementation; the early return also keeps the slice
@@ -199,7 +223,7 @@ impl<T: Default + Clone> crate::deser::ReadNoStd for AlignedCursor<T> {
 /// See the comment for the [ReadNoStd] impl.
 ///
 /// [ReadNoStd]: crate::deser::ReadNoStd
-impl<T: Default + Clone> crate::ser::WriteNoStd for AlignedCursor<T> {
+impl<T: AlignmentBlock> crate::ser::WriteNoStd for AlignedCursor<T> {
     fn write_all(&mut self, buf: &[u8]) -> crate::ser::Result<()> {
         // Writing zero bytes always succeeds, even past the end, mirroring
         // read_exact; the early return also keeps the slice index below in
@@ -244,7 +268,7 @@ impl<T: Default + Clone> crate::ser::WriteNoStd for AlignedCursor<T> {
 }
 
 #[cfg(feature = "std")]
-impl<T: Default + Clone> std::io::Read for AlignedCursor<T> {
+impl<T: AlignmentBlock> std::io::Read for AlignedCursor<T> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         if self.pos >= self.len {
             return Ok(0);
@@ -259,7 +283,7 @@ impl<T: Default + Clone> std::io::Read for AlignedCursor<T> {
 }
 
 #[cfg(feature = "std")]
-impl<T: Default + Clone> std::io::Write for AlignedCursor<T> {
+impl<T: AlignmentBlock> std::io::Write for AlignedCursor<T> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         // Writing zero bytes always succeeds, even past the end, mirroring
         // the no_std write_all; the early return also keeps the slice index
@@ -306,7 +330,7 @@ impl<T: Default + Clone> std::io::Write for AlignedCursor<T> {
 }
 
 #[cfg(feature = "std")]
-impl<T: Default + Clone> Seek for AlignedCursor<T> {
+impl<T: AlignmentBlock> Seek for AlignedCursor<T> {
     fn seek(&mut self, style: SeekFrom) -> std::io::Result<u64> {
         let (base_pos, offset) = match style {
             SeekFrom::Start(n) if n > usize::MAX as u64 => {
