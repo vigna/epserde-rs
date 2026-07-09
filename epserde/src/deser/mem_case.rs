@@ -286,11 +286,11 @@ pub struct MemCase<S: DeserInner>(
 
 impl<S: DeserInner> fmt::Debug for MemCase<S>
 where
-    DeserType<'static, S>: fmt::Debug,
+    for<'a> DeserType<'a, S>: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("MemCase")
-            .field(&*self.0)
+            .field(self.uncase())
             .field(&self.1)
             .finish()
     }
