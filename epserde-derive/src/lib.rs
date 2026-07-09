@@ -425,12 +425,30 @@ fn gen_eps_deser_method_call(
     }
 }
 
-/// Generates the `IS_ZERO_COPY` expression.
-fn gen_is_zero_copy_expr(is_repr_c: bool, field_types: &[&syn::Type]) -> proc_macro2::TokenStream {
-    if field_types.is_empty() {
-        quote!(#is_repr_c)
+/// Generates the `IS_ZERO_COPY` associated-constant expression and the
+/// operand of the could-be-zero-copy assertion emitted in deep-copy
+/// `_ser_inner`, expanding the per-field conjunction only once.
+///
+/// The two expressions differ: `IS_ZERO_COPY` is `is_repr_c` AND-ed with the
+/// conjunction of the fields' `IS_ZERO_COPY`, while the assertion operand is
+/// the fields' conjunction alone, so that the could-be-zero-copy hint also
+/// fires for types that are only missing `repr(C)`. When `is_repr_c` is true
+/// the two coincide, so the assertion can reference the just-defined
+/// constant; when it is false the constant is simply `false`. Either way the
+/// per-field expansion is emitted exactly once, rather than both in the
+/// constant and in the assertion.
+fn gen_zero_copy_exprs(
+    is_repr_c: bool,
+    field_types: &[&syn::Type],
+) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+    let fields_conj = quote!(true #(&& <#field_types>::IS_ZERO_COPY)*);
+    if is_repr_c {
+        (
+            fields_conj,
+            quote!(<Self as ::epserde::ser::SerInner>::IS_ZERO_COPY),
+        )
     } else {
-        quote!(#is_repr_c #(&& <#field_types>::IS_ZERO_COPY)*)
+        (quote!(false), fields_conj)
     }
 }
 
@@ -768,8 +786,7 @@ fn reject_epserde_attrs(attrs: &[syn::Attribute], msg: &str) -> syn::Result<()> 
     Ok(())
 }
 
-/// Parses epserde attributes from `#[epserde(...)]`, `#[epserde_zero_copy]`,
-/// and `#[epserde_deep_copy]`.
+/// Parses `#[epserde(...)]` attributes.
 fn parse_epserde_attrs(input: &DeriveInput) -> syn::Result<EpserdeAttrs> {
     let is_repr_c = repr_hints(&input.attrs)?.iter().any(|hint| hint == "C");
 
@@ -1319,7 +1336,7 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
         gen_full_copy_consistency_check(&full_copy_check_fields, &eps_params, &deser_eps_lifetime);
     let seq_deep_check =
         gen_seq_deep_check(&seq_deep_idents, &ctx.generics_for_impl, ctx.where_clause);
-    let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &field_types);
+    let (is_zero_copy_expr, could_be_zero_copy) = gen_zero_copy_exprs(ctx.is_repr_c, &field_types);
     let (mut ser_where_clause, mut deser_where_clause) =
         gen_ser_deser_where_clauses(&field_types, ctx.is_zero_copy, &full_deser_fields);
 
@@ -1433,9 +1450,9 @@ fn gen_epserde_struct_impl(ctx: &EpserdeContext, s: &syn::DataStruct) -> proc_ma
                     use ::epserde::ser::WriteWithNames;
 
                     // Check whether the type could be zero-copy but it is not
-                    // declared as such, and the attribute epserde_deep_copy
+                    // declared as such, and the attribute #[epserde(deep_copy)]
                     // is missing
-                    const { assert!(!(! #is_deep_copy #(&& <#field_types>::IS_ZERO_COPY)*), concat!("Structure ", #name_str, " could be zero-copy, but it has not been declared as such; use either #[epserde(zero_copy)] or #[epserde(deep_copy)] to silence this error")); }
+                    const { assert!(!(! #is_deep_copy && #could_be_zero_copy), concat!("Structure ", #name_str, " could be zero-copy, but it has not been declared as such; use either #[epserde(zero_copy)] or #[epserde(deep_copy)] to silence this error")); }
 
                     #(
                         unsafe { WriteWithNames::write(backend, stringify!(#field_names), &self.#field_names)?; }
@@ -1721,7 +1738,8 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
         gen_seq_deep_check(&seq_deep_idents, &ctx.generics_for_impl, ctx.where_clause);
     let tag = (0..variant_arm.len()).collect::<Vec<_>>();
 
-    let is_zero_copy_expr = gen_is_zero_copy_expr(ctx.is_repr_c, &all_fields_types);
+    let (is_zero_copy_expr, could_be_zero_copy) =
+        gen_zero_copy_exprs(ctx.is_repr_c, &all_fields_types);
     let (mut ser_where_clause, mut deser_where_clause) =
         gen_ser_deser_where_clauses(&all_fields_types, ctx.is_zero_copy, &all_full_deser_fields);
 
@@ -1836,9 +1854,9 @@ fn gen_epserde_enum_impl(ctx: &EpserdeContext, e: &syn::DataEnum) -> proc_macro2
                     use ::epserde::ser::WriteWithNames;
 
                     // Check whether the type could be zero-copy but it is not
-                    // declared as such, and the attribute epserde_deep_copy
+                    // declared as such, and the attribute #[epserde(deep_copy)]
                     // is missing
-                    const { assert!(!(! #is_deep_copy #(&& <#all_fields_types>::IS_ZERO_COPY)*), concat!("Enum ", #name_str, " could be zero-copy, but it has not been declared as such; use either #[epserde(zero_copy)] or #[epserde(deep_copy)] to silence this error")); }
+                    const { assert!(!(! #is_deep_copy && #could_be_zero_copy), concat!("Enum ", #name_str, " could be zero-copy, but it has not been declared as such; use either #[epserde(zero_copy)] or #[epserde(deep_copy)] to silence this error")); }
 
                     match self {
                         #(
