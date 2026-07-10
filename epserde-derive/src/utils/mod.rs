@@ -62,11 +62,16 @@ pub(crate) fn type_diag_span(ty: &syn::Type) -> proc_macro2::Span {
 /// - the identifiers of type parameters as a set (used to identify fields whose
 ///   type is a type parameter);
 ///
-/// - the identifiers of const parameters, also in order of appearance (used
-///   to compute type hashes).
+/// - the const parameters (as [`struct@syn::ConstParam`], carrying both the
+///   identifier and the type), in order of appearance, used to compute type
+///   hashes and to validate the parameter lists of the type-level attributes.
 pub(crate) fn get_type_const_params(
     input: &DeriveInput,
-) -> syn::Result<(Vec<&syn::Ident>, HashSet<&syn::Ident>, Vec<&syn::Ident>)> {
+) -> syn::Result<(
+    Vec<&syn::Ident>,
+    HashSet<&syn::Ident>,
+    Vec<&syn::ConstParam>,
+)> {
     let mut type_const_params = vec![];
     let mut type_params = HashSet::new();
     let mut const_params = vec![];
@@ -79,7 +84,7 @@ pub(crate) fn get_type_const_params(
             }
             syn::GenericParam::Const(c) => {
                 type_const_params.push(&c.ident);
-                const_params.push(&c.ident);
+                const_params.push(c);
             }
             syn::GenericParam::Lifetime(l) => {
                 return Err(syn::Error::new_spanned(

@@ -459,7 +459,7 @@ fn test_derive_enum() {
 fn test_derive_struct_const() {
     assert_eq!(
         get_type_hash::<MyStructConst<5>>(),
-        "f02697a1b55947d5538472263a4cd3a2b59e05e23236a3f510260a62131fe395"
+        "2e756714a0f84c2ddae547169c08d20e87c92e250747f8f3d8e4a7d912d425a1"
     );
     assert_eq!(
         get_align_hash::<MyStructConst<5>>(),
@@ -472,7 +472,7 @@ fn test_derive_struct_const() {
 fn test_derive_struct_mixed() {
     assert_eq!(
         get_type_hash::<MyStructMixed<i32, 5>>(),
-        "8c438cf0a55dd22eb6e3d2d87a5eccb92d4dace65e95e9dfc565095c7af13613"
+        "a0d9d24ae04d95f63b1e104ad3b145427a1f3bd7f41959d2f38a6fce07e05f8e"
     );
     assert_eq!(
         get_align_hash::<MyStructMixed<i32, 5>>(),
@@ -485,7 +485,7 @@ fn test_derive_struct_mixed() {
 fn test_derive_struct_const_then_type() {
     assert_eq!(
         get_type_hash::<MyStructConstThenType<5, i32>>(),
-        "3becca4c2d0fcb5e1f09711bd1b5721e4198a2199e1af90b6929b90035bd16e9"
+        "c2897a0165a1042788dd9b6d2f8db5aa0be720ff1c1a7b8cc501f2c5f1a3e182"
     );
     assert_eq!(
         get_align_hash::<MyStructConstThenType<5, i32>>(),
@@ -902,7 +902,7 @@ fn test_derive_enum() {
 fn test_derive_struct_const() {
     assert_eq!(
         get_type_hash::<MyStructConst<5>>(),
-        "2b43ebd5c1e19a4cbf377c6d3229222d1dc610eb8650cf8f162d406f3a6bb676"
+        "8c35a43ce5777a649c1233ad7b80f8cdaa029ee019dbe0feb2ac7088824a39a5"
     );
     assert_eq!(
         get_align_hash::<MyStructConst<5>>(),
@@ -915,7 +915,7 @@ fn test_derive_struct_const() {
 fn test_derive_struct_mixed() {
     assert_eq!(
         get_type_hash::<MyStructMixed<i32, 5>>(),
-        "633b349cf9f561778a296ef1aa72d0e17aa6a2b814b5248733c1cc51e6b39635"
+        "276f0f7f22cd7a5d0f2192e93d26db5525af73dcadef3170078b7ea43a58c842"
     );
     assert_eq!(
         get_align_hash::<MyStructMixed<i32, 5>>(),
@@ -928,7 +928,7 @@ fn test_derive_struct_mixed() {
 fn test_derive_struct_const_then_type() {
     assert_eq!(
         get_type_hash::<MyStructConstThenType<5, i32>>(),
-        "ad7a8031332231d86b02f5241dd21c5db3c382bf09b4348d1e5bb1a292960605"
+        "1a41548859bde83e33edff7f106ed8102d77189930c36d76357912e19ce81c66"
     );
     assert_eq!(
         get_align_hash::<MyStructConstThenType<5, i32>>(),

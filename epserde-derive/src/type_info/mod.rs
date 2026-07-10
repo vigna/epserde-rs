@@ -31,8 +31,9 @@ use structs::gen_struct_type_info_impl;
 pub(crate) struct TypeInfoContext<'a> {
     /// The name of the type
     pub(crate) name: &'a syn::Ident,
-    /// Identifiers of const parameters, in order of appearance.
-    pub(crate) const_params: Vec<&'a syn::Ident>,
+    /// Const parameters, in order of appearance. Both the identifier and the
+    /// type are hashed by the `TypeHash` implementation.
+    pub(crate) const_params: Vec<&'a syn::ConstParam>,
     /// Generics for the `impl` clause as returned by [`split_for_impl`].
     ///
     /// [`split_for_impl`]: syn::Generics::split_for_impl
@@ -60,7 +61,12 @@ pub(crate) fn gen_type_hash_body(
         "DeepCopy"
     };
     let name = &ctx.name;
-    let const_params = &ctx.const_params;
+    let const_idents = ctx
+        .const_params
+        .iter()
+        .map(|c| &c.ident)
+        .collect::<Vec<_>>();
+    let const_types = ctx.const_params.iter().map(|c| &c.ty).collect::<Vec<_>>();
     // Zero-copy field hashes use bare field types, so the import would be
     // dead there.
     let ser_type_import = if ctx.is_zero_copy {
@@ -77,14 +83,18 @@ pub(crate) fn gen_type_hash_body(
         // Hash in copy type
         Hash::hash(#copy_type, hasher);
 
-        // Hash in the values of const parameters
+        // Hash in the name, type, and value of each const parameter. The type
+        // is hashed so that parameters differing only in type (for instance
+        // const N: u8 versus const N: u32) do not collide. The value is
+        // preceded by the size of its type, which length-delimits it: values
+        // are written in native endianness with no intrinsic length, so
+        // without a delimiter the concatenated values of several parameters
+        // would form an ambiguous byte stream.
         #(
-            Hash::hash(&#const_params, hasher);
-        )*
-
-        // Hash in the identifiers of const parameters
-        #(
-            Hash::hash(stringify!(#const_params), hasher);
+            Hash::hash(stringify!(#const_idents), hasher);
+            <#const_types as TypeHash>::type_hash(hasher);
+            Hash::hash(&::core::mem::size_of::<#const_types>(), hasher);
+            Hash::hash(&#const_idents, hasher);
         )*
 
         // Hash in the fully qualified struct name (module path + name),
@@ -304,7 +314,7 @@ pub(crate) fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 /// [`TypeInfo`]: derive@crate::TypeInfo
 pub(crate) fn type_info_derive_impl(
     derive_input: &DeriveInput,
-    const_params: Vec<&syn::Ident>,
+    const_params: Vec<&syn::ConstParam>,
     generics_for_impl: ImplGenerics<'_>,
     generics_for_type: TypeGenerics<'_>,
     where_clause: &WhereClause,

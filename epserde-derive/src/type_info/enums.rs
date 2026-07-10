@@ -41,6 +41,14 @@ fn gen_enum_align_hash_body(
                 *offset_of = old_offset_of;
                 #all_align_hashes
             )*
+
+            // Advance offset_of past the whole enum. Each variant above resets
+            // it to old_offset_of, so after the loop it would otherwise reflect
+            // only the last variant's fields; the variants overlay the same
+            // region, whose extent is size_of::<Self>(). Advancing here lets a
+            // following field in a parent zero-copy type hash its padding at the
+            // correct offset.
+            *offset_of = old_offset_of + ::core::mem::size_of::<Self>();
         }
     } else {
         // Each field hashes with a fresh offset (see the field loops), so no

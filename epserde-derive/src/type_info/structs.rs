@@ -37,12 +37,20 @@ fn gen_struct_align_hash_body(
             )*
 
             // Hash in all fields
+            let old_offset_of = *offset_of;
             #(
                 <#fields_types as AlignHash>::align_hash(
                     hasher,
                     offset_of,
                 );
             )*
+
+            // Advance offset_of to the end of Self. The field walk above stops
+            // at the end of the last field, so it does not account for any
+            // trailing padding; setting the offset here lets a following field
+            // in a parent zero-copy type hash its padding at the correct
+            // offset. Symmetric with the enum body.
+            *offset_of = old_offset_of + ::core::mem::size_of::<Self>();
         }
     } else {
         quote! {

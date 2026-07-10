@@ -86,7 +86,7 @@ fn resolve_param_list<'a, 'b>(
     is_zero_copy: bool,
     zero_copy_error: &str,
     type_params: &HashSet<&'a syn::Ident>,
-    const_params: &[&'a syn::Ident],
+    const_params: &[&'a syn::ConstParam],
     type_ident: &syn::Ident,
 ) -> syn::Result<Vec<(&'a syn::Ident, &'b syn::Ident)>> {
     let mut out = Vec::new();
@@ -96,7 +96,7 @@ fn resolve_param_list<'a, 'b>(
         }
         if let Some(decl) = type_params.iter().copied().find(|p| **p == *ident) {
             out.push((decl, ident));
-        } else if const_params.iter().any(|p| **p == *ident) {
+        } else if const_params.iter().any(|p| p.ident == *ident) {
             return Err(syn::Error::new_spanned(
                 ident,
                 format!("{attr_name} expects a type parameter, but `{ident}` is a const parameter"),

@@ -57,6 +57,13 @@
   This will break the serialization format in all practical cases.
   Hence, the major revision of the file format was bumped.
 
+- The `TypeHash` of a type with const parameters now also hashes the type of
+  each const parameter (so that parameters differing only in type, such as
+  `const N: u8` and `const N: u32`, no longer collide) and length-delimits each
+  const value with the size of its type (so that the concatenated values of
+  several const parameters cannot be reinterpreted as a different split). This
+  changes the type hash of every type with const parameters.
+
 - Deserialization no longer validates `NonZero*`, `char`, or `String` values
   (previously the full-copy paths, and the ε-copy paths of scalar values,
   panicked on invalid data), and `bool` is no longer coerced (previously any
@@ -162,6 +169,16 @@
 - `AlignedCursor` now uses sealed types to avoid easy UB.
 
 ### Fixed
+
+- The derived `AlignHash` of a zero-copy struct or enum now advances the
+  running offset past the whole type (by its size) rather than leaving it at
+  the end of the last field (struct) or the last variant's extent (enum). When
+  such a type was a non-final field of a parent zero-copy type, the following
+  field's alignment padding was hashed at a stale offset (the struct omitted
+  trailing padding; the enum reflected only the last variant), which could hide
+  a cross-architecture layout difference (an `AlignHash` false-negative).
+  Round-trips of the same type were never affected, and the ε-copy path already
+  re-checks real alignment before forming any reference.
 
 - Fixed alignment issues with zero-width types: in particular, ε-copy
   deserialization of zero-sized zero-copy types with nonzero alignment

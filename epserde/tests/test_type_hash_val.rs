@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-use epserde::traits::{CryptoHasher, TypeHash};
+use epserde::traits::{AlignHash, CryptoHasher, TypeHash};
 use std::collections::HashMap;
 macro_rules! impl_test {
     ($hashes:expr, $value:expr) => {{
@@ -218,6 +218,69 @@ fn test_deep_copy_enum_discriminant_hash() -> anyhow::Result<()> {
     // hash must not depend on them.
     assert_eq!(explicit_3_5(), explicit_0_1());
     Ok(())
+}
+
+#[test]
+/// A zero-copy type's `align_hash` must advance `offset_of` past the whole
+/// type (by its size), so that when the type is a non-final field of a parent
+/// zero-copy type the following field hashes its alignment padding at the
+/// correct offset. An enum overlays all its variants in a region of
+/// `size_of::<Self>()` bytes; the derived body resets the offset per variant,
+/// so without a final advance it would be left reflecting only the last
+/// variant's fields (or, for a fieldless enum, not advanced at all).
+fn test_zero_copy_enum_align_hash_advances_offset() {
+    // Fieldless enum: without the final advance offset_of would stay at 0.
+    #[allow(dead_code)]
+    #[derive(epserde::Epserde, Clone, Copy)]
+    #[repr(C)]
+    #[epserde(zero_copy)]
+    enum Fieldless {
+        A = 0,
+        B = 1,
+    }
+
+    // Data-carrying enum whose last variant is smaller than the whole enum:
+    // without the final advance offset_of would reflect only the last variant.
+    #[allow(dead_code)]
+    #[derive(epserde::Epserde, Clone, Copy)]
+    #[repr(C, u8)]
+    #[epserde(zero_copy)]
+    enum Data {
+        A(u64),
+        B(u8),
+    }
+
+    let mut hasher = CryptoHasher::new();
+    let mut offset = 0;
+    Fieldless::align_hash(&mut hasher, &mut offset);
+    assert_eq!(offset, std::mem::size_of::<Fieldless>());
+
+    let mut offset = 7;
+    Data::align_hash(&mut hasher, &mut offset);
+    assert_eq!(offset, 7 + std::mem::size_of::<Data>());
+}
+
+#[test]
+/// The struct counterpart of [`test_zero_copy_enum_align_hash_advances_offset`]:
+/// a zero-copy struct's `align_hash` must advance `offset_of` by the whole size
+/// of the struct. The field walk stops at the end of the last field, so without
+/// a final advance the trailing padding is not accounted for and a following
+/// field in a parent zero-copy type would hash its padding at a stale offset.
+fn test_zero_copy_struct_align_hash_advances_offset() {
+    // `b` leaves 7 bytes of trailing padding (size is 16, last field ends at 9).
+    #[allow(dead_code)]
+    #[derive(epserde::Epserde, Clone, Copy)]
+    #[repr(C)]
+    #[epserde(zero_copy)]
+    struct S {
+        a: u64,
+        b: u8,
+    }
+
+    let mut hasher = CryptoHasher::new();
+    let mut offset = 0;
+    S::align_hash(&mut hasher, &mut offset);
+    assert_eq!(offset, std::mem::size_of::<S>());
 }
 
 #[test]
