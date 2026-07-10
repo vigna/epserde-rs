@@ -7,7 +7,7 @@
 use epserde::prelude::*;
 
 // #[epserde(...)] attributes are not supported on enum variants: field-level
-// markers such as force_full_copy must be placed on the variant's fields.
+// markers such as force_full_copy must be placed on the fields of the variant.
 #[derive(Epserde)]
 enum Enum {
     #[epserde(force_full_copy)]
