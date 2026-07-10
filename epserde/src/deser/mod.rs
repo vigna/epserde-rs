@@ -709,6 +709,13 @@ pub trait DeserInner: Sized {
     /// `DeserType<'long>` is a subtype of `DeserType<'short>`, which is the
     /// definition of covariance.
     ///
+    /// Note that [`PhantomData`] evades this check even if its parameters are
+    /// contravariant or invariant because its [`DeserType`] is `Self`. Since it
+    /// is a zero-sized type, it is safe to ignore its variance for our
+    /// purposes. This means, however, that some types might be judged, say,
+    /// invariant by compiler (e.g., if they contains a `PhantomData<Cell<T>>`)
+    /// even if they pass this check.
+    ///
     /// For structures where the compiler cannot see through associated-type
     /// projections, the body must be `unsafe { core::mem::transmute(proof) }`
     /// with a safety comment justifying covariance compositionally. The method
@@ -728,6 +735,7 @@ pub trait DeserInner: Sized {
     ///
     /// [`MemCase::uncase`]: crate::deser::MemCase::uncase
     /// [`CovariantProof<T>`]: crate::deser::CovariantProof
+    /// [`PhantomData`]: core::marker::PhantomData
     fn __check_covariance<'__long: '__short, '__short>(
         proof: CovariantProof<Self::DeserType<'__long>>,
     ) -> CovariantProof<Self::DeserType<'__short>>;
