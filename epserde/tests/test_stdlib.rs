@@ -225,11 +225,20 @@ fn test_builder_hasher_default() -> anyhow::Result<()> {
 #[cfg(feature = "std")]
 #[test]
 fn test_range_inclusive_exhausted() {
-    // An exhausted RangeInclusive cannot be reconstructed by deserialization,
-    // so serializing it must fail
-    let mut r = 1_i32..=2;
+    // An exhausted RangeInclusive whose start cannot advance past its end
+    // (here because doing so would overflow) keeps its exhausted flag, which
+    // the standard library reports as an excluded end bound. Only start and
+    // end are serialized, so reconstructing such a range would yield a
+    // non-empty range; serializing it must therefore fail.
+    //
+    // Note that a range exhausted below the maximum value is represented by a
+    // start advanced past the end (e.g., 1..=2 becomes 3..=2), which is a
+    // genuinely empty range that serializes and reconstructs faithfully, so it
+    // is not a useful case here.
+    let mut r = (i32::MAX - 1)..=i32::MAX;
     r.next();
     r.next();
+    assert!(r.is_empty());
     assert!(matches!(r.end_bound(), Bound::Excluded(_)));
     let mut cursor = <AlignedCursor<Aligned16>>::new();
     assert!(unsafe { r.serialize(&mut cursor) }.is_err());
