@@ -38,15 +38,10 @@ pub struct AlignedCursor<T: AlignmentBlock = Aligned16> {
 /// Marker trait for types usable as the backing alignment block of an
 /// [`AlignedCursor`].
 ///
-/// This trait is *sealed*: it is implemented only by the alignment types
-/// provided by this crate, [`Aligned16`] and [`Aligned64`], and cannot be
-/// implemented downstream. Sealing is a soundness requirement, not just an
-/// API-stability choice: [`AlignedCursor`] reinterprets its `Vec<T>` storage
-/// as raw bytes and gap-fills with `T::default()`, so `T` must be a plain
-/// block of bytes with no drop glue, for which every bit pattern is valid and
-/// whose [`Default`] is all-zero. A type such as `String` is `Default + Clone`
-/// yet has none of these properties; allowing it would let safe code overwrite
-/// its fields with arbitrary bytes, causing undefined behavior.
+/// This trait is sealed, as [`AlignedCursor`] reinterprets its `Vec<T>` storage
+/// as raw bytes and gap-fills with `T::default()`, so `T` must be a plain block
+/// of bytes with no drop glue, for which every bit pattern is valid and whose
+/// [`Default`] is all-zero.
 ///
 /// [`Aligned64`]: crate::Aligned64
 #[sealed]

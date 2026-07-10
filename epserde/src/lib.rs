@@ -113,11 +113,9 @@ impl Default for Aligned64 {
 /// A `pad_to` equal to zero (the [`PadTo`] value of
 /// zero-sized types) requests no alignment and returns zero.
 ///
-/// `pad_to` must be zero or a power of two, as for any other value the
-/// bitmask arithmetic below returns meaningless results; the contract is
-/// debug-asserted. [`PadTo`] implementations must uphold it.
+/// `pad_to` must be zero or a power of two, otherwise this function panics.
 pub const fn pad_align_to(value: usize, pad_to: usize) -> usize {
-    debug_assert!(pad_to == 0 || pad_to.is_power_of_two());
+    assert!(pad_to == 0 || pad_to.is_power_of_two());
     value.wrapping_neg() & pad_to.saturating_sub(1)
 }
 
@@ -239,7 +237,6 @@ mod tests {
 
     #[test]
     #[should_panic]
-    #[cfg(debug_assertions)]
     fn test_pad_align_to_rejects_non_power_of_two() {
         let _ = pad_align_to(2, 3);
     }

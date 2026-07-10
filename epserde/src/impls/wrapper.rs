@@ -25,12 +25,11 @@
 //! pointer type parameters, even if the serialized data did not come from a
 //! smart pointer.
 //!
-//! Erasure applies to the wrapper position itself: `Box<T>`, `Rc<T>`, and
-//! `Arc<T>` implement only the (de)serialization traits, and not
-//! [`CopyType`] or [`TypeHash`], so they cannot
-//! appear as sequence elements (e.g., `Vec<Box<T>>`) or as [`PhantomData`]
-//! parameters. Boxed slices and `Box<str>` are again the exception, having
-//! their own complete implementations.
+//! `Box<T>`, `Rc<T>`, and `Arc<T>` implement only the (de)serialization traits,
+//! and not [`CopyType`] or [`TypeHash`], so they cannot appear as sequence
+//! elements (e.g., `Vec<Box<T>>`) or as [`PhantomData`] parameters. Boxed
+//! slices and `Box<str>` are again the exception, having their own complete
+//! implementations.
 //!
 //! We also provide an implementation of [`TypeHash`] for `*const T`, which is
 //! useful to write tuples in [`PhantomData`] with unsized type parameters, such

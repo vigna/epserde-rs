@@ -159,6 +159,8 @@
 
 - `epserde_zero_copy` and `epserde_deep_copy` are no longer available.
 
+- `AlignedCursor` now uses sealed types to avoid easy UB.
+
 ### Fixed
 
 - Fixed alignment issues with zero-width types: in particular, ε-copy
