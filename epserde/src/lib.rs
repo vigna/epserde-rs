@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2023 Inria
  * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
  *
- * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
 #![cfg_attr(any(all(feature="std", feature="mmap"), not(doctest)), doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md")))]

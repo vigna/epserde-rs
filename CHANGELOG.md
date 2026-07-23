@@ -1,5 +1,11 @@
 # Change Log
 
+## [0.13.1] - 2026-07-23
+
+### Changed
+
+- License is now MIT or Apache.
+
 ## [0.13.0] - 2026-07-10
 
 ### New

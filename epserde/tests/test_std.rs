@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2025 Inria
  * SPDX-FileCopyrightText: 2025 Sebastiano Vigna
  *
- * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
 use anyhow::Result;

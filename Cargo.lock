@@ -112,7 +112,7 @@ dependencies = [
 
 [[package]]
 name = "epserde"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "aliasable",
  "anyhow",
@@ -129,7 +129,7 @@ dependencies = [
 
 [[package]]
 name = "epserde-derive"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "proc-macro2",
  "quote",

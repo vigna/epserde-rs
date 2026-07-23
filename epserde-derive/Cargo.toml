@@ -6,10 +6,10 @@ authors = [
 	"Sebastiano Vigna <sebastiano.vigna@unimi.it>",
 ]
 description = "Procedural macros for ε-serde"
-version = "0.13.0"
+version = "0.13.1"
 edition = "2024"
 repository = "https://github.com/vigna/epserde-rs"
-license = "Apache-2.0 OR LGPL-2.1-or-later"
+license = "Apache-2.0 OR MIT"
 readme = "README.md"
 keywords = ["serialization", "zero-copy", "mmap"]
 categories = ["development-tools::procedural-macro-helpers"]

@@ -1,7 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2023 Sebastiano Vigna
  *
- * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
 //! Mechanisms for keeping together [ε-copy deserialized] instances and the
