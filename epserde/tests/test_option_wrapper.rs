@@ -31,7 +31,7 @@ fn test_option_wrapper_some() -> anyhow::Result<()> {
     match eps.inner {
         Some(inner) => {
             let slice: &[u32] = inner;
-            assert_eq!([1u32, 2, 3].as_slice(), slice);
+            assert_eq!(slice, [1u32, 2, 3].as_slice());
         }
         None => panic!("expected Some"),
     }

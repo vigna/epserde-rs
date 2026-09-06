@@ -14,13 +14,13 @@ use sealed::sealed;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-/// An (optionally `nostd`) aligned version of `std::io::Cursor`.
+/// An (optionally `no_std`) aligned version of `std::io::Cursor`.
 ///
 /// The standard library `std::io::Cursor` is not aligned, and thus cannot be
 /// used to create examples or unit tests involving ε-copy deserialization. This
 /// version has a settable alignment that is guaranteed to be respected by the
 /// underlying storage; for example, ε-serde provides built-in alignments
-/// [`Aligned16`], and [`Aligned64`].
+/// [`Aligned16`] and [`Aligned64`].
 ///
 /// Note that length and position are stored as `usize` values, so the maximum
 /// length and position are `usize::MAX`. This is different from
@@ -175,12 +175,6 @@ impl<T: AlignmentBlock> AlignedCursor<T> {
     }
 }
 
-impl<T: AlignmentBlock> Default for AlignedCursor<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(not(feature = "std"))]
 /// This impl and the [`ReadNoStd`] impls for [`AlignedCursor`] are gated
 /// because we want [`AlignedCursor`] to implement `std::io::Read` and
@@ -259,6 +253,12 @@ impl<T: AlignmentBlock> crate::ser::WriteNoStd for AlignedCursor<T> {
 
     fn flush(&mut self) -> crate::ser::Result<()> {
         Ok(())
+    }
+}
+
+impl<T: AlignmentBlock> Default for AlignedCursor<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

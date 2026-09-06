@@ -92,7 +92,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + DeserInner, const N: usize> DeserHelper<Zero> for [T; N] {
+impl<T: ZeroCopy, const N: usize> DeserHelper<Zero> for [T; N] {
     type FullType = Self;
     type DeserType<'a> = &'a [T; N];
 

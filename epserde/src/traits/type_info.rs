@@ -14,7 +14,7 @@ use sha2::{Digest, Sha256};
 use super::ZeroCopy;
 
 /// A [`core::hash::Hasher`] that accumulates the bytes fed to it into a
-/// [SHA-256](Sha256) digest.
+/// [SHA-256] digest.
 ///
 /// This is the hasher used to compute the type and alignment [hashes stored in
 /// the header]. [`TypeHash`] and [`AlignHash`] only ever feed data into a
@@ -26,6 +26,7 @@ use super::ZeroCopy;
 /// [`finish`]: core::hash::Hasher::finish
 /// [`write`]: core::hash::Hasher::write
 /// [hashes stored in the header]: crate::ser::write_header
+/// [SHA-256]: https://docs.rs/sha2/latest/sha2/type.Sha256.html
 #[derive(Clone)]
 pub struct CryptoHasher(Sha256);
 

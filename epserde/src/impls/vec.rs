@@ -11,7 +11,6 @@
 //! be deserialized both as a vector and as a boxed slice.
 
 use crate::deser;
-use crate::deser::helpers::*;
 use crate::deser::*;
 use crate::ser;
 use crate::ser::helpers::*;
@@ -83,7 +82,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + DeserInner> DeserHelper<Zero> for Vec<T> {
+impl<T: ZeroCopy> DeserHelper<Zero> for Vec<T> {
     type FullType = Self;
     type DeserType<'a> = &'a [T];
     #[inline(always)]

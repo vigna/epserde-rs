@@ -63,7 +63,7 @@ impl<T: ZeroCopy> SerHelper<Zero> for [T] {
     }
 }
 
-impl<T: DeepCopy + SerInner> SerHelper<Deep> for [T] {
+impl<T: DeepCopy> SerHelper<Deep> for [T] {
     #[inline(always)]
     unsafe fn _ser_inner(&self, backend: &mut impl WriteWithNames) -> ser::Result<()> {
         unsafe { ser_slice_deep(backend, self) }

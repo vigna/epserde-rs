@@ -114,8 +114,6 @@ pub unsafe fn deser_eps_zero<'a, T: for<'b> ZeroCopy<DeserType<'b> = &'b T>>(
     backend.align::<T>()?;
     if bytes == 0 {
         // SAFETY: T is zero-sized (see the from_raw_parts docs)
-        #[allow(invalid_value)]
-        #[allow(clippy::uninit_assumed_init)]
         return Ok(unsafe { NonNull::<T>::dangling().as_ref() });
     }
     let block = backend.data.get(..bytes).ok_or(deser::Error::ReadError)?;
@@ -144,13 +142,11 @@ pub unsafe fn deser_eps_slice_zero<'a, T: ZeroCopy>(
     backend.align::<T>()?;
     if core::mem::size_of::<T>() == 0 {
         // SAFETY: T is zero-sized (see the from_raw_parts docs)
-        #[allow(invalid_value)]
-        #[allow(clippy::uninit_assumed_init)]
         return Ok(unsafe { core::slice::from_raw_parts(NonNull::dangling().as_ref(), len) });
     }
     let bytes = len
         .checked_mul(core::mem::size_of::<T>())
-        .ok_or(deser::Error::ReadError)?;
+        .ok_or(deser::Error::CapacityOverflow)?;
     let block = backend.data.get(..bytes).ok_or(deser::Error::ReadError)?;
     let (pre, data, after) = unsafe { block.align_to::<T>() };
     if !pre.is_empty() {

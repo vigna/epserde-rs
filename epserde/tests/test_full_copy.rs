@@ -77,7 +77,7 @@ fn test_full_copy_param_mixed() -> anyhow::Result<()> {
     let eps: Mixed<Vec<i32>, &[u32]> =
         unsafe { <Mixed<Vec<i32>, Vec<u32>>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(original.inner, eps.inner);
-    assert_eq!([10u32, 20, 30].as_slice(), eps.y);
+    assert_eq!(eps.y, [10u32, 20, 30].as_slice());
 
     Ok(())
 }
@@ -120,7 +120,7 @@ fn test_full_copy_param_same_field() -> anyhow::Result<()> {
     let eps: OuterSame<Vec<i32>, &[u32]> =
         unsafe { <OuterSame<Vec<i32>, Vec<u32>>>::deserialize_eps(cursor.as_bytes())? };
     assert_eq!(original.pair.t, eps.pair.t);
-    assert_eq!([10u32, 20, 30].as_slice(), eps.pair.e);
+    assert_eq!(eps.pair.e, [10u32, 20, 30].as_slice());
 
     Ok(())
 }

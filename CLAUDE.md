@@ -96,9 +96,15 @@ This project follows https://github.com/vigna/rust-dev-guidelines. Key conventio
 
 - `default = ["std", "mmap", "derive"]`
 - `derive`: Procedural macros
-- `std`: Standard library support (crate supports `no_std` with `alloc`)
-- `mmap`: Memory-mapped file support
-- `schema`: Schema output for debugging
+- `std`: Standard library support (crate supports `no_std` with `alloc`); also
+  enables the `std` features of `anyhow` and `thiserror`, and `mem_dbg`
+- `mmap`: Memory-mapped file support (implies `std`)
+- `mem_dbg`: `MemDbg`/`MemSize` implementations; `std` and `mem_dbg` enable
+  each other, as the `mem_dbg` derive macros emit code that needs the standard
+  library
+- `schema`: Schema output for debugging (used only by the examples)
+
+Every feature must compile in isolation with `--no-default-features`.
 
 ## Key Invariants
 

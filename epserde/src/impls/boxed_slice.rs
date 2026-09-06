@@ -82,7 +82,7 @@ where
     }
 }
 
-impl<T: ZeroCopy + DeserInner> DeserHelper<Zero> for Box<[T]> {
+impl<T: ZeroCopy> DeserHelper<Zero> for Box<[T]> {
     type FullType = Self;
     type DeserType<'a> = &'a [T];
     #[inline(always)]

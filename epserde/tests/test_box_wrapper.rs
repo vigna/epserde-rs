@@ -29,7 +29,7 @@ fn test_box_wrapper() -> anyhow::Result<()> {
 
     let eps = unsafe { <BoxWrapper<Vec<u32>>>::deserialize_eps(cursor.as_bytes())? };
     let inner_slice: &[u32] = *eps.inner;
-    assert_eq!([1u32, 2, 3].as_slice(), inner_slice);
+    assert_eq!(inner_slice, [1u32, 2, 3].as_slice());
 
     Ok(())
 }

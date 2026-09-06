@@ -74,7 +74,7 @@ pub trait WriteWithNames: WriteWithPos + Sized {
     /// The default implementation simply delegates to [`WriteNoStd::write_all`].
     /// Other implementations might use the type information in `V` (e.g., [`SchemaWriter`]),
     /// but they must in the end delegate to [`WriteNoStd::write_all`].
-    fn write_bytes<V: SerInner + ZeroCopy>(&mut self, value: &[u8]) -> Result<()> {
+    fn write_bytes<V: ZeroCopy>(&mut self, value: &[u8]) -> Result<()> {
         self.write_all(value)
     }
 }
@@ -200,21 +200,21 @@ fn csv_quote(field: &str) -> String {
 #[derive(Debug)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 pub struct SchemaWriter<'a, W> {
+    /// What we actually write on.
+    writer: &'a mut W,
     /// The schema so far.
     pub schema: Schema,
     /// A recursively-built sequence of previous names.
     path: Vec<String>,
-    /// What we actually write on.
-    writer: &'a mut W,
 }
 
 impl<'a, W: WriteWithPos> SchemaWriter<'a, W> {
     /// Create a new empty [`SchemaWriter`] on top of a generic writer `W`.
     pub fn new(backend: &'a mut W) -> Self {
         Self {
+            writer: backend,
             schema: Default::default(),
             path: Vec::new(),
-            writer: backend,
         }
     }
 }
@@ -284,7 +284,7 @@ impl<W: WriteWithPos> WriteWithNames for SchemaWriter<'_, W> {
         Ok(())
     }
 
-    fn write_bytes<V: SerInner + ZeroCopy>(&mut self, value: &[u8]) -> Result<()> {
+    fn write_bytes<V: ZeroCopy>(&mut self, value: &[u8]) -> Result<()> {
         self.path.push("zero".to_string());
         // Note that we are writing the schema row of the field before
         // having written its content.

@@ -98,8 +98,8 @@ error[E0277]: the trait bound `Vec<A>: DeserInner` is not satisfied
 help: `Vec<T>` implements trait `DeserHelper<T>`
   --> src/impls/vec.rs
    |
-   | impl<T: ZeroCopy + DeserInner> DeserHelper<Zero> for Vec<T> {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `DeserHelper<epserde::traits::Zero>`
+   | impl<T: ZeroCopy> DeserHelper<Zero> for Vec<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `DeserHelper<epserde::traits::Zero>`
 ...
    | impl<T: DeepCopy + DeserInner> DeserHelper<Deep> for Vec<T> {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `DeserHelper<Deep>`
@@ -127,8 +127,8 @@ error[E0277]: the trait bound `Vec<A>: DeserInner` is not satisfied
 help: `Vec<T>` implements trait `DeserHelper<T>`
   --> src/impls/vec.rs
    |
-   | impl<T: ZeroCopy + DeserInner> DeserHelper<Zero> for Vec<T> {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `DeserHelper<epserde::traits::Zero>`
+   | impl<T: ZeroCopy> DeserHelper<Zero> for Vec<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `DeserHelper<epserde::traits::Zero>`
 ...
    | impl<T: DeepCopy + DeserInner> DeserHelper<Deep> for Vec<T> {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `DeserHelper<Deep>`
@@ -152,8 +152,8 @@ error[E0277]: the trait bound `Vec<A>: DeserHelper<_>` is not satisfied
 help: `Vec<T>` implements trait `DeserHelper<T>`
   --> src/impls/vec.rs
    |
-   | impl<T: ZeroCopy + DeserInner> DeserHelper<Zero> for Vec<T> {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `DeserHelper<epserde::traits::Zero>`
+   | impl<T: ZeroCopy> DeserHelper<Zero> for Vec<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `DeserHelper<epserde::traits::Zero>`
 ...
    | impl<T: DeepCopy + DeserInner> DeserHelper<Deep> for Vec<T> {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `DeserHelper<Deep>`

@@ -80,11 +80,10 @@ pub const MAGIC_REV: u64 = MAGIC.swap_bytes();
 ///
 /// [`AlignedCursor`]: crate::utils::AlignedCursor
 /// [`MemBackend::Memory`]: crate::deser::MemBackend::Memory
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[cfg_attr(feature = "mem_dbg", derive(mem_dbg::MemDbg, mem_dbg::MemSize))]
 #[cfg_attr(feature = "mem_dbg", mem_size(flat))]
 #[repr(align(16))]
-#[derive(Default)]
 pub struct Aligned16(pub [u8; 16]);
 
 /// A 64-byte (512-bit) aligned type.
@@ -113,7 +112,9 @@ impl Default for Aligned64 {
 /// A `pad_to` equal to zero (the [`PadTo`] value of
 /// zero-sized types) requests no alignment and returns zero.
 ///
-/// `pad_to` must be zero or a power of two, otherwise this function panics.
+/// # Panics
+///
+/// Panics if `pad_to` is neither zero nor a power of two.
 pub const fn pad_align_to(value: usize, pad_to: usize) -> usize {
     assert!(pad_to == 0 || pad_to.is_power_of_two());
     value.wrapping_neg() & pad_to.saturating_sub(1)

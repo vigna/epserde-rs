@@ -1,5 +1,48 @@
 # Change Log
 
+## [0.13.2] - Unreleased
+
+### Changed
+
+- The optional `mem_dbg` dependency is now controlled by an explicit `mem_dbg`
+  feature, which implies `std`, as the `mem_dbg` derive macros emit code
+  requiring the standard library; `std` keeps enabling `mem_dbg`, so the two
+  features enable each other. The `mmap` feature now implies `std`, as
+  `mmap-rs` requires the standard library. Previously, enabling `mmap` or
+  `mem_dbg` without `std` did not compile; now every feature compiles in
+  isolation.
+
+- The `std` features of `anyhow` and `thiserror` are now enabled only by the
+  `std` feature of ε-serde, so `no_std` builds no longer depend on the
+  standard library.
+
+- `deser_eps_slice_zero` now returns `deser::Error::CapacityOverflow`, rather
+  than `deser::Error::ReadError`, when the product of the length prefix and
+  the element size overflows `usize`, consistently with `deser_full_vec_zero`.
+
+- `ReaderWithPos` now returns `deser::Error::ReadError` when its position would
+  overflow `usize`, consistently with `WriterWithPos`; previously, the position
+  wrapped around (panicking in debug builds).
+
+### Improved
+
+- The bound `SerInner` on the type parameter of `WriteWithNames::write_bytes`,
+  the bound `DeserInner` on the `DeserHelper<Zero>` implementations for
+  vectors, boxed slices, and arrays, and the bound `SerInner` on the
+  `SerHelper<Deep>` implementation for slices have been removed, as they are
+  implied by `ZeroCopy` and `DeepCopy`, respectively.
+
+### Fixed
+
+- `MemCase<S>` and `Owned<T>` now implement `AsRef<A>` also for unsized `A`,
+  so that, for example, a `MemCase<Vec<T>>` implements `AsRef<[T]>`; the
+  implicit `Sized` bound on `A` made the implementations unusable for slices
+  and strings.
+
+- The published crates now include the license files.
+
+- docs.rs now builds the documentation with all features enabled.
+
 ## [0.13.1] - 2026-07-23
 
 ### Changed

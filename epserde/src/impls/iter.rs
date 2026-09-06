@@ -42,28 +42,11 @@ use alloc::boxed::Box;
 /// [module-level documentation]: crate::impls::iter
 pub struct SerIter<T, I: ExactSizeIterator>(RefCell<I>, core::marker::PhantomData<T>);
 
-impl<T, I: ExactSizeIterator + core::fmt::Debug> core::fmt::Debug for SerIter<T, I> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        // Print the wrapped iterator, not the internal RefCell.
-        match self.0.try_borrow() {
-            Ok(iter) => f.debug_tuple("SerIter").field(&&*iter).finish(),
-            Err(_) => f
-                .debug_tuple("SerIter")
-                .field(&format_args!("<borrowed>"))
-                .finish(),
-        }
-    }
-}
-
 impl<T, I: ExactSizeIterator> SerIter<T, I> {
+    /// Wraps an exact-size iterator so that it can be serialized as a boxed
+    /// slice of `T`.
     pub const fn new(iter: I) -> Self {
         SerIter(RefCell::new(iter), core::marker::PhantomData)
-    }
-}
-
-impl<T, I: ExactSizeIterator> From<I> for SerIter<T, I> {
-    fn from(iter: I) -> Self {
-        SerIter::new(iter)
     }
 }
 
@@ -154,5 +137,24 @@ where
         } else {
             Ok(())
         }
+    }
+}
+
+impl<T, I: ExactSizeIterator + core::fmt::Debug> core::fmt::Debug for SerIter<T, I> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        // Print the wrapped iterator, not the internal RefCell.
+        match self.0.try_borrow() {
+            Ok(iter) => f.debug_tuple("SerIter").field(&&*iter).finish(),
+            Err(_) => f
+                .debug_tuple("SerIter")
+                .field(&format_args!("<borrowed>"))
+                .finish(),
+        }
+    }
+}
+
+impl<T, I: ExactSizeIterator> From<I> for SerIter<T, I> {
+    fn from(iter: I) -> Self {
+        SerIter::new(iter)
     }
 }

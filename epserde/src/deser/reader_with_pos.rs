@@ -33,7 +33,13 @@ impl<'a, F: ReadNoStd> ReaderWithPos<'a, F> {
 impl<F: ReadNoStd> ReadNoStd for ReaderWithPos<'_, F> {
     fn read_exact(&mut self, buf: &mut [u8]) -> deser::Result<()> {
         self.backend.read_exact(buf)?;
-        self.pos += buf.len();
+        // Checked: on a stream longer than usize::MAX bytes (e.g., a file on
+        // a 32-bit target) a wrapped position would corrupt padding
+        // computations, mirroring WriterWithPos.
+        self.pos = self
+            .pos
+            .checked_add(buf.len())
+            .ok_or(deser::Error::ReadError)?;
         Ok(())
     }
 }

@@ -22,6 +22,15 @@ fn gen_enum_align_hash_body(
 ) -> proc_macro2::TokenStream {
     let repr_attrs = &ctx.repr_attrs;
     if ctx.is_zero_copy {
+        // Note that this does not mirror the repr(C) layout of an enum with
+        // fields (tag, then a union of the variants at the first offset after
+        // the tag that is a multiple of the largest field alignment): the tag
+        // is not hashed, and variants are walked from the enum offset. Nothing
+        // is lost, though, as size_of::<Self>() is hashed: equal walks put the
+        // fields at the same offsets within their variant, and the size (union
+        // offset plus union size, both monotone in the union alignment) is
+        // equal only if the union offsets are equal. Mirroring the layout
+        // would just change the hash of every zero-copy enum with fields.
         quote! {
             use ::core::hash::Hash;
             use ::epserde::traits::AlignHash;

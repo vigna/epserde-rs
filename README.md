@@ -67,12 +67,13 @@ These are the main limitations you should be aware of before choosing to use
 - While we provide procedural macros that implement serialization and
   deserialization, they require that your type is written and used in a specific
   way for ε-copy deserialization to work properly; in particular, the fields you
-  want to ε-copy must be type parameters implementing [`DeserInner`], to which a
-  [deserialization type] is associated. For example, we provide implementations
-  for `Vec<T>`/`Box<[T]>`, where `T` is zero-copy, or `String`/`Box<str>`, which
-  have deserialization associated type `&[T]` or `&str`, respectively. Vectors
-  and boxed slices whose elements are not zero-copy will be deserialized
-  recursively in memory instead.
+  want to ε-copy must contain type parameters implementing [`DeserInner`], to
+  which a [deserialization type] is associated, and that will be replaced by
+  such a type. For example, we provide implementations for `Vec<T>`/`Box<[T]>`,
+  where `T` is zero-copy, or `String`/`Box<str>`, which have deserialization
+  associated type `&[T]` or `&str`, respectively. Vectors and boxed slices whose
+  elements are not zero-copy will be deserialized recursively in memory
+  instead.
 
 - After deserialization of an instance of type `T`, you will obtain an instance
   of a deserialization associated type [`DeserType<'_,T>`], which is just an
@@ -999,6 +1000,24 @@ parameters, and on identifiers that are not declared type parameters;
 moreover, a parameter cannot be listed both in `phantom(…)` and in
 `full_copy(…)`, as the former is a strictly stronger claim.
 
+## Features
+
+- `std` (default): support for the standard library; without it, the crate is
+  `no_std` (but requires `alloc`), and the convenience methods based on files,
+  such as [`Deserialize::load_full`], are not available.
+
+- `mmap` (default): support for memory-mapped files based on [mmap_rs]
+  (implies `std`).
+
+- `derive` (default): the procedural macros [`Epserde`] and [`TypeInfo`].
+
+- `mem_dbg` (default): implementations of [`MemDbg`] and [`MemSize`] for all
+  ε-serde structures; `std` and `mem_dbg` enable each other, as the `mem_dbg`
+  derive macros require the standard library.
+
+- `schema`: used only by the examples to print the [schema] of the serialized
+  data.
+
 ## MemDbg / MemSize
 
 All ε-serde structures implement the [`MemDbg`] and [`MemSize`] traits if the
@@ -1385,8 +1404,8 @@ For standard types, we have:
 - `Option<T>` is deep-copy and its (de)serialization type is itself, with `T`
   replaced by its (de)serialization type;
 
-- `Vec<T>`, `Box<[T]>`, `&[T]` and `SerIter<T>` have no copy type, and their
-  serialization type is `Box<[T::SerType]>`; the deserialization type of
+- `Vec<T>`, `Box<[T]>`, and `&[T]` are deep-copy, whereas `SerIter<T>` has no
+  copy type; their serialization type is `Box<[T::SerType]>`; the deserialization type of
   `Vec<T>`/`Box<[T]>` is `&[T]` if `T` is zero-copy, and
   `Vec<T::DeserType<'_>>`/`Box<[T::DeserType<'_>]>` if `T` is deep-copy; `&[T]`
   and `SerIter<T>` are not deserializable.
@@ -1407,9 +1426,9 @@ For standard types, we have:
 - ranges other than `RangeFull` and `ControlFlow<B, C>` behave like user-defined
   deep-copy types;
 
-- `Box<T>`, `Rc<T>`, and `Arc<T>`, for sized `T`, are deep-copy, and their
-  serialization/deserialization type are the same of `T` (e.g., they are
-  _erased_).
+- `Box<T>`, `Rc<T>`, and `Arc<T>`, for sized `T`, have no copy type, and their
+  serialization/deserialization types are the same as those of `T` (they are
+  erased).
 
 Note that the normalization and erasure rules give some latitude in the choice of
 the deserializing type: for example, if you serialized a `Vec<T>`, you can
@@ -1480,6 +1499,7 @@ European Union nor the Italian MUR can be held responsible for them.
 [rkyv]: https://crates.io/crates/rkyv/
 [zerovec]: https://crates.io/crates/zerovec
 [mmap_rs]: https://crates.io/crates/mmap-rs
+[schema]: https://docs.rs/epserde/latest/epserde/ser/struct.Schema.html
 [`MemDbg`]: https://docs.rs/mem_dbg/latest/mem_dbg/trait.MemDbg.html
 [`MemSize`]: https://docs.rs/mem_dbg/latest/mem_dbg/trait.MemSize.html
 [`PhantomData`]: https://doc.rust-lang.org/std/marker/struct.PhantomData.html

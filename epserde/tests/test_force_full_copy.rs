@@ -102,7 +102,7 @@ fn test_force_full_copy_enum() -> anyhow::Result<()> {
     // The Wrapped variant's A<Vec<u32>> field stays verbatim.
     let eps = unsafe { <E<Vec<u32>>>::deserialize_eps(cursor.as_bytes())? };
     match eps {
-        E::Wrapped(a) => assert_eq!(vec![5u32, 6, 7], a.0),
+        E::Wrapped(a) => assert_eq!(a.0, vec![5u32, 6, 7]),
         _ => panic!("expected E::Wrapped variant"),
     }
 
@@ -131,7 +131,7 @@ fn test_default_substitution_through_wrapper() -> anyhow::Result<()> {
 
     let eps = unsafe { <DefaultWrapper<Vec<u32>>>::deserialize_eps(cursor.as_bytes())? };
     let inner_slice: &[u32] = eps.inner.0;
-    assert_eq!([1u32, 2, 3, 4].as_slice(), inner_slice);
+    assert_eq!(inner_slice, [1u32, 2, 3, 4].as_slice());
 
     Ok(())
 }
@@ -164,8 +164,8 @@ fn test_force_full_copy_mixed_eps_copy_and_pinned() -> anyhow::Result<()> {
     let eps = unsafe { <Split<Vec<u32>, Vec<u32>>>::deserialize_eps(cursor.as_bytes())? };
     let _check: &Split<&[u32], Vec<u32>> = &eps;
     let a_slice: &[u32] = eps.a;
-    assert_eq!([1u32, 2, 3].as_slice(), a_slice);
-    assert_eq!(vec![4u32, 5, 6], eps.b.0);
+    assert_eq!(a_slice, [1u32, 2, 3].as_slice());
+    assert_eq!(eps.b.0, vec![4u32, 5, 6]);
 
     Ok(())
 }
@@ -195,8 +195,8 @@ fn test_default_mixed_position() -> anyhow::Result<()> {
     let eps = unsafe { <Mixed<Vec<u32>>>::deserialize_eps(cursor.as_bytes())? };
     let direct: &[u32] = eps.direct;
     let through_wrapper: &[u32] = eps.wrapped.0;
-    assert_eq!([10u32, 20].as_slice(), direct);
-    assert_eq!([30u32, 40, 50].as_slice(), through_wrapper);
+    assert_eq!(direct, [10u32, 20].as_slice());
+    assert_eq!(through_wrapper, [30u32, 40, 50].as_slice());
 
     Ok(())
 }

@@ -79,15 +79,17 @@ pub enum Error {
     ///
     /// When the `std` feature is enabled, standard-library readers report
     /// end-of-file conditions through this variant and every other failure
-    /// through [`IoError`].
+    /// through [`IoError`]. This variant is also returned by a
+    /// [`ReaderWithPos`] whose position would overflow `usize`.
     ///
     /// [`IoError`]: https://docs.rs/epserde/latest/epserde/deser/enum.Error.html#variant.IoError
     #[error("Read error during ε-serde deserialization")]
     ReadError,
     /// A length prefix read from the stream requests more capacity than can be
-    /// allocated, either because the resulting size exceeds the maximum
-    /// allocation size or because the allocator is out of memory. This usually
-    /// means the serialized data is truncated or corrupted.
+    /// addressed or allocated, either because the resulting size in bytes
+    /// overflows `usize` or exceeds the maximum allocation size, or because the
+    /// allocator is out of memory. This usually means the serialized data is
+    /// truncated or corrupted.
     #[error("Capacity overflow while allocating a collection during ε-serde deserialization")]
     CapacityOverflow,
     /// The file is from ε-serde but the endianness is wrong.
@@ -594,7 +596,7 @@ pub trait Deserialize: DeserInner {
     ///
     /// [`read_mmap`]: Self::read_mmap
     /// [trait documentation]: Deserialize
-    /// [mmap's `with_file`'s documentation]: mmap_rs::MmapOptions::with_file
+    /// [mmap's `with_file`'s documentation]: https://docs.rs/mmap-rs/latest/mmap_rs/struct.MmapOptions.html#method.with_file
     #[cfg(all(feature = "mmap", feature = "std"))]
     unsafe fn load_mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
         let file_len = path
@@ -625,7 +627,7 @@ pub trait Deserialize: DeserInner {
     /// See the [trait documentation] and [mmap's `with_file`'s documentation].
     ///
     /// [trait documentation]: Deserialize
-    /// [mmap's `with_file`'s documentation]: mmap_rs::MmapOptions::with_file
+    /// [mmap's `with_file`'s documentation]: https://docs.rs/mmap-rs/latest/mmap_rs/struct.MmapOptions.html#method.with_file
     #[cfg(all(feature = "mmap", feature = "std"))]
     unsafe fn mmap(path: impl AsRef<Path>, flags: Flags) -> anyhow::Result<MemCase<Self>> {
         let file_len = path

@@ -71,6 +71,8 @@ impl WriteNoStd for Vec<u8> {
 /// [`Write`]: https://doc.rust-lang.org/std/io/trait.Write.html
 /// [`std::io::Seek`]: https://doc.rust-lang.org/std/io/trait.Seek.html
 pub trait WriteWithPos: WriteNoStd {
+    /// Returns the current position, that is, the number of bytes written so
+    /// far.
     fn pos(&self) -> usize;
 }
 

@@ -45,13 +45,6 @@ bitflags! {
     }
 }
 
-/// Empty flags.
-impl core::default::Default for Flags {
-    fn default() -> Self {
-        Flags::empty()
-    }
-}
-
 impl Flags {
     /// Translates internal flags to `mmap_rs` flags.
     #[cfg(feature = "mmap")]
@@ -68,6 +61,13 @@ impl Flags {
         }
 
         flags
+    }
+}
+
+/// Empty flags.
+impl core::default::Default for Flags {
+    fn default() -> Self {
+        Flags::empty()
     }
 }
 
@@ -159,7 +159,7 @@ pub struct Owned<T>(T);
 /// This alias is particularly useful in conjunction with the [implementation of
 /// `From<T>` for `MemOwned<T>`].
 ///
-/// [implementation of `From<T>` for `MemOwned<T>`]: #impl-From<T>-for-MemCase<Owned<T>>
+/// [implementation of `From<T>` for `MemOwned<T>`]: struct.MemCase.html#impl-From<T>-for-MemCase<Owned<T>>
 pub type MemOwned<T> = MemCase<Owned<T>>;
 
 impl<T> DeserInner for Owned<T> {
@@ -193,6 +193,12 @@ impl<T> SerInner for Owned<T> {
         _backend: &mut impl crate::ser::WriteWithNames,
     ) -> crate::ser::Result<()> {
         unimplemented!();
+    }
+}
+
+impl<A: ?Sized, T: AsRef<A>> AsRef<A> for Owned<T> {
+    fn as_ref(&self) -> &A {
+        self.0.as_ref()
     }
 }
 
@@ -284,39 +290,6 @@ pub struct MemCase<S: DeserInner>(
     pub(crate) MemBackend,
 );
 
-impl<S: DeserInner> fmt::Debug for MemCase<S>
-where
-    for<'a> DeserType<'a, S>: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("MemCase")
-            .field(self.uncase())
-            .field(&self.1)
-            .finish()
-    }
-}
-
-/// Convenience implementation to create a [`MemCase`] from an owned instance.
-///
-/// If you are assigning to a field of type [`MemOwned<T>`] (a type alias for
-/// `MemCase<Owned<T>>`), you can just write `field: t.into()`, where `t` is of
-/// type `T`.
-///
-/// # Examples
-///
-/// ```
-/// # use epserde::deser::MemOwned;
-/// let owned: MemOwned<Vec<usize>> = vec![1, 2, 3].into();
-/// assert_eq!(owned.uncase(), &[1, 2, 3]);
-/// ```
-///
-/// [`MemOwned<T>`]: MemOwned
-impl<T> From<T> for MemCase<Owned<T>> {
-    fn from(t: T) -> Self {
-        <MemOwned<T>>::encase(t)
-    }
-}
-
 impl<T> MemCase<Owned<T>> {
     /// Encases an owned instance in a [`MemCase`] with no backend.
     ///
@@ -370,6 +343,39 @@ impl<S: DeserInner> MemCase<S> {
     }
 }
 
+impl<S: DeserInner> fmt::Debug for MemCase<S>
+where
+    for<'a> DeserType<'a, S>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("MemCase")
+            .field(self.uncase())
+            .field(&self.1)
+            .finish()
+    }
+}
+
+/// Convenience implementation to create a [`MemCase`] from an owned instance.
+///
+/// If you are assigning to a field of type [`MemOwned<T>`] (a type alias for
+/// `MemCase<Owned<T>>`), you can just write `field: t.into()`, where `t` is of
+/// type `T`.
+///
+/// # Examples
+///
+/// ```
+/// # use epserde::deser::MemOwned;
+/// let owned: MemOwned<Vec<usize>> = vec![1, 2, 3].into();
+/// assert_eq!(owned.uncase(), &[1, 2, 3]);
+/// ```
+///
+/// [`MemOwned<T>`]: MemOwned
+impl<T> From<T> for MemCase<Owned<T>> {
+    fn from(t: T) -> Self {
+        <MemOwned<T>>::encase(t)
+    }
+}
+
 // SAFETY: a MemCase is the deserialized value plus its MemBackend. These impls
 // assert that every backend variant is Send/Sync: None trivially, Memory
 // because it is an aliasable box of plain bytes, and Mmap because
@@ -379,18 +385,12 @@ impl<S: DeserInner> MemCase<S> {
 unsafe impl<S: DeserInner> Send for MemCase<S> where DeserType<'static, S>: Send {}
 unsafe impl<S: DeserInner> Sync for MemCase<S> where DeserType<'static, S>: Sync {}
 
-impl<A, S: DeserInner> AsRef<A> for MemCase<S>
+impl<A: ?Sized, S: DeserInner> AsRef<A> for MemCase<S>
 where
     for<'a> DeserType<'a, S>: AsRef<A>,
 {
     fn as_ref(&self) -> &A {
         self.uncase().as_ref()
-    }
-}
-
-impl<A, T: AsRef<A>> AsRef<A> for Owned<T> {
-    fn as_ref(&self) -> &A {
-        self.0.as_ref()
     }
 }
 

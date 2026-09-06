@@ -72,7 +72,13 @@ pub enum Error {
     #[error(
         "Iterator length mismatch during ε-serde serialization: expected {expected} items, got {actual}"
     )]
-    IteratorLengthMismatch { actual: usize, expected: usize },
+    IteratorLengthMismatch {
+        /// The number of items actually yielded by the iterator (a lower
+        /// bound when the iterator yields more items than declared).
+        actual: usize,
+        /// The length declared by the iterator.
+        expected: usize,
+    },
     /// An exhausted [`RangeInclusive`] cannot be serialized, as
     /// deserialization cannot reconstruct it.
     ///
@@ -123,7 +129,8 @@ pub enum Error {
 /// [`FromBytes`]: https://docs.rs/zerocopy/latest/zerocopy/trait.FromBytes.html
 /// [`Serialize::store`]: https://docs.rs/epserde/latest/epserde/ser/trait.Serialize.html#method.store
 pub trait Serialize {
-    /// Serializes the type using the given backend.
+    /// Serializes the type using the given backend, returning the number of
+    /// bytes written.
     ///
     /// # Safety
     ///
