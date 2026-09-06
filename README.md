@@ -1013,7 +1013,7 @@ orthogonal, but that in practice often condition one another:
   serializing;
 - the type has a _deserialization associated type_, which is the type you
   obtain after an ε-copy deserialization invoked on the type;
-- the type can be either deep-copy or zero-copy.
+- the type can be either deep-copy, or zero-copy, or without a copy type.
 
 There is no constraint on the associated (de)serialization type: it can be
 literally anything. In general, however, one tries to have a deserialization
@@ -1385,7 +1385,7 @@ For standard types, we have:
 - `Option<T>` is deep-copy and its (de)serialization type is itself, with `T`
   replaced by its (de)serialization type;
 
-- `Vec<T>`, `Box<[T]>`, `&[T]` and `SerIter<T>` are deep-copy, and their
+- `Vec<T>`, `Box<[T]>`, `&[T]` and `SerIter<T>` have no copy type, and their
   serialization type is `Box<[T::SerType]>`; the deserialization type of
   `Vec<T>`/`Box<[T]>` is `&[T]` if `T` is zero-copy, and
   `Vec<T::DeserType<'_>>`/`Box<[T::DeserType<'_>]>` if `T` is deep-copy; `&[T]`
