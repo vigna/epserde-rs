@@ -226,9 +226,9 @@ checksum = "59dbb09ed53f8e4f314e353dc6c1853ae5b4c480a668a422657804a544ea9f65"
 
 [[package]]
 name = "mem_dbg"
-version = "0.4.2"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53b7e410fe9eee1406f61ee968dc333175047b7d029fc0776ec309c29dd7059b"
+checksum = "b48a1086c746f4ee6ca5cb0acf856a14709bc4d2d20e03db150a12ddf2269e6d"
 dependencies = [
  "aliasable",
  "bitflags",
@@ -240,9 +240,9 @@ dependencies = [
 
 [[package]]
 name = "mem_dbg-derive"
-version = "0.3.2"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f110f5c815866d5a4a56efe163a7d8b8ee2749f295efae3b3adb84e6c1a617fb"
+checksum = "eb910efe8da52f13da727170e352e50a1764579a6fb1065d00d9556da19c79ac"
 dependencies = [
  "proc-macro2",
  "quote",

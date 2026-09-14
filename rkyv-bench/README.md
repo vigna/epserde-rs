@@ -266,8 +266,8 @@ taskset -c 2 cargo bench --bench kth -- --save-baseline full --noplot
 Writes `target/criterion`, baseline `full`. Pin to a performance core and
 keep the machine otherwise idle; macOS has no `taskset`, so there drop
 `taskset -c 2` and the run is unpinned. The usual switches apply:
-`KTH_SIZES` (the same node counts for both groups, so that the figure shows
-each size for both), `KTH_DIR` (keep the files of large sizes on disk),
+`KTH_SIZES` (a node count for both groups instead of the defaults; the
+figure needs a single size per group), `KTH_DIR` (keep the files of large sizes on disk),
 `KTH_MMAP` (memory-map instead of reading).
 
 Save under a name, as above: a plain `cargo bench --bench kth`, or
@@ -313,11 +313,12 @@ draws the same figure from either.
 Writes `intel_overhead.pdf` and `.png`. Run it as often as you like: it only
 reads.
 
-Each bar is the percentage by which the mean time per iteration of rkyv
-exceeds that of ε-serde, for one group and one node count; the groups are on
-the x axis, the node counts in the legend. If the two groups were run at
-different sizes (by default 1 000 000 nodes for the lookups and 1 000 for the
-chase) each group shows only its own bars. Whiskers span a 95% bootstrap
+The figure has two bars, one per group, each at the single node count that
+group was measured at (by default 1 000 000 nodes for the lookups and 1 000
+for the chase), which is written under its label. Each bar is the percentage
+by which the mean time per iteration of rkyv exceeds that of ε-serde. If a
+group was measured at several sizes the script stops and says so. Whiskers
+span a 95% bootstrap
 confidence interval of the ratio of the means, from 10 000 resamples of the
 raw timings with a fixed seed, so redrawing gives the same figure. The
 `pointer_chase` group takes only 20 samples, so its interval is wider.
@@ -326,7 +327,8 @@ raw timings with a fixed seed, so redrawing gives the same figure. The
 
 | option | effect |
 |--------|--------|
-| `--width`, `--height` | size in inches (default 3.5 × 2.2) |
+| `--width`, `--height` | size in inches (default 2.638 × 1.8, two figures on a line) |
+| `--bar-width` | bar width as a fraction of the distance between the bars (default 0.25) |
 | `--font-size` | points (default 8) |
 | `--font` | a text face other than the paper's |
 | `--color` | colour instead of grayscale |
@@ -363,25 +365,26 @@ The figure targets `epserde.tex`
 which is `\footnotesize` in that 10 pt document. Include it at natural size;
 scaling changes the type size and breaks the match.
 
+The default width, 2.638 in, is half of `acmsmall`'s 5.477 in `\textwidth`
+less a 0.2 in gap, so two figures fit on a line:
+
 ```latex
 \begin{figure}
   \centering
-  \includegraphics{intel_overhead}
+  \includegraphics{intel_overhead}\hfill\includegraphics{m1_overhead}
   \caption{Cost of accessing a zero-copy rkyv archive relative to an
-    \eserde{} image of the same adjacency lists: retrieval of the $k$-th
-    successor of random nodes of an Erd\H{o}s--R\'enyi graph with $10^6$
-    nodes and average degree 20, and a pointer chase over a random
-    20-regular digraph with $10^3$ nodes. Whiskers span a 95\% bootstrap
-    confidence interval.}
+    \eserde{} image of the same adjacency lists, on an Intel i7-12700KF
+    (left) and an Apple M1 Max (right): retrieval of the $k$-th successor of
+    random nodes of an Erd\H{o}s--R\'enyi graph with $10^6$ nodes and
+    average degree 20, and a pointer chase over a random 20-regular digraph
+    with $10^3$ nodes. Whiskers span a 95\% bootstrap confidence interval.}
   \label{fig:rkyv-access}
 \end{figure}
 ```
 
-Adjust the sizes in the caption if you ran with `KTH_SIZES`, and say that the
-images were memory-mapped if you ran with `KTH_MMAP`.
-
-`acmsmall`'s `\textwidth` is 5.478 in, so `--width 5.478` gives a full-width
-figure.
+Adjust the machines and sizes in the caption to your runs, and say that the
+images were memory-mapped if you ran with `KTH_MMAP`. `--width 5.477` gives
+a single full-width figure instead.
 
 `pdffonts` warns "Mismatch between font type and embedded font file". That is
 poppler being fussy about matplotlib's OpenType/CFF wrapper; the fonts are

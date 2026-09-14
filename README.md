@@ -96,6 +96,8 @@ These are the main limitations you should be aware of before choosing to use
   you plan to serialize data and distribute it, you must take care of these
   issues.
 
+- The serialized format is endianness-dependent.
+
 ## Pros
 
 - Almost instant deserialization with minimal allocation provided that you
@@ -106,7 +108,9 @@ These are the main limitations you should be aware of before choosing to use
   as the one you serialized, except that type parameters will be replaced by
   their deserialization associated type (e.g., vectors will become references to
   slices). This is not the case with [rkyv], which requires you to reimplement
-  all methods on a new, different deserialization type.
+  all methods on a new, different deserialization type, in which, in particular,
+  all primitive types are replaced with [rkyv]'s endianness-specific
+  counterparts.
 
 - The structure you get by deserialization has exactly the same performance as
   the structure you serialized. This is not the case with [zerovec] or [rkyv],
