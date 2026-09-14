@@ -40,13 +40,17 @@ scaling -- or the type will no longer be 8pt.
 Glyphs are embedded as TrueType (``pdf.fonttype = 42``) rather than Type 3,
 which some publishers reject.
 
-Linux Libertine must be installed (Fedora: ``linux-libertine-fonts``; Debian:
-``fonts-linuxlibertine``; MacPorts: ``texlive-fonts-extra``).  If matplotlib
-still cannot see it, clear the font cache: ``rm ~/.cache/matplotlib/fontlist-*.json``.
+Linux Libertine (or Libertinus Serif) must be available, either installed
+system-wide (Fedora: ``linux-libertine-fonts``; Debian:
+``fonts-linuxlibertine``) or as part of TeX Live, whose OpenType files the
+script finds with ``kpsewhich`` when the face is not installed.  If matplotlib
+does not see a newly installed face, clear the font cache:
+``rm ~/.cache/matplotlib/fontlist-*.json``.
 """
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -68,6 +72,15 @@ ARM_PROSE = {"native": "native", "epserde": "$\\varepsilon$-serde", "rkyv": "rky
 
 #: Text face of the target document, most-preferred first.
 SERIF = ["Linux Libertine O", "Linux Libertine", "Libertinus Serif"]
+
+#: OpenType files of those faces as TeX Live names them, used when the faces
+#: are not installed system-wide but come with TeX (e.g., MacPorts, MacTeX).
+TEX_FONTS = [
+    "LinLibertine_R.otf", "LinLibertine_RI.otf",
+    "LinLibertine_RB.otf", "LinLibertine_RBI.otf",
+    "LibertinusSerif-Regular.otf", "LibertinusSerif-Italic.otf",
+    "LibertinusSerif-Bold.otf", "LibertinusSerif-BoldItalic.otf",
+]
 
 #: acmsmall \textwidth: 6.75in paper less 46pt inner and 46pt outer margins.
 ACMSMALL_TEXTWIDTH = 6.75 - 92 / 72.27
@@ -155,14 +168,31 @@ def overhead(samples, group, n, subject, baseline, rng):
 
 
 # ---------------------------------------------------------------- style
+def tex_fonts():
+    """Registers with matplotlib the files of TEX_FONTS that the TeX
+    installation provides, as located by kpsewhich."""
+    try:
+        out = subprocess.run(["kpsewhich", *TEX_FONTS],
+                             capture_output=True, text=True).stdout
+    except OSError:  # no TeX installation
+        return
+    for path in out.splitlines():
+        fm.fontManager.addfont(path)
+
+
 def pick_serif(override):
-    available = {f.name for f in fm.fontManager.ttflist}
-    for name in ([override] if override else SERIF):
-        if name in available:
-            return name
+    candidates = [override] if override else SERIF
+    # Faces installed system-wide first, then those that come with TeX.
+    for from_tex in (False, True):
+        if from_tex:
+            tex_fonts()
+        available = {f.name for f in fm.fontManager.ttflist}
+        for name in candidates:
+            if name in available:
+                return name
     sys.exit(
-        f"error: none of {[override] if override else SERIF} is available to "
-        f"matplotlib, so the figure would not match the paper.\n"
+        f"error: none of {candidates} is available to matplotlib, either "
+        f"installed or from TeX, so the figure would not match the paper.\n"
         f"  Fedora: sudo dnf install linux-libertine-fonts\n"
         f"  Debian: sudo apt install fonts-linuxlibertine\n"
         f"  then:   rm ~/.cache/matplotlib/fontlist-*.json\n"

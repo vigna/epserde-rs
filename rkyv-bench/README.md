@@ -337,11 +337,13 @@ raw timings with a fixed seed, so redrawing gives the same figure. The
 | `--baseline` | criterion baseline to read when the source is a directory |
 
 Drawing needs Python 3 with matplotlib and numpy, and Linux Libertine or
-Libertinus Serif, the paper's text face
-(Fedora: `linux-libertine-fonts`, Debian: `fonts-linuxlibertine`). Only the
-machine that draws needs it, not the one that measures. If it is missing the
-script says so and names the package rather than silently substituting a
-face. If matplotlib does not see a newly installed face, clear its cache:
+Libertinus Serif, the paper's text face. The face can be installed
+system-wide (Fedora: `linux-libertine-fonts`, Debian: `fonts-linuxlibertine`)
+or come with TeX Live: when it is not installed, the script loads TeX's
+OpenType files, which it finds with `kpsewhich`, so any machine that
+compiles the paper can draw the figure. Only the machine that draws needs
+it, not the one that measures. If neither is available the script says so
+and names the package rather than silently substituting a face. If matplotlib does not see a newly installed face, clear its cache:
 `rm ~/.cache/matplotlib/fontlist-*.json`.
 
 ### Several machines
