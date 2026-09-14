@@ -1,0 +1,29 @@
+[package]
+name = "epserde-rkyv-bench"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Benchmark: depth-first visits on a Erdős–Rényi graph ε-copy loaded by ε-serde vs zero-copy loaded by rkyv"
+
+# Standalone crate: keep rkyv and friends out of the main workspace lock file.
+[workspace]
+
+[dependencies]
+epserde = { path = "../epserde" }
+rkyv = { version = "0.8.16", features = ["pointer_width_64"] }
+rand = { version = "0.9", features = ["small_rng"] }
+clap = { version = "4", features = ["derive"] }
+memmap2 = "0.9"
+anyhow = "1"
+
+[profile.release]
+debug = 1
+codegen-units = 1
+lto = "fat"
+
+[dev-dependencies]
+criterion = "0.8"
+
+[[bench]]
+name = "kth"
+harness = false
