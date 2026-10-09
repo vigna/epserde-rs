@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Paper figure: the cost of accessing a zero-copy rkyv archive relative to an
 ε-copy ε-serde image of the same graph, for the two workloads of the `kth`
-Criterion benchmark (random k-th successor retrieval and pointer chasing).
+Criterion benchmark (pointer chasing and random k-th successor retrieval).
 
 Both are images of the identical `Vec<Vec<u64>>` adjacency lists, so the
 comparison isolates the cost of the format. The figure has two bars, one per
@@ -61,7 +61,9 @@ import matplotlib.font_manager as fm  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-BENCHES = ["kth_successor", "pointer_chase"]
+#: Workloads, in the left-to-right order of their bars (the order in which the
+#: paper describes them).
+BENCHES = ["pointer_chase", "kth_successor"]
 ARMS = ["native", "epserde", "rkyv"]
 
 #: How each workload is named on the axis.
