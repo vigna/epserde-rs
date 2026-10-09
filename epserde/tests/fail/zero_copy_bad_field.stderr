@@ -31,7 +31,8 @@ note: required for `Bad` to implement `epserde::ser::SerInner`
 ...
 21 | struct Bad(NotZeroCopy);
    |        ^^^
-   = help: consider manually implementing `epserde::ser::SerInner` to avoid undesired bounds
+   = help: consider manually implementing `epserde::ser::SerInner` to avoid undesired bounds caused by "imperfect derives"
+   = note: to learn more, visit <https://github.com/rust-lang/rust/issues/26925>
    = note: 1 redundant requirement hidden
    = note: required for `Bad` to implement `ZeroCopy`
 note: required by a bound in `deser_full_zero`
@@ -61,7 +62,8 @@ note: required for `Bad` to implement `epserde::ser::SerInner`
 ...
 21 | struct Bad(NotZeroCopy);
    |        ^^^
-   = help: consider manually implementing `epserde::ser::SerInner` to avoid undesired bounds
+   = help: consider manually implementing `epserde::ser::SerInner` to avoid undesired bounds caused by "imperfect derives"
+   = note: to learn more, visit <https://github.com/rust-lang/rust/issues/26925>
    = note: 1 redundant requirement hidden
    = note: required for `Bad` to implement `ZeroCopy`
 note: required by a bound in `deser_eps_zero`

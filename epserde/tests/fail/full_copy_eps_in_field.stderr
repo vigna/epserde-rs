@@ -19,7 +19,7 @@ error[E0308]: `?` operator has incompatible types
   --> tests/fail/full_copy_eps_in_field.rs:17:10
    |
 17 | #[derive(Epserde)]
-   |          ^^^^^^^ expected `ControlFlow<F, ...>`, found `ControlFlow<..., ...>`
+   |          ^^^^^^^ expected `ControlFlow<F, _>`, found `ControlFlow<_, _>`
 18 | #[epserde(full_copy(F))]
 19 | struct S<F, E>(std::ops::ControlFlow<F, E>);
    |          - expected this type parameter
