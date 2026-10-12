@@ -922,7 +922,9 @@ are the concrete type of a type parameter).
 [`PhantomData`] undergoes a special treatment: its type parameter `T` does not
 have to be (de)serializable or sized—it is sufficient that it implements
 [`TypeHash`]. For this reason, we provide [`TypeHash`] implementations for
-`*const T`, `str`, and `[T]`.
+`*const T`, function pointers, `str`, and `[T]`. In particular,
+`PhantomData<fn() -> T>` is the idiomatic marker for a type that does not own a
+`T`: it is `Send` and `Sync` whatever `T` is, and `T` can be unsized.
 
 When `T` appears both as a parameter of a [`PhantomData`] field and as the type
 of another field, the `Epserde` derive substitutes `T` inside [`PhantomData<T>`]

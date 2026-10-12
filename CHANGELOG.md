@@ -1,6 +1,14 @@
 # Change Log
 
-## [0.13.2] - Unreleased
+## [0.13.2] - 2026-10-12
+
+### New
+
+- Function pointers `fn(A1, …, An) -> R` with up to 12 arguments, whose
+  argument and return types may be unsized, now implement `TypeHash`, so that
+  they can be used in a `PhantomData`. In particular, `PhantomData<fn() -> T>`
+  is the idiomatic marker for a type that does not own a `T`: it is `Send` and
+  `Sync` whatever `T` is, and `T` can be unsized.
 
 ### Changed
 

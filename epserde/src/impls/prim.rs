@@ -5,7 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  */
 
-//! Implementations for primitive types, `()`, [`PhantomData`] and [`Option`].
+//! Implementations for primitive types, `()`, function pointers,
+//! [`PhantomData`] and [`Option`].
 
 use crate::{check_covariance, prelude::*};
 use core::hash::Hash;
@@ -322,6 +323,39 @@ impl<T: ?Sized> DeserInner for PhantomData<T> {
         Ok(PhantomData)
     }
 }
+
+// Function pointers are not serializable, but they implement TypeHash so that
+// they can be used in a PhantomData: PhantomData<fn() -> T> is the idiomatic
+// marker for a type that does not own a T, as it is Send and Sync whatever T
+// is. Argument and return types may be unsized.
+
+macro_rules! impl_fn_type_hash {
+    ($($a:ident),*) => {
+        impl<$($a: ?Sized + TypeHash,)* R: ?Sized + TypeHash> TypeHash for fn($($a),*) -> R {
+            #[inline(always)]
+            fn type_hash(hasher: &mut impl core::hash::Hasher) {
+                "fn(".hash(hasher);
+                $(
+                    <$a>::type_hash(hasher);
+                )*
+                ")->".hash(hasher);
+                R::type_hash(hasher);
+            }
+        }
+    };
+}
+
+macro_rules! impl_fn_type_hash_muncher {
+    ($a:ident $(, $rest:ident)*) => {
+        impl_fn_type_hash!($a $(, $rest)*);
+        impl_fn_type_hash_muncher!($($rest),*);
+    };
+    () => {
+        impl_fn_type_hash!();
+    };
+}
+
+impl_fn_type_hash_muncher!(A0, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
 
 // Options are deep-copy types serialized as a one-byte tag (0 for None, 1 for Some) followed, in case, by the value.
 

@@ -345,3 +345,61 @@ fn test_type_info_generic_zero_copy() {
     <GenericZero<u32>>::type_hash(&mut hasher);
     assert_ne!(hasher.finalize(), [0u8; 32]);
 }
+
+// PhantomData<fn() -> K> is the idiomatic marker for a type that does not own
+// a K: it is Send and Sync whatever K is, and K can be unsized.
+#[derive(Epserde, Debug, PartialEq, Eq)]
+struct FnPtrMarker<K: ?Sized, A> {
+    a: A,
+    _marker: PhantomData<fn() -> K>,
+}
+
+#[test]
+fn test_fn_ptr_phantom() -> anyhow::Result<()> {
+    let obj = FnPtrMarker::<str, Vec<usize>> {
+        a: vec![1, 2, 3],
+        _marker: PhantomData,
+    };
+
+    let mut cursor = <AlignedCursor<Aligned16>>::new();
+    unsafe { obj.serialize(&mut cursor)? };
+
+    cursor.set_position(0);
+    let full = unsafe { <FnPtrMarker<str, Vec<usize>>>::deserialize_full(&mut cursor)? };
+    assert_eq!(full, obj);
+
+    let eps = unsafe { <FnPtrMarker<str, Vec<usize>>>::deserialize_eps(cursor.as_bytes())? };
+    assert_eq!(eps.a, obj.a.as_slice());
+
+    // Rc<u8> is neither Send nor Sync, but the structure is
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<FnPtrMarker<std::rc::Rc<u8>, Vec<usize>>>();
+    Ok(())
+}
+
+/// Function pointers contribute to the type hash, as *const does, and so do
+/// their argument and return types.
+#[test]
+fn test_fn_ptr_phantom_type_hash() {
+    fn type_hash<T: ?Sized + TypeHash>() -> [u8; 32] {
+        let mut hasher = CryptoHasher::new();
+        T::type_hash(&mut hasher);
+        hasher.finalize()
+    }
+
+    let fn_ptr = type_hash::<PhantomData<fn() -> str>>();
+    assert_ne!(fn_ptr, type_hash::<PhantomData<str>>());
+    assert_ne!(fn_ptr, type_hash::<PhantomData<*const str>>());
+    assert_ne!(
+        type_hash::<PhantomData<fn() -> *const str>>(),
+        type_hash::<PhantomData<*const str>>()
+    );
+
+    assert_ne!(type_hash::<fn(u8) -> str>(), fn_ptr);
+    assert_ne!(type_hash::<fn(u8) -> u16>(), type_hash::<fn(u16) -> u8>());
+    assert_ne!(type_hash::<fn(u8, u16)>(), type_hash::<fn((u8, u16))>());
+    assert_ne!(type_hash::<fn(u8)>(), type_hash::<fn() -> u8>());
+    assert_ne!(type_hash::<fn(u8)>(), type_hash::<(u8,)>());
+    // Unsized argument types are accepted, too
+    assert_ne!(type_hash::<fn(str)>(), type_hash::<fn([u8])>());
+}
